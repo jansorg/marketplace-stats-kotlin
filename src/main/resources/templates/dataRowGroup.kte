@@ -1,0 +1,22 @@
+@import ja.dev.marketplace.data.DataRowGroup
+@import ja.dev.marketplace.data.DataTable
+
+@param table: DataTable
+@param group: DataRowGroup
+@param cssClass: String?
+
+@for((rowIndex, row) in group.rows.withIndex())
+    !{val rowClass = if (rowIndex == 0) row.cssClass ?: cssClass else row.cssClass}
+    <tr class="${rowClass}">
+        @for((columnIndex, column) in table.columns.withIndex())
+            <th colspan="${column.columnSpan}" title="${row.getTooltip(column)}" class="${column.cssClass}" style="${column.cssStyle}">
+                !{val value = row.getValue(column)}
+                @if(value == null && rowIndex == 0 && columnIndex == 0 && group.title != null)
+                    <h2>${group.title}</h2>
+                @elseif (value != null)
+                    @template.render(value)
+                @endif
+            </th>
+        @endfor
+    </tr>
+@endfor

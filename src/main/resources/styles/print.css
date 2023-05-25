@@ -1,0 +1,12 @@
+.noprint {
+    display: none;
+}
+
+.noprintlink {
+    color: var(--text-color);
+}
+
+@page {
+    size: A4 landscape;
+    margin: 0.5cm;
+}

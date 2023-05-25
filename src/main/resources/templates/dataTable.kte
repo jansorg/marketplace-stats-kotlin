@@ -1,0 +1,14 @@
+@import ja.dev.marketplace.data.DataTable
+@import ja.dev.marketplace.data.DataTableColumn
+@import ja.dev.marketplace.data.DataTableSection
+@import ja.dev.marketplace.data.DataTableRow
+
+@param table: DataTable
+
+<table class="small table-striped ${table.cssClass}">
+    @for(section in table.sections)
+        <tbody>
+        @template.dataTableSection(table = table, section = section, renderColumns = true, title = table.title)
+        </tbody>
+    @endfor
+</table>

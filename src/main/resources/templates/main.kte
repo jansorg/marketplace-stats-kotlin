@@ -1,0 +1,32 @@
+@import ja.dev.marketplace.client.PluginInfo
+@import ja.dev.marketplace.client.PluginSale
+@import ja.dev.marketplace.data.DataTable
+@import ja.dev.marketplace.data.LicenseInfo
+
+@param plugin: PluginInfo
+@param tables: List<DataTable>
+@param cssClass: String?
+
+<html lang="en">
+<head>
+    <title>${plugin.name} Report</title>
+    <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
+    <link rel="stylesheet" type="text/css" media="print" href="/styles/main.css"/>
+</head>
+<body class="${cssClass}">
+<h1>${plugin.name}</h1>
+
+<div class="section section-wide">
+    <a href="/">Overview</a>,
+    <a href="/licenses">Licenses</a>,
+    <a href="/customers">Customers (all)</a>,
+    <a href="/customers/active">Customers (active)</a>,
+    <a href="/countries">Countries</a>
+</div>
+
+@for(table in tables)
+    @template.dataTable(table)
+@endfor
+
+</body>
+</html>

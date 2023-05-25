@@ -1,0 +1,17 @@
+@import java.math.BigDecimal
+@import ja.dev.marketplace.client.AmountWithCurrency
+@import ja.dev.marketplace.data.PercentageValue
+
+@param value: Any?
+
+@if(value is AmountWithCurrency)
+    @template.render(value.amount) @template.render(value.currency)
+@elseif(value is PercentageValue)
+    ${String.format("%,.2f%%", value.value)}
+@elseif(value is BigDecimal)
+    ${String.format("%,.2f", value)}
+@elseif(value is Double || value is Float)
+    ${String.format("%,.2f", value)}
+@else
+    ${value?.toString()}
+@endif

@@ -1,0 +1,12 @@
+@import ja.dev.marketplace.data.DataTableColumn
+
+@param columns: List<DataTableColumn>
+@param title: String?
+@param cssClass: String?
+
+@if(title != null)
+    <tr class="${cssClass}">
+        <th colspan="${columns.size}"><h2>${title}</h2></th>
+    </tr>
+@endif
+1
