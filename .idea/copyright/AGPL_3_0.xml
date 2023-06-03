@@ -1,0 +1,6 @@
+<component name="CopyrightManager">
+  <copyright>
+    <option name="notice" value="Copyright (c) &amp;#36;originalComment.match(&quot;Copyright \(c\) (\d+)&quot;, 1, &quot;-&quot;, &quot;&amp;#36;today.year&quot;)&amp;#36;today.year Joachim Ansorg.&#10;SPDX-License-Identifier: AGPL-3.0-or-later" />
+    <option name="myName" value="AGPL 3.0" />
+  </copyright>
+</component>

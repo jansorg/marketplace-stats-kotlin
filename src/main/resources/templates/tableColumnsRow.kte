@@ -1,4 +1,4 @@
-@import ja.dev.marketplace.data.DataTable
+@import dev.ja.marketplace.data.DataTable
 
 @param table: DataTable
 @param title: String?

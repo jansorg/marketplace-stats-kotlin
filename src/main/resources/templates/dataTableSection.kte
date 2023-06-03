@@ -1,27 +1,31 @@
-@import ja.dev.marketplace.data.DataTable
-@import ja.dev.marketplace.data.DataTableSection
+@import dev.ja.marketplace.data.DataTable
+@import dev.ja.marketplace.data.DataTableSection
 
 @param table: DataTable
 @param section: DataTableSection?
 @param renderColumns: Boolean
+@param renderHeader: Boolean
+@param renderFooter: Boolean
 @param title: String? = null
 
 @if(section != null)
     !{val header = section.header}
     !{val title = section.title ?: title}
-    @if(renderColumns)
-        @template.tableColumnsRow(table, title = title, cssClass = "row-border-bottom")
-    @endif
-    @if(header != null)
-        @template.dataRowGroup(table = table, group = header, cssClass = "row-border-bottom")
-    @elseif (!renderColumns && title != null)
-        @template.titleRow(columns = table.columns, title = title, cssClass = "row-border-bottom")
+    @if(renderHeader)
+        @if(renderColumns)
+            @template.tableColumnsRow(table, title = title, cssClass = "row-border-bottom")
+        @endif
+        @if(header != null)
+            @template.dataRowGroup(table = table, group = header, cssClass = "row-border-bottom", renderHeader = true)
+        @elseif (!renderColumns && title != null)
+            @template.titleRow(columns = table.columns, title = title, cssClass = "row-border-bottom")
+        @endif
     @endif
 
     @for(row in section.rows)
         <tr class="${row.cssClass}">
             @for(column in table.columns)
-                <td colspan="${column.columnSpan}" class="${column.cssClass}" title="${row.getTooltip(column)}">
+                <td colspan="${column.columnSpan}" class="${column.cssClass}" title="${row.getTooltip(column)}" data-sort="${row.getSortValue(column)}">
                     @template.render(row.getValue(column))
                 </td>
             @endfor
@@ -29,7 +33,7 @@
     @endfor
 
     !{val footer = section.footer}
-    @if(footer != null)
-        @template.dataRowGroup(table = table, group = footer, cssClass = "row-border-light-top")
+    @if(renderFooter && footer != null)
+        @template.dataRowGroup(table = table, group = footer, cssClass = "row-border-light-top", renderHeader = false)
     @endif
 @endif

@@ -1,14 +1,28 @@
-@import ja.dev.marketplace.data.DataTable
-@import ja.dev.marketplace.data.DataTableColumn
-@import ja.dev.marketplace.data.DataTableSection
-@import ja.dev.marketplace.data.DataTableRow
+@import dev.ja.marketplace.data.DataTable
+@import dev.ja.marketplace.data.DataTableColumn
+@import dev.ja.marketplace.data.DataTableSection
+@import dev.ja.marketplace.data.DataTableRow
 
 @param table: DataTable
 
+!{val renderTableHeader = table.sections.size == 1}
 <table class="small table-striped ${table.cssClass}">
+    @if(renderTableHeader)
+        <thead>
+        @template.tableColumnsRow(table, title = table.title, cssClass = "row-border-bottom")
+        </thead>
+    @endif
     @for(section in table.sections)
         <tbody>
-        @template.dataTableSection(table = table, section = section, renderColumns = true, title = table.title)
+        @template.dataTableSection(table = table, section = section, renderColumns = true, renderHeader = !renderTableHeader, renderFooter = !renderTableHeader, title = table.title)
         </tbody>
     @endfor
+    @if(renderTableHeader)
+        !{val footer = table.sections[0].footer}
+        @if(footer != null)
+            <tfoot>
+            @template.dataRowGroup(table = table, group = footer, cssClass = "row-border-light-top", renderHeader = false)
+            </tfoot>
+        @endif
+    @endif
 </table>

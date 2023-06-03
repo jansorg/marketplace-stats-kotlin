@@ -1,6 +1,6 @@
 @import java.math.BigDecimal
-@import ja.dev.marketplace.client.AmountWithCurrency
-@import ja.dev.marketplace.data.PercentageValue
+@import dev.ja.marketplace.client.AmountWithCurrency
+@import dev.ja.marketplace.data.PercentageValue
 
 @param value: Any?
 

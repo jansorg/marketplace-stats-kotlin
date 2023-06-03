@@ -1,8 +1,13 @@
+/*
+ * Copyright (c) 2023 Joachim Ansorg.
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
 val ktorVersion: String by project
 
 plugins {
-    id("org.jetbrains.kotlin.jvm") version "1.8.21"
-    kotlin("plugin.serialization") version "1.8.21"
+    id("org.jetbrains.kotlin.jvm") version "1.9.0"
+    kotlin("plugin.serialization") version "1.9.0"
     id("com.github.johnrengelman.shadow") version "8.1.1"
     application
 }
@@ -18,6 +23,8 @@ allprojects {
     }
 
     dependencies {
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0-RC")
+
         implementation("org.apache.logging.log4j:log4j-core:2.20.0")
         implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.20.0")
 
@@ -67,5 +74,13 @@ project(":") {
 
     application {
         mainClass.set("dev.ja.marketplace.Application")
+    }
+
+    tasks {
+        shadowJar {
+            archiveBaseName.set("marketplace-client-all")
+            archiveClassifier.set("")
+            archiveVersion.set("")
+        }
     }
 }

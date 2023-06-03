@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Application" type="JetRunConfigurationType" nameIsGenerated="true">
+    <option name="MAIN_CLASS_NAME" value="dev.ja.marketplace.Application" />
+    <module name="marketplace-stats.main" />
+    <option name="PROGRAM_PARAMETERS" value="$ProjectFileDir$/config.json" />
+    <shortenClasspath name="NONE" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

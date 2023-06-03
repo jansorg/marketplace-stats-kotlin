@@ -1,9 +1,13 @@
-@import ja.dev.marketplace.client.PluginInfo
-@import ja.dev.marketplace.client.PluginSale
-@import ja.dev.marketplace.data.DataTable
-@import ja.dev.marketplace.data.LicenseInfo
+@import dev.ja.marketplace.client.PluginInfo
+@import dev.ja.marketplace.client.PluginRating
+@import dev.ja.marketplace.client.PluginSale
+@import dev.ja.marketplace.client.YearMonthDay
+@import dev.ja.marketplace.data.DataTable
+@import dev.ja.marketplace.data.LicenseInfo
 
+@param today: YearMonthDay
 @param plugin: PluginInfo
+@param rating: PluginRating
 @param tables: List<DataTable>
 @param cssClass: String?
 
@@ -12,17 +16,25 @@
     <title>${plugin.name} Report</title>
     <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
     <link rel="stylesheet" type="text/css" media="print" href="/styles/main.css"/>
+    <link href="/js/sortable.min.css" rel="stylesheet"/>
+    <script src="/js/sortable.min.js"></script>
 </head>
 <body class="${cssClass}">
 <h1>${plugin.name}</h1>
+<h2 class="subtitle">
+    @template.render(today)<br>
+    <span title="${rating.votes.size} ratings">★ @template.render(rating.calculatedRatingValue)</span>
+</h2>
 
-<div class="section section-wide">
-    <a href="/">Overview</a>,
-    <a href="/licenses">Licenses</a>,
-    <a href="/customers">Customers (all)</a>,
-    <a href="/customers/active">Customers (active)</a>,
+<h2 class="subtitle menu small">
+    <a href="/">Overview</a>
+    <a href="/licenses">Licenses</a>
+    <a href="/customers">Customers (all)</a>
+    <a href="/customers/active">Customers (active)</a>
     <a href="/countries">Countries</a>
-</div>
+    <a href="/trials">Trials</a>
+    <a href="/trials/countries">Trial (Countries)</a>
+</h2>
 
 @for(table in tables)
     @template.dataTable(table)

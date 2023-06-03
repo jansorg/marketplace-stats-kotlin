@@ -1,4 +1,4 @@
-@import ja.dev.marketplace.data.DataTableColumn
+@import dev.ja.marketplace.data.DataTableColumn
 
 @param columns: List<DataTableColumn>
 @param title: String?
@@ -9,4 +9,3 @@
         <th colspan="${columns.size}"><h2>${title}</h2></th>
     </tr>
 @endif
-1
