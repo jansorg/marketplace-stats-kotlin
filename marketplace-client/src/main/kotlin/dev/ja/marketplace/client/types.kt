@@ -51,7 +51,7 @@ data class PluginInfo(
     @SerialName("preview")
     val previewText: String,
     @SerialName("docText")
-    val docText: String,
+    val docText: String? = null,
     @SerialName("email")
     val email: String,
     @SerialName("cdate")
@@ -59,7 +59,7 @@ data class PluginInfo(
     @SerialName("family")
     val family: String,
     @SerialName("copyright")
-    val copyright: String,
+    val copyright: String? = null,
     @SerialName("downloads")
     val downloads: Int,
     @SerialName("purchaseInfo")
@@ -69,13 +69,13 @@ data class PluginInfo(
     @SerialName("urls")
     val urls: PluginUrls? = null,
     @SerialName("tags")
-    val tags: List<PluginTag>,
+    val tags: List<PluginTag> = emptyList(),
     @SerialName("hasUnapprovedUpdate")
     val hasUnapprovedUpdate: Boolean,
     @SerialName("pricingModel")
     val pricingModel: PluginPricingModel,
     @SerialName("screens")
-    val screens: List<PluginResourceUrl>,
+    val screens: List<PluginResourceUrl> = emptyList(),
     @SerialName("icon")
     val icon: String,
     @SerialName("isHidden")
