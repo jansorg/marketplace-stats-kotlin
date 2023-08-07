@@ -2,3 +2,4 @@ build/
 .gradle/
 jte-classes/
 /config.json
+/config.*.json
