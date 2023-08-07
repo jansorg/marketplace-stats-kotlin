@@ -28,7 +28,7 @@ class CustomerTable(val licenseFilter: (LicenseInfo) -> Boolean) :
     private val columnActiveSales = DataTableColumn("sales-active", "Act. Sales", "num")
     private val columnNextSale = DataTableColumn("sales-next", "Next Sale", "num")
     private val columnSales = DataTableColumn("sales-total", "Total Sales", "num")
-    private val columnActiveLicenses = DataTableColumn("customer-licenses", "Active Licenses", "num")
+    private val columnActiveLicenses = DataTableColumn("customer-licenses", "Licenses", "num")
     private val columnId = DataTableColumn("customer-id", "Cust. ID", "num")
 
     private val salesCalculator = SaleCalculator()
