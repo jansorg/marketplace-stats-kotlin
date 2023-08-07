@@ -1,4 +1,5 @@
 {
   "pluginId": "123456",
+  "pluginIds": ["123456", "987654"],
   "apiKey": "marketplace-api-key"
 }

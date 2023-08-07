@@ -12,7 +12,9 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ApplicationConfig(
     @SerialName("pluginId")
-    val pluginId: PluginId,
+    val pluginId: PluginId? = null,
+    @SerialName("pluginIds")
+    val pluginIds: List<PluginId> = emptyList(),
     @SerialName("apiKey")
     val marketplaceApiKey: String
 )

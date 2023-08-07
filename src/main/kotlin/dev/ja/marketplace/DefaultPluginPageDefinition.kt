@@ -6,6 +6,7 @@
 package dev.ja.marketplace
 
 import dev.ja.marketplace.client.MarketplaceClient
+import dev.ja.marketplace.client.PluginInfo
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.MarketplaceDataSinkFactory
@@ -14,6 +15,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.toList
 
 class DefaultPluginPageDefinition(
+    private val pluginInfos: List<PluginInfo>,
     private val client: MarketplaceClient,
     private val dataLoader: PluginDataLoader,
     private val factories: List<MarketplaceDataSinkFactory>,
@@ -33,6 +35,7 @@ class DefaultPluginPageDefinition(
 
         return mapOf(
             "today" to YearMonthDay.now(),
+            "plugins" to pluginInfos,
             "plugin" to data.pluginInfo,
             "rating" to data.pluginRating,
             "tables" to dataSinks.filterIsInstance<DataTable>(),

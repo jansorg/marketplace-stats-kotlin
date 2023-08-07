@@ -29,43 +29,11 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
-class MarketplaceStatsServer(pluginId: PluginId, client: MarketplaceClient) {
-    private val dataLoader = PluginDataLoader(pluginId, client)
-
-    private val indexPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, dataLoader, listOf(
-            YearlySummaryFactory(),
-            CurrentWeekFactory(),
-            TopCountriesFactory(),
-            TopTrialCountriesFactory(),
-            OverviewTableFactory()
-        )
-    )
-
-    private val licensePageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, dataLoader, listOf(LicenseTableFactory())
-    )
-
-    private val countriesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, dataLoader, listOf(TopCountriesFactory(Int.MAX_VALUE))
-    )
-
-    private val allCustomersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, dataLoader, listOf(CustomerTableFactory()), pageCssClasses = "wide"
-    )
-
-    private val activeCustomersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, dataLoader, listOf(ActiveCustomerTableFactory()), pageCssClasses = "wide"
-    )
-
-    private val trialsPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, dataLoader, listOf(TrialsTableFactory()), pageCssClasses = "wide"
-    )
-
-    private val trialCountriesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, dataLoader, listOf(TopTrialCountriesFactory(Int.MAX_VALUE))
-    )
+class MarketplaceStatsServer(pluginIds: List<PluginId>, client: MarketplaceClient) {
+    private val dataLoaders = pluginIds.map { PluginDataLoader(it, client) }
+    private val pluginInfos = runBlocking { dataLoaders.map { it.loadCached().pluginInfo } }
 
     private val httpServer = embeddedServer(Netty, host = "127.0.0.1", port = 8080) {
         install(Compression)
@@ -80,26 +48,65 @@ class MarketplaceStatsServer(pluginId: PluginId, client: MarketplaceClient) {
             staticResources("/styles", "styles")
             staticResources("/js", "js")
 
-            get("/") {
-                call.respond(JteContent("main.kte", indexPageData.createTemplateParameters()))
-            }
-            get("/licenses") {
-                call.respond(JteContent("main.kte", licensePageData.createTemplateParameters()))
-            }
-            get("/countries") {
-                call.respond(JteContent("main.kte", countriesPageData.createTemplateParameters()))
-            }
-            get("/customers") {
-                call.respond(JteContent("main.kte", allCustomersPageData.createTemplateParameters()))
-            }
-            get("/customers/active") {
-                call.respond(JteContent("main.kte", activeCustomersPageData.createTemplateParameters()))
-            }
-            get("/trials") {
-                call.respond(JteContent("main.kte", trialsPageData.createTemplateParameters()))
-            }
-            get("/trials/countries") {
-                call.respond(JteContent("main.kte", trialCountriesPageData.createTemplateParameters()))
+
+            pluginIds.forEachIndexed { index, pluginId ->
+                val dataLoader = dataLoaders[index]
+
+                val indexPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+                    pluginInfos, client, dataLoader, listOf(
+                        YearlySummaryFactory(),
+                        CurrentWeekFactory(),
+                        TopCountriesFactory(),
+                        TopTrialCountriesFactory(),
+                        OverviewTableFactory()
+                    )
+                )
+                val licensePageData: PluginPageDefinition = DefaultPluginPageDefinition(
+                    pluginInfos, client, dataLoader, listOf(LicenseTableFactory())
+                )
+                val countriesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+                    pluginInfos, client, dataLoader, listOf(TopCountriesFactory(Int.MAX_VALUE))
+                )
+                val allCustomersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+                    pluginInfos, client, dataLoader, listOf(CustomerTableFactory()), pageCssClasses = "wide"
+                )
+                val activeCustomersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+                    pluginInfos, client, dataLoader, listOf(ActiveCustomerTableFactory()), pageCssClasses = "wide"
+                )
+                val trialsPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+                    pluginInfos, client, dataLoader, listOf(TrialsTableFactory()), pageCssClasses = "wide"
+                )
+                val trialCountriesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+                    pluginInfos, client, dataLoader, listOf(TopTrialCountriesFactory(Int.MAX_VALUE))
+                )
+
+                if (index == 0) {
+                    get("/") {
+                        call.respond(JteContent("main.kte", indexPageData.createTemplateParameters()))
+                    }
+                }
+
+                get("/$pluginId/") {
+                    call.respond(JteContent("main.kte", indexPageData.createTemplateParameters()))
+                }
+                get("/$pluginId/licenses") {
+                    call.respond(JteContent("main.kte", licensePageData.createTemplateParameters()))
+                }
+                get("/$pluginId/countries") {
+                    call.respond(JteContent("main.kte", countriesPageData.createTemplateParameters()))
+                }
+                get("/$pluginId/customers") {
+                    call.respond(JteContent("main.kte", allCustomersPageData.createTemplateParameters()))
+                }
+                get("/$pluginId/customers/active") {
+                    call.respond(JteContent("main.kte", activeCustomersPageData.createTemplateParameters()))
+                }
+                get("/$pluginId/trials") {
+                    call.respond(JteContent("main.kte", trialsPageData.createTemplateParameters()))
+                }
+                get("/$pluginId/trials/countries") {
+                    call.respond(JteContent("main.kte", trialCountriesPageData.createTemplateParameters()))
+                }
             }
         }
     }
@@ -107,7 +114,7 @@ class MarketplaceStatsServer(pluginId: PluginId, client: MarketplaceClient) {
     suspend fun start() {
         coroutineScope {
             launch {
-                dataLoader.loadCached()
+                dataLoaders.forEach { it.loadCached() }
             }
         }
         httpServer.start(true)

@@ -22,9 +22,14 @@ object Application {
 
         val config = Json.decodeFromString<ApplicationConfig>(Files.readString(Path.of(args[0])))
         val client = KtorMarketplaceClient(config.marketplaceApiKey)
+        val pluginIds = if (config.pluginId != null) listOf(config.pluginId) else config.pluginIds
+
+        if (pluginIds.isEmpty()) {
+            throw IllegalArgumentException("Either pluginId or pluginIds must be set")
+        }
 
         runBlocking {
-            val server = MarketplaceStatsServer(config.pluginId, client)
+            val server = MarketplaceStatsServer(pluginIds, client)
             server.start()
         }
     }

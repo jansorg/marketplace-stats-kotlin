@@ -6,6 +6,7 @@
 @import dev.ja.marketplace.data.LicenseInfo
 
 @param today: YearMonthDay
+@param plugins: List<PluginInfo>
 @param plugin: PluginInfo
 @param rating: PluginRating
 @param tables: List<DataTable>
@@ -13,13 +14,21 @@
 
 <html lang="en">
 <head>
-    <title>${plugin.name} Report</title>
+    <title>@if(plugins.size == 1) ${plugins[0].name} Report @else Plugins Report @endif</title>
     <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
     <link rel="stylesheet" type="text/css" media="print" href="/styles/main.css"/>
     <link href="/js/sortable.min.css" rel="stylesheet"/>
     <script src="/js/sortable.min.js"></script>
 </head>
 <body class="${cssClass}">
+@if(plugins.size > 1)
+<h1 class="subtitle menu small">
+    @for(plugin in plugins)
+        <a href="/${plugin.id}/">${plugin.name}</a>
+    @endfor
+</h1>
+@endif
+
 <h1>${plugin.name}</h1>
 <h2 class="subtitle">
     @template.render(today)<br>
@@ -27,13 +36,13 @@
 </h2>
 
 <h2 class="subtitle menu small">
-    <a href="/">Overview</a>
-    <a href="/licenses">Licenses</a>
-    <a href="/customers">Customers (all)</a>
-    <a href="/customers/active">Customers (active)</a>
-    <a href="/countries">Countries</a>
-    <a href="/trials">Trials</a>
-    <a href="/trials/countries">Trial (Countries)</a>
+    <a href="/${plugin.id}/">Overview</a>
+    <a href="/${plugin.id}/licenses">Licenses</a>
+    <a href="/${plugin.id}/customers">Customers (all)</a>
+    <a href="/${plugin.id}/customers/active">Customers (active)</a>
+    <a href="/${plugin.id}/countries">Countries</a>
+    <a href="/${plugin.id}/trials">Trials</a>
+    <a href="/${plugin.id}/trials/countries">Trial (Countries)</a>
 </h2>
 
 @for(table in tables)
