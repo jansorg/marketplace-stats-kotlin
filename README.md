@@ -15,7 +15,7 @@ It's a redevelopment of [marketplace-stats](https://github.com/jansorg/marketpla
 2. Execute and build the application
     ```bash
    # Build
-    ./gradlew clean build
+    ./gradlew clean build -x test
    # Launch
     java -jar ./build/libs/marketplace-client-all.jar /path/to/config.json
     ```

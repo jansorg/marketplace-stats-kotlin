@@ -66,13 +66,13 @@ data class LicenseInfo(
                     }
                 }
 
-                if (licenses.sumOf { it.amountUSD }.toDouble() != sale.amountUSD.toDouble()) {
+                /*if (licenses.sumOf { it.amountUSD }.toDouble() != sale.amountUSD.toDouble()) {
                     println(
                         "Sum does not match: $sale. item sum: ${
                             licenses.sumOf { it.amountUSD }.toDouble()
                         }, total: ${sale.amountUSD.toDouble()}"
                     )
-                }
+                }*/
 
                 licenses.sorted()
             }

@@ -68,8 +68,8 @@ project(":") {
         implementation("io.ktor:ktor-server-compression:$ktorVersion")
         implementation("io.ktor:ktor-server-jte:$ktorVersion")
 
-        implementation("gg.jte:jte-kotlin:2.3.2")
-        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.1")
+        implementation("gg.jte:jte-kotlin:3.0.2")
+        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
     }
 
     application {
