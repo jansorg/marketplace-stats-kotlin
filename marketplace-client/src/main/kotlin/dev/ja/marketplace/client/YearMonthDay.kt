@@ -65,6 +65,11 @@ data class YearMonthDay(val year: Int, val month: Int, val day: Int) : Comparabl
         fun of(date: Instant): YearMonthDay {
             return of(date.toLocalDateTime(MarketplaceTimeZone))
         }
+
+        fun parse(date: String): YearMonthDay {
+            val (y, m, d) = date.split('-')
+            return YearMonthDay(y.toInt(), m.toInt(), d.toInt())
+        }
     }
 }
 

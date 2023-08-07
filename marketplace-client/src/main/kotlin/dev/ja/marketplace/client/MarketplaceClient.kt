@@ -33,6 +33,39 @@ interface MarketplaceClient {
      */
     suspend fun trialsInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginTrial>
 
-    // fixme support downloads
-    //suspend fun downloadsMonthly(plugin: PluginId, uniqueDownloads: Boolean, channel)
+    /**
+     * @param plugin Download counts of this plugin will be requested
+     * @param filters fixme unclear what the API allows
+     * @return The total number of non-unique downloads of the given plugin.
+     */
+    suspend fun downloadsTotal(plugin: PluginId, vararg filters: DownloadFilter): Long
+
+    /**
+     * @param plugin Download counts of this plugin will be requested
+     * @param groupType How the results are grouped
+     * @param countType If all or unique downloads are counted
+     * @param filters fixme unclear what the API allows
+     * @return Downloads for the given filter settings.
+     */
+    suspend fun downloads(
+        plugin: PluginId,
+        groupType: DownloadDimensionRequest,
+        countType: DownloadCountType,
+        vararg filters: DownloadFilter,
+    ): DownloadResponse
+
+    /**
+     * Helper method to retrieve downloads grouped by month.
+     */
+    suspend fun downloadsMonthly(plugin: PluginId, countType: DownloadCountType): List<MonthlyDownload>
+
+    /**
+     * Helper method to retrieve downloads grouped by day.
+     */
+    suspend fun downloadsDaily(plugin: PluginId, countType: DownloadCountType): List<DailyDownload>
+
+    /**
+     * Helper method to retrieve downloads grouped by product.
+     */
+    suspend fun downloadsByProduct(plugin: PluginId, countType: DownloadCountType): List<ProductDownload>
 }

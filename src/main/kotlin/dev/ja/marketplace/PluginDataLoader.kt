@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace
 
+import dev.ja.marketplace.client.DownloadCountType.Downloads
 import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.data.LicenseInfo
@@ -35,6 +36,10 @@ class PluginDataLoader(private val pluginId: PluginId, private val client: Marke
             val sales = async { client.salesInfo(pluginId) }
             val licenseInfo = async { LicenseInfo.create(sales.await()) }
             val trials = async { client.trialsInfo(pluginId) }
+            val downloadsTotal = async { client.downloadsTotal(pluginId) }
+            val downloadsMonthly = async { client.downloadsMonthly(pluginId, Downloads) }
+            val downloadsDaily = async { client.downloadsDaily(pluginId, Downloads) }
+            val downloadsProduct = async { client.downloadsByProduct(pluginId, Downloads) }
 
             PluginData(
                 pluginId,
@@ -42,7 +47,11 @@ class PluginDataLoader(private val pluginId: PluginId, private val client: Marke
                 pluginRating.await(),
                 sales.await(),
                 licenseInfo.await(),
-                trials.await()
+                trials.await(),
+                downloadsTotal.await(),
+                downloadsMonthly.await(),
+                downloadsDaily.await(),
+                downloadsProduct.await(),
             )
         }
     }

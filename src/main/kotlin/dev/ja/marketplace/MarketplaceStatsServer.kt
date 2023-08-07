@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.data.currentWeek.CurrentWeekFactory
 import dev.ja.marketplace.data.customers.ActiveCustomerTableFactory
 import dev.ja.marketplace.data.customers.CustomerTableFactory
+import dev.ja.marketplace.data.downloads.MonthlyDownloadsFactory
 import dev.ja.marketplace.data.licenses.LicenseTableFactory
 import dev.ja.marketplace.data.overview.OverviewTableFactory
 import dev.ja.marketplace.data.topCountries.TopCountriesFactory
@@ -67,6 +68,10 @@ class MarketplaceStatsServer(pluginId: PluginId, client: MarketplaceClient) {
         client, dataLoader, listOf(TopTrialCountriesFactory(Int.MAX_VALUE))
     )
 
+    private val monthlyDownloadsPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+        client, dataLoader, listOf(MonthlyDownloadsFactory())
+    )
+
     private val httpServer = embeddedServer(Netty, host = "127.0.0.1", port = 8080) {
         install(Compression)
         install(Jte) {
@@ -100,6 +105,9 @@ class MarketplaceStatsServer(pluginId: PluginId, client: MarketplaceClient) {
             }
             get("/trials/countries") {
                 call.respond(JteContent("main.kte", trialCountriesPageData.createTemplateParameters()))
+            }
+            get("/downloads/monthly") {
+                call.respond(JteContent("main.kte", monthlyDownloadsPageData.createTemplateParameters()))
             }
         }
     }

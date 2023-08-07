@@ -369,3 +369,125 @@ data class PluginTrial(
     }
 }
 
+enum class DownloadCountType(val requestPathSegment: String) {
+    Downloads("downloads-count"),
+    DownloadsUnique("downloads-unique"),
+}
+
+enum class DownloadDimensionRequest(val requestPathSegment: String) {
+    // downloads grouped by product code, e.g. IC for IntelliJ IDEA Community
+    ProductCode("product_code"),
+
+    // downloads grouped by month
+    Month("month"),
+
+    // downloads grouped by day
+    Day("day"),
+}
+
+@Serializable
+enum class DownloadDimension {
+    // total downloads of a plugin
+    @SerialName("plugin")
+    Plugin,
+
+    // downloads grouped by product code, e.g. IC for IntelliJ IDEA Community
+    @SerialName("product_code")
+    ProductCode,
+
+    // downloads grouped by month
+    @SerialName("month")
+    Month,
+
+    // downloads grouped by day
+    @SerialName("day")
+    Day,
+}
+
+@Serializable
+data class DownloadResponse(
+    @SerialName("measure")
+    val measure: String,
+    @SerialName("filters")
+    val filters: List<DownloadFilter>,
+    @SerialName("dim1")
+    val dimension: DownloadDimension,
+    @SerialName("data")
+    val data: DownloadResponseData
+)
+
+//@Serializable
+//data class DownloadResponseFilter(
+//    @SerialName("name")
+//    val name: String,
+//    @SerialName("value")
+//    val value: String,
+//)
+
+@Serializable
+data class DownloadResponseData(
+    @SerialName("dimension")
+    val dimension: DownloadDimension,
+    @SerialName("serie")
+    val serie: List<DownloadResponseItem>
+)
+
+@Serializable
+data class DownloadResponseItem(
+    @SerialName("name")
+    val name: String,
+    @SerialName("value")
+    val value: Long,
+    @SerialName("nameComment")
+    val comment: String? = null,
+)
+
+@Serializable
+enum class DownloadFilterType(val requestParameterName: String) {
+    @SerialName("plugin")
+    Plugin("plugin"),
+
+    @SerialName("update")
+    Update("update"),
+
+    @SerialName("country")
+    Country("country"),
+
+    @SerialName("productCode")
+    ProductCode("product-code"),
+
+    @SerialName("versionMajor")
+    MajorVersion("versionMajor"),
+}
+
+@Serializable
+data class DownloadFilter(
+    @SerialName("name")
+    val type: DownloadFilterType,
+    @SerialName("value")
+    val value: String
+) {
+    companion object {
+        fun update(updateId: Int): DownloadFilter {
+            return DownloadFilter(DownloadFilterType.Update, updateId.toString())
+        }
+
+        fun country(country: Country): DownloadFilter {
+            return DownloadFilter(DownloadFilterType.Country, country)
+        }
+
+        fun productCode(productCode: String): DownloadFilter {
+            return DownloadFilter(DownloadFilterType.ProductCode, productCode)
+        }
+
+        fun majorVersion(majorVersion: Country): DownloadFilter {
+            return DownloadFilter(DownloadFilterType.MajorVersion, majorVersion)
+        }
+    }
+}
+
+data class MonthlyDownload(val firstOfMonth: YearMonthDay, val downloads: Long)
+
+data class DailyDownload(val day: YearMonthDay, val downloads: Long)
+
+data class ProductDownload(val productCode: String, val productName: String?, val downloads: Long)

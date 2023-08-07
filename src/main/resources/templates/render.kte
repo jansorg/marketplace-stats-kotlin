@@ -1,5 +1,6 @@
 @import gg.jte.support.ForSupport
 @import java.math.BigDecimal
+@import java.math.BigInteger
 @import dev.ja.marketplace.client.AmountWithCurrency
 @import dev.ja.marketplace.data.PercentageValue
 
@@ -17,6 +18,8 @@
     @template.render(value.amount) @template.render(value.currency)
 @elseif(value is PercentageValue)
     ${String.format("%,.2f %%", value.value)}
+@elseif(value is BigInteger)
+    ${String.format("%,d", value)}
 @elseif(value is BigDecimal)
     ${String.format("%,.2f", value)}
 @elseif(value is Double || value is Float)

@@ -15,6 +15,7 @@ import java.util.*
 
 class OverviewTable(private val graceTimeDays: Int = 7) : SimpleDataTable("Overview", "overview", "table-striped"),
     MarketplaceDataSink {
+
     private data class MonthData(
         val year: Int,
         val month: Int,
@@ -22,6 +23,7 @@ class OverviewTable(private val graceTimeDays: Int = 7) : SimpleDataTable("Overv
         val amounts: PaymentAmountTracker,
         val churnAnnualLicenses: ChurnProcessor<Int, CustomerInfo>,
         val churnMonthlyLicenses: ChurnProcessor<Int, CustomerInfo>,
+        val downloads: Long,
     ) {
         val isEmpty: Boolean
             get() {
@@ -42,6 +44,8 @@ class OverviewTable(private val graceTimeDays: Int = 7) : SimpleDataTable("Overv
     }
 
     private lateinit var trialData: List<PluginTrial>
+    private lateinit var downloadsMonthly: List<MonthlyDownload>
+    private var downloadsTotal: Long = 0
 
     private val years = TreeMap<Int, YearData>()
 
@@ -61,6 +65,9 @@ class OverviewTable(private val graceTimeDays: Int = 7) : SimpleDataTable("Overv
     private val columnTrials = DataTableColumn(
         "trials", "Trials", "num ", tooltip = "Number of new trials at the end of the month"
     )
+    private val columnDownloads = DataTableColumn(
+        "downloads", "Downloads", "num ", tooltip = "Number of downloads in the month"
+    )
 
     override val columns: List<DataTableColumn> = listOf(
         columnYearMonth,
@@ -70,12 +77,15 @@ class OverviewTable(private val graceTimeDays: Int = 7) : SimpleDataTable("Overv
         columnActiveCustomers,
         columnAnnualChurn,
         columnMonthlyChurn,
+        columnDownloads,
         columnTrials,
     )
 
     override fun init(data: PluginData) {
         val now = YearMonthDay.now()
         this.trialData = data.trials
+        this.downloadsMonthly = data.downloadsMonthly
+        this.downloadsTotal = data.totalDownloads
 
         for (year in Marketplace.Birthday.year..now.year) {
             val monthRange = when (year) {
@@ -103,7 +113,11 @@ class OverviewTable(private val graceTimeDays: Int = 7) : SimpleDataTable("Overv
                     CustomerTracker(activeCustomerRange),
                     PaymentAmountTracker(currentMonth),
                     churnAnnualCustomers,
-                    churnMonthlyCustomers
+                    churnMonthlyCustomers,
+                    downloadsMonthly
+                        .firstOrNull { it.firstOfMonth.year == year && it.firstOfMonth.month == month }
+                        ?.downloads
+                        ?: 0L,
                 )
             }
 
@@ -191,17 +205,19 @@ class OverviewTable(private val graceTimeDays: Int = 7) : SimpleDataTable("Overv
                         val totalCustomers = monthData.customers.totalCustomerCount
 
                         val trialCount = trialData.count { it.date.year == year && it.date.month == month }
+                        val downloadCount = monthData.downloads
 
                         SimpleDateTableRow(
                             values = mapOf(
                                 columnYearMonth to String.format("%02d-%02d", year, month),
-                                columnActiveCustomers to totalCustomers,
+                                columnActiveCustomers to totalCustomers.toBigInteger(),
                                 columnAmountTotalUSD to monthData.amounts.totalAmountUSD.withCurrency(Currency.USD),
                                 columnAmountFeesUSD to monthData.amounts.feesAmountUSD.withCurrency(Currency.USD),
                                 columnAmountPaidUSD to monthData.amounts.paidAmountUSD.withCurrency(Currency.USD),
                                 columnAnnualChurn to annualChurnRate,
                                 columnMonthlyChurn to monthlyChurnRate,
-                                columnTrials to trialCount.let { if (it > 0) it else "—" },
+                                columnTrials to (trialCount.takeIf { it > 0 }?.toBigInteger() ?: "—"),
+                                columnDownloads to (downloadCount.takeIf { it > 0 }?.toBigInteger() ?: "—"),
                             ),
                             tooltips = mapOf(
                                 columnActiveCustomers to "$annualCustomers annual, $monthlyCustomers monthly",
@@ -222,7 +238,8 @@ class OverviewTable(private val graceTimeDays: Int = 7) : SimpleDataTable("Overv
                                 values = mapOf(
                                     columnAnnualChurn to yearAnnualChurnResult.renderedChurnRate,
                                     columnMonthlyChurn to yearMonthlyChurnResult.renderedChurnRate,
-                                    columnTrials to trialData.count { it.date.year == year },
+                                    columnDownloads to yearData.months.values.sumOf { it.downloads }.toBigInteger(),
+                                    columnTrials to trialData.count { it.date.year == year }.toBigInteger(),
                                 ),
                                 tooltips = mapOf(
                                     columnAnnualChurn to yearAnnualChurnResult.churnRateTooltip,

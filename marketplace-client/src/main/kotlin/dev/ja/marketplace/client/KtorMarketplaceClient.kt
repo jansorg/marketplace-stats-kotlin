@@ -86,6 +86,60 @@ class KtorMarketplaceClient(
             .sorted()
     }
 
+    override suspend fun downloadsTotal(plugin: PluginId, vararg filters: DownloadFilter): Long {
+        val response = httpClient.get("/statistic/downloads-count/plugin") {
+            parameter("plugin", plugin)
+            addDownloadFilters(filters)
+        }.body<DownloadResponse>()
+
+        assert(response.dimension == DownloadDimension.Plugin)
+        assert(response.data.dimension == DownloadDimension.Plugin)
+
+        return response.data.serie.single().value
+    }
+
+    override suspend fun downloads(
+        plugin: PluginId,
+        groupType: DownloadDimensionRequest,
+        countType: DownloadCountType,
+        vararg filters: DownloadFilter
+    ): DownloadResponse {
+        return httpClient.get("/statistic/${countType.requestPathSegment}/${groupType.requestPathSegment}") {
+            parameter("plugin", plugin)
+            addDownloadFilters(filters)
+        }.body<DownloadResponse>()
+    }
+
+    override suspend fun downloadsMonthly(plugin: PluginId, countType: DownloadCountType): List<MonthlyDownload> {
+        val response = downloads(plugin, DownloadDimensionRequest.Month, countType)
+        assert(response.dimension == DownloadDimension.Month)
+        assert(response.data.dimension == DownloadDimension.Month)
+
+        return response.data.serie
+            .map { MonthlyDownload(YearMonthDay.parse(it.name), it.value) }
+            .sortedBy { it.firstOfMonth }
+    }
+
+    override suspend fun downloadsDaily(plugin: PluginId, countType: DownloadCountType): List<DailyDownload> {
+        val response = downloads(plugin, DownloadDimensionRequest.Day, countType)
+        assert(response.dimension == DownloadDimension.Day)
+        assert(response.data.dimension == DownloadDimension.Day)
+
+        return response.data.serie
+            .map { DailyDownload(YearMonthDay.parse(it.name), it.value) }
+            .sortedBy { it.day }
+    }
+
+    override suspend fun downloadsByProduct(plugin: PluginId, countType: DownloadCountType): List<ProductDownload> {
+        val response = downloads(plugin, DownloadDimensionRequest.ProductCode, countType)
+        assert(response.dimension == DownloadDimension.ProductCode)
+        assert(response.data.dimension == DownloadDimension.ProductCode)
+
+        return response.data.serie
+            .map { ProductDownload(it.name, it.comment, it.value) }
+            .sortedBy { it.productName }
+    }
+
     private suspend fun getSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
         return httpClient.get("$apiPath/marketplace/plugin/$plugin/sales-info") {
             parameter("beginDate", range.start.asIsoString())
@@ -98,5 +152,11 @@ class KtorMarketplaceClient(
             parameter("beginDate", range.start.asIsoString())
             parameter("endDate", range.end.asIsoString())
         }.body()
+    }
+
+    private fun HttpRequestBuilder.addDownloadFilters(filters: Array<out DownloadFilter>) {
+        filters.forEach { filter ->
+            parameter(filter.type.requestParameterName, filter.value)
+        }
     }
 }
