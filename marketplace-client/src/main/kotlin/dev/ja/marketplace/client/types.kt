@@ -53,7 +53,7 @@ data class PluginInfo(
     @SerialName("docText")
     val docText: String? = null,
     @SerialName("email")
-    val email: String,
+    val email: String? = null,
     @SerialName("cdate")
     val cdate: Long, // fixme verify
     @SerialName("family")
