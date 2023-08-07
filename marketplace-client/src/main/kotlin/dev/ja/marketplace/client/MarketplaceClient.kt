@@ -6,6 +6,10 @@
 package dev.ja.marketplace.client
 
 interface MarketplaceClient {
+    suspend fun userInfo(): UserInfo
+
+    suspend fun plugins(userId: UserId): List<PluginInfoSummary>
+
     suspend fun pluginInfo(id: PluginId): PluginInfo
 
     suspend fun pluginRating(id: PluginId): PluginRating

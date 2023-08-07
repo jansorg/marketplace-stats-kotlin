@@ -1,0 +1,38 @@
+@import dev.ja.marketplace.client.PluginInfoSummary
+@import dev.ja.marketplace.client.PluginPricingModel
+
+@param plugins: List<PluginInfoSummary>
+
+<html lang="en">
+<head>
+    <title>Choose a Plugin</title>
+    <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
+    <link rel="stylesheet" type="text/css" media="print" href="/styles/main.css"/>
+</head>
+<body>
+
+<h1>Available Plugins</h1>
+<p>Please choose one of the available plugins.</p>
+<br>
+
+<h2>Paid or Freemium Plugins</h2>
+<ul>
+    @for(plugin in plugins.filter { it.isPaidOrFreemium })
+        <li>
+            <a href="/?pluginId=${plugin.id}">${plugin.name}</a>
+        </li>
+    @endfor
+</ul>
+
+<h2>Free Plugins</h2>
+<p>There's only limited data provided for free plugins.</p>
+<ul>
+    @for(plugin in plugins.filter { !it.isPaidOrFreemium })
+        <li>
+            <a href="/?pluginId=${plugin.id}">${plugin.name}</a>
+        </li>
+    @endfor
+</ul>
+
+</body>
+</html>

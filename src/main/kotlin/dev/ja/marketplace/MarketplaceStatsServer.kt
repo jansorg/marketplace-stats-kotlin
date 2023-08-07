@@ -7,6 +7,7 @@ package dev.ja.marketplace
 
 import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.client.PluginId
+import dev.ja.marketplace.client.PluginInfoSummary
 import dev.ja.marketplace.data.currentWeek.CurrentWeekFactory
 import dev.ja.marketplace.data.customers.ActiveCustomerTableFactory
 import dev.ja.marketplace.data.customers.CustomerTableFactory
@@ -28,14 +29,34 @@ import io.ktor.server.netty.*
 import io.ktor.server.plugins.compression.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.util.pipeline.*
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 
-class MarketplaceStatsServer(pluginId: PluginId, client: MarketplaceClient) {
-    private val dataLoader = PluginDataLoader(pluginId, client)
+class MarketplaceStatsServer(private val client: MarketplaceClient) {
+    private lateinit var allPlugins: List<PluginInfoSummary>
+    private var defaultPluginLoader: PluginDataLoader? = null
+
+    private val dataLoaders = ConcurrentHashMap<PluginId, PluginDataLoader>()
+
+    private fun getDataLoader(plugin: PluginInfoSummary): PluginDataLoader {
+        return dataLoaders.computeIfAbsent(plugin.id) {
+            PluginDataLoader(plugin, client)
+        }
+    }
+
+    private fun PipelineContext<Unit, ApplicationCall>.getDataLoader(): PluginDataLoader? {
+        val pluginId = context.request.queryParameters["pluginId"]?.toInt()
+            ?: return null
+        val pluginSummary = allPlugins.firstOrNull { it.id == pluginId }
+            ?: throw IllegalStateException("Unable to locate plugin data loader for $pluginId")
+        return getDataLoader(pluginSummary)
+    }
 
     private val indexPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, dataLoader, listOf(
+        client,
+        listOf(
             YearlySummaryFactory(),
             CurrentWeekFactory(),
             TopCountriesFactory(),
@@ -44,32 +65,37 @@ class MarketplaceStatsServer(pluginId: PluginId, client: MarketplaceClient) {
         )
     )
 
+    private val indexPageDataFree: PluginPageDefinition = DefaultPluginPageDefinition(
+        client,
+        listOf()
+    )
+
     private val licensePageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, dataLoader, listOf(LicenseTableFactory())
+        client, listOf(LicenseTableFactory())
     )
 
     private val countriesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, dataLoader, listOf(TopCountriesFactory(Int.MAX_VALUE))
+        client, listOf(TopCountriesFactory(Int.MAX_VALUE))
     )
 
     private val allCustomersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, dataLoader, listOf(CustomerTableFactory()), pageCssClasses = "wide"
+        client, listOf(CustomerTableFactory()), pageCssClasses = "wide"
     )
 
     private val activeCustomersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, dataLoader, listOf(ActiveCustomerTableFactory()), pageCssClasses = "wide"
+        client, listOf(ActiveCustomerTableFactory()), pageCssClasses = "wide"
     )
 
     private val trialsPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, dataLoader, listOf(TrialsTableFactory()), pageCssClasses = "wide"
+        client, listOf(TrialsTableFactory()), pageCssClasses = "wide"
     )
 
     private val trialCountriesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, dataLoader, listOf(TopTrialCountriesFactory(Int.MAX_VALUE))
+        client, listOf(TopTrialCountriesFactory(Int.MAX_VALUE))
     )
 
     private val monthlyDownloadsPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, dataLoader, listOf(MonthlyDownloadsFactory())
+        client, listOf(MonthlyDownloadsFactory())
     )
 
     private val httpServer = embeddedServer(Netty, host = "127.0.0.1", port = 8080) {
@@ -86,38 +112,77 @@ class MarketplaceStatsServer(pluginId: PluginId, client: MarketplaceClient) {
             staticResources("/js", "js")
 
             get("/") {
-                call.respond(JteContent("main.kte", indexPageData.createTemplateParameters()))
+                val loader = getDataLoader()
+                if (loader != null || allPlugins.size == 1) {
+                    if (loader?.plugin?.isPaidOrFreemium == true) {
+                        call.respond(JteContent("main.kte", indexPageData.createTemplateParameters(loader)))
+                    } else {
+                        call.respond(
+                            JteContent(
+                                "main.kte",
+                                indexPageDataFree.createTemplateParameters(loader ?: defaultPluginLoader!!)
+                            )
+                        )
+                    }
+                } else {
+                    call.respond(JteContent("plugins.kte", mapOf("plugins" to allPlugins)))
+                }
             }
             get("/licenses") {
-                call.respond(JteContent("main.kte", licensePageData.createTemplateParameters()))
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", licensePageData.createTemplateParameters(loader)))
             }
             get("/countries") {
-                call.respond(JteContent("main.kte", countriesPageData.createTemplateParameters()))
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", countriesPageData.createTemplateParameters(loader)))
             }
             get("/customers") {
-                call.respond(JteContent("main.kte", allCustomersPageData.createTemplateParameters()))
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", allCustomersPageData.createTemplateParameters(loader)))
             }
             get("/customers/active") {
-                call.respond(JteContent("main.kte", activeCustomersPageData.createTemplateParameters()))
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", activeCustomersPageData.createTemplateParameters(loader)))
             }
             get("/trials") {
-                call.respond(JteContent("main.kte", trialsPageData.createTemplateParameters()))
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", trialsPageData.createTemplateParameters(loader)))
             }
             get("/trials/countries") {
-                call.respond(JteContent("main.kte", trialCountriesPageData.createTemplateParameters()))
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", trialCountriesPageData.createTemplateParameters(loader)))
             }
             get("/downloads/monthly") {
-                call.respond(JteContent("main.kte", monthlyDownloadsPageData.createTemplateParameters()))
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", monthlyDownloadsPageData.createTemplateParameters(loader)))
             }
         }
     }
 
     suspend fun start() {
-        coroutineScope {
-            launch {
-                dataLoader.loadCached()
+        val userInfo = client.userInfo()
+
+        this.allPlugins = client.plugins(userInfo.id)
+            .sortedBy { it.name }
+
+        this.defaultPluginLoader = this.allPlugins.firstOrNull()?.let { getDataLoader(it) }
+
+        // preload the first plugin
+        if (allPlugins.isNotEmpty()) {
+            coroutineScope {
+                launch {
+                    getDataLoader(allPlugins[0]).loadCached()
+                }
             }
         }
+
         httpServer.start(true)
     }
 }

@@ -1,4 +1,5 @@
 @import dev.ja.marketplace.client.PluginInfo
+@import dev.ja.marketplace.client.PluginInfoSummary
 @import dev.ja.marketplace.client.PluginRating
 @import dev.ja.marketplace.client.PluginSale
 @import dev.ja.marketplace.client.YearMonthDay
@@ -6,6 +7,7 @@
 @import dev.ja.marketplace.data.LicenseInfo
 
 @param today: YearMonthDay
+@param pluginSummary: PluginInfoSummary
 @param plugin: PluginInfo
 @param rating: PluginRating
 @param tables: List<DataTable>
@@ -22,18 +24,23 @@
 <body class="${cssClass}">
 <h1>${plugin.name}</h1>
 <h2 class="subtitle">
-    @template.render(today)<br>
+    @template.render(today)
+    <br>
+    <br>
+    <span>↓ @template.render(pluginSummary.downloads.toBigInteger()) downloads</span><br>
     <span title="${rating.votes.size} ratings">★ @template.render(rating.calculatedRatingValue)</span>
 </h2>
 
 <h2 class="subtitle menu small">
-    <a href="/">Overview</a>
-    <a href="/licenses">Licenses</a>
-    <a href="/customers">Customers (all)</a>
-    <a href="/customers/active">Customers (active)</a>
-    <a href="/countries">Countries</a>
-    <a href="/trials">Trials</a>
-    <a href="/trials/countries">Trial (Countries)</a>
+    <a href="/?pluginId=${plugin.id}">Overview</a>
+    @if(pluginSummary.isPaidOrFreemium)
+        <a href="/licenses?pluginId=${plugin.id}">Licenses</a>
+        <a href="/customers?pluginId=${plugin.id}">Customers (all)</a>
+        <a href="/customers/active?pluginId=${plugin.id}">Customers (active)</a>
+        <a href="/countries?pluginId=${plugin.id}">Countries</a>
+        <a href="/trials?pluginId=${plugin.id}">Trials</a>
+        <a href="/trials/countries?pluginId=${plugin.id}">Trial (Countries)</a>
+    @endif
 </h2>
 
 @for(table in tables)

@@ -15,11 +15,10 @@ import kotlinx.coroutines.flow.toList
 
 class DefaultPluginPageDefinition(
     private val client: MarketplaceClient,
-    private val dataLoader: PluginDataLoader,
     private val factories: List<MarketplaceDataSinkFactory>,
     private val pageCssClasses: String? = null,
 ) : PluginPageDefinition {
-    override suspend fun createTemplateParameters(): Map<String, Any?> {
+    override suspend fun createTemplateParameters(dataLoader: PluginDataLoader): Map<String, Any?> {
         val data = dataLoader.loadCached()
 
         // process data in sinks concurrently
@@ -27,13 +26,14 @@ class DefaultPluginPageDefinition(
             .asFlow()
             .onEach { table ->
                 table.init(data)
-                data.sales.forEach(table::process)
-                data.licenses.forEach(table::process)
+                data.sales?.forEach(table::process)
+                data.licenses?.forEach(table::process)
             }.toList()
 
         return mapOf(
             "today" to YearMonthDay.now(),
             "plugin" to data.pluginInfo,
+            "pluginSummary" to data.pluginSummary,
             "rating" to data.pluginRating,
             "tables" to dataSinks.filterIsInstance<DataTable>(),
             "cssClass" to pageCssClasses,

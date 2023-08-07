@@ -22,7 +22,7 @@ class TopTrialCountriesTable(private val maxItems: Int = 10) :
     override val columns: List<DataTableColumn> = listOf(columnCountry, columnTrialCount, columnTrialsPercentage)
 
     override fun init(data: PluginData) {
-        data.trials.forEach { trial ->
+        data.trials?.forEach { trial ->
             if (trial.customer.country.isNotBlank()) {
                 this.data.merge(trial.customer.country, 1, Int::plus)
             }
@@ -42,7 +42,7 @@ class TopTrialCountriesTable(private val maxItems: Int = 10) :
                 .map { (country, trialCount) ->
                     SimpleDateTableRow(
                         columnCountry to country,
-                        columnTrialCount to trialCount,
+                        columnTrialCount to trialCount.toBigInteger(),
                         columnTrialsPercentage to PercentageValue.of(
                             BigDecimal(trialCount),
                             BigDecimal(totalTrialCount)

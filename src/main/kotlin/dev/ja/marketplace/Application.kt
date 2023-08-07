@@ -24,7 +24,7 @@ object Application {
         val client = KtorMarketplaceClient(config.marketplaceApiKey)
 
         runBlocking {
-            val server = MarketplaceStatsServer(config.pluginId, client)
+            val server = MarketplaceStatsServer(client)
             server.start()
         }
     }

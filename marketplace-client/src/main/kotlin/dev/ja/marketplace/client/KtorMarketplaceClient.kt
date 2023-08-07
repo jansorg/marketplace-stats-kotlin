@@ -53,6 +53,14 @@ class KtorMarketplaceClient(
         }
     }
 
+    override suspend fun userInfo(): UserInfo {
+        return httpClient.get("${apiPath}/users/me/full").body()
+    }
+
+    override suspend fun plugins(userId: UserId): List<PluginInfoSummary> {
+        return httpClient.get("${apiPath}/users/$userId/plugins").body()
+    }
+
     override suspend fun pluginInfo(id: PluginId): PluginInfo {
         return httpClient.get("${apiPath}/plugins/$id").body()
     }

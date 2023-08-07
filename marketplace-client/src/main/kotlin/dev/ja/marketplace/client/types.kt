@@ -9,6 +9,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.math.BigDecimal
 
+typealias UserId = String
 typealias PluginId = Int
 typealias PluginProductCode = String
 typealias PluginUrl = String
@@ -30,6 +31,53 @@ interface WithAmounts {
     val amount: Amount
     val currency: Currency
     val amountUSD: Amount
+}
+
+@Serializable
+data class UserInfo(
+    @SerialName("id")
+    val id: UserId,
+    @SerialName("name")
+    val name: String,
+)
+
+@Serializable
+data class PluginInfoSummary(
+    @SerialName("id")
+    val id: PluginId,
+    @SerialName("name")
+    val name: String,
+    @SerialName("link")
+    val link: String,
+    @SerialName("preview")
+    val previewText: String,
+    @SerialName("downloads")
+    val downloads: Int,
+    @SerialName("pricingModel")
+    val pricingModel: PluginPricingModel,
+    @SerialName("rating")
+    val rating: Double,
+    @SerialName("hasSource")
+    val hasSource: Boolean,
+
+    @SerialName("tags")
+    val tags: List<String> = emptyList(),
+    @SerialName("target")
+    val target: String? = null,
+    @SerialName("icon")
+    val iconUrl: String? = null,
+    @SerialName("organization")
+    val organization: String? = null,
+    @SerialName("vendor")
+    val vendorName: String? = null,
+    @SerialName("cdate")
+    val cdate: Long, // fixme verify
+    // fixme vendorName{name,isVerified}
+) {
+    val isPaidOrFreemium: Boolean
+        get() {
+            return pricingModel == PluginPricingModel.Paid || pricingModel == PluginPricingModel.Freemium
+        }
 }
 
 @Serializable
@@ -103,25 +151,25 @@ data class PluginVendor(
     @SerialName("url")
     val url: PluginUrl,
     @SerialName("totalPlugins")
-    val totalPlugins: Int,
+    val totalPlugins: Int? = null,
     @SerialName("totalUsers")
-    val totalUsers: Int,
+    val totalUsers: Int? = null,
     @SerialName("link")
-    val link: String,
+    val link: String? = null,
     @SerialName("publicName")
-    val publicName: String,
+    val publicName: String? = null,
     @SerialName("email")
     val email: String,
     @SerialName("countryCode")
-    val countryCode: String,
+    val countryCode: String? = null,
     @SerialName("country")
-    val country: Country,
+    val country: Country? = null,
     @SerialName("isVerified")
     val isVerified: Boolean,
     @SerialName("vendorId")
-    val vendorId: Int,
+    val vendorId: Int? = null,
     @SerialName("isTrader")
-    val isTrader: Boolean,
+    val isTrader: Boolean? = null,
     @SerialName("type")
     val type: String,
     @SerialName("servicesDescription")

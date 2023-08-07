@@ -7,14 +7,15 @@ package dev.ja.marketplace
 
 import dev.ja.marketplace.client.DownloadCountType.Downloads
 import dev.ja.marketplace.client.MarketplaceClient
-import dev.ja.marketplace.client.PluginId
+import dev.ja.marketplace.client.PluginInfoSummary
 import dev.ja.marketplace.data.LicenseInfo
 import dev.ja.marketplace.data.PluginData
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import java.util.concurrent.atomic.AtomicReference
 
-class PluginDataLoader(private val pluginId: PluginId, private val client: MarketplaceClient) {
+class PluginDataLoader(val plugin: PluginInfoSummary, private val client: MarketplaceClient) {
+    private val pluginId = plugin.id
     private val cachedData = AtomicReference<PluginData>()
 
     suspend fun loadCached(): PluginData {
@@ -33,25 +34,37 @@ class PluginDataLoader(private val pluginId: PluginId, private val client: Marke
         return coroutineScope {
             val pluginInfo = async { client.pluginInfo(pluginId) }
             val pluginRating = async { client.pluginRating(pluginId) }
-            val sales = async { client.salesInfo(pluginId) }
-            val licenseInfo = async { LicenseInfo.create(sales.await()) }
-            val trials = async { client.trialsInfo(pluginId) }
             val downloadsTotal = async { client.downloadsTotal(pluginId) }
             val downloadsMonthly = async { client.downloadsMonthly(pluginId, Downloads) }
             val downloadsDaily = async { client.downloadsDaily(pluginId, Downloads) }
             val downloadsProduct = async { client.downloadsByProduct(pluginId, Downloads) }
 
+            val paidRequests = plugin.isPaidOrFreemium
+            val sales = when {
+                paidRequests -> async { client.salesInfo(pluginId) }
+                else -> null
+            }
+            val licenseInfo = when {
+                sales != null -> async { LicenseInfo.create(sales.await()) }
+                else -> null
+            }
+            val trials = when {
+                paidRequests -> async { client.trialsInfo(pluginId) }
+                else -> null
+            }
+
             PluginData(
                 pluginId,
+                plugin,
                 pluginInfo.await(),
                 pluginRating.await(),
-                sales.await(),
-                licenseInfo.await(),
-                trials.await(),
                 downloadsTotal.await(),
                 downloadsMonthly.await(),
                 downloadsDaily.await(),
                 downloadsProduct.await(),
+                sales?.await(),
+                licenseInfo?.await(),
+                trials?.await(),
             )
         }
     }

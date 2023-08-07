@@ -9,14 +9,16 @@ import dev.ja.marketplace.client.*
 
 data class PluginData(
     val pluginId: PluginId,
+    val pluginSummary: PluginInfoSummary,
     val pluginInfo: PluginInfo,
     val pluginRating: PluginRating,
-    val sales: List<PluginSale>,
-    val licenses: List<LicenseInfo>,
-    val trials: List<PluginTrial>,
     val totalDownloads: Long,
     val downloadsMonthly: List<MonthlyDownload>,
     val downloadsDaily: List<DailyDownload>,
     val downloadsProduct: List<ProductDownload>,
+    // info for paid or freemium plugin/s
+    val sales: List<PluginSale>?,
+    val licenses: List<LicenseInfo>?,
+    val trials: List<PluginTrial>?,
 )
 

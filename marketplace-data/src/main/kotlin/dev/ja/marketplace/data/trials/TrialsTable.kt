@@ -21,7 +21,7 @@ class TrialsTable : SimpleDataTable("Trials", "trials"), MarketplaceDataSink {
     private val trialData = TreeMap<YearMonthDay, List<PluginTrial>>()
 
     override fun init(data: PluginData) {
-        data.trials.forEach {
+        data.trials?.forEach {
             trialData.merge(it.date, listOf(it)) { a, b -> a + b }
         }
     }

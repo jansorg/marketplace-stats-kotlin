@@ -83,7 +83,7 @@ class OverviewTable(private val graceTimeDays: Int = 7) : SimpleDataTable("Overv
 
     override fun init(data: PluginData) {
         val now = YearMonthDay.now()
-        this.trialData = data.trials
+        this.trialData = data.trials ?: emptyList()
         this.downloadsMonthly = data.downloadsMonthly
         this.downloadsTotal = data.totalDownloads
 

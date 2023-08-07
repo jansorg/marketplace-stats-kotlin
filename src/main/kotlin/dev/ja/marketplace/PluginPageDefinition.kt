@@ -6,5 +6,5 @@
 package dev.ja.marketplace
 
 interface PluginPageDefinition {
-    suspend fun createTemplateParameters(): Map<String, Any?>
+    suspend fun createTemplateParameters(dataLoader: PluginDataLoader): Map<String, Any?>
 }
