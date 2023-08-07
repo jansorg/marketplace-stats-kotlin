@@ -312,6 +312,9 @@ data class ResellerInfo(
 enum class ResellerType {
     @SerialName("Reseller")
     Reseller,
+
+    @SerialName("Organization")
+    Organization,
 }
 
 @Serializable
