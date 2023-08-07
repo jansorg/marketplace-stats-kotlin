@@ -118,14 +118,14 @@ data class PluginVendor(
     val country: Country,
     @SerialName("isVerified")
     val isVerified: Boolean,
-    @SerialName("servicesDescription")
-    val servicesDescription: List<String>,
     @SerialName("vendorId")
     val vendorId: Int,
     @SerialName("isTrader")
     val isTrader: Boolean,
     @SerialName("type")
     val type: String,
+    @SerialName("servicesDescription")
+    val servicesDescription: List<String>? = null,
 )
 
 @Serializable
