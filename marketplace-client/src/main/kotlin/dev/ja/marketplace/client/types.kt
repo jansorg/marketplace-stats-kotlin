@@ -125,7 +125,7 @@ data class PluginInfo(
     @SerialName("screens")
     val screens: List<PluginResourceUrl> = emptyList(),
     @SerialName("icon")
-    val icon: String,
+    val iconUrl: String? = null,
     @SerialName("isHidden")
     val isHidden: Boolean,
     @SerialName("isMonetizationAvailable")

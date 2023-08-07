@@ -36,7 +36,6 @@ import java.util.concurrent.ConcurrentHashMap
 
 class MarketplaceStatsServer(private val client: MarketplaceClient) {
     private lateinit var allPlugins: List<PluginInfoSummary>
-    private var defaultPluginLoader: PluginDataLoader? = null
 
     private val dataLoaders = ConcurrentHashMap<PluginId, PluginDataLoader>()
 
@@ -113,17 +112,14 @@ class MarketplaceStatsServer(private val client: MarketplaceClient) {
 
             get("/") {
                 val loader = getDataLoader()
-                if (loader != null || allPlugins.size == 1) {
-                    if (loader?.plugin?.isPaidOrFreemium == true) {
-                        call.respond(JteContent("main.kte", indexPageData.createTemplateParameters(loader)))
-                    } else {
-                        call.respond(
-                            JteContent(
-                                "main.kte",
-                                indexPageDataFree.createTemplateParameters(loader ?: defaultPluginLoader!!)
-                            )
-                        )
+                    ?: allPlugins.singleOrNull()?.let { getDataLoader(it) }
+
+                if (loader != null) {
+                    val pageData = when {
+                        loader.plugin.isPaidOrFreemium -> indexPageData
+                        else -> indexPageDataFree
                     }
+                    call.respond(JteContent("main.kte", pageData.createTemplateParameters(loader)))
                 } else {
                     call.respond(JteContent("plugins.kte", mapOf("plugins" to allPlugins)))
                 }
@@ -168,17 +164,15 @@ class MarketplaceStatsServer(private val client: MarketplaceClient) {
 
     suspend fun start() {
         val userInfo = client.userInfo()
+        this.allPlugins = client.plugins(userInfo.id).sortedBy { it.name }
 
-        this.allPlugins = client.plugins(userInfo.id)
-            .sortedBy { it.name }
-
-        this.defaultPluginLoader = this.allPlugins.firstOrNull()?.let { getDataLoader(it) }
-
-        // preload the first plugin
+        // preload
         if (allPlugins.isNotEmpty()) {
             coroutineScope {
                 launch {
-                    getDataLoader(allPlugins[0]).loadCached()
+                    for (plugin in allPlugins) {
+                        getDataLoader(plugin).loadCached()
+                    }
                 }
             }
         }
