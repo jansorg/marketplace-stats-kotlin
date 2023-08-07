@@ -1,13 +1,22 @@
+@import gg.jte.support.ForSupport
 @import java.math.BigDecimal
 @import dev.ja.marketplace.client.AmountWithCurrency
 @import dev.ja.marketplace.data.PercentageValue
 
 @param value: Any?
 
-@if(value is AmountWithCurrency)
+@if(value is Array<*>)
+    @for(i in ForSupport.of(value))
+        @template.render(i.get())@if(!i.isLast)<br>@endif
+    @endfor
+@elseif(value is Iterable<*>)
+    @for(i in ForSupport.of(value))
+        @template.render(i.get())@if(!i.isLast)<br>@endif
+    @endfor
+@elseif(value is AmountWithCurrency)
     @template.render(value.amount) @template.render(value.currency)
 @elseif(value is PercentageValue)
-    ${String.format("%,.2f%%", value.value)}
+    ${String.format("%,.2f %%", value.value)}
 @elseif(value is BigDecimal)
     ${String.format("%,.2f", value)}
 @elseif(value is Double || value is Float)

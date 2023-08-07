@@ -5,9 +5,9 @@
 
 package dev.ja.marketplace.data.licenses
 
-import dev.ja.marketplace.data.*
 import dev.ja.marketplace.client.Currency
 import dev.ja.marketplace.client.withCurrency
+import dev.ja.marketplace.data.*
 
 class LicenseTable : SimpleDataTable("Licenses", "licenses", "section-wide"), MarketplaceDataSink {
     private val columnLicenseId = DataTableColumn("license-id", "License ID")
@@ -17,6 +17,7 @@ class LicenseTable : SimpleDataTable("Licenses", "licenses", "section-wide"), Ma
     private val columnCustomerName = DataTableColumn("customer", "Name", cssStyle = "max-width: 35%")
     private val columnCustomerId = DataTableColumn("customer-id", "Cust. ID", "num")
     private val columnAmountUSD = DataTableColumn("sale-amount-usd", "Amount", "num")
+    private val columnDiscount = DataTableColumn("license-discount", "Discount", "num")
     private val columnLicenseType = DataTableColumn("license-type", "License")
     private val columnLicenseRenewalType = DataTableColumn("license-type", "Type")
 
@@ -29,6 +30,7 @@ class LicenseTable : SimpleDataTable("Licenses", "licenses", "section-wide"), Ma
         columnCustomerName,
         columnCustomerId,
         columnAmountUSD,
+        columnDiscount,
         columnLicenseType,
         columnLicenseRenewalType,
         columnLicenseId,
@@ -38,15 +40,31 @@ class LicenseTable : SimpleDataTable("Licenses", "licenses", "section-wide"), Ma
         get() {
             val rows = data.map { license ->
                 SimpleDateTableRow(
-                    columnLicenseId to license.id,
-                    columnPurchaseDate to license.sale.date,
-                    columnValidityStart to license.validity.start,
-                    columnValidityEnd to license.validity.end,
-                    columnCustomerName to license.sale.customer.name,
-                    columnCustomerId to license.sale.customer.code,
-                    columnAmountUSD to license.amountUSD.withCurrency(Currency.USD),
-                    columnLicenseType to license.sale.licensePeriod,
-                    columnLicenseRenewalType to license.saleLineItem.type,
+                    values = mapOf(
+                        columnLicenseId to license.id,
+                        columnPurchaseDate to license.sale.date,
+                        columnValidityStart to license.validity.start,
+                        columnValidityEnd to license.validity.end,
+                        columnCustomerName to license.sale.customer.name,
+                        columnCustomerId to license.sale.customer.code,
+                        columnAmountUSD to license.amountUSD.withCurrency(Currency.USD),
+                        columnLicenseType to license.sale.licensePeriod,
+                        columnLicenseRenewalType to license.saleLineItem.type,
+                        columnDiscount to license.saleLineItem.discountDescriptions
+                            .mapNotNull { it.percent }
+                            .sorted()
+                            .map { it.asPercentageValue(false) }
+                    ),
+                    tooltips = mapOf(
+                        columnDiscount to license.saleLineItem.discountDescriptions
+                            .sortedBy { it.percent ?: 0.0 }
+                            .joinToString("\n") {
+                                when {
+                                    it.percent != null -> "%.2f%% (%s)".format(it.percent, it.description)
+                                    else -> it.description
+                                }
+                            }
+                    )
                 )
             }
             return listOf(SimpleTableSection(rows, null))
