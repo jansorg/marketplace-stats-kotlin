@@ -133,21 +133,21 @@ data class PluginUrls(
     @SerialName("url")
     val url: PluginUrl,
     @SerialName("forumUrl")
-    val forumUrl: PluginUrl,
+    val forumUrl: PluginUrl? = null,
     @SerialName("licenseUrl")
-    val licenseUrl: PluginUrl,
+    val licenseUrl: PluginUrl? = null,
     @SerialName("privacyPolicyUrl")
-    val privacyPolicyUrl: PluginUrl,
+    val privacyPolicyUrl: PluginUrl? = null,
     @SerialName("bugtrackerUrl")
-    val bugtrackerUrl: PluginUrl,
+    val bugtrackerUrl: PluginUrl? = null,
     @SerialName("docUrl")
-    val docUrl: PluginUrl,
+    val docUrl: PluginUrl? = null,
     @SerialName("sourceCodeUrl")
-    val sourceCodeUrl: PluginUrl,
+    val sourceCodeUrl: PluginUrl? = null,
     @SerialName("videoUrl")
-    val videoUrl: PluginUrl,
+    val videoUrl: PluginUrl? = null,
     @SerialName("customContacts")
-    val customContacts: List<PluginCustomContact>,
+    val customContacts: List<PluginCustomContact> = emptyList(),
 )
 
 @Serializable
