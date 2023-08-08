@@ -15,7 +15,7 @@ class CustomerTable(val licenseFilter: (LicenseInfo) -> Boolean) :
     private val latestLicenseValid = mutableMapOf<CustomerInfo, YearMonthDay>()
     private val customerSalesActive = mutableMapOf<CustomerInfo, Amount>()
     private val customerSalesNext = mutableMapOf<CustomerInfo, Amount>()
-    private val customerSales = mutableMapOf<CustomerInfo, Amount>()
+    private val totalCustomerSales = mutableMapOf<CustomerInfo, Amount>()
     private val activeLicenses = mutableMapOf<CustomerInfo, MutableSet<LicenseId>>()
 
     private val columnValidUntil = DataTableColumn("customer-type", "Valid Until")
@@ -52,12 +52,12 @@ class CustomerTable(val licenseFilter: (LicenseInfo) -> Boolean) :
             }
         }
 
-        customerSales.merge(customer, licenseInfo.amountUSD) { a, b -> a + b }
-        latestLicenseValid.merge(customer, licenseInfo.validity.end, ::maxOf)
-        activeLicenses.computeIfAbsent(customer) { mutableSetOf() } += licenseInfo.id
+        totalCustomerSales.merge(customer, licenseInfo.amountUSD) { a, b -> a + b }
 
         if (licenseFilter(licenseInfo)) {
             customers += customer
+            activeLicenses.computeIfAbsent(customer) { mutableSetOf() } += licenseInfo.id
+            latestLicenseValid.merge(customer, licenseInfo.validity.end, ::maxOf)
         }
     }
 
@@ -66,7 +66,7 @@ class CustomerTable(val licenseFilter: (LicenseInfo) -> Boolean) :
             val now = YearMonthDay.now()
             var prevValidUntil: YearMonthDay? = null
             val rows = customers
-                .sortedByDescending { customerSales[it]?.sortValue() ?: 0L }
+                .sortedByDescending { totalCustomerSales[it]?.sortValue() ?: 0L }
                 .sortedBy { latestLicenseValid[it]!! }
                 .map { customer ->
                     val validUntil = latestLicenseValid[customer]!!
@@ -87,14 +87,14 @@ class CustomerTable(val licenseFilter: (LicenseInfo) -> Boolean) :
                             columnType to customer.type,
                             columnActiveSales to customerSalesActive[customer]?.withCurrency(Currency.USD),
                             columnNextSale to customerSalesNext[customer]?.withCurrency(Currency.USD),
-                            columnSales to customerSales[customer]?.withCurrency(Currency.USD),
+                            columnSales to totalCustomerSales[customer]?.withCurrency(Currency.USD),
                             columnActiveLicenses to activeLicenses[customer]!!.size,
                         ),
                         cssClass = cssClass,
                         sortValues = mapOf(
                             columnActiveSales to customerSalesActive[customer]?.sortValue(),
                             columnNextSale to customerSalesNext[customer]?.sortValue(),
-                            columnSales to customerSales[customer]?.sortValue(),
+                            columnSales to totalCustomerSales[customer]?.sortValue(),
                         ),
                     )
                 }
