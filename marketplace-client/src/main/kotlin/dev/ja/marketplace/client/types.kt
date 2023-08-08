@@ -164,13 +164,13 @@ data class PluginVendor(
     @SerialName("publicName")
     val publicName: String? = null,
     @SerialName("email")
-    val email: String,
+    val email: String? = null,
     @SerialName("countryCode")
     val countryCode: String? = null,
     @SerialName("country")
     val country: Country? = null,
     @SerialName("isVerified")
-    val isVerified: Boolean,
+    val isVerified: Boolean? = null,
     @SerialName("vendorId")
     val vendorId: Int? = null,
     @SerialName("isTrader")
