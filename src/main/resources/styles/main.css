@@ -141,6 +141,15 @@ dd {
     margin: 0 0 2rem 0;
 }
 
+.centered {
+    text-align: center;
+}
+
+.table-centered {
+    margin-left: auto;
+    margin-right: auto;
+}
+
 .menu {
     position: sticky;
     top: 0;

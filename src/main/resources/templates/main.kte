@@ -7,6 +7,7 @@
 @import dev.ja.marketplace.data.LicenseInfo
 @import dev.ja.marketplace.client.MarketplaceUrlSupport
 
+@param pageTitle: String?
 @param today: YearMonthDay
 @param plugin: PluginInfo
 @param rating: PluginRating
@@ -25,30 +26,35 @@
 <body class="${cssClass}">
 !{val iconUrl = plugin.iconUrlPath?.let { urls.assetUrl(it) }}
 @if(iconUrl != null)
-    <div class="subtitle">
+    <div class="centered">
         <img src="${iconUrl}" alt="logo" class="plugin-icon"/>
     </div>
 @endif
 <h1>${plugin.name}</h1>
-<h2 class="subtitle">
+<div class="subtitle">
     @template.render(today)
     <br>
     <br>
     <span>↓ @template.render(plugin.downloads.toBigInteger()) downloads</span><br>
     <span title="${rating.votes.size} ratings">★ @template.render(rating.calculatedRatingValue)</span>
-</h2>
+</div>
 
-<h2 class="subtitle menu small">
+<div class="subtitle menu small">
     <a href="/?pluginId=${plugin.id}">Overview</a>
     @if(plugin.isPaidOrFreemium)
         <a href="/licenses?pluginId=${plugin.id}">Licenses</a>
-        <a href="/customers?pluginId=${plugin.id}">Customers (all)</a>
         <a href="/customers/active?pluginId=${plugin.id}">Customers (active)</a>
+        <a href="/customers/churned?pluginId=${plugin.id}">Customers (churned)</a>
+        <a href="/customers?pluginId=${plugin.id}">Customers (all)</a>
         <a href="/countries?pluginId=${plugin.id}">Countries</a>
         <a href="/trials?pluginId=${plugin.id}">Trials</a>
         <a href="/trials/countries?pluginId=${plugin.id}">Trial (Countries)</a>
     @endif
-</h2>
+</div>
+
+@if(pageTitle != null)
+    <h2 class="centered">${pageTitle}</h2>
+@endif
 
 @for(table in tables)
     @template.dataTable(table)

@@ -11,7 +11,7 @@ import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.*
 import java.util.*
 
-class TrialsTable : SimpleDataTable("Trials", "trials"), MarketplaceDataSink {
+class TrialsTable : SimpleDataTable("Trials", "trials", "table-centered"), MarketplaceDataSink {
     private val columnDate = DataTableColumn("trial-date", "Date", "date")
     private val columnRefId = DataTableColumn("trial-id", "ID", "num")
     private val columnCustomer = DataTableColumn("trial-customer", "Customer")

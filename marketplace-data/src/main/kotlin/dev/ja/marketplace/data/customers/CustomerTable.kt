@@ -9,7 +9,11 @@ import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.LicenseId
 import dev.ja.marketplace.data.*
 
-class CustomerTable(val licenseFilter: (LicenseInfo) -> Boolean) :
+class CustomerTable(
+    val licenseFilter: (LicenseInfo) -> Boolean = { true },
+    val customerFilter: (CustomerInfo, latestValid: YearMonthDay) -> Boolean = { _, _ -> true },
+    private val showChurnedStyling: Boolean = true,
+) :
     SimpleDataTable("Customers", cssClass = "section-wide"), MarketplaceDataSink {
     private val customers = mutableSetOf<CustomerInfo>()
     private val latestLicenseValid = mutableMapOf<CustomerInfo, YearMonthDay>()
@@ -66,15 +70,16 @@ class CustomerTable(val licenseFilter: (LicenseInfo) -> Boolean) :
             val now = YearMonthDay.now()
             var prevValidUntil: YearMonthDay? = null
             val rows = customers
+                .filter { customerFilter(it, latestLicenseValid[it]!!) }
                 .sortedByDescending { totalCustomerSales[it]?.sortValue() ?: 0L }
-                .sortedBy { latestLicenseValid[it]!! }
+                .sortedByDescending { latestLicenseValid[it]!! }
                 .map { customer ->
                     val validUntil = latestLicenseValid[customer]!!
                     val showValidUntil = validUntil != prevValidUntil
                     prevValidUntil = validUntil
 
                     val cssClass: String? = when {
-                        validUntil < now -> "churned"
+                        validUntil < now && showChurnedStyling -> "churned"
                         else -> null
                     }
 
@@ -100,8 +105,8 @@ class CustomerTable(val licenseFilter: (LicenseInfo) -> Boolean) :
                 }
             val footer = SimpleRowGroup(
                 SimpleDateTableRow(
-                    columnName to "${customers.size} customers",
-                    columnActiveLicenses to activeLicenses.values.sumOf { it.size },
+                    columnName to "${rows.size} customers",
+                    columnActiveLicenses to rows.size,
                 )
             )
             return listOf(SimpleTableSection(rows, footer = footer))

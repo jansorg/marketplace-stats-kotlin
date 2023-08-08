@@ -11,6 +11,7 @@ import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.PluginInfoSummary
 import dev.ja.marketplace.data.currentWeek.CurrentWeekFactory
 import dev.ja.marketplace.data.customers.ActiveCustomerTableFactory
+import dev.ja.marketplace.data.customers.ChurnedCustomerTableFactory
 import dev.ja.marketplace.data.customers.CustomerTableFactory
 import dev.ja.marketplace.data.downloads.MonthlyDownloadsFactory
 import dev.ja.marketplace.data.licenses.LicenseTableFactory
@@ -76,31 +77,55 @@ class MarketplaceStatsServer(
     )
 
     private val licensePageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, listOf(LicenseTableFactory())
+        client,
+        listOf(LicenseTableFactory()),
+        pageTitle = "Licenses"
     )
 
     private val countriesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, listOf(TopCountriesFactory(Int.MAX_VALUE))
+        client,
+        listOf(TopCountriesFactory(Int.MAX_VALUE)),
+        pageTitle = "Countries"
     )
 
     private val allCustomersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, listOf(CustomerTableFactory()), pageCssClasses = "wide"
+        client,
+        listOf(CustomerTableFactory()),
+        pageCssClasses = "wide",
+        pageTitle = "Customers (all)"
     )
 
     private val activeCustomersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, listOf(ActiveCustomerTableFactory()), pageCssClasses = "wide"
+        client,
+        listOf(ActiveCustomerTableFactory()),
+        pageCssClasses = "wide",
+        pageTitle = "Customers With Active Licenses"
+    )
+
+    private val churnedCustomersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+        client,
+        listOf(ChurnedCustomerTableFactory()),
+        pageCssClasses = "wide",
+        pageTitle = "Churned Customers",
     )
 
     private val trialsPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, listOf(TrialsTableFactory()), pageCssClasses = "wide"
+        client,
+        listOf(TrialsTableFactory()),
+        pageCssClasses = "wide",
+        pageTitle = "Trials",
     )
 
     private val trialCountriesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, listOf(TopTrialCountriesFactory(Int.MAX_VALUE))
+        client,
+        listOf(TopTrialCountriesFactory(Int.MAX_VALUE)),
+        pageTitle = "Countries of Trial Users",
     )
 
     private val monthlyDownloadsPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client, listOf(MonthlyDownloadsFactory())
+        client,
+        listOf(MonthlyDownloadsFactory()),
+        pageTitle = "Downloads",
     )
 
     private val httpServer = embeddedServer(Netty, host = host, port = port) {
@@ -157,6 +182,11 @@ class MarketplaceStatsServer(
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
                 call.respond(JteContent("main.kte", activeCustomersPageData.createTemplateParameters(loader)))
+            }
+            get("/customers/churned") {
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", churnedCustomersPageData.createTemplateParameters(loader)))
             }
             get("/trials") {
                 val loader = getDataLoader()

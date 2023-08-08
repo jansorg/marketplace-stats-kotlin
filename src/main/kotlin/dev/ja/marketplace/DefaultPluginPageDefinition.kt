@@ -18,6 +18,7 @@ class DefaultPluginPageDefinition(
     private val client: MarketplaceClient,
     private val factories: List<MarketplaceDataSinkFactory>,
     private val pageCssClasses: String? = null,
+    private val pageTitle: String? = null,
 ) : PluginPageDefinition {
     override suspend fun createTemplateParameters(dataLoader: PluginDataLoader): Map<String, Any?> {
         val data = dataLoader.loadCached()
@@ -32,6 +33,7 @@ class DefaultPluginPageDefinition(
             }.toList()
 
         return mapOf(
+            "pageTitle" to pageTitle,
             "today" to YearMonthDay.now(),
             "plugin" to data.pluginInfo,
             "rating" to data.pluginRating,

@@ -8,18 +8,26 @@ package dev.ja.marketplace.data.customers
 import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.MarketplaceDataSink
-import dev.ja.marketplace.data.customers.CustomerTable
 import dev.ja.marketplace.data.MarketplaceDataSinkFactory
 
 class CustomerTableFactory : MarketplaceDataSinkFactory {
     override fun createTableSink(client: MarketplaceClient): MarketplaceDataSink {
-        return CustomerTable { true }
+        return CustomerTable()
     }
 }
 
 class ActiveCustomerTableFactory : MarketplaceDataSinkFactory {
+    private val now = YearMonthDay.now()
+
     override fun createTableSink(client: MarketplaceClient): MarketplaceDataSink {
-        val now = YearMonthDay.now()
-        return CustomerTable { licenseInfo -> now in licenseInfo.validity }
+        return CustomerTable({ licenseInfo -> now in licenseInfo.validity })
+    }
+}
+
+class ChurnedCustomerTableFactory : MarketplaceDataSinkFactory {
+    private val now = YearMonthDay.now()
+
+    override fun createTableSink(client: MarketplaceClient): MarketplaceDataSink {
+        return CustomerTable({ true }, { _, latestValid -> now > latestValid }, false)
     }
 }
