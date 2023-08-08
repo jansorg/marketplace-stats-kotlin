@@ -6,6 +6,7 @@
 package dev.ja.marketplace.data.licenses
 
 import dev.ja.marketplace.client.Currency
+import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.withCurrency
 import dev.ja.marketplace.data.*
 
@@ -38,35 +39,43 @@ class LicenseTable : SimpleDataTable("Licenses", "licenses", "section-wide"), Ma
 
     override val sections: List<DataTableSection>
         get() {
-            val rows = data.map { license ->
-                SimpleDateTableRow(
-                    values = mapOf(
-                        columnLicenseId to license.id,
-                        columnPurchaseDate to license.sale.date,
-                        columnValidityStart to license.validity.start,
-                        columnValidityEnd to license.validity.end,
-                        columnCustomerName to license.sale.customer.name,
-                        columnCustomerId to license.sale.customer.code,
-                        columnAmountUSD to license.amountUSD.withCurrency(Currency.USD),
-                        columnLicenseType to license.sale.licensePeriod,
-                        columnLicenseRenewalType to license.saleLineItem.type,
-                        columnDiscount to license.saleLineItem.discountDescriptions
-                            .mapNotNull { it.percent }
-                            .sorted()
-                            .map { it.asPercentageValue(false) }
-                    ),
-                    tooltips = mapOf(
-                        columnDiscount to license.saleLineItem.discountDescriptions
-                            .sortedBy { it.percent ?: 0.0 }
-                            .joinToString("\n") {
-                                when {
-                                    it.percent != null -> "%.2f%% (%s)".format(it.percent, it.description)
-                                    else -> it.description
+            var lastPurchaseDate: YearMonthDay? = null
+            val rows = data
+                .sortedByDescending { it.sale.amountUSD.sortValue() }
+                .sortedByDescending { it.sale.date }
+                .map { license ->
+                    val purchaseDate = license.sale.date
+                    val showPurchaseDate = lastPurchaseDate != purchaseDate
+                    lastPurchaseDate = purchaseDate
+
+                    SimpleDateTableRow(
+                        values = mapOf(
+                            columnLicenseId to license.id,
+                            columnPurchaseDate to if (showPurchaseDate) purchaseDate else null,
+                            columnValidityStart to license.validity.start,
+                            columnValidityEnd to license.validity.end,
+                            columnCustomerName to license.sale.customer.name,
+                            columnCustomerId to license.sale.customer.code,
+                            columnAmountUSD to license.amountUSD.withCurrency(Currency.USD),
+                            columnLicenseType to license.sale.licensePeriod,
+                            columnLicenseRenewalType to license.saleLineItem.type,
+                            columnDiscount to license.saleLineItem.discountDescriptions
+                                .mapNotNull { it.percent }
+                                .sorted()
+                                .map { it.asPercentageValue(false) }
+                        ),
+                        tooltips = mapOf(
+                            columnDiscount to license.saleLineItem.discountDescriptions
+                                .sortedBy { it.percent ?: 0.0 }
+                                .joinToString("\n") {
+                                    when {
+                                        it.percent != null -> "%.2f%% (%s)".format(it.percent, it.description)
+                                        else -> it.description
+                                    }
                                 }
-                            }
+                        )
                     )
-                )
-            }
+                }
             return listOf(SimpleTableSection(rows, null))
         }
 
