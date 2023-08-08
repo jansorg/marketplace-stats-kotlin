@@ -69,10 +69,12 @@ class CustomerTable(
         get() {
             val now = YearMonthDay.now()
             var prevValidUntil: YearMonthDay? = null
-            val rows = customers
+            val displayedCustomers = customers
                 .filter { customerFilter(it, latestLicenseValid[it]!!) }
                 .sortedByDescending { totalCustomerSales[it]?.sortValue() ?: 0L }
                 .sortedByDescending { latestLicenseValid[it]!! }
+
+            val rows = displayedCustomers
                 .map { customer ->
                     val validUntil = latestLicenseValid[customer]!!
                     val showValidUntil = validUntil != prevValidUntil
@@ -103,12 +105,14 @@ class CustomerTable(
                         ),
                     )
                 }
+
             val footer = SimpleRowGroup(
                 SimpleDateTableRow(
-                    columnName to "${rows.size} customers",
-                    columnActiveLicenses to rows.size,
+                    columnName to "${displayedCustomers.size} customers",
+                    columnActiveLicenses to displayedCustomers.sumOf { activeLicenses[it]!!.size },
                 )
             )
+
             return listOf(SimpleTableSection(rows, footer = footer))
         }
 }
