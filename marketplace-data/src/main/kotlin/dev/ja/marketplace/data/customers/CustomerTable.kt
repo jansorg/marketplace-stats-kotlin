@@ -5,12 +5,9 @@
 
 package dev.ja.marketplace.data.customers
 
-import dev.ja.marketplace.client.Amount
-import dev.ja.marketplace.client.Currency
-import dev.ja.marketplace.client.CustomerInfo
-import dev.ja.marketplace.data.*
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.LicenseId
+import dev.ja.marketplace.data.*
 
 class CustomerTable(val licenseFilter: (LicenseInfo) -> Boolean) :
     SimpleDataTable("Customers", cssClass = "section-wide"), MarketplaceDataSink {
@@ -25,7 +22,7 @@ class CustomerTable(val licenseFilter: (LicenseInfo) -> Boolean) :
     private val columnName = DataTableColumn("customer-name", "Name")
     private val columnCountry = DataTableColumn("customer-country", "Country")
     private val columnType = DataTableColumn("customer-type", "Type")
-    private val columnActiveSales = DataTableColumn("sales-active", "Act. Sales", "num")
+    private val columnActiveSales = DataTableColumn("sales-active", "Last Sale", "num")
     private val columnNextSale = DataTableColumn("sales-next", "Next Sale", "num")
     private val columnSales = DataTableColumn("sales-total", "Total Sales", "num")
     private val columnActiveLicenses = DataTableColumn("customer-licenses", "Licenses", "num")
@@ -66,35 +63,47 @@ class CustomerTable(val licenseFilter: (LicenseInfo) -> Boolean) :
 
     override val sections: List<DataTableSection>
         get() {
-            val sortedByValidity = customers.sortedBy { latestLicenseValid[it]!! }
             val now = YearMonthDay.now()
-            val rows = sortedByValidity.map { customer ->
-                val latestValid = latestLicenseValid[customer]!!
-                val cssClass: String? = when {
-                    latestValid < now -> "churned"
-                    else -> null
+            var prevValidUntil: YearMonthDay? = null
+            val rows = customers
+                .sortedByDescending { customerSales[it]?.sortValue() ?: 0L }
+                .sortedBy { latestLicenseValid[it]!! }
+                .map { customer ->
+                    val validUntil = latestLicenseValid[customer]!!
+                    val showValidUntil = validUntil != prevValidUntil
+                    prevValidUntil = validUntil
+
+                    val cssClass: String? = when {
+                        validUntil < now -> "churned"
+                        else -> null
+                    }
+
+                    SimpleDateTableRow(
+                        mapOf(
+                            columnValidUntil to if (showValidUntil) validUntil else null,
+                            columnId to customer.code,
+                            columnName to customer.name,
+                            columnCountry to customer.country,
+                            columnType to customer.type,
+                            columnActiveSales to customerSalesActive[customer]?.withCurrency(Currency.USD),
+                            columnNextSale to customerSalesNext[customer]?.withCurrency(Currency.USD),
+                            columnSales to customerSales[customer]?.withCurrency(Currency.USD),
+                            columnActiveLicenses to activeLicenses[customer]!!.size,
+                        ),
+                        cssClass = cssClass,
+                        sortValues = mapOf(
+                            columnActiveSales to customerSalesActive[customer]?.sortValue(),
+                            columnNextSale to customerSalesNext[customer]?.sortValue(),
+                            columnSales to customerSales[customer]?.sortValue(),
+                        ),
+                    )
                 }
+            val footer = SimpleRowGroup(
                 SimpleDateTableRow(
-                    mapOf(
-                        columnId to customer.code,
-                        columnName to customer.name,
-                        columnCountry to customer.country,
-                        columnType to customer.type,
-                        columnActiveSales to customerSalesActive[customer]?.withCurrency(Currency.USD),
-                        columnNextSale to customerSalesNext[customer]?.withCurrency(Currency.USD),
-                        columnSales to customerSales[customer]?.withCurrency(Currency.USD),
-                        columnActiveLicenses to activeLicenses[customer]!!.size,
-                        columnValidUntil to latestValid
-                    ),
-                    cssClass = cssClass,
-                    sortValues = mapOf(
-                        columnActiveSales to customerSalesActive[customer]?.sortValue(),
-                        columnNextSale to customerSalesNext[customer]?.sortValue(),
-                        columnSales to customerSales[customer]?.sortValue(),
-                    ),
+                    columnName to "${customers.size} customers",
+                    columnActiveLicenses to activeLicenses.values.sumOf { it.size },
                 )
-            }
-            val footer = SimpleRowGroup(SimpleDateTableRow(columnName to "${sortedByValidity.size} customers"))
+            )
             return listOf(SimpleTableSection(rows, footer = footer))
         }
 }
