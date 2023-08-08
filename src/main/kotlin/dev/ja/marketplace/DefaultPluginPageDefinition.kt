@@ -6,6 +6,7 @@
 package dev.ja.marketplace
 
 import dev.ja.marketplace.client.MarketplaceClient
+import dev.ja.marketplace.client.MarketplaceUrlSupport
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.MarketplaceDataSinkFactory
@@ -33,10 +34,10 @@ class DefaultPluginPageDefinition(
         return mapOf(
             "today" to YearMonthDay.now(),
             "plugin" to data.pluginInfo,
-            "pluginSummary" to data.pluginSummary,
             "rating" to data.pluginRating,
             "tables" to dataSinks.filterIsInstance<DataTable>(),
             "cssClass" to pageCssClasses,
+            "urls" to dataLoader.client as MarketplaceUrlSupport,
         )
     }
 }

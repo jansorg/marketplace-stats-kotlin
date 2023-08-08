@@ -317,3 +317,16 @@ th.col-left, td.col-left {
 .section-wide, .section-wide table {
     width: 100%;
 }
+
+.plugin-icon {
+    height: 64px;
+    width: auto;
+    vertical-align: baseline;
+}
+
+.plugin-icon-small {
+    height: 1em;
+    width: auto;
+    vertical-align: text-bottom;
+    display: inline-block;
+}

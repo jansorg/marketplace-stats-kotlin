@@ -53,6 +53,10 @@ class KtorMarketplaceClient(
         }
     }
 
+    override fun assetUrl(path: String): String {
+        return "https://$apiHost/${path.removePrefix("/")}"
+    }
+
     override suspend fun userInfo(): UserInfo {
         return httpClient.get("${apiPath}/users/me/full").body()
     }

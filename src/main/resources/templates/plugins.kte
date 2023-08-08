@@ -1,7 +1,9 @@
 @import dev.ja.marketplace.client.PluginInfoSummary
 @import dev.ja.marketplace.client.PluginPricingModel
+@import dev.ja.marketplace.client.MarketplaceUrlSupport
 
 @param plugins: List<PluginInfoSummary>
+@param urls: MarketplaceUrlSupport
 
 <html lang="en">
 <head>
@@ -19,6 +21,8 @@
 <ul>
     @for(plugin in plugins.filter { it.isPaidOrFreemium })
         <li>
+            !{val iconUrl = plugin.iconUrlPath?.let { urls.assetUrl(it) }}
+            @if(iconUrl != null)<img src="${iconUrl}" alt="logo" class="plugin-icon-small"/>@endif
             <a href="/?pluginId=${plugin.id}">${plugin.name}</a>
         </li>
     @endfor
@@ -29,6 +33,8 @@
 <ul>
     @for(plugin in plugins.filter { !it.isPaidOrFreemium })
         <li>
+            !{val iconUrl = plugin.iconUrlPath?.let { urls.assetUrl(it) }}
+            @if(iconUrl != null)<img src="${iconUrl}" alt="logo" class="plugin-icon-small"/>@endif
             <a href="/?pluginId=${plugin.id}">${plugin.name}</a>
         </li>
     @endfor

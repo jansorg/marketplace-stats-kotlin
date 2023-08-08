@@ -6,6 +6,7 @@
 package dev.ja.marketplace
 
 import dev.ja.marketplace.client.MarketplaceClient
+import dev.ja.marketplace.client.MarketplaceUrlSupport
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.PluginInfoSummary
 import dev.ja.marketplace.data.currentWeek.CurrentWeekFactory
@@ -30,11 +31,16 @@ import io.ktor.server.plugins.compression.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.pipeline.*
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
-class MarketplaceStatsServer(private val client: MarketplaceClient) {
+class MarketplaceStatsServer(
+    private val client: MarketplaceClient,
+    private val host: String = "127.0.0.1",
+    private val port: Int = 8080
+) {
     private lateinit var allPlugins: List<PluginInfoSummary>
 
     private val dataLoaders = ConcurrentHashMap<PluginId, PluginDataLoader>()
@@ -97,12 +103,15 @@ class MarketplaceStatsServer(private val client: MarketplaceClient) {
         client, listOf(MonthlyDownloadsFactory())
     )
 
-    private val httpServer = embeddedServer(Netty, host = "127.0.0.1", port = 8080) {
+    private val httpServer = embeddedServer(Netty, host = host, port = port) {
         install(Compression)
         install(Jte) {
             templateEngine = TemplateEngine.create(ResourceCodeResolver("templates"), ContentType.Html).also {
                 it.setTrimControlStructures(true)
-                it.prepareForRendering("main.kte")
+                CoroutineScope(Dispatchers.IO).launch {
+                    it.prepareForRendering("plugins.kte")
+                    it.prepareForRendering("main.kte")
+                }
             }
         }
 
@@ -121,7 +130,12 @@ class MarketplaceStatsServer(private val client: MarketplaceClient) {
                     }
                     call.respond(JteContent("main.kte", pageData.createTemplateParameters(loader)))
                 } else {
-                    call.respond(JteContent("plugins.kte", mapOf("plugins" to allPlugins)))
+                    call.respond(
+                        JteContent(
+                            "plugins.kte",
+                            mapOf("plugins" to allPlugins, "urls" to client as MarketplaceUrlSupport)
+                        )
+                    )
                 }
             }
             get("/licenses") {
@@ -166,17 +180,16 @@ class MarketplaceStatsServer(private val client: MarketplaceClient) {
         val userInfo = client.userInfo()
         this.allPlugins = client.plugins(userInfo.id).sortedBy { it.name }
 
-        // preload
+        // preload in background
         if (allPlugins.isNotEmpty()) {
-            coroutineScope {
-                launch {
-                    for (plugin in allPlugins) {
-                        getDataLoader(plugin).loadCached()
-                    }
+            CoroutineScope(Dispatchers.IO).launch {
+                allPlugins.forEach {
+                    getDataLoader(it).loadCached()
                 }
             }
         }
 
+        println("Launching web server: http://$host:$port/")
         httpServer.start(true)
     }
 }

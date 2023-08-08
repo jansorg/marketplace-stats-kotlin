@@ -65,7 +65,7 @@ data class PluginInfoSummary(
     @SerialName("target")
     val target: String? = null,
     @SerialName("icon")
-    val iconUrl: String? = null,
+    val iconUrlPath: String? = null,
     @SerialName("organization")
     val organization: String? = null,
     @SerialName("vendor")
@@ -125,12 +125,17 @@ data class PluginInfo(
     @SerialName("screens")
     val screens: List<PluginResourceUrl> = emptyList(),
     @SerialName("icon")
-    val iconUrl: String? = null,
+    val iconUrlPath: String? = null,
     @SerialName("isHidden")
     val isHidden: Boolean,
     @SerialName("isMonetizationAvailable")
     val isMonetizationAvailable: Boolean,
-)
+) {
+    val isPaidOrFreemium: Boolean
+        get() {
+            return pricingModel == PluginPricingModel.Paid || pricingModel == PluginPricingModel.Freemium
+        }
+}
 
 @Serializable
 data class PluginPurchaseInfo(

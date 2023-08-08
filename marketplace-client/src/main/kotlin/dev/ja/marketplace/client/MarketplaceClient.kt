@@ -5,7 +5,7 @@
 
 package dev.ja.marketplace.client
 
-interface MarketplaceClient {
+interface MarketplaceClient : MarketplaceUrlSupport {
     suspend fun userInfo(): UserInfo
 
     suspend fun plugins(userId: UserId): List<PluginInfoSummary>
