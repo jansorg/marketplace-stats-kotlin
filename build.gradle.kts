@@ -105,7 +105,7 @@ project(":") {
         shadowJar {
             dependsOn(precompileJte)
 
-            archiveBaseName.set("marketplace-client-all")
+            archiveBaseName.set("marketplace-stats-all")
             archiveClassifier.set("")
             archiveVersion.set("")
         }

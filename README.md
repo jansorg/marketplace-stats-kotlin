@@ -8,16 +8,15 @@ It's a redevelopment of [marketplace-stats](https://github.com/jansorg/marketpla
 1. Prepare your configuration file. You can find a template at `config-template.json`. The file contains the plugin ID and the API key to access the JetBrains Marketplace.
    ```json
    {
-      "pluginId": "your plugin ID as a number, e.g. 123456", 
       "apiKey": "the API key to access the JetBrains marketplace"
    }
    ```
-2. Execute and build the application
+2. Build and launch the application:
     ```bash
    # Build
     ./gradlew clean build -x test
    # Launch
-    java -jar ./build/libs/marketplace-client-all.jar /path/to/config.json
+    java -jar ./build/libs/marketplace-stats-all.jar /path/to/config.json
     ```
 3. Open http://localhost:8080 in your browser to use the application.
 
