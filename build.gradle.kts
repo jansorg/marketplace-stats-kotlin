@@ -3,13 +3,17 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+import gg.jte.ContentType
+
 val ktorVersion: String by project
 
 plugins {
+    application
     id("org.jetbrains.kotlin.jvm") version "1.9.0"
     kotlin("plugin.serialization") version "1.9.0"
+
     id("com.github.johnrengelman.shadow") version "8.1.1"
-    application
+    id("gg.jte.gradle") version "3.0.2"
 }
 
 allprojects {
@@ -68,8 +72,21 @@ project(":") {
         implementation("io.ktor:ktor-server-compression:$ktorVersion")
         implementation("io.ktor:ktor-server-jte:$ktorVersion")
 
-        implementation("gg.jte:jte-kotlin:3.0.2")
+        implementation("gg.jte:jte:3.0.2")
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+
+        runtimeOnly(provider {
+            files(tasks.precompileJte.get().targetDirectory)
+        })
+    }
+
+    jte {
+        sourceDirectory.set(file("src/main/resources/templates").toPath())
+        targetDirectory.set(project.buildDir.resolve("jte-classes").toPath())
+        trimControlStructures.set(true)
+        contentType.set(ContentType.Html)
+
+        precompile()
     }
 
     application {
@@ -77,7 +94,17 @@ project(":") {
     }
 
     tasks {
+        jar {
+            dependsOn(precompileJte)
+
+            from(fileTree(precompileJte.get().targetDirectory) {
+                include("**/*.class")
+            })
+        }
+
         shadowJar {
+            dependsOn(precompileJte)
+
             archiveBaseName.set("marketplace-client-all")
             archiveClassifier.set("")
             archiveVersion.set("")

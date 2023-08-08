@@ -22,7 +22,6 @@ import dev.ja.marketplace.data.trials.TrialsTableFactory
 import dev.ja.marketplace.data.yearSummary.YearlySummaryFactory
 import gg.jte.ContentType
 import gg.jte.TemplateEngine
-import gg.jte.resolve.ResourceCodeResolver
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.http.content.*
@@ -131,12 +130,9 @@ class MarketplaceStatsServer(
     private val httpServer = embeddedServer(Netty, host = host, port = port) {
         install(Compression)
         install(Jte) {
-            templateEngine = TemplateEngine.create(ResourceCodeResolver("templates"), ContentType.Html).also {
-                it.setTrimControlStructures(true)
-                CoroutineScope(Dispatchers.IO).launch {
-                    it.prepareForRendering("plugins.kte")
-                    it.prepareForRendering("main.kte")
-                }
+            templateEngine = TemplateEngine.createPrecompiled(ContentType.Html).also {
+                it.prepareForRendering("main.kte")
+                it.prepareForRendering("plugins.kte")
             }
         }
 
