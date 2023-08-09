@@ -94,6 +94,14 @@ project(":") {
     }
 
     tasks {
+        precompileJte {
+            inputs.files(fileTree("src/main/resources/templates"))
+        }
+
+        build {
+            dependsOn(precompileJte)
+        }
+
         jar {
             dependsOn(precompileJte)
 

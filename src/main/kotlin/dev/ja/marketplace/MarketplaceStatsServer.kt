@@ -22,6 +22,7 @@ import dev.ja.marketplace.data.trials.TrialsTableFactory
 import dev.ja.marketplace.data.yearSummary.YearlySummaryFactory
 import gg.jte.ContentType
 import gg.jte.TemplateEngine
+import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.http.content.*
@@ -35,6 +36,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class MarketplaceStatsServer(
     private val client: MarketplaceClient,
@@ -140,6 +143,24 @@ class MarketplaceStatsServer(
             staticResources("/styles", "styles")
             staticResources("/js", "js")
 
+            post("/refresh") {
+                val pluginId = context.request.queryParameters["pluginId"]?.toInt()
+                if (pluginId != null) {
+                    dataLoaders.remove(pluginId)
+                } else {
+                    dataLoaders.clear()
+                }
+
+                call.respondRedirect {
+                    path("/")
+                    if (pluginId != null) {
+                        parameters {
+                            append("pluginId", pluginId.toString())
+                        }
+                    }
+                }
+            }
+
             get("/") {
                 val loader = getDataLoader()
                     ?: allPlugins.singleOrNull()?.let { getDataLoader(it) }
@@ -202,6 +223,8 @@ class MarketplaceStatsServer(
         }
     }
 
+    private val cacheResetExecutor = Executors.newSingleThreadScheduledExecutor()
+
     suspend fun start() {
         val userInfo = client.userInfo()
         this.allPlugins = client.plugins(userInfo.id).sortedBy { it.name }
@@ -214,6 +237,9 @@ class MarketplaceStatsServer(
                 }
             }
         }
+
+        // install ticker to reset the cache every 30min
+        cacheResetExecutor.scheduleWithFixedDelay(dataLoaders::clear, 0, 30, TimeUnit.MINUTES)
 
         println("Launching web server: http://$host:$port/")
         httpServer.start(true)

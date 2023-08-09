@@ -15,7 +15,6 @@ import kotlinx.coroutines.coroutineScope
 import java.util.concurrent.atomic.AtomicReference
 
 class PluginDataLoader(val plugin: PluginInfoSummary, val client: MarketplaceClient) {
-    private val pluginId = plugin.id
     private val cachedData = AtomicReference<PluginData>()
 
     suspend fun loadCached(): PluginData {
@@ -32,15 +31,15 @@ class PluginDataLoader(val plugin: PluginInfoSummary, val client: MarketplaceCli
 
     private suspend fun load(): PluginData {
         return coroutineScope {
-            val pluginInfo = async { client.pluginInfo(pluginId) }
-            val pluginRating = async { client.pluginRating(pluginId) }
-            val downloadsTotal = async { client.downloadsTotal(pluginId) }
-            val downloadsMonthly = async { client.downloadsMonthly(pluginId, Downloads) }
-            val downloadsDaily = async { client.downloadsDaily(pluginId, Downloads) }
-            val downloadsProduct = async { client.downloadsByProduct(pluginId, Downloads) }
+            val pluginInfo = async { client.pluginInfo(plugin.id) }
+            val pluginRating = async { client.pluginRating(plugin.id) }
+            val downloadsTotal = async { client.downloadsTotal(plugin.id) }
+            val downloadsMonthly = async { client.downloadsMonthly(plugin.id, Downloads) }
+            val downloadsDaily = async { client.downloadsDaily(plugin.id, Downloads) }
+            val downloadsProduct = async { client.downloadsByProduct(plugin.id, Downloads) }
 
             val sales = when {
-                plugin.isPaidOrFreemium -> async { client.salesInfo(pluginId) }
+                plugin.isPaidOrFreemium -> async { client.salesInfo(plugin.id) }
                 else -> null
             }
             val licenseInfo = when {
@@ -48,12 +47,12 @@ class PluginDataLoader(val plugin: PluginInfoSummary, val client: MarketplaceCli
                 else -> null
             }
             val trials = when {
-                plugin.isPaidOrFreemium -> async { client.trialsInfo(pluginId) }
+                plugin.isPaidOrFreemium -> async { client.trialsInfo(plugin.id) }
                 else -> null
             }
 
             PluginData(
-                pluginId,
+                plugin.id,
                 plugin,
                 pluginInfo.await(),
                 pluginRating.await(),

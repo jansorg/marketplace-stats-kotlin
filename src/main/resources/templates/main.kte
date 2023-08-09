@@ -60,5 +60,11 @@
     @template.dataTable(table)
 @endfor
 
+<footer class="menu subtitle section-small">
+    <form action="/refresh?pluginId=${plugin.id}" method="POST">
+        <button>Refresh</button>
+    </form>
+</footer>
+
 </body>
 </html>
