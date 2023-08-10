@@ -117,5 +117,10 @@ project(":") {
             archiveClassifier.set("")
             archiveVersion.set("")
         }
+
+        // task name run conflicts with Kotlin's run
+        named("run") {
+            dependsOn("precompileJte")
+        }
     }
 }
