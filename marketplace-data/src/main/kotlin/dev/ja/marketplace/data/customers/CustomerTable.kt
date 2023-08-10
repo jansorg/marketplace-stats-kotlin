@@ -9,79 +9,88 @@ import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.LicenseId
 import dev.ja.marketplace.data.*
 
-class CustomerTable(
-    val licenseFilter: (LicenseInfo) -> Boolean = { true },
-    val customerFilter: (CustomerInfo, latestValid: YearMonthDay) -> Boolean = { _, _ -> true },
-    private val showChurnedStyling: Boolean = true,
-) :
-    SimpleDataTable("Customers", cssClass = "section-wide"), MarketplaceDataSink {
-    private val customers = mutableSetOf<CustomerInfo>()
-    private val latestLicenseValid = mutableMapOf<CustomerInfo, YearMonthDay>()
-    private val customerSalesActive = mutableMapOf<CustomerInfo, Amount>()
-    private val customerSalesNext = mutableMapOf<CustomerInfo, Amount>()
-    private val totalCustomerSales = mutableMapOf<CustomerInfo, Amount>()
-    private val activeLicenses = mutableMapOf<CustomerInfo, MutableSet<LicenseId>>()
+data class CustomerTableRowData(
+    val customer: CustomerInfo,
+    var latestValidLicense: YearMonthDay? = null,
+    val totalLicenses: MutableSet<LicenseId> = mutableSetOf(),
+    val activeLicenses: MutableSet<LicenseId> = mutableSetOf(),
+    var lastSaleUSD: Amount = Amount.ZERO,
+    var nextSaleUSD: Amount = Amount.ZERO,
+    var totalSalesUSD: Amount = Amount.ZERO,
+)
 
+class CustomerTable(
+    private val customerFilter: (CustomerTableRowData) -> Boolean = { true },
+    private val isChurnedStyling: Boolean = false,
+    private val nowDate: YearMonthDay = YearMonthDay.now(),
+) : SimpleDataTable("Customers", cssClass = "section-wide"), MarketplaceDataSink {
+    // columns
     private val columnValidUntil = DataTableColumn("customer-type", "Valid Until")
-    private val columnName = DataTableColumn("customer-name", "Name")
+    private val columnName = DataTableColumn("customer-name", "Name", cssStyle = "width:20%")
     private val columnCountry = DataTableColumn("customer-country", "Country")
     private val columnType = DataTableColumn("customer-type", "Type")
-    private val columnActiveSales = DataTableColumn("sales-active", "Last Sale", "num")
+    private val columnLastSales = DataTableColumn("sales-active", "Last Sale", "num")
     private val columnNextSale = DataTableColumn("sales-next", "Next Sale", "num")
     private val columnSales = DataTableColumn("sales-total", "Total Sales", "num")
-    private val columnActiveLicenses = DataTableColumn("customer-licenses", "Licenses", "num")
+    private val columnActiveLicenses = DataTableColumn("customer-licenses-active", "Active Licenses", "num")
+    private val columnTotalLicenses = DataTableColumn("customer-licenses-total", "Total Licenses", "num")
     private val columnId = DataTableColumn("customer-id", "Cust. ID", "num")
 
+    private val customerMap = mutableMapOf<CustomerId, CustomerTableRowData>()
     private val salesCalculator = SaleCalculator()
 
-    override val columns: List<DataTableColumn> = listOf(
+    override val columns: List<DataTableColumn> = listOfNotNull(
         columnValidUntil,
         columnName,
-        columnCountry,
-        columnType,
-        columnActiveSales,
-        columnNextSale,
         columnSales,
-        columnActiveLicenses,
+        columnLastSales.takeUnless { isChurnedStyling },
+        columnNextSale.takeUnless { isChurnedStyling },
+        columnActiveLicenses.takeUnless { isChurnedStyling },
+        columnTotalLicenses,
+        columnType,
+        columnCountry,
         columnId
     )
 
     override fun process(licenseInfo: LicenseInfo) {
         val customer = licenseInfo.sale.customer
+        val data = customerMap.computeIfAbsent(customer.code) { CustomerTableRowData(customer) }
 
-        if (YearMonthDay.now() in licenseInfo.dateRange) {
-            customerSalesActive.merge(customer, licenseInfo.amountUSD) { a, b -> a + b }
-            customerSalesNext.merge(customer, licenseInfo.amountUSD) { a, _ ->
-                a + salesCalculator.nextSale(licenseInfo).amountUSD
-            }
+        val licenseEnd = licenseInfo.validity.end
+        data.latestValidLicense = maxOf(licenseEnd, data.latestValidLicense ?: licenseEnd)
+        data.totalLicenses += licenseInfo.id
+        if (nowDate in licenseInfo.validity) {
+            data.activeLicenses += licenseInfo.id
         }
-
-        totalCustomerSales.merge(customer, licenseInfo.amountUSD) { a, b -> a + b }
-
-        if (licenseFilter(licenseInfo)) {
-            customers += customer
-            activeLicenses.computeIfAbsent(customer) { mutableSetOf() } += licenseInfo.id
-            latestLicenseValid.merge(customer, licenseInfo.validity.end, ::maxOf)
-        }
+        data.totalSalesUSD += licenseInfo.amountUSD
+        data.lastSaleUSD += licenseInfo.amountUSD
+        data.nextSaleUSD += salesCalculator.nextSale(licenseInfo).amountUSD
     }
 
     override val sections: List<DataTableSection>
         get() {
             val now = YearMonthDay.now()
             var prevValidUntil: YearMonthDay? = null
-            val displayedCustomers = customers
-                .filter { customerFilter(it, latestLicenseValid[it]!!) }
-                .sortedByDescending { totalCustomerSales[it]?.sortValue() ?: 0L }
-                .sortedByDescending { latestLicenseValid[it]!! }
+            val displayedCustomers = customerMap.values
+                .filter(customerFilter)
+                .sortedByDescending { it.totalSalesUSD.sortValue() }
+                .sortedByDescending { it.latestValidLicense!! }
+
+            /*for (row in displayedCustomers) {
+                if (row.activeLicenses != row.totalLicenses) {
+                    println("c: ${row.customer}")
+                }
+            }*/
 
             val rows = displayedCustomers
-                .map { customer ->
-                    val validUntil = latestLicenseValid[customer]!!
+                .map { customerData ->
+                    val customer = customerData.customer
+                    val validUntil = customerData.latestValidLicense!!
                     val showValidUntil = validUntil != prevValidUntil
                     prevValidUntil = validUntil
 
                     val cssClass: String? = when {
-                        validUntil < now && showChurnedStyling -> "churned"
+                        !isChurnedStyling && validUntil < now -> "churned"
                         else -> null
                     }
 
@@ -92,16 +101,21 @@ class CustomerTable(
                             columnName to customer.name,
                             columnCountry to customer.country,
                             columnType to customer.type,
-                            columnActiveSales to customerSalesActive[customer]?.withCurrency(Currency.USD),
-                            columnNextSale to customerSalesNext[customer]?.withCurrency(Currency.USD),
-                            columnSales to totalCustomerSales[customer]?.withCurrency(Currency.USD),
-                            columnActiveLicenses to activeLicenses[customer]!!.size,
+                            columnTotalLicenses to customerData.totalLicenses.size,
+                            columnActiveLicenses to customerData.activeLicenses.size,
+                            columnSales to customerData.totalSalesUSD.withCurrency(Currency.USD),
+                            columnLastSales to customerData.lastSaleUSD
+                                .takeUnless { isChurnedStyling }
+                                ?.withCurrency(Currency.USD),
+                            columnNextSale to customerData.nextSaleUSD
+                                .takeUnless { isChurnedStyling }
+                                ?.withCurrency(Currency.USD),
                         ),
                         cssClass = cssClass,
                         sortValues = mapOf(
-                            columnActiveSales to customerSalesActive[customer]?.sortValue(),
-                            columnNextSale to customerSalesNext[customer]?.sortValue(),
-                            columnSales to totalCustomerSales[customer]?.sortValue(),
+                            columnLastSales to customerData.lastSaleUSD.sortValue(),
+                            columnNextSale to customerData.nextSaleUSD.sortValue(),
+                            columnSales to customerData.totalSalesUSD.sortValue(),
                         ),
                     )
                 }
@@ -109,7 +123,11 @@ class CustomerTable(
             val footer = SimpleRowGroup(
                 SimpleDateTableRow(
                     columnName to "${displayedCustomers.size} customers",
-                    columnActiveLicenses to displayedCustomers.sumOf { activeLicenses[it]!!.size },
+                    columnTotalLicenses to displayedCustomers.sumOf { it.totalLicenses.size },
+                    columnActiveLicenses to displayedCustomers.sumOf { it.activeLicenses.size },
+                    columnSales to displayedCustomers.sumOf { it.totalSalesUSD }.withCurrency(Currency.USD),
+                    // fixme: unreliable because of future licenses, etc.
+                    //columnNextSale to displayedCustomers.sumOf { it.nextSaleUSD }.withCurrency(Currency.USD),
                 )
             )
 
