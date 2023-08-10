@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.MarketplaceUrlSupport
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.PluginInfoSummary
 import dev.ja.marketplace.data.currentWeek.CurrentWeekFactory
+import dev.ja.marketplace.data.customerType.CustomerTypeFactory
 import dev.ja.marketplace.data.customers.ActiveCustomerTableFactory
 import dev.ja.marketplace.data.customers.ChurnedCustomerTableFactory
 import dev.ja.marketplace.data.customers.CustomerTableFactory
@@ -67,6 +68,7 @@ class MarketplaceStatsServer(
         listOf(
             YearlySummaryFactory(),
             CurrentWeekFactory(),
+            CustomerTypeFactory(),
             TopCountriesFactory(),
             TopTrialCountriesFactory(),
             OverviewTableFactory()
