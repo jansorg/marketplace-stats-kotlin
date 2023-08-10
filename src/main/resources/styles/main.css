@@ -133,6 +133,20 @@ dd {
 }
 
 /* custom */
+.tables {
+    display: flex;
+    align-items: flex-start;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    column-gap: 1rem;
+    row-gap: 1rem;
+}
+
+.tables-row {
+    width: 100%;
+}
+
 .subtitle {
     text-align: center;
     font-size: 1rem;

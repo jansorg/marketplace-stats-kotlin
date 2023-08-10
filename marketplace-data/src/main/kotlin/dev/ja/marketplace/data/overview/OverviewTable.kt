@@ -13,7 +13,7 @@ import dev.ja.marketplace.data.*
 import java.math.BigDecimal
 import java.util.*
 
-class OverviewTable(private val graceTimeDays: Int = 7) : SimpleDataTable("Overview", "overview", "table-striped"),
+class OverviewTable(private val graceTimeDays: Int = 7) : SimpleDataTable("Overview", "overview", "table-striped tables-row"),
     MarketplaceDataSink {
 
     private data class MonthData(

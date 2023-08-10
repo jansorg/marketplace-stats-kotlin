@@ -56,9 +56,11 @@
     <h2 class="centered">${pageTitle}</h2>
 @endif
 
-@for(table in tables)
-    @template.dataTable(table)
-@endfor
+<section class="tables">
+    @for(table in tables)
+        @template.dataTable(table)
+    @endfor
+</section>
 
 <footer class="menu subtitle section-small">
     <form action="/refresh?pluginId=${plugin.id}" method="POST">
