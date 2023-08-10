@@ -16,15 +16,14 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "section-wide"), Ma
 
     private data class YearSummary(val sales: PaymentAmountTracker)
 
-    override fun process(sale: PluginSale) {
-        val yearData = data.computeIfAbsent(sale.date.year) {
-            YearSummary(PaymentAmountTracker(YearMonthDayRange.ofYear(sale.date.year)))
-        }
-        yearData.sales.add(sale.date, sale.amountUSD)
-    }
-
     override fun init(data: PluginData) {
         this.downloads = data.downloadsMonthly
+    }
+
+    override fun process(sale: PluginSale) {
+        val year = sale.date.year
+        val yearData = data.computeIfAbsent(year) { YearSummary(PaymentAmountTracker(YearMonthDayRange.ofYear(year))) }
+        yearData.sales.add(sale.date, sale.amountUSD)
     }
 
     override fun process(licenseInfo: LicenseInfo) {}

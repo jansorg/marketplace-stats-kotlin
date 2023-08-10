@@ -7,7 +7,7 @@ package dev.ja.marketplace.data
 
 import dev.ja.marketplace.client.Amount
 import java.math.BigDecimal
-import java.math.RoundingMode
+import java.math.RoundingMode.DOWN
 
 /**
  * Split an amount into parts without errors by rounding.
@@ -20,7 +20,7 @@ object SplitAmount {
         block: (amount: Amount, amountUSD: Amount, item: T) -> Unit
     ) {
         val size = items.size
-        val itemCount = size.toBigDecimal()
+        val count = size.toBigDecimal()
 
         if (size == 0) {
             return
@@ -30,11 +30,13 @@ object SplitAmount {
             return
         }
 
-        val itemAmount = (total / itemCount).setScale(2, RoundingMode.DOWN).setScale(10)
-        val itemAmountLast = total - itemAmount * (itemCount - BigDecimal.ONE).setScale(10)
+        val totalScaled = total.setScale(10, DOWN)
+        val itemAmount = (totalScaled / count).setScale(2, DOWN)
+        val itemAmountLast = (totalScaled - itemAmount * (count - BigDecimal.ONE)).setScale(2, DOWN)
 
-        val itemAmountUSD = (totalUSD / itemCount).setScale(2, RoundingMode.DOWN).setScale(10)
-        val itemAmountUSDLast = totalUSD - itemAmountUSD * (itemCount - BigDecimal.ONE).setScale(10)
+        val totalUSDScaled = totalUSD.setScale(10, DOWN)
+        val itemAmountUSD = (totalUSDScaled / count).setScale(2, DOWN)
+        val itemAmountUSDLast = (totalUSDScaled - itemAmountUSD * (count - BigDecimal.ONE)).setScale(2, DOWN)
 
         items.forEachIndexed { index, item ->
             when (index) {

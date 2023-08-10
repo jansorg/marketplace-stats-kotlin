@@ -23,7 +23,7 @@ data class LicenseInfo(
     override val amount: Amount,
     // currency of Amount
     override val currency: Currency,
-    // same as amount, but in USD
+    // same as amount, but converted from "currency" to USD
     override val amountUSD: Amount,
     // the sale of this particular license purchase, which also contains the saleLineItem
     val sale: PluginSale,
