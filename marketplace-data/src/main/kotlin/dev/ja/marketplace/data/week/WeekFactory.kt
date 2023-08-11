@@ -3,15 +3,14 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-package dev.ja.marketplace.data.currentWeek
+package dev.ja.marketplace.data.week
 
 import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.data.MarketplaceDataSink
-import dev.ja.marketplace.data.currentWeek.CurrentWeekTable
 import dev.ja.marketplace.data.MarketplaceDataSinkFactory
 
-class CurrentWeekFactory : MarketplaceDataSinkFactory {
+class WeekFactory : MarketplaceDataSinkFactory {
     override fun createTableSink(client: MarketplaceClient): MarketplaceDataSink {
-        return CurrentWeekTable()
+        return WeekTable()
     }
 }
