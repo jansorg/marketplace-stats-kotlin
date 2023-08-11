@@ -9,7 +9,6 @@ import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.client.MarketplaceUrlSupport
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.PluginInfoSummary
-import dev.ja.marketplace.data.week.WeekFactory
 import dev.ja.marketplace.data.customerType.CustomerTypeFactory
 import dev.ja.marketplace.data.customers.ActiveCustomerTableFactory
 import dev.ja.marketplace.data.customers.ChurnedCustomerTableFactory
@@ -17,9 +16,12 @@ import dev.ja.marketplace.data.customers.CustomerTableFactory
 import dev.ja.marketplace.data.downloads.MonthlyDownloadsFactory
 import dev.ja.marketplace.data.licenses.LicenseTableFactory
 import dev.ja.marketplace.data.overview.OverviewTableFactory
+import dev.ja.marketplace.data.salesToday.SalesTodayFactory
 import dev.ja.marketplace.data.topCountries.TopCountriesFactory
 import dev.ja.marketplace.data.topTrialCountries.TopTrialCountriesFactory
 import dev.ja.marketplace.data.trials.TrialsTableFactory
+import dev.ja.marketplace.data.trialsToday.TrialsTodayFactory
+import dev.ja.marketplace.data.week.WeekFactory
 import dev.ja.marketplace.data.yearSummary.YearlySummaryFactory
 import gg.jte.ContentType
 import gg.jte.TemplateEngine
@@ -68,6 +70,8 @@ class MarketplaceStatsServer(
         listOf(
             YearlySummaryFactory(),
             WeekFactory(),
+            SalesTodayFactory(),
+            TrialsTodayFactory(),
             CustomerTypeFactory(),
             TopCountriesFactory(),
             TopTrialCountriesFactory(),

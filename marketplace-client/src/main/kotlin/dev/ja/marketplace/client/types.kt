@@ -21,7 +21,14 @@ typealias LicenseId = String
 
 typealias Amount = BigDecimal
 
-data class AmountWithCurrency(val amount: Amount, val currency: Currency)
+data class AmountWithCurrency(val amount: Amount, val currency: Currency) : Comparable<AmountWithCurrency> {
+    override fun compareTo(other: AmountWithCurrency): Int {
+        return when (this.currency) {
+            other.currency -> this.amount.compareTo(other.amount)
+            else -> this.currency.compareTo(other.currency)
+        }
+    }
+}
 
 fun Amount.withCurrency(currency: Currency): AmountWithCurrency {
     return AmountWithCurrency(this, currency)
@@ -340,13 +347,14 @@ data class CustomerInfo(
     }
 }
 
+// keep order because it's used for sorting
 @Serializable
 enum class CustomerType {
-    @SerialName("Personal")
-    Personal,
-
     @SerialName("Organization")
     Organization,
+
+    @SerialName("Personal")
+    Personal,
 }
 
 @Serializable
