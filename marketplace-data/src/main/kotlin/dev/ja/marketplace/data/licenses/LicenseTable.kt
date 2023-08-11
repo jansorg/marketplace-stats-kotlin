@@ -6,6 +6,7 @@
 package dev.ja.marketplace.data.licenses
 
 import dev.ja.marketplace.client.Currency
+import dev.ja.marketplace.client.PluginSaleItemType
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.withCurrency
 import dev.ja.marketplace.data.*
@@ -39,10 +40,15 @@ class LicenseTable : SimpleDataTable("Licenses", "licenses", "section-wide"), Ma
 
     override val sections: List<DataTableSection>
         get() {
+            // first by date, then days by new/renew, then same values by annual/monthly, then by amount
+            val comparator = Comparator.comparing<LicenseInfo?, YearMonthDay?> { it.sale.date }.reversed()
+                .then(Comparator.comparing { it.saleLineItem.type })
+                .thenDescending(Comparator.comparing { it.sale.licensePeriod })
+                .thenDescending(Comparator.comparing { it.amountUSD.sortValue() })
+
             var lastPurchaseDate: YearMonthDay? = null
             val rows = data
-                .sortedByDescending { it.sale.amountUSD.sortValue() }
-                .sortedByDescending { it.sale.date }
+                .sortedWith(comparator)
                 .map { license ->
                     val purchaseDate = license.sale.date
                     val showPurchaseDate = lastPurchaseDate != purchaseDate
