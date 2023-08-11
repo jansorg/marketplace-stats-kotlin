@@ -26,6 +26,6 @@ class ChurnedCustomerTableFactory : MarketplaceDataSinkFactory {
     private val now = YearMonthDay.now()
 
     override fun createTableSink(client: MarketplaceClient): MarketplaceDataSink {
-        return CustomerTable({ now > it.latestValidLicense!! }, true)
+        return CustomerTable({ now > it.latestLicenseEnd!! }, true)
     }
 }

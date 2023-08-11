@@ -11,7 +11,8 @@ import dev.ja.marketplace.data.*
 
 data class CustomerTableRowData(
     val customer: CustomerInfo,
-    var latestValidLicense: YearMonthDay? = null,
+    var earliestLicenseStart: YearMonthDay? = null,
+    var latestLicenseEnd: YearMonthDay? = null,
     val totalLicenses: MutableSet<LicenseId> = mutableSetOf(),
     val activeLicenses: MutableSet<LicenseId> = mutableSetOf(),
     var lastSaleUSD: Amount = Amount.ZERO,
@@ -24,8 +25,8 @@ class CustomerTable(
     private val isChurnedStyling: Boolean = false,
     private val nowDate: YearMonthDay = YearMonthDay.now(),
 ) : SimpleDataTable("Customers", cssClass = "section-wide"), MarketplaceDataSink {
-    // columns
-    private val columnValidUntil = DataTableColumn("customer-type", "Valid Until")
+    private val columnValidSince = DataTableColumn("customer-since", "Since")
+    private val columnValidUntil = DataTableColumn("customer-until", "Valid Until")
     private val columnName = DataTableColumn("customer-name", "Name", cssStyle = "width:20%")
     private val columnCountry = DataTableColumn("customer-country", "Country")
     private val columnType = DataTableColumn("customer-type", "Type")
@@ -41,6 +42,7 @@ class CustomerTable(
 
     override val columns: List<DataTableColumn> = listOfNotNull(
         columnValidUntil,
+        columnValidSince,
         columnName,
         columnSales,
         columnLastSales.takeUnless { isChurnedStyling },
@@ -56,8 +58,12 @@ class CustomerTable(
         val customer = licenseInfo.sale.customer
         val data = customerMap.computeIfAbsent(customer.code) { CustomerTableRowData(customer) }
 
+        val licenseStart = licenseInfo.validity.start
+        data.earliestLicenseStart = minOf(licenseStart, data.earliestLicenseStart ?: licenseStart)
+
         val licenseEnd = licenseInfo.validity.end
-        data.latestValidLicense = maxOf(licenseEnd, data.latestValidLicense ?: licenseEnd)
+        data.latestLicenseEnd = maxOf(licenseEnd, data.latestLicenseEnd ?: licenseEnd)
+
         data.totalLicenses += licenseInfo.id
         if (nowDate in licenseInfo.validity) {
             data.activeLicenses += licenseInfo.id
@@ -74,7 +80,7 @@ class CustomerTable(
             val displayedCustomers = customerMap.values
                 .filter(customerFilter)
                 .sortedByDescending { it.totalSalesUSD.sortValue() }
-                .sortedByDescending { it.latestValidLicense!! }
+                .sortedByDescending { it.latestLicenseEnd!! }
 
             /*for (row in displayedCustomers) {
                 if (row.activeLicenses != row.totalLicenses) {
@@ -85,7 +91,8 @@ class CustomerTable(
             val rows = displayedCustomers
                 .map { customerData ->
                     val customer = customerData.customer
-                    val validUntil = customerData.latestValidLicense!!
+                    val validSince = customerData.earliestLicenseStart!!
+                    val validUntil = customerData.latestLicenseEnd!!
                     val showValidUntil = validUntil != prevValidUntil
                     prevValidUntil = validUntil
 
@@ -97,6 +104,7 @@ class CustomerTable(
                     SimpleDateTableRow(
                         mapOf(
                             columnValidUntil to if (showValidUntil) validUntil else null,
+                            columnValidSince to validSince,
                             columnId to customer.code,
                             columnName to customer.name,
                             columnCountry to customer.country,
