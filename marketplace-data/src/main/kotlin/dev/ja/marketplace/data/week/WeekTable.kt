@@ -16,22 +16,25 @@ class WeekTable(title: String = "This week") : SimpleDataTable(title, cssClass =
 
     private data class WeekData(
         var sales: Amount,
-        var downloads: Long
+        var downloads: Long,
+        var trials: Int,
     )
 
     private val columnDay = DataTableColumn("day", null)
     private val columnSales = DataTableColumn("total", "Sales", "num")
-    private val columnDownloads = DataTableColumn("total", "Downloads", "num")
+    private val columnDownloads = DataTableColumn("total", "↓", "num", tooltip = "Downloads")
+    private val columnTrials = DataTableColumn("total", "Trials", "num")
 
     private val dateRange = YearMonthDayRange.currentWeek()
     private val data = TreeMap<YearMonthDay, WeekData>()
 
-    override val columns: List<DataTableColumn> = listOf(columnDay, columnSales, columnDownloads)
+    override val columns: List<DataTableColumn> = listOf(columnDay, columnSales, columnDownloads, columnTrials)
 
     override fun init(data: PluginData) {
         dateRange.days().forEach { day ->
             val downloads = data.downloadsDaily.firstOrNull { it.day == day }?.downloads ?: 0
-            this.data[day] = WeekData(BigDecimal.ZERO, downloads)
+            val trials = data.trials?.filter { it.date == day }?.size ?: 0
+            this.data[day] = WeekData(BigDecimal.ZERO, downloads, trials)
         }
     }
 
@@ -54,6 +57,7 @@ class WeekTable(title: String = "This week") : SimpleDataTable(title, cssClass =
                         columnDay to date,
                         columnSales to weekData.sales.withCurrency(Currency.USD),
                         columnDownloads to if (date < now) weekData.downloads.toBigInteger() else "—",
+                        columnTrials to if (date <= now) weekData.trials.toBigInteger() else "—",
                     ),
                     cssClass = when {
                         date == now -> "today"
@@ -69,6 +73,7 @@ class WeekTable(title: String = "This week") : SimpleDataTable(title, cssClass =
                         SimpleDateTableRow(
                             columnSales to data.values.sumOf { it.sales }.withCurrency(Currency.USD),
                             columnDownloads to data.values.sumOf { it.downloads },
+                            columnTrials to data.values.sumOf { it.trials },
                         )
                     )
                 )

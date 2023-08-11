@@ -32,7 +32,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "section-wide"), Ma
     private val columnSalesTotal = DataTableColumn("sales", "Sales Total", "num")
     private val columnSalesFees = DataTableColumn("fees", "Fees", "num")
     private val columnSalesPaid = DataTableColumn("paid", "Paid", "num")
-    private val columnDownloads = DataTableColumn("downloads", "Downloads", "num")
+    private val columnDownloads = DataTableColumn("downloads", "↓", "num", tooltip = "Downloads")
 
     override val columns: List<DataTableColumn> = listOf(
         columnYear,
