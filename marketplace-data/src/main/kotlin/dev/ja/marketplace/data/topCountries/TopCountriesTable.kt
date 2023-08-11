@@ -17,7 +17,7 @@ class TopCountriesTable(private val maxItems: Int = 10) :
     SimpleDataTable(if (maxItems != Int.MAX_VALUE) "Top Countries" else "Countries", "top-countries"),
     MarketplaceDataSink {
 
-    private val columnCountry = DataTableColumn("country", null)
+    private val columnCountry = DataTableColumn("country", null, "col-right")
     private val columnSales = DataTableColumn("sales", null, "num")
     private val columnSalesPercentage = DataTableColumn("sales", "% of Sales", "num num-percentage")
 

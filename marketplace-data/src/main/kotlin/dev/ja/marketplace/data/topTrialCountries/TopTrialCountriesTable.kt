@@ -11,9 +11,9 @@ import java.math.BigDecimal
 import java.util.*
 
 class TopTrialCountriesTable(private val maxItems: Int = 10) :
-    SimpleDataTable("Top Trial Countries", "top-trial-countries"),
-    MarketplaceDataSink {
-    private val columnCountry = DataTableColumn("country", null)
+    SimpleDataTable("Top Trial Countries", "top-trial-countries"), MarketplaceDataSink {
+
+    private val columnCountry = DataTableColumn("country", null, "col-right")
     private val columnTrialCount = DataTableColumn("trials", null, "num")
     private val columnTrialsPercentage = DataTableColumn("trials", "% of Trials", "num num-percentage")
 

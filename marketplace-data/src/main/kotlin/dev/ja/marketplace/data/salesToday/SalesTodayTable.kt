@@ -9,10 +9,10 @@ import dev.ja.marketplace.client.*
 import dev.ja.marketplace.data.*
 
 class SalesTodayTable : SimpleDataTable("Sales Today", cssClass = "small table-striped"), MarketplaceDataSink {
-    private val columnType = DataTableColumn("type", null, "num")
-    private val columnCountry = DataTableColumn("country", null, "num")
-    private val columnAmount = DataTableColumn("amount", null, "num")
-    override val columns: List<DataTableColumn> = listOf(columnType, columnCountry, columnAmount)
+    private val columnSubscriptionType = DataTableColumn("subscription", null, "col-right")
+    private val columnCustomerType = DataTableColumn("type", null, "col-right")
+    private val columnAmount = DataTableColumn("amount", "Sales", "num")
+    override val columns: List<DataTableColumn> = listOf(columnSubscriptionType, columnCustomerType, columnAmount)
 
     private val now = YearMonthDay.now()
     private val sales = mutableListOf<PluginSale>()
@@ -31,17 +31,26 @@ class SalesTodayTable : SimpleDataTable("Sales Today", cssClass = "small table-s
         get() {
             val salesTable = sales
                 .groupBy { it.customer.type }
-                .mapValues { it.value.groupBy { it.customer.country } }
-                .flatMap { (type, countrySales) ->
-                    countrySales.map { (country, sales) ->
+                .mapValues { it.value.groupBy { sale -> sale.licensePeriod } }
+                .flatMap { (type, licensePeriodWithSales) ->
+                    licensePeriodWithSales.map { (licensePeriod, sales) ->
                         SimpleDateTableRow(
-                            columnType to type,
-                            columnCountry to country,
+                            columnCustomerType to type,
+                            columnSubscriptionType to licensePeriod,
                             columnAmount to sales.sumOf { it.amountUSD }.withCurrency(Currency.USD),
                         )
                     }
                 }.sortedByDescending { it.values[columnAmount] as? AmountWithCurrency }
 
-            return listOf(SimpleTableSection(salesTable))
+            return listOf(
+                SimpleTableSection(
+                    rows = salesTable,
+                    footer = SimpleRowGroup(
+                        SimpleDateTableRow(
+                            columnAmount to sales.sumOf { it.amountUSD }.withCurrency(Currency.USD)
+                        )
+                    )
+                )
+            )
         }
 }

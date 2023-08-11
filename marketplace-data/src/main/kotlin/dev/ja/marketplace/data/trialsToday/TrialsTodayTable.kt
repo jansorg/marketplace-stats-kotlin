@@ -12,8 +12,8 @@ import dev.ja.marketplace.data.*
 import java.math.BigInteger
 
 class TrialsTodayTable : SimpleDataTable("Trials Today", cssClass = "small table-striped"), MarketplaceDataSink {
-    private val columnType = DataTableColumn("type", null, "num")
-    private val columnCountry = DataTableColumn("country", null)
+    private val columnType = DataTableColumn("type", null, "col-right")
+    private val columnCountry = DataTableColumn("country", null, "col-right")
     private val columnCount = DataTableColumn("count", null, "num")
     override val columns: List<DataTableColumn> = listOf(columnType, columnCountry, columnCount)
 
@@ -47,6 +47,15 @@ class TrialsTodayTable : SimpleDataTable("Trials Today", cssClass = "small table
                 }
                 .sortedByDescending { it.values[columnCount] as BigInteger }
 
-            return listOf(SimpleTableSection(trialRows))
+            return listOf(
+                SimpleTableSection(
+                    rows = trialRows,
+                    footer = SimpleRowGroup(
+                        SimpleDateTableRow(
+                            columnCount to trials.size,
+                        )
+                    )
+                )
+            )
         }
 }
