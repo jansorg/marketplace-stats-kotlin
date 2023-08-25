@@ -15,17 +15,30 @@ import kotlin.system.exitProcess
 object Application {
     @JvmStatic
     fun main(args: Array<String>) {
-        if (args.isEmpty()) {
+        val config = createConfig(args)
+        if (config == null) {
             println("Usage: path/to/config.json")
             exitProcess(1)
         }
 
-        val config = Json.decodeFromString<ApplicationConfig>(Files.readString(Path.of(args[0])))
         val client = KtorMarketplaceClient(config.marketplaceApiKey)
 
         runBlocking {
             val server = MarketplaceStatsServer(client)
             server.start()
         }
+    }
+
+    private fun createConfig(args: Array<String>): ApplicationConfig? {
+        val envApiKey = System.getenv("MARKETPLACE_API_KEY")?.trim()
+        if (!envApiKey.isNullOrEmpty()) {
+            return ApplicationConfig(envApiKey)
+        }
+
+        return when {
+            args.isEmpty() -> null
+            else -> Json.decodeFromString<ApplicationConfig>(Files.readString(Path.of(args[0])))
+        }
+
     }
 }

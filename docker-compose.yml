@@ -1,0 +1,12 @@
+version: "3"
+
+services:
+  jetbrains-marketplace-stats:
+    container_name: jetbrains-marketplace-stats
+    image: jansorg/jetbrains-marketplace-stats:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # You have to add your own JetBrains Marketplace API key here
+      - MARKETPLACE_API_KEY=your-api-key

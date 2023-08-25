@@ -44,7 +44,7 @@ import java.util.concurrent.TimeUnit
 
 class MarketplaceStatsServer(
     private val client: MarketplaceClient,
-    private val host: String = "127.0.0.1",
+    private val host: String = "0.0.0.0",
     private val port: Int = 8080
 ) {
     private lateinit var allPlugins: List<PluginInfoSummary>
