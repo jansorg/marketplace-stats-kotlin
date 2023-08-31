@@ -12,10 +12,22 @@ import dev.ja.marketplace.data.LicenseInfo
 class CustomerTracker<T>(private val dateRange: YearMonthDayRange) {
     private val segmentedCustomers = mutableMapOf<T, MutableSet<CustomerInfo>>()
     private val customers = mutableSetOf<CustomerInfo>()
+    private val customersFree = mutableSetOf<CustomerInfo>()
+    private val customersPaying = mutableSetOf<CustomerInfo>()
 
     val totalCustomerCount: Int
         get() {
             return customers.size
+        }
+
+    val freeCustomerCount: Int
+        get() {
+            return customersFree.size
+        }
+
+    val payingCustomerCount: Int
+        get() {
+            return customersPaying.size
         }
 
     fun segmentCustomerCount(segment: T): Int {
@@ -24,8 +36,17 @@ class CustomerTracker<T>(private val dateRange: YearMonthDayRange) {
 
     fun add(segment: T, licenseInfo: LicenseInfo) {
         if (dateRange.end in licenseInfo.validity) {
-            customers += licenseInfo.sale.customer
-            segmentedCustomers.computeIfAbsent(segment) { mutableSetOf() } += licenseInfo.sale.customer
+            val customer = licenseInfo.sale.customer
+
+            customers += customer
+
+            if (licenseInfo.saleLineItem.isFreeLicense) {
+                customersFree += customer
+            } else {
+                customersPaying += customer
+            }
+
+            segmentedCustomers.computeIfAbsent(segment) { mutableSetOf() } += customer
         }
     }
 }
