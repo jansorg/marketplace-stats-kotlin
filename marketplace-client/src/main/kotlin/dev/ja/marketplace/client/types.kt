@@ -324,6 +324,9 @@ enum class Currency {
 
     @SerialName("CZK")
     CZK,
+
+    @SerialName("CNY")
+    CNY,
 }
 
 @Serializable
