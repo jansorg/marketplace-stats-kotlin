@@ -77,7 +77,7 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
     private lateinit var downloadsMonthly: List<MonthlyDownload>
     private var downloadsTotal: Long = 0
 
-    private val years = TreeMap<Int, YearData>()
+    private val years = TreeMap<Int, YearData>(Comparator.reverseOrder<Int>())
 
     private val columnYearMonth = DataTableColumn("month", null)
     private val columnAmountTotalUSD = DataTableColumn("sales", "Total Sales", "num")
@@ -135,7 +135,7 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
                 else -> 1..12
             }
 
-            val months = monthRange.associateWith { month ->
+            val months: Map<Int, MonthData> = monthRange.associateWithTo(TreeMap(Comparator.reverseOrder())) { month ->
                 val currentMonth = YearMonthDayRange.ofMonth(year, month)
                 val churnDate = currentMonth.end
                 val activeDate = churnDate.add(0, -1, 0)
