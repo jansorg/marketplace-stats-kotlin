@@ -9,7 +9,7 @@ set -e -x
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 VERSION="$(cat "$DIR/VERSION.txt")"
-echo "Building Version $VERSION..."
+echo "Building Version $VERSION ..."
 
 ./gradlew clean build
 
