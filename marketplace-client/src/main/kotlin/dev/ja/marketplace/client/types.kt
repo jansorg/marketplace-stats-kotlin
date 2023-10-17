@@ -340,9 +340,13 @@ enum class LicensePeriod {
 
 @Serializable
 data class CustomerInfo(
+    @SerialName("code")
     val code: CustomerId,
+    @SerialName("name")
     val name: String?,
+    @SerialName("country")
     val country: Country,
+    @SerialName("type")
     val type: CustomerType,
 ) : Comparable<CustomerInfo> {
     override fun compareTo(other: CustomerInfo): Int {
