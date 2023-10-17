@@ -161,7 +161,7 @@ data class PluginVendor(
     @SerialName("name")
     val name: String,
     @SerialName("url")
-    val url: PluginUrl,
+    val url: PluginUrl? = null,
     @SerialName("totalPlugins")
     val totalPlugins: Int? = null,
     @SerialName("totalUsers")
@@ -191,7 +191,7 @@ data class PluginVendor(
 @Serializable
 data class PluginUrls(
     @SerialName("url")
-    val url: PluginUrl,
+    val url: PluginUrl? = null,
     @SerialName("forumUrl")
     val forumUrl: PluginUrl? = null,
     @SerialName("licenseUrl")
@@ -342,12 +342,12 @@ enum class LicensePeriod {
 data class CustomerInfo(
     @SerialName("code")
     val code: CustomerId,
-    @SerialName("name")
-    val name: String?,
     @SerialName("country")
     val country: Country,
     @SerialName("type")
     val type: CustomerType,
+    @SerialName("name")
+    val name: String? = null,
 ) : Comparable<CustomerInfo> {
     override fun compareTo(other: CustomerInfo): Int {
         return code.compareTo(other.code)
