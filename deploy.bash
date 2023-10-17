@@ -14,7 +14,7 @@ echo "Building Version $VERSION ..."
 ./gradlew clean build
 
 git tag --force "v$VERSION"
-git push --tags
+git push --all
 gh release create "v$VERSION" --generate-notes ./build/libs/marketplace-*.jar
 
 docker build -f Dockerfile -t "jansorg/jetbrains-marketplace-stats:$VERSION" .
