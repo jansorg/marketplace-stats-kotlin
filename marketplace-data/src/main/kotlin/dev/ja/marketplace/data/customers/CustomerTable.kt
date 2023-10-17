@@ -106,7 +106,7 @@ class CustomerTable(
                             columnValidUntil to if (showValidUntil) validUntil else null,
                             columnValidSince to validSince,
                             columnId to customer.code,
-                            columnName to customer.name,
+                            columnName to (customer.name ?: "—"),
                             columnCountry to customer.country,
                             columnType to customer.type,
                             columnTotalLicenses to customerData.totalLicenses.size,

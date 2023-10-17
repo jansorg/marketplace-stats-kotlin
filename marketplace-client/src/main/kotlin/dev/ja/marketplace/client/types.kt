@@ -341,7 +341,7 @@ enum class LicensePeriod {
 @Serializable
 data class CustomerInfo(
     val code: CustomerId,
-    val name: String,
+    val name: String?,
     val country: Country,
     val type: CustomerType,
 ) : Comparable<CustomerInfo> {
