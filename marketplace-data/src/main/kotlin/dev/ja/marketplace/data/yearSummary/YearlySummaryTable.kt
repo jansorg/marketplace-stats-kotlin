@@ -12,7 +12,7 @@ import java.util.*
 
 class YearlySummaryTable : SimpleDataTable("Years", "years", "section-wide"), MarketplaceDataSink {
     private lateinit var downloads: List<MonthlyDownload>
-    private val data = TreeMap<Int, YearSummary>()
+    private val data = TreeMap<Int, YearSummary>(Comparator.reverseOrder())
 
     private data class YearSummary(val sales: PaymentAmountTracker)
 
@@ -44,16 +44,24 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "section-wide"), Ma
 
     override val sections: List<DataTableSection>
         get() {
+            val now = YearMonthDay.now()
+
             val rows = data.entries.map { (year, value) ->
                 SimpleDateTableRow(
-                    columnYear to year,
-                    columnSalesTotal to value.sales.totalAmountUSD.withCurrency(Currency.USD),
-                    columnSalesFees to value.sales.feesAmountUSD.withCurrency(Currency.USD),
-                    columnSalesPaid to value.sales.paidAmountUSD.withCurrency(Currency.USD),
-                    columnDownloads to downloads
-                        .filter { it.firstOfMonth.year == year }
-                        .sumOf { it.downloads }
-                        .toBigInteger(),
+                    values = mapOf(
+                        columnYear to year,
+                        columnSalesTotal to value.sales.totalAmountUSD.withCurrency(Currency.USD),
+                        columnSalesFees to value.sales.feesAmountUSD.withCurrency(Currency.USD),
+                        columnSalesPaid to value.sales.paidAmountUSD.withCurrency(Currency.USD),
+                        columnDownloads to downloads
+                            .filter { it.firstOfMonth.year == year }
+                            .sumOf { it.downloads }
+                            .toBigInteger(),
+                    ),
+                    cssClass = when {
+                        year == now.year -> "today"
+                        else -> null
+                    }
                 )
             }
 
