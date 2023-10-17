@@ -77,7 +77,7 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
     private lateinit var downloadsMonthly: List<MonthlyDownload>
     private var downloadsTotal: Long = 0
 
-    private val years = TreeMap<Int, YearData>(Comparator.reverseOrder<Int>())
+    private val years = TreeMap<Int, YearData>(Comparator.reverseOrder())
 
     private val columnYearMonth = DataTableColumn("month", null)
     private val columnAmountTotalUSD = DataTableColumn("sales", "Total Sales", "num")
@@ -276,8 +276,9 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
     override val sections: List<DataTableSection>
         get() {
             val now = YearMonthDay.now()
-
-            return years.entries.dropWhile { it.value.isEmpty }
+            return years.entries
+                .toMutableList()
+                .dropLastWhile { it.value.isEmpty } // don't show empty years
                 .map { (year, yearData) ->
                     val rows = yearData.months.entries.map { (month, monthData) ->
                         val isCurrentMonth = now.year == year && now.month == month
@@ -296,6 +297,7 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
 
                         val cssClass = when {
                             isCurrentMonth -> "today"
+                            monthData.isEmpty -> "disabled"
                             else -> null
                         }
 
