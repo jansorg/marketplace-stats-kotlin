@@ -33,6 +33,11 @@ data class YearMonthDay(val year: Int, val month: Int, val day: Int) : Comparabl
         return asIsoString()
     }
 
+    val sortValue: Long
+        get() {
+            return instant.epochSeconds
+        }
+
     fun add(years: Int, months: Int, days: Int): YearMonthDay {
         return of(
             instant.plus(years, DateTimeUnit.YEAR, MarketplaceTimeZone)

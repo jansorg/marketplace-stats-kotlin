@@ -24,7 +24,7 @@ class CustomerTable(
     private val customerFilter: (CustomerTableRowData) -> Boolean = { true },
     private val isChurnedStyling: Boolean = false,
     private val nowDate: YearMonthDay = YearMonthDay.now(),
-) : SimpleDataTable("Customers", cssClass = "section-wide"), MarketplaceDataSink {
+) : SimpleDataTable("Customers", cssClass = "section-wide sortable"), MarketplaceDataSink {
     private val columnValidSince = DataTableColumn("customer-since", "Since")
     private val columnValidUntil = DataTableColumn("customer-until", "Licensed Until")
     private val columnName = DataTableColumn("customer-name", "Name", cssStyle = "width:20%")
@@ -110,7 +110,11 @@ class CustomerTable(
                             columnSales to customerData.totalSalesUSD.withCurrency(Currency.USD),
                         ),
                         cssClass = cssClass,
-                        sortValues = mapOf(columnSales to customerData.totalSalesUSD.sortValue()),
+                        sortValues = mapOf(
+                            columnValidUntil to validUntil.sortValue,
+                            columnValidSince to validSince.sortValue,
+                            columnSales to customerData.totalSalesUSD.sortValue(),
+                        ),
                     )
                 }
 
