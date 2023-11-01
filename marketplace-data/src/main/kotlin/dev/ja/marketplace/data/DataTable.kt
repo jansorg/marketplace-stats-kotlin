@@ -16,6 +16,11 @@ interface DataTable {
 
     val cssClass: String?
     val header: DataRowGroup?
+
+    val isEmpty: Boolean
+        get() {
+            return sections.all { it.rows.isEmpty() }
+        }
 }
 
 interface DataTableRow {

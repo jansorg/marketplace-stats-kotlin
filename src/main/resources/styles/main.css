@@ -45,11 +45,16 @@ body.wide {
 }
 
 h1, h2, h3, h4 {
-    color: var(--heading-color)
+    color: var(--heading-color);
+    font-weight: 900;
+    margin: 0 0 0.5em 0;
+}
+
+h2, h3, h4 {
+    margin-top: 0.75em;
 }
 
 h1 {
-    font-weight: 900;
     font-size: 2.5rem;
     text-align: center;
 }
@@ -73,6 +78,10 @@ a, a:visited {
 
 a:hover {
     color: var(--link-color-active);
+}
+
+p.em {
+    font-style: italic;
 }
 
 svg {

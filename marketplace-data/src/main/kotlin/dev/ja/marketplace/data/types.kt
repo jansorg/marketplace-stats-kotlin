@@ -5,6 +5,8 @@
 
 package dev.ja.marketplace.data
 
+import dev.ja.marketplace.client.CustomerId
+import dev.ja.marketplace.client.PluginId
 import java.math.BigDecimal
 import java.math.RoundingMode
 
@@ -29,3 +31,5 @@ fun Double.asPercentageValue(multiply: Boolean = true): PercentageValue? {
 fun BigDecimal.sortValue(): Long {
     return setScale(2, RoundingMode.HALF_UP).unscaledValue().toLong()
 }
+
+data class LinkedCustomer(val id: CustomerId, val pluginId: PluginId)

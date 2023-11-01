@@ -6,13 +6,17 @@
 package dev.ja.marketplace.data.licenses
 
 import dev.ja.marketplace.client.Currency
-import dev.ja.marketplace.client.PluginSaleItemType
+import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.withCurrency
 import dev.ja.marketplace.data.*
 
-class LicenseTable : SimpleDataTable("Licenses", "licenses", "section-wide"), MarketplaceDataSink {
-    private val columnLicenseId = DataTableColumn("license-id", "License ID")
+class LicenseTable(
+    private val showDetails: Boolean = true,
+    private val showFooter: Boolean = false,
+    private val licenseFilter: (LicenseInfo) -> Boolean = { true },
+) : SimpleDataTable("Licenses", "licenses", "section-wide"), MarketplaceDataSink {
+    private val columnLicenseId = DataTableColumn("license-id", "License ID", "col-right")
     private val columnPurchaseDate = DataTableColumn("sale-date", "Purchase", "date")
     private val columnValidityStart = DataTableColumn("license-validity", "License Start", "date")
     private val columnValidityEnd = DataTableColumn("license-validity", "End", "date")
@@ -20,31 +24,47 @@ class LicenseTable : SimpleDataTable("Licenses", "licenses", "section-wide"), Ma
     private val columnCustomerId = DataTableColumn("customer-id", "Cust. ID", "num")
     private val columnAmountUSD = DataTableColumn("sale-amount-usd", "Amount", "num")
     private val columnDiscount = DataTableColumn("license-discount", "Discount", "num")
-    private val columnLicenseType = DataTableColumn("license-type", "License")
+    private val columnLicenseType = DataTableColumn("license-type", "Period")
     private val columnLicenseRenewalType = DataTableColumn("license-type", "Type")
 
     private val data = mutableListOf<LicenseInfo>()
 
-    override val columns: List<DataTableColumn> = listOf(
+    private var pluginId: PluginId? = null
+
+    override val columns: List<DataTableColumn> = listOfNotNull(
         columnPurchaseDate,
         columnValidityStart,
         columnValidityEnd,
-        columnCustomerName,
-        columnCustomerId,
+        columnCustomerName.takeIf { showDetails },
+        columnCustomerId.takeIf { showDetails },
         columnAmountUSD,
         columnDiscount,
-        columnLicenseType,
+        columnLicenseType.takeIf { showDetails },
         columnLicenseRenewalType,
         columnLicenseId,
     )
 
+    override fun init(data: PluginData) {
+        this.pluginId = data.pluginId
+    }
+
+    override fun process(licenseInfo: LicenseInfo) {
+        if (licenseFilter(licenseInfo)) {
+            data += licenseInfo
+        }
+    }
+
     override val sections: List<DataTableSection>
         get() {
+            val now = YearMonthDay.now()
+
             // first by date, then days by new/renew, then same values by annual/monthly, then by amount
             val comparator = Comparator.comparing<LicenseInfo?, YearMonthDay?> { it.sale.date }.reversed()
                 .then(Comparator.comparing { it.saleLineItem.type })
                 .thenDescending(Comparator.comparing { it.sale.licensePeriod })
                 .thenDescending(Comparator.comparing { it.amountUSD.sortValue() })
+
+            val licenseMaxValidity = data.groupBy { it.id }.mapValues { it.value.maxOf { l -> l.validity.end } }
 
             var lastPurchaseDate: YearMonthDay? = null
             val rows = data
@@ -60,8 +80,8 @@ class LicenseTable : SimpleDataTable("Licenses", "licenses", "section-wide"), Ma
                             columnPurchaseDate to if (showPurchaseDate) purchaseDate else null,
                             columnValidityStart to license.validity.start,
                             columnValidityEnd to license.validity.end,
-                            columnCustomerName to license.sale.customer.name,
-                            columnCustomerId to license.sale.customer.code,
+                            columnCustomerName to (license.sale.customer.name ?: "—"),
+                            columnCustomerId to LinkedCustomer(license.sale.customer.code, pluginId = pluginId!!),
                             columnAmountUSD to license.amountUSD.withCurrency(Currency.USD),
                             columnLicenseType to license.sale.licensePeriod,
                             columnLicenseRenewalType to license.saleLineItem.type,
@@ -70,6 +90,7 @@ class LicenseTable : SimpleDataTable("Licenses", "licenses", "section-wide"), Ma
                                 .sorted()
                                 .map { it.asPercentageValue(false) }
                         ),
+                        cssClass = if (licenseMaxValidity[license.id]!! < now) "disabled" else null,
                         tooltips = mapOf(
                             columnDiscount to license.saleLineItem.discountDescriptions
                                 .sortedBy { it.percent ?: 0.0 }
@@ -82,10 +103,25 @@ class LicenseTable : SimpleDataTable("Licenses", "licenses", "section-wide"), Ma
                         )
                     )
                 }
-            return listOf(SimpleTableSection(rows, null))
-        }
 
-    override fun process(licenseInfo: LicenseInfo) {
-        data += licenseInfo
-    }
+            val licenseCount = licenseMaxValidity.size
+            val activeLicenseCount = licenseMaxValidity.count { it.value >= now }
+            val footer = when {
+                showFooter -> SimpleRowGroup(
+                    SimpleDateTableRow(
+                        values = mapOf(
+                            columnAmountUSD to data.sumOf(LicenseInfo::amountUSD).withCurrency(Currency.USD),
+                            columnLicenseId to (if (licenseCount == 0) "—" else listOf(
+                                "$activeLicenseCount active",
+                                "$licenseCount total"
+                            ))
+                        ),
+                    )
+                )
+
+                else -> null
+            }
+
+            return listOf(SimpleTableSection(rows, null, footer = footer))
+        }
 }

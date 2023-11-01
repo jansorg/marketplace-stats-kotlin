@@ -9,11 +9,11 @@ val ktorVersion: String by project
 
 plugins {
     application
-    id("org.jetbrains.kotlin.jvm") version "1.9.0"
-    kotlin("plugin.serialization") version "1.9.0"
+    id("org.jetbrains.kotlin.jvm") version "1.9.10"
+    kotlin("plugin.serialization") version "1.9.10"
 
     id("com.github.johnrengelman.shadow") version "8.1.1"
-    id("gg.jte.gradle") version "3.0.2"
+    id("gg.jte.gradle") version "3.1.4"
 }
 
 allprojects {
@@ -27,13 +27,14 @@ allprojects {
     }
 
     dependencies {
-        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0-RC")
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 
         implementation("org.apache.logging.log4j:log4j-core:2.20.0")
         implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.20.0")
 
-        testImplementation("org.junit.jupiter:junit-jupiter-api:5.9.3")
-        testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.9.3")
+        testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
+        testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.0")
     }
 
     tasks {
@@ -52,7 +53,7 @@ project("marketplace-client") {
         implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
         implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
 
-        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
+        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.1")
     }
 }
 
@@ -72,7 +73,7 @@ project(":") {
         implementation("io.ktor:ktor-server-compression:$ktorVersion")
         implementation("io.ktor:ktor-server-jte:$ktorVersion")
 
-        implementation("gg.jte:jte:3.0.2")
+        implementation("gg.jte:jte:3.1.3")
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 
         runtimeOnly(provider {

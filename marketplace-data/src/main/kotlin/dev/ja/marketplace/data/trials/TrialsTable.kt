@@ -6,12 +6,16 @@
 package dev.ja.marketplace.data.trials
 
 import dev.ja.marketplace.client.Country
+import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.PluginTrial
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.*
 import java.util.*
 
-class TrialsTable : SimpleDataTable("Trials", "trials", "table-centered"), MarketplaceDataSink {
+class TrialsTable(
+    private val showDetails: Boolean = true,
+    private val trialFilter: (PluginTrial) -> Boolean = { true }
+) : SimpleDataTable("Trials", "trials", "table-centered"), MarketplaceDataSink {
     private val columnDate = DataTableColumn("trial-date", "Date", "date")
     private val columnRefId = DataTableColumn("trial-id", "ID", "num")
     private val columnCustomer = DataTableColumn("trial-customer", "Customer")
@@ -20,9 +24,14 @@ class TrialsTable : SimpleDataTable("Trials", "trials", "table-centered"), Marke
 
     private val trialData = TreeMap<YearMonthDay, List<PluginTrial>>()
 
+    private var pluginId: PluginId? = null
+
     override fun init(data: PluginData) {
+        this.pluginId = data.pluginId
         data.trials?.forEach {
-            trialData.merge(it.date, listOf(it)) { a, b -> a + b }
+            if (trialFilter(it)) {
+                trialData.merge(it.date, listOf(it)) { a, b -> a + b }
+            }
         }
     }
 
@@ -30,11 +39,11 @@ class TrialsTable : SimpleDataTable("Trials", "trials", "table-centered"), Marke
         // empty
     }
 
-    override val columns: List<DataTableColumn> = listOf(
+    override val columns: List<DataTableColumn> = listOfNotNull(
         columnDate,
-        columnCustomer,
-        columnCustomerType,
-        columnCustomerCountry,
+        columnCustomer.takeIf { showDetails },
+        columnCustomerType.takeIf { showDetails },
+        columnCustomerCountry.takeIf { showDetails },
         columnRefId
     )
 
@@ -50,7 +59,7 @@ class TrialsTable : SimpleDataTable("Trials", "trials", "table-centered"), Marke
                         values = mapOf(
                             columnDate to if (first) day else null,
                             columnRefId to trial.referenceId,
-                            columnCustomer to trial.customer.name,
+                            columnCustomer to LinkedCustomer(trial.customer.code, pluginId = pluginId!!),
                             columnCustomerType to trial.customer.type,
                             columnCustomerCountry to trial.customer.country.takeIf(Country::isNotBlank),
                         ),

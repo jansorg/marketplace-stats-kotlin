@@ -5,8 +5,17 @@
 
 package dev.ja.marketplace.client
 
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.nullable
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import java.math.BigDecimal
 
 typealias UserId = String
@@ -347,10 +356,23 @@ data class CustomerInfo(
     @SerialName("type")
     val type: CustomerType,
     @SerialName("name")
+    @Serializable(with = NullableStringSerializer::class)
     val name: String? = null,
 ) : Comparable<CustomerInfo> {
     override fun compareTo(other: CustomerInfo): Int {
         return code.compareTo(other.code)
+    }
+}
+
+class NullableStringSerializer : KSerializer<String?> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("NullableString", PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): String? {
+        return String.serializer().nullable.deserialize(decoder)?.takeUnless(String::isEmpty)
+    }
+
+    override fun serialize(encoder: Encoder, value: String?) {
+        return String.serializer().nullable.serialize(encoder, value)
     }
 }
 

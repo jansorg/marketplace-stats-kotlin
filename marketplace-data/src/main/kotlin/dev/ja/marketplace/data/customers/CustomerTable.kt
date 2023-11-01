@@ -38,6 +38,8 @@ class CustomerTable(
     private val customerMap = mutableMapOf<CustomerId, CustomerTableRowData>()
     private val salesCalculator = SaleCalculator()
 
+    private var pluginId: PluginId? = null
+
     override val columns: List<DataTableColumn> = listOfNotNull(
         columnValidUntil,
         columnValidSince,
@@ -49,6 +51,10 @@ class CustomerTable(
         columnCountry,
         columnId
     )
+
+    override fun init(data: PluginData) {
+        this.pluginId = data.pluginId
+    }
 
     override fun process(licenseInfo: LicenseInfo) {
         val customer = licenseInfo.sale.customer
@@ -78,12 +84,6 @@ class CustomerTable(
                 .sortedByDescending { it.totalSalesUSD.sortValue() }
                 .sortedByDescending { it.latestLicenseEnd!! }
 
-            /*for (row in displayedCustomers) {
-                if (row.activeLicenses != row.totalLicenses) {
-                    println("c: ${row.customer}")
-                }
-            }*/
-
             val rows = displayedCustomers
                 .map { customerData ->
                     val customer = customerData.customer
@@ -101,7 +101,7 @@ class CustomerTable(
                         mapOf(
                             columnValidUntil to if (showValidUntil) validUntil else null,
                             columnValidSince to validSince,
-                            columnId to customer.code,
+                            columnId to LinkedCustomer(customer.code, pluginId = pluginId!!),
                             columnName to (customer.name ?: "—"),
                             columnCountry to customer.country,
                             columnType to customer.type,

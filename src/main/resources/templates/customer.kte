@@ -1,0 +1,72 @@
+@import dev.ja.marketplace.client.CustomerInfo
+@import dev.ja.marketplace.data.DataTable
+@import dev.ja.marketplace.data.LicenseInfo
+@import dev.ja.marketplace.client.PluginInfo
+@import dev.ja.marketplace.client.PluginTrial
+
+@param cssClass: String?
+@param plugin: PluginInfo
+@param customer: CustomerInfo
+@param licenseTableMonthly: DataTable
+@param licenseTableAnnual: DataTable
+@param trials: List<PluginTrial>
+@param trialTable: DataTable
+
+<html lang="en">
+<head>
+    <title>Customer Details: @if (customer.name.isNullOrEmpty()) ${customer.code} @else ${customer.name}@endif</title>
+    <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
+    <link rel="stylesheet" type="text/css" media="print" href="/styles/main.css"/>
+</head>
+
+<body class="${cssClass}">
+@template.navbar(plugin = plugin)
+
+<div class="sections">
+    <h1>Customer Details</h1>
+
+    <div class="section-wide">
+        <dl>
+            <dt>Name</dt>
+            <dd>@if (customer.name.isNullOrEmpty()) — @else ${customer.name} @endif</dd>
+
+            <dt>Type</dt>
+            <dd>${customer.type}</dd>
+
+            <dt>Country</dt>
+            <dd>${customer.country}</dd>
+        </dl>
+    </div>
+
+    <div class="section-wide">
+        <h2>Annual Licenses</h2>
+
+        @if (licenseTableAnnual.isEmpty)
+            <p class="em">No annual licenses available.</p>
+        @else
+            @template.dataTable(licenseTableAnnual)
+        @endif
+    </div>
+
+    <div class="section-wide">
+        <h2>Monthly Licenses</h2>
+
+        @if (licenseTableMonthly.isEmpty)
+            <p class="em">No monthly licenses available.</p>
+        @else
+            @template.dataTable(licenseTableMonthly)
+        @endif
+    </div>
+
+    <div class="section-small">
+        <h2>Trials</h2>
+        @if (trials.isEmpty())
+            <p class="em">No trials available.</p>
+        @else
+            @template.dataTable(trialTable)
+        @endif
+    </div>
+</div>
+
+</body>
+</html>
