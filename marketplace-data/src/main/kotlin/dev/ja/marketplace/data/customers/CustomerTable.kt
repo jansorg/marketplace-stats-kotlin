@@ -30,8 +30,6 @@ class CustomerTable(
     private val columnName = DataTableColumn("customer-name", "Name", cssStyle = "width:20%")
     private val columnCountry = DataTableColumn("customer-country", "Country")
     private val columnType = DataTableColumn("customer-type", "Type")
-    private val columnLastSales = DataTableColumn("sales-active", "Last Sale", "num")
-    private val columnNextSale = DataTableColumn("sales-next", "Next Sale", "num")
     private val columnSales = DataTableColumn("sales-total", "Total Sales", "num")
     private val columnActiveLicenses = DataTableColumn("customer-licenses-active", "Active Licenses", "num")
     private val columnTotalLicenses = DataTableColumn("customer-licenses-total", "Total Licenses", "num")
@@ -45,8 +43,6 @@ class CustomerTable(
         columnValidSince,
         columnName,
         columnSales,
-        columnLastSales.takeUnless { isChurnedStyling },
-        columnNextSale.takeUnless { isChurnedStyling },
         columnActiveLicenses.takeUnless { isChurnedStyling },
         columnTotalLicenses,
         columnType,
@@ -112,19 +108,9 @@ class CustomerTable(
                             columnTotalLicenses to customerData.totalLicenses.size,
                             columnActiveLicenses to customerData.activeLicenses.size,
                             columnSales to customerData.totalSalesUSD.withCurrency(Currency.USD),
-                            columnLastSales to customerData.lastSaleUSD
-                                .takeUnless { isChurnedStyling }
-                                ?.withCurrency(Currency.USD),
-                            columnNextSale to customerData.nextSaleUSD
-                                .takeUnless { isChurnedStyling }
-                                ?.withCurrency(Currency.USD),
                         ),
                         cssClass = cssClass,
-                        sortValues = mapOf(
-                            columnLastSales to customerData.lastSaleUSD.sortValue(),
-                            columnNextSale to customerData.nextSaleUSD.sortValue(),
-                            columnSales to customerData.totalSalesUSD.sortValue(),
-                        ),
+                        sortValues = mapOf(columnSales to customerData.totalSalesUSD.sortValue()),
                     )
                 }
 
@@ -134,8 +120,6 @@ class CustomerTable(
                     columnTotalLicenses to displayedCustomers.sumOf { it.totalLicenses.size },
                     columnActiveLicenses to displayedCustomers.sumOf { it.activeLicenses.size },
                     columnSales to displayedCustomers.sumOf { it.totalSalesUSD }.withCurrency(Currency.USD),
-                    // fixme: unreliable because of future licenses, etc.
-                    //columnNextSale to displayedCustomers.sumOf { it.nextSaleUSD }.withCurrency(Currency.USD),
                 )
             )
 
