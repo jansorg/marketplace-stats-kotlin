@@ -26,7 +26,7 @@ class CustomerTable(
     private val nowDate: YearMonthDay = YearMonthDay.now(),
 ) : SimpleDataTable("Customers", cssClass = "section-wide"), MarketplaceDataSink {
     private val columnValidSince = DataTableColumn("customer-since", "Since")
-    private val columnValidUntil = DataTableColumn("customer-until", "Valid Until")
+    private val columnValidUntil = DataTableColumn("customer-until", "Licensed Until")
     private val columnName = DataTableColumn("customer-name", "Name", cssStyle = "width:20%")
     private val columnCountry = DataTableColumn("customer-country", "Country")
     private val columnType = DataTableColumn("customer-type", "Type")
