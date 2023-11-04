@@ -47,28 +47,27 @@ class TrialsTable(
         columnRefId
     )
 
-    override val sections: List<DataTableSection>
-        get() {
-            val today = YearMonthDay.now()
+    override fun createSections(): List<DataTableSection> {
+        val today = YearMonthDay.now()
 
-            val rows = mutableListOf<SimpleDateTableRow>()
-            for ((day, trials) in trialData.entries.reversed()) {
-                var first = true
-                for (trial in trials) {
-                    rows += SimpleDateTableRow(
-                        values = mapOf(
-                            columnDate to if (first) day else null,
-                            columnRefId to trial.referenceId,
-                            columnCustomer to LinkedCustomer(trial.customer.code, pluginId = pluginId!!),
-                            columnCustomerType to trial.customer.type,
-                            columnCustomerCountry to trial.customer.country.takeIf(Country::isNotBlank),
-                        ),
-                        htmlId = if (day == today) "today" else null,
-                    )
+        val rows = mutableListOf<SimpleDateTableRow>()
+        for ((day, trials) in trialData.entries.reversed()) {
+            var first = true
+            for (trial in trials) {
+                rows += SimpleDateTableRow(
+                    values = mapOf(
+                        columnDate to if (first) day else null,
+                        columnRefId to trial.referenceId,
+                        columnCustomer to LinkedCustomer(trial.customer.code, pluginId = pluginId!!),
+                        columnCustomerType to trial.customer.type,
+                        columnCustomerCountry to trial.customer.country.takeIf(Country::isNotBlank),
+                    ),
+                    htmlId = if (day == today) "today" else null,
+                )
 
-                    first = false
-                }
+                first = false
             }
-            return listOf(SimpleTableSection(rows))
         }
+        return listOf(SimpleTableSection(rows))
+    }
 }

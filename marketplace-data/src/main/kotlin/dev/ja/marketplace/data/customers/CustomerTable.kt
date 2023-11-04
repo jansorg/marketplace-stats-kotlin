@@ -75,58 +75,57 @@ class CustomerTable(
         data.nextSaleUSD += salesCalculator.nextSale(licenseInfo).amountUSD
     }
 
-    override val sections: List<DataTableSection>
-        get() {
-            val now = YearMonthDay.now()
-            var prevValidUntil: YearMonthDay? = null
-            val displayedCustomers = customerMap.values
-                .filter(customerFilter)
-                .sortedByDescending { it.totalSalesUSD.sortValue() }
-                .sortedByDescending { it.latestLicenseEnd!! }
+    override fun createSections(): List<DataTableSection> {
+        val now = YearMonthDay.now()
+        var prevValidUntil: YearMonthDay? = null
+        val displayedCustomers = customerMap.values
+            .filter(customerFilter)
+            .sortedByDescending { it.totalSalesUSD.sortValue() }
+            .sortedByDescending { it.latestLicenseEnd!! }
 
-            val rows = displayedCustomers
-                .map { customerData ->
-                    val customer = customerData.customer
-                    val validSince = customerData.earliestLicenseStart!!
-                    val validUntil = customerData.latestLicenseEnd!!
-                    val showValidUntil = validUntil != prevValidUntil
-                    prevValidUntil = validUntil
+        val rows = displayedCustomers
+            .map { customerData ->
+                val customer = customerData.customer
+                val validSince = customerData.earliestLicenseStart!!
+                val validUntil = customerData.latestLicenseEnd!!
+                val showValidUntil = validUntil != prevValidUntil
+                prevValidUntil = validUntil
 
-                    val cssClass: String? = when {
-                        !isChurnedStyling && validUntil < now -> "churned"
-                        else -> null
-                    }
-
-                    SimpleDateTableRow(
-                        mapOf(
-                            columnValidUntil to if (showValidUntil) validUntil else null,
-                            columnValidSince to validSince,
-                            columnId to LinkedCustomer(customer.code, pluginId = pluginId!!),
-                            columnName to (customer.name ?: "—"),
-                            columnCountry to customer.country,
-                            columnType to customer.type,
-                            columnTotalLicenses to customerData.totalLicenses.size,
-                            columnActiveLicenses to customerData.activeLicenses.size,
-                            columnSales to customerData.totalSalesUSD.withCurrency(Currency.USD),
-                        ),
-                        cssClass = cssClass,
-                        sortValues = mapOf(
-                            columnValidUntil to validUntil.sortValue,
-                            columnValidSince to validSince.sortValue,
-                            columnSales to customerData.totalSalesUSD.sortValue(),
-                        ),
-                    )
+                val cssClass: String? = when {
+                    !isChurnedStyling && validUntil < now -> "churned"
+                    else -> null
                 }
 
-            val footer = SimpleRowGroup(
                 SimpleDateTableRow(
-                    columnName to "${displayedCustomers.size} customers",
-                    columnTotalLicenses to displayedCustomers.sumOf { it.totalLicenses.size },
-                    columnActiveLicenses to displayedCustomers.sumOf { it.activeLicenses.size },
-                    columnSales to displayedCustomers.sumOf { it.totalSalesUSD }.withCurrency(Currency.USD),
+                    mapOf(
+                        columnValidUntil to if (showValidUntil) validUntil else null,
+                        columnValidSince to validSince,
+                        columnId to LinkedCustomer(customer.code, pluginId = pluginId!!),
+                        columnName to (customer.name ?: "—"),
+                        columnCountry to customer.country,
+                        columnType to customer.type,
+                        columnTotalLicenses to customerData.totalLicenses.size,
+                        columnActiveLicenses to customerData.activeLicenses.size,
+                        columnSales to customerData.totalSalesUSD.withCurrency(Currency.USD),
+                    ),
+                    cssClass = cssClass,
+                    sortValues = mapOf(
+                        columnValidUntil to validUntil.sortValue,
+                        columnValidSince to validSince.sortValue,
+                        columnSales to customerData.totalSalesUSD.sortValue(),
+                    ),
                 )
-            )
+            }
 
-            return listOf(SimpleTableSection(rows, footer = footer))
-        }
+        val footer = SimpleRowGroup(
+            SimpleDateTableRow(
+                columnName to "${displayedCustomers.size} customers",
+                columnTotalLicenses to displayedCustomers.sumOf { it.totalLicenses.size },
+                columnActiveLicenses to displayedCustomers.sumOf { it.activeLicenses.size },
+                columnSales to displayedCustomers.sumOf { it.totalSalesUSD }.withCurrency(Currency.USD),
+            )
+        )
+
+        return listOf(SimpleTableSection(rows, footer = footer))
+    }
 }

@@ -33,32 +33,31 @@ class TopTrialCountriesTable(private val maxItems: Int = 10) :
         // empty
     }
 
-    override val sections: List<DataTableSection>
-        get() {
-            val totalTrialCount = data.values.sumOf { it }
-            val rows = data.entries
-                .sortedByDescending { it.value }
-                .take(maxItems)
-                .map { (country, trialCount) ->
-                    SimpleDateTableRow(
-                        columnCountry to country,
-                        columnTrialCount to trialCount.toBigInteger(),
-                        columnTrialsPercentage to PercentageValue.of(
-                            BigDecimal(trialCount),
-                            BigDecimal(totalTrialCount)
-                        )
+    override fun createSections(): List<DataTableSection> {
+        val totalTrialCount = data.values.sumOf { it }
+        val rows = data.entries
+            .sortedByDescending { it.value }
+            .take(maxItems)
+            .map { (country, trialCount) ->
+                SimpleDateTableRow(
+                    columnCountry to country,
+                    columnTrialCount to trialCount.toBigInteger(),
+                    columnTrialsPercentage to PercentageValue.of(
+                        BigDecimal(trialCount),
+                        BigDecimal(totalTrialCount)
                     )
-                }
+                )
+            }
 
-            return listOf(
-                SimpleTableSection(
-                    rows, footer = SimpleTableSection(
-                        SimpleDateTableRow(
-                            columnCountry to "${data.size} countries",
-                            columnTrialsPercentage to PercentageValue(BigDecimal(100.0))
-                        )
+        return listOf(
+            SimpleTableSection(
+                rows, footer = SimpleTableSection(
+                    SimpleDateTableRow(
+                        columnCountry to "${data.size} countries",
+                        columnTrialsPercentage to PercentageValue(BigDecimal(100.0))
                     )
                 )
             )
-        }
+        )
+    }
 }

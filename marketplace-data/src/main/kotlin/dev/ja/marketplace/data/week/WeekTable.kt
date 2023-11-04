@@ -48,35 +48,34 @@ class WeekTable(title: String = "This week") : SimpleDataTable(title, cssClass =
         }
     }
 
-    override val sections: List<DataTableSection>
-        get() {
-            val now = YearMonthDay.now()
-            val rows = data.entries.map { (date, weekData) ->
-                SimpleDateTableRow(
-                    mapOf(
-                        columnDay to date,
-                        columnSales to weekData.sales.withCurrency(Currency.USD),
-                        columnDownloads to if (date < now) weekData.downloads.toBigInteger() else "—",
-                        columnTrials to if (date <= now) weekData.trials.toBigInteger() else "—",
-                    ),
-                    cssClass = when {
-                        date == now -> "today"
-                        date > now -> "future"
-                        else -> null
-                    }
-                )
-            }
+    override fun createSections(): List<DataTableSection> {
+        val now = YearMonthDay.now()
+        val rows = data.entries.map { (date, weekData) ->
+            SimpleDateTableRow(
+                mapOf(
+                    columnDay to date,
+                    columnSales to weekData.sales.withCurrency(Currency.USD),
+                    columnDownloads to if (date < now) weekData.downloads.toBigInteger() else "—",
+                    columnTrials to if (date <= now) weekData.trials.toBigInteger() else "—",
+                ),
+                cssClass = when {
+                    date == now -> "today"
+                    date > now -> "future"
+                    else -> null
+                }
+            )
+        }
 
-            return listOf(
-                SimpleTableSection(
-                    rows, footer = SimpleTableSection(
-                        SimpleDateTableRow(
-                            columnSales to data.values.sumOf { it.sales }.withCurrency(Currency.USD),
-                            columnDownloads to data.values.sumOf { it.downloads },
-                            columnTrials to data.values.sumOf { it.trials },
-                        )
+        return listOf(
+            SimpleTableSection(
+                rows, footer = SimpleTableSection(
+                    SimpleDateTableRow(
+                        columnSales to data.values.sumOf { it.sales }.withCurrency(Currency.USD),
+                        columnDownloads to data.values.sumOf { it.downloads },
+                        columnTrials to data.values.sumOf { it.trials },
                     )
                 )
             )
-        }
+        )
+    }
 }

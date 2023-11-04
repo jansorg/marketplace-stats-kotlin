@@ -16,22 +16,21 @@ class DownloadsTable : SimpleDataTable("", "downloads"), MarketplaceDataSink {
 
     override val columns: List<DataTableColumn> = listOf(columnMonth, columnDownloads)
 
-    override val sections: List<DataTableSection>
-        get() {
-            return listOf(
-                SimpleTableSection(
-                    rows = data.map {
-                        SimpleDateTableRow(
-                            columnMonth to it.firstOfMonth,
-                            columnDownloads to it.downloads.toBigInteger(),
-                        )
-                    },
-                    footer = SimpleRowGroup(
-                        SimpleDateTableRow(columnDownloads to data.sumOf { it.downloads }.toBigInteger())
+    override fun createSections(): List<DataTableSection> {
+        return listOf(
+            SimpleTableSection(
+                rows = data.map {
+                    SimpleDateTableRow(
+                        columnMonth to it.firstOfMonth,
+                        columnDownloads to it.downloads.toBigInteger(),
                     )
+                },
+                footer = SimpleRowGroup(
+                    SimpleDateTableRow(columnDownloads to data.sumOf { it.downloads }.toBigInteger())
                 )
             )
-        }
+        )
+    }
 
     override fun init(data: PluginData) {
         this.data = data.downloadsMonthly

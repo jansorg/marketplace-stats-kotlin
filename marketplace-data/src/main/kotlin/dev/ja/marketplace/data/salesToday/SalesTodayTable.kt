@@ -27,30 +27,29 @@ class SalesTodayTable : SimpleDataTable("Sales Today", cssClass = "small table-s
         // ignored
     }
 
-    override val sections: List<DataTableSection>
-        get() {
-            val salesTable = sales
-                .groupBy { it.customer.type }
-                .mapValues { it.value.groupBy { sale -> sale.licensePeriod } }
-                .flatMap { (type, licensePeriodWithSales) ->
-                    licensePeriodWithSales.map { (licensePeriod, sales) ->
-                        SimpleDateTableRow(
-                            columnCustomerType to type,
-                            columnSubscriptionType to licensePeriod,
-                            columnAmount to sales.sumOf { it.amountUSD }.withCurrency(Currency.USD),
-                        )
-                    }
-                }.sortedByDescending { it.values[columnAmount] as? AmountWithCurrency }
+    override fun createSections(): List<DataTableSection> {
+        val salesTable = sales
+            .groupBy { it.customer.type }
+            .mapValues { it.value.groupBy { sale -> sale.licensePeriod } }
+            .flatMap { (type, licensePeriodWithSales) ->
+                licensePeriodWithSales.map { (licensePeriod, sales) ->
+                    SimpleDateTableRow(
+                        columnCustomerType to type,
+                        columnSubscriptionType to licensePeriod,
+                        columnAmount to sales.sumOf { it.amountUSD }.withCurrency(Currency.USD),
+                    )
+                }
+            }.sortedByDescending { it.values[columnAmount] as? AmountWithCurrency }
 
-            return listOf(
-                SimpleTableSection(
-                    rows = salesTable,
-                    footer = SimpleRowGroup(
-                        SimpleDateTableRow(
-                            columnAmount to sales.sumOf { it.amountUSD }.withCurrency(Currency.USD)
-                        )
+        return listOf(
+            SimpleTableSection(
+                rows = salesTable,
+                footer = SimpleRowGroup(
+                    SimpleDateTableRow(
+                        columnAmount to sales.sumOf { it.amountUSD }.withCurrency(Currency.USD)
                     )
                 )
             )
-        }
+        )
+    }
 }

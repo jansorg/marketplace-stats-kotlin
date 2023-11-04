@@ -273,102 +273,101 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
         }
     }
 
-    override val sections: List<DataTableSection>
-        get() {
-            val now = YearMonthDay.now()
-            return years.entries
-                .toMutableList()
-                .dropLastWhile { it.value.isEmpty } // don't show empty years
-                .map { (year, yearData) ->
-                    val rows = yearData.months.entries.map { (month, monthData) ->
-                        val isCurrentMonth = now.year == year && now.month == month
+    override fun createSections(): List<DataTableSection> {
+        val now = YearMonthDay.now()
+        return years.entries
+            .toMutableList()
+            .dropLastWhile { it.value.isEmpty } // don't show empty years
+            .map { (year, yearData) ->
+                val rows = yearData.months.entries.map { (month, monthData) ->
+                    val isCurrentMonth = now.year == year && now.month == month
 
-                        val annualChurn = monthData.churnAnnualLicenses.getResult()
-                        val annualChurnRate = annualChurn.renderedChurnRate?.takeIf { !isCurrentMonth }
+                    val annualChurn = monthData.churnAnnualLicenses.getResult()
+                    val annualChurnRate = annualChurn.renderedChurnRate?.takeIf { !isCurrentMonth }
 
-                        val annualChurnPaid = monthData.churnAnnualPaidLicenses.getResult()
-                        val annualChurnRatePaid = annualChurnPaid.renderedChurnRate?.takeIf { !isCurrentMonth }
+                    val annualChurnPaid = monthData.churnAnnualPaidLicenses.getResult()
+                    val annualChurnRatePaid = annualChurnPaid.renderedChurnRate?.takeIf { !isCurrentMonth }
 
-                        val monthlyChurn = monthData.churnMonthlyLicenses.getResult()
-                        val monthlyChurnRate = monthlyChurn.renderedChurnRate?.takeIf { !isCurrentMonth }
+                    val monthlyChurn = monthData.churnMonthlyLicenses.getResult()
+                    val monthlyChurnRate = monthlyChurn.renderedChurnRate?.takeIf { !isCurrentMonth }
 
-                        val monthlyChurnPaid = monthData.churnMonthlyPaidLicenses.getResult()
-                        val monthlyChurnRatePaid = monthlyChurnPaid.renderedChurnRate?.takeIf { !isCurrentMonth }
+                    val monthlyChurnPaid = monthData.churnMonthlyPaidLicenses.getResult()
+                    val monthlyChurnRatePaid = monthlyChurnPaid.renderedChurnRate?.takeIf { !isCurrentMonth }
 
-                        val cssClass = when {
-                            isCurrentMonth -> "today"
-                            monthData.isEmpty -> "disabled"
-                            else -> null
-                        }
-
-                        val annualCustomersFree = monthData.customers.segmentCustomerCount(AnnualFree)
-                        val annualCustomersPaying = monthData.customers.segmentCustomerCount(AnnualPaying)
-                        val monthlyCustomersPaying = monthData.customers.segmentCustomerCount(MonthlyPaying)
-
-                        val totalCustomers = monthData.customers.totalCustomerCount
-                        val totalCustomersPaying = monthData.customers.payingCustomerCount
-
-                        val trialCount = trialData.count { it.date.year == year && it.date.month == month }
-                        val downloadCount = monthData.downloads
-
-                        SimpleDateTableRow(
-                            values = mapOf(
-                                columnYearMonth to String.format("%02d-%02d", year, month),
-                                columnActiveCustomers to totalCustomers.toBigInteger(),
-                                columnActiveCustomersPaying to totalCustomersPaying.toBigInteger(),
-                                columnAmountTotalUSD to monthData.amounts.totalAmountUSD.withCurrency(Currency.USD),
-                                columnAmountFeesUSD to monthData.amounts.feesAmountUSD.withCurrency(Currency.USD),
-                                columnAmountPaidUSD to monthData.amounts.paidAmountUSD.withCurrency(Currency.USD),
-                                columnAnnualChurn to annualChurnRate,
-                                columnAnnualChurnPaid to annualChurnRatePaid,
-                                columnMonthlyChurn to monthlyChurnRate,
-                                columnMonthlyChurnPaid to monthlyChurnRatePaid,
-                                columnTrials to (trialCount.takeIf { it > 0 }?.toBigInteger() ?: "—"),
-                                columnDownloads to (downloadCount.takeIf { it > 0 }?.toBigInteger() ?: "—"),
-                            ),
-                            tooltips = mapOf(
-                                columnActiveCustomers to "$annualCustomersPaying annual (paying)" +
-                                        "\n$annualCustomersFree annual (free)" +
-                                        "\n$monthlyCustomersPaying monthly (paying)",
-                                columnActiveCustomersPaying to "$annualCustomersPaying annual" +
-                                        "\n$monthlyCustomersPaying monthly",
-                                columnAnnualChurn to annualChurn.churnRateTooltip,
-                                columnAnnualChurnPaid to annualChurnPaid.churnRateTooltip,
-                                columnMonthlyChurn to monthlyChurn.churnRateTooltip,
-                                columnMonthlyChurnPaid to monthlyChurnPaid.churnRateTooltip,
-                            ),
-                            cssClass = cssClass
-                        )
+                    val cssClass = when {
+                        isCurrentMonth -> "today"
+                        monthData.isEmpty -> "disabled"
+                        else -> null
                     }
 
-                    val yearAnnualChurnResult = yearData.churnAnnualLicenses.getResult()
-                    val yearAnnualChurnResultPaid = yearData.churnAnnualPaidLicenses.getResult()
+                    val annualCustomersFree = monthData.customers.segmentCustomerCount(AnnualFree)
+                    val annualCustomersPaying = monthData.customers.segmentCustomerCount(AnnualPaying)
+                    val monthlyCustomersPaying = monthData.customers.segmentCustomerCount(MonthlyPaying)
 
-                    val yearMonthlyChurnResult = yearData.churnMonthlyLicenses.getResult()
-                    val yearMonthlyChurnResultPaid = yearData.churnMonthlyPaidLicenses.getResult()
+                    val totalCustomers = monthData.customers.totalCustomerCount
+                    val totalCustomersPaying = monthData.customers.payingCustomerCount
 
-                    SimpleTableSection(
-                        rows,
-                        "$year",
-                        footer = SimpleRowGroup(
-                            SimpleDateTableRow(
-                                values = mapOf(
-                                    columnAnnualChurn to yearAnnualChurnResult.renderedChurnRate,
-                                    columnAnnualChurnPaid to yearAnnualChurnResultPaid.renderedChurnRate,
-                                    columnMonthlyChurn to yearMonthlyChurnResult.renderedChurnRate,
-                                    columnMonthlyChurnPaid to yearMonthlyChurnResultPaid.renderedChurnRate,
-                                    columnDownloads to yearData.months.values.sumOf { it.downloads }.toBigInteger(),
-                                    columnTrials to trialData.count { it.date.year == year }.toBigInteger(),
-                                ),
-                                tooltips = mapOf(
-                                    columnAnnualChurn to yearAnnualChurnResult.churnRateTooltip,
-                                    columnAnnualChurnPaid to yearAnnualChurnResultPaid.churnRateTooltip,
-                                    columnMonthlyChurn to yearMonthlyChurnResult.churnRateTooltip,
-                                    columnMonthlyChurnPaid to yearMonthlyChurnResultPaid.churnRateTooltip,
-                                )
+                    val trialCount = trialData.count { it.date.year == year && it.date.month == month }
+                    val downloadCount = monthData.downloads
+
+                    SimpleDateTableRow(
+                        values = mapOf(
+                            columnYearMonth to String.format("%02d-%02d", year, month),
+                            columnActiveCustomers to totalCustomers.toBigInteger(),
+                            columnActiveCustomersPaying to totalCustomersPaying.toBigInteger(),
+                            columnAmountTotalUSD to monthData.amounts.totalAmountUSD.withCurrency(Currency.USD),
+                            columnAmountFeesUSD to monthData.amounts.feesAmountUSD.withCurrency(Currency.USD),
+                            columnAmountPaidUSD to monthData.amounts.paidAmountUSD.withCurrency(Currency.USD),
+                            columnAnnualChurn to annualChurnRate,
+                            columnAnnualChurnPaid to annualChurnRatePaid,
+                            columnMonthlyChurn to monthlyChurnRate,
+                            columnMonthlyChurnPaid to monthlyChurnRatePaid,
+                            columnTrials to (trialCount.takeIf { it > 0 }?.toBigInteger() ?: "—"),
+                            columnDownloads to (downloadCount.takeIf { it > 0 }?.toBigInteger() ?: "—"),
+                        ),
+                        tooltips = mapOf(
+                            columnActiveCustomers to "$annualCustomersPaying annual (paying)" +
+                                    "\n$annualCustomersFree annual (free)" +
+                                    "\n$monthlyCustomersPaying monthly (paying)",
+                            columnActiveCustomersPaying to "$annualCustomersPaying annual" +
+                                    "\n$monthlyCustomersPaying monthly",
+                            columnAnnualChurn to annualChurn.churnRateTooltip,
+                            columnAnnualChurnPaid to annualChurnPaid.churnRateTooltip,
+                            columnMonthlyChurn to monthlyChurn.churnRateTooltip,
+                            columnMonthlyChurnPaid to monthlyChurnPaid.churnRateTooltip,
+                        ),
+                        cssClass = cssClass
+                    )
+                }
+
+                val yearAnnualChurnResult = yearData.churnAnnualLicenses.getResult()
+                val yearAnnualChurnResultPaid = yearData.churnAnnualPaidLicenses.getResult()
+
+                val yearMonthlyChurnResult = yearData.churnMonthlyLicenses.getResult()
+                val yearMonthlyChurnResultPaid = yearData.churnMonthlyPaidLicenses.getResult()
+
+                SimpleTableSection(
+                    rows,
+                    "$year",
+                    footer = SimpleRowGroup(
+                        SimpleDateTableRow(
+                            values = mapOf(
+                                columnAnnualChurn to yearAnnualChurnResult.renderedChurnRate,
+                                columnAnnualChurnPaid to yearAnnualChurnResultPaid.renderedChurnRate,
+                                columnMonthlyChurn to yearMonthlyChurnResult.renderedChurnRate,
+                                columnMonthlyChurnPaid to yearMonthlyChurnResultPaid.renderedChurnRate,
+                                columnDownloads to yearData.months.values.sumOf { it.downloads }.toBigInteger(),
+                                columnTrials to trialData.count { it.date.year == year }.toBigInteger(),
+                            ),
+                            tooltips = mapOf(
+                                columnAnnualChurn to yearAnnualChurnResult.churnRateTooltip,
+                                columnAnnualChurnPaid to yearAnnualChurnResultPaid.churnRateTooltip,
+                                columnMonthlyChurn to yearMonthlyChurnResult.churnRateTooltip,
+                                columnMonthlyChurnPaid to yearMonthlyChurnResultPaid.churnRateTooltip,
                             )
                         )
                     )
-                }
-        }
+                )
+            }
+    }
 }

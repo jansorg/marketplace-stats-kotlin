@@ -31,31 +31,30 @@ class TrialsTodayTable : SimpleDataTable("Trials Today", cssClass = "small table
         // ignored
     }
 
-    override val sections: List<DataTableSection>
-        get() {
-            val trialRows = trials
-                .groupBy { it.customer.type }
-                .mapValues { it.value.groupBy { it.customer.country } }
-                .flatMap { (type, countryTrials) ->
-                    countryTrials.map { (country, trials) ->
-                        SimpleDateTableRow(
-                            columnType to type,
-                            columnCountry to (country.takeIf(Country::isNotEmpty) ?: "—"),
-                            columnCount to trials.size.toBigInteger()
-                        )
-                    }
+    override fun createSections(): List<DataTableSection> {
+        val trialRows = trials
+            .groupBy { it.customer.type }
+            .mapValues { it.value.groupBy { it.customer.country } }
+            .flatMap { (type, countryTrials) ->
+                countryTrials.map { (country, trials) ->
+                    SimpleDateTableRow(
+                        columnType to type,
+                        columnCountry to (country.takeIf(Country::isNotEmpty) ?: "—"),
+                        columnCount to trials.size.toBigInteger()
+                    )
                 }
-                .sortedByDescending { it.values[columnCount] as BigInteger }
+            }
+            .sortedByDescending { it.values[columnCount] as BigInteger }
 
-            return listOf(
-                SimpleTableSection(
-                    rows = trialRows,
-                    footer = SimpleRowGroup(
-                        SimpleDateTableRow(
-                            columnCount to trials.size,
-                        )
+        return listOf(
+            SimpleTableSection(
+                rows = trialRows,
+                footer = SimpleRowGroup(
+                    SimpleDateTableRow(
+                        columnCount to trials.size,
                     )
                 )
             )
-        }
+        )
+    }
 }

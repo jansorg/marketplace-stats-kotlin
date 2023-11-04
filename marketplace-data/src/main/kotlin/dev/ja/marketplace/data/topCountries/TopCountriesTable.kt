@@ -31,29 +31,28 @@ class TopCountriesTable(private val maxItems: Int = 10) :
         }
     }
 
-    override val sections: List<DataTableSection>
-        get() {
-            val totalAmount = data.values.sumOf { it }
-            val rows = data.entries
-                .sortedByDescending { it.value }
-                .take(maxItems)
-                .map { (country, amount) ->
-                    SimpleDateTableRow(
-                        columnCountry to country,
-                        columnSales to amount.withCurrency(Currency.USD),
-                        columnSalesPercentage to PercentageValue.of(amount, totalAmount)
-                    )
-                }
+    override fun createSections(): List<DataTableSection> {
+        val totalAmount = data.values.sumOf { it }
+        val rows = data.entries
+            .sortedByDescending { it.value }
+            .take(maxItems)
+            .map { (country, amount) ->
+                SimpleDateTableRow(
+                    columnCountry to country,
+                    columnSales to amount.withCurrency(Currency.USD),
+                    columnSalesPercentage to PercentageValue.of(amount, totalAmount)
+                )
+            }
 
-            return listOf(
-                SimpleTableSection(
-                    rows, footer = SimpleTableSection(
-                        SimpleDateTableRow(
-                            columnCountry to "${data.size} countries",
-                            columnSalesPercentage to PercentageValue(BigDecimal(100.0))
-                        )
+        return listOf(
+            SimpleTableSection(
+                rows, footer = SimpleTableSection(
+                    SimpleDateTableRow(
+                        columnCountry to "${data.size} countries",
+                        columnSalesPercentage to PercentageValue(BigDecimal(100.0))
                     )
                 )
             )
-        }
+        )
+    }
 }

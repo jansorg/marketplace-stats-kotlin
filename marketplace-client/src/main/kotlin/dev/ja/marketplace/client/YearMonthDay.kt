@@ -25,12 +25,10 @@ data class YearMonthDay(val year: Int, val month: Int, val day: Int) : Comparabl
         return YearMonthDayRange(this, of(end))
     }
 
-    fun asIsoString(): String {
-        return String.format("%04d-%02d-%02d", year, month, day)
-    }
+    val asIsoString: String = String.format("%04d-%02d-%02d", year, month, day)
 
     override fun toString(): String {
-        return asIsoString()
+        return asIsoString
     }
 
     val sortValue: Long
@@ -145,7 +143,7 @@ data class YearMonthDayRange(
     }
 
     private fun asIsoStringRange(): String {
-        return "${start.asIsoString()} - ${end.asIsoString()}"
+        return "${start.asIsoString} - ${end.asIsoString}"
     }
 
     companion object {
