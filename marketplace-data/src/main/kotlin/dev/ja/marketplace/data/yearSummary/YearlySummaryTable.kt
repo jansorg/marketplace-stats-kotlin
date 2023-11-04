@@ -42,42 +42,41 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "section-wide"), Ma
         columnDownloads,
     )
 
-    override val sections: List<DataTableSection>
-        get() {
-            val now = YearMonthDay.now()
+    override fun createSections(): List<DataTableSection> {
+        val now = YearMonthDay.now()
 
-            val rows = data.entries.map { (year, value) ->
-                SimpleDateTableRow(
-                    values = mapOf(
-                        columnYear to year,
-                        columnSalesTotal to value.sales.totalAmountUSD.withCurrency(Currency.USD),
-                        columnSalesFees to value.sales.feesAmountUSD.withCurrency(Currency.USD),
-                        columnSalesPaid to value.sales.paidAmountUSD.withCurrency(Currency.USD),
-                        columnDownloads to downloads
-                            .filter { it.firstOfMonth.year == year }
-                            .sumOf { it.downloads }
-                            .toBigInteger(),
-                    ),
-                    cssClass = when {
-                        year == now.year -> "today"
-                        else -> null
-                    }
-                )
-            }
+        val rows = data.entries.map { (year, value) ->
+            SimpleDateTableRow(
+                values = mapOf(
+                    columnYear to year,
+                    columnSalesTotal to value.sales.totalAmountUSD.withCurrency(Currency.USD),
+                    columnSalesFees to value.sales.feesAmountUSD.withCurrency(Currency.USD),
+                    columnSalesPaid to value.sales.paidAmountUSD.withCurrency(Currency.USD),
+                    columnDownloads to downloads
+                        .filter { it.firstOfMonth.year == year }
+                        .sumOf { it.downloads }
+                        .toBigInteger(),
+                ),
+                cssClass = when {
+                    year == now.year -> "today"
+                    else -> null
+                }
+            )
+        }
 
-            return listOf(
-                SimpleTableSection(
-                    rows, footer = SimpleTableSection(
-                        SimpleDateTableRow(
-                            columnSalesTotal to data.values
-                                .sumOf { it.sales.totalAmountUSD }
-                                .withCurrency(Currency.USD),
-                            columnSalesFees to data.values.sumOf { it.sales.feesAmountUSD }.withCurrency(Currency.USD),
-                            columnSalesPaid to data.values.sumOf { it.sales.paidAmountUSD }.withCurrency(Currency.USD),
-                            columnDownloads to downloads.sumOf { it.downloads.toBigInteger() },
-                        )
+        return listOf(
+            SimpleTableSection(
+                rows, footer = SimpleTableSection(
+                    SimpleDateTableRow(
+                        columnSalesTotal to data.values
+                            .sumOf { it.sales.totalAmountUSD }
+                            .withCurrency(Currency.USD),
+                        columnSalesFees to data.values.sumOf { it.sales.feesAmountUSD }.withCurrency(Currency.USD),
+                        columnSalesPaid to data.values.sumOf { it.sales.paidAmountUSD }.withCurrency(Currency.USD),
+                        columnDownloads to downloads.sumOf { it.downloads.toBigInteger() },
                     )
                 )
             )
-        }
+        )
+    }
 }

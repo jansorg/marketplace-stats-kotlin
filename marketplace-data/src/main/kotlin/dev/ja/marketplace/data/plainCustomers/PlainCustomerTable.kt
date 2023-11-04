@@ -9,7 +9,7 @@ import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.LicenseId
 import dev.ja.marketplace.data.*
 
-data class CustomerTableRowData(
+data class PlainCustomerTableRowData(
     val customer: CustomerInfo,
     var earliestLicenseStart: YearMonthDay? = null,
     var latestLicenseEnd: YearMonthDay? = null,
@@ -20,7 +20,7 @@ data class CustomerTableRowData(
     var totalSalesUSD: Amount = Amount.ZERO,
 )
 
-class CustomerTable(
+class PlainCustomerTable(
     private val customerFilter: (CustomerTableRowData) -> Boolean = { true },
     private val isChurnedStyling: Boolean = false,
     private val nowDate: YearMonthDay = YearMonthDay.now(),

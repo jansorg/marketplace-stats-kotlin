@@ -27,6 +27,9 @@ allprojects {
     }
 
     dependencies {
+        // https://mvnrepository.com/artifact/it.unimi.dsi/fastutil-core
+        implementation("it.unimi.dsi:fastutil-core:8.5.12")
+
         implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
         implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 

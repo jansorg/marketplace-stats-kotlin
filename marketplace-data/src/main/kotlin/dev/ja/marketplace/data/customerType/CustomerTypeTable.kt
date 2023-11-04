@@ -26,27 +26,26 @@ class CustomerTypeTable : SimpleDataTable("Customer Type", "customer-type"), Mar
         // ignored
     }
 
-    override val sections: List<DataTableSection>
-        get() {
-            val totalAmount = data.values.sumOf { it }
-            val rows = data.entries.map { (customerType, amount) ->
-                SimpleDateTableRow(
-                    columnType to customerType,
-                    columnAmount to amount.withCurrency(Currency.USD),
-                    columnPercentage to PercentageValue.of(amount, totalAmount)
-                )
-            }
+    override fun createSections(): List<DataTableSection> {
+        val totalAmount = data.values.sumOf { it }
+        val rows = data.entries.map { (customerType, amount) ->
+            SimpleDateTableRow(
+                columnType to customerType,
+                columnAmount to amount.withCurrency(Currency.USD),
+                columnPercentage to PercentageValue.of(amount, totalAmount)
+            )
+        }
 
-            return listOf(
-                SimpleTableSection(
-                    rows,
-                    footer = SimpleTableSection(
-                        SimpleDateTableRow(
-                            columnAmount to totalAmount.withCurrency(Currency.USD),
-                            columnPercentage to PercentageValue.ONE_HUNDRED,
-                        )
+        return listOf(
+            SimpleTableSection(
+                rows,
+                footer = SimpleTableSection(
+                    SimpleDateTableRow(
+                        columnAmount to totalAmount.withCurrency(Currency.USD),
+                        columnPercentage to PercentageValue.ONE_HUNDRED,
                     )
                 )
             )
-        }
+        )
+    }
 }

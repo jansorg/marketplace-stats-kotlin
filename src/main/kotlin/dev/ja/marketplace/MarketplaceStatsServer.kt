@@ -5,10 +5,14 @@
 
 package dev.ja.marketplace
 
+import dev.ja.marketplace.churn.MarketplaceChurnProcessor
 import dev.ja.marketplace.client.*
+import dev.ja.marketplace.data.MarketplaceDataSink
+import dev.ja.marketplace.data.MarketplaceDataSinkFactory
 import dev.ja.marketplace.data.customerType.CustomerTypeFactory
 import dev.ja.marketplace.data.customers.ActiveCustomerTableFactory
 import dev.ja.marketplace.data.customers.ChurnedCustomerTableFactory
+import dev.ja.marketplace.data.customers.CustomerTable
 import dev.ja.marketplace.data.customers.CustomerTableFactory
 import dev.ja.marketplace.data.downloads.MonthlyDownloadsFactory
 import dev.ja.marketplace.data.licenses.LicenseTable
@@ -136,7 +140,10 @@ class MarketplaceStatsServer(
     )
 
     private val httpServer = embeddedServer(Netty, host = host, port = port) {
-        install(Compression)
+        install(Compression) {
+            gzip()
+            deflate()
+        }
         install(Jte) {
             templateEngine = TemplateEngine.createPrecompiled(ContentType.Html).also {
                 it.prepareForRendering("main.kte")
@@ -268,6 +275,54 @@ class MarketplaceStatsServer(
                         )
                     )
                 )
+            }
+            get("/churn-rate/{licensePeriod}/{lastActiveMarker}/{activeMarker}") {
+                val period = when (val periodName = call.parameters["licensePeriod"]) {
+                    "annual" -> LicensePeriod.Annual
+                    "monthly" -> LicensePeriod.Monthly
+                    else -> throw IllegalStateException("Unknown license period: $periodName")
+                }
+                val lastActiveMarker = YearMonthDay.parse(call.parameters["lastActiveMarker"]!!)
+                val activeMarker = YearMonthDay.parse(call.parameters["activeMarker"]!!)
+                val loader = getDataLoader() ?: throw IllegalStateException("Unable to find plugin")
+                val data = loader.loadCached()
+
+                val churnProcessor = MarketplaceChurnProcessor<CustomerInfo>(lastActiveMarker, activeMarker)
+                churnProcessor.init()
+
+                val customerMapping = mutableMapOf<CustomerId, CustomerInfo>()
+
+                data.licenses!!.forEach {
+                    churnProcessor.processValue(
+                        it.sale.customer.code,
+                        it.sale.customer,
+                        it.validity,
+                        it.sale.licensePeriod == period && it.isPaidLicense,
+                        it.isRenewal
+                    )
+
+                    customerMapping[it.sale.customer.code] = it.sale.customer
+                }
+
+                val churnedIds = churnProcessor.churnedIds()
+
+                val pageData = DefaultPluginPageDefinition(
+                    client,
+                    listOf(object : MarketplaceDataSinkFactory {
+                        override fun createTableSink(client: MarketplaceClient): MarketplaceDataSink {
+                            return CustomerTable(
+                                { row -> row.customer.code in churnedIds },
+                                isChurnedStyling = true,
+                                nowDate = activeMarker
+                            )
+                        }
+                    }),
+                    pageTitle = "Churned Customers:\n" +
+                            "${lastActiveMarker.add(0, 0, 1).asIsoString} — ${activeMarker.asIsoString} ($period)",
+                    pageCssClasses = "wide"
+                )
+
+                call.respond(JteContent("main.kte", pageData.createTemplateParameters(loader)))
             }
         }
     }

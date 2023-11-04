@@ -2,6 +2,7 @@
 @import java.math.BigDecimal
 @import java.math.BigInteger
 @import dev.ja.marketplace.client.AmountWithCurrency
+@import dev.ja.marketplace.data.LinkedChurnRate
 @import dev.ja.marketplace.data.LinkedCustomer
 @import dev.ja.marketplace.data.PercentageValue
 
@@ -27,6 +28,10 @@
     ${String.format("%,.2f", value)}
 @elseif(value is LinkedCustomer)
     <a href="/customer/${value.id}?pluginId=${value.pluginId}">${value.id}</a>
+@elseif(value is LinkedChurnRate)
+    <a href="/churn-rate/${value.period.linkSegmentName}/${value.previousPeriodMarkerDate.toString()}/${value.currentPeriodMarkerDate.toString()}?pluginId=${value.pluginId}">
+        @template.render(value.churnRate)
+    </a>
 @else
     ${value?.toString()}
 @endif

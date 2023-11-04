@@ -54,75 +54,74 @@ class LicenseTable(
         }
     }
 
-    override val sections: List<DataTableSection>
-        get() {
-            val now = YearMonthDay.now()
+    // first by date, then days by new/renew, then same values by annual/monthly, then by amount
+    private val comparator = Comparator.comparing<LicenseInfo?, YearMonthDay?> { it.sale.date }.reversed()
+        .thenDescending(Comparator.comparing { it.validity.start })
+        .then(Comparator.comparing { it.saleLineItem.type })
+        .thenDescending(Comparator.comparing { it.sale.licensePeriod })
+        .thenDescending(Comparator.comparing { it.amountUSD.sortValue() })
 
-            // first by date, then days by new/renew, then same values by annual/monthly, then by amount
-            val comparator = Comparator.comparing<LicenseInfo?, YearMonthDay?> { it.sale.date }.reversed()
-                .thenDescending(Comparator.comparing { it.validity.start })
-                .then(Comparator.comparing { it.saleLineItem.type })
-                .thenDescending(Comparator.comparing { it.sale.licensePeriod })
-                .thenDescending(Comparator.comparing { it.amountUSD.sortValue() })
+    override fun createSections(): List<DataTableSection> {
+        val now = YearMonthDay.now()
 
-            val licenseMaxValidity = data.groupBy { it.id }.mapValues { it.value.maxOf { l -> l.validity.end } }
+        val licenseMaxValidity = data.groupBy { it.id }.mapValues { it.value.maxOf { l -> l.validity.end } }
 
-            var lastPurchaseDate: YearMonthDay? = null
-            val rows = data
-                .sortedWith(comparator)
-                .map { license ->
-                    val purchaseDate = license.sale.date
-                    val showPurchaseDate = lastPurchaseDate != purchaseDate
-                    lastPurchaseDate = purchaseDate
+        var lastPurchaseDate: YearMonthDay? = null
+        val rows = data
+            .sortedWith(comparator)
+            .map { license ->
+                val purchaseDate = license.sale.date
+                val showPurchaseDate = lastPurchaseDate != purchaseDate
+                lastPurchaseDate = purchaseDate
 
-                    SimpleDateTableRow(
-                        values = mapOf(
-                            columnLicenseId to license.id,
-                            columnPurchaseDate to if (showPurchaseDate) purchaseDate else null,
-                            columnValidityStart to license.validity.start,
-                            columnValidityEnd to license.validity.end,
-                            columnCustomerName to (license.sale.customer.name ?: "—"),
-                            columnCustomerId to LinkedCustomer(license.sale.customer.code, pluginId = pluginId!!),
-                            columnAmountUSD to license.amountUSD.withCurrency(Currency.USD),
-                            columnLicenseType to license.sale.licensePeriod,
-                            columnLicenseRenewalType to license.saleLineItem.type,
-                            columnDiscount to license.saleLineItem.discountDescriptions
-                                .mapNotNull { it.percent }
-                                .sorted()
-                                .map { it.asPercentageValue(false) }
-                        ),
-                        cssClass = if (licenseMaxValidity[license.id]!! < now) "disabled" else null,
-                        tooltips = mapOf(
-                            columnDiscount to license.saleLineItem.discountDescriptions
-                                .sortedBy { it.percent ?: 0.0 }
-                                .joinToString("\n") {
-                                    when {
-                                        it.percent != null -> "%.2f%% (%s)".format(it.percent, it.description)
-                                        else -> it.description
-                                    }
+                SimpleDateTableRow(
+                    values = mapOf(
+                        columnLicenseId to license.id,
+                        columnPurchaseDate to if (showPurchaseDate) purchaseDate else null,
+                        columnValidityStart to license.validity.start,
+                        columnValidityEnd to license.validity.end,
+                        columnCustomerName to (license.sale.customer.name ?: "—"),
+                        columnCustomerId to LinkedCustomer(license.sale.customer.code, pluginId = pluginId!!),
+                        columnAmountUSD to license.amountUSD.withCurrency(Currency.USD),
+                        columnLicenseType to license.sale.licensePeriod,
+                        columnLicenseRenewalType to license.saleLineItem.type,
+                        columnDiscount to license.saleLineItem.discountDescriptions
+                            .mapNotNull { it.percent }
+                            .sorted()
+                            .map { it.asPercentageValue(false) }
+                    ),
+                    cssClass = if (licenseMaxValidity[license.id]!! < now) "disabled" else null,
+                    tooltips = mapOf(
+                        columnDiscount to license.saleLineItem.discountDescriptions
+                            .sortedBy { it.percent ?: 0.0 }
+                            .joinToString("\n") {
+                                when {
+                                    it.percent != null -> "%.2f%% (%s)".format(it.percent, it.description)
+                                    else -> it.description
                                 }
-                        )
-                    )
-                }
-
-            val licenseCount = licenseMaxValidity.size
-            val activeLicenseCount = licenseMaxValidity.count { it.value >= now }
-            val footer = when {
-                showFooter -> SimpleRowGroup(
-                    SimpleDateTableRow(
-                        values = mapOf(
-                            columnAmountUSD to data.sumOf(LicenseInfo::amountUSD).withCurrency(Currency.USD),
-                            columnLicenseId to (if (licenseCount == 0) "—" else listOf(
-                                "$activeLicenseCount active",
-                                "$licenseCount total"
-                            ))
-                        ),
+                            }
                     )
                 )
-
-                else -> null
             }
 
-            return listOf(SimpleTableSection(rows, null, footer = footer))
+        val licenseCount = licenseMaxValidity.size
+        val activeLicenseCount = licenseMaxValidity.count { it.value >= now }
+        val footer = when {
+            showFooter -> SimpleRowGroup(
+                SimpleDateTableRow(
+                    values = mapOf(
+                        columnAmountUSD to data.sumOf(LicenseInfo::amountUSD).withCurrency(Currency.USD),
+                        columnLicenseId to (if (licenseCount == 0) "—" else listOf(
+                            "$activeLicenseCount active",
+                            "$licenseCount total"
+                        ))
+                    ),
+                )
+            )
+
+            else -> null
         }
+
+        return listOf(SimpleTableSection(rows, null, footer = footer))
+    }
 }

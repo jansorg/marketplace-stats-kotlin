@@ -339,12 +339,12 @@ enum class Currency {
 }
 
 @Serializable
-enum class LicensePeriod {
+enum class LicensePeriod(val linkSegmentName: String) {
     @SerialName("Monthly")
-    Monthly,
+    Monthly("monthly"),
 
     @SerialName("Annual")
-    Annual,
+    Annual("annual"),
 }
 
 @Serializable

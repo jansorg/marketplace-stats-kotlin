@@ -17,7 +17,7 @@
 
 <html lang="en">
 <head>
-    <title>${plugin.name} Report</title>
+    <title>${plugin.name}: ${pageTitle ?: "Report"}</title>
     <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
     <link rel="stylesheet" type="text/css" media="print" href="/styles/main.css"/>
     <link href="/js/sortable.css" rel="stylesheet"/>

@@ -6,7 +6,7 @@
 package dev.ja.marketplace.data.overview
 
 import dev.ja.marketplace.churn.ChurnProcessor
-import dev.ja.marketplace.churn.SimpleChurnProcessor
+import dev.ja.marketplace.churn.MarketplaceChurnProcessor
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.Currency
 import dev.ja.marketplace.data.*
@@ -14,7 +14,7 @@ import dev.ja.marketplace.data.overview.OverviewTable.CustomerSegment.*
 import java.math.BigDecimal
 import java.util.*
 
-class OverviewTable(private val graceTimeDays: Int = 7) :
+class OverviewTable :
     SimpleDataTable("Overview", "overview", "table-striped tables-row"),
     MarketplaceDataSink {
 
@@ -73,6 +73,8 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
             }
     }
 
+    private var pluginId: PluginId? = null
+
     private lateinit var trialData: List<PluginTrial>
     private lateinit var downloadsMonthly: List<MonthlyDownload>
     private var downloadsTotal: Long = 0
@@ -115,15 +117,15 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
         columnAmountPaidUSD,
         columnActiveCustomers,
         columnActiveCustomersPaying,
-//        columnAnnualChurn,
         columnAnnualChurnPaid,
-//        columnMonthlyChurn,
         columnMonthlyChurnPaid,
         columnDownloads,
         columnTrials,
     )
 
     override fun init(data: PluginData) {
+        this.pluginId = data.pluginId
+
         val now = YearMonthDay.now()
         this.trialData = data.trials ?: emptyList()
         this.downloadsMonthly = data.downloadsMonthly
@@ -140,18 +142,6 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
                 val churnDate = currentMonth.end
                 val activeDate = churnDate.add(0, -1, 0)
 
-                val churnAnnual = SimpleChurnProcessor<CustomerInfo>(activeDate, churnDate, graceTimeDays)
-                churnAnnual.init()
-
-                val churnAnnualPaying = SimpleChurnProcessor<CustomerInfo>(activeDate, churnDate, graceTimeDays)
-                churnAnnualPaying.init()
-
-                val churnMonthly = SimpleChurnProcessor<CustomerInfo>(activeDate, churnDate, graceTimeDays)
-                churnMonthly.init()
-
-                val churnMonthlyPaying = SimpleChurnProcessor<CustomerInfo>(activeDate, churnDate, graceTimeDays)
-                churnMonthlyPaying.init()
-
                 val activeCustomerRange = when {
                     YearMonthDay.now() in currentMonth -> currentMonth.copy(end = YearMonthDay.now())
                     else -> currentMonth
@@ -162,10 +152,10 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
                     month,
                     CustomerTracker(activeCustomerRange),
                     PaymentAmountTracker(currentMonth),
-                    churnAnnual,
-                    churnAnnualPaying,
-                    churnMonthly,
-                    churnMonthlyPaying,
+                    createChurnProcessor(activeDate, churnDate),
+                    createChurnProcessor(activeDate, churnDate),
+                    createChurnProcessor(activeDate, churnDate),
+                    createChurnProcessor(activeDate, churnDate),
                     downloadsMonthly
                         .firstOrNull { it.firstOfMonth.year == year && it.firstOfMonth.month == month }
                         ?.downloads
@@ -180,24 +170,12 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
             }
             val activeDate = YearMonthDay(year - 1, 12, 31)
 
-            val churnAnnualCustomers = SimpleChurnProcessor<CustomerInfo>(activeDate, churnDate, graceTimeDays)
-            churnAnnualCustomers.init()
-
-            val churnAnnualPayingCustomers = SimpleChurnProcessor<CustomerInfo>(activeDate, churnDate, graceTimeDays)
-            churnAnnualPayingCustomers.init()
-
-            val churnMonthlyCustomers = SimpleChurnProcessor<CustomerInfo>(activeDate, churnDate, graceTimeDays)
-            churnMonthlyCustomers.init()
-
-            val churnMonthlyPayingCustomers = SimpleChurnProcessor<CustomerInfo>(activeDate, churnDate, graceTimeDays)
-            churnMonthlyPayingCustomers.init()
-
             years[year] = YearData(
                 year,
-                churnAnnualCustomers,
-                churnAnnualPayingCustomers,
-                churnMonthlyCustomers,
-                churnMonthlyPayingCustomers,
+                createChurnProcessor(activeDate, churnDate),
+                createChurnProcessor(activeDate, churnDate),
+                createChurnProcessor(activeDate, churnDate),
+                createChurnProcessor(activeDate, churnDate),
                 months
             )
         }
@@ -211,164 +189,184 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
     override fun process(licenseInfo: LicenseInfo) {
         val customer = licenseInfo.sale.customer
         val licensePeriod = licenseInfo.sale.licensePeriod
+        val customerSegment = CustomerSegment.of(licenseInfo)
 
         years.values.forEach { year ->
-            val isPaidLicense = licenseInfo.amountUSD != Amount.ZERO && !licenseInfo.saleLineItem.isFreeLicense
+            val isPaidLicense = licenseInfo.isPaidLicense
+            val isRenewal = licenseInfo.isRenewal
 
             year.churnAnnualLicenses.processValue(
                 customer.code,
                 customer,
                 licenseInfo.validity,
-                licensePeriod == LicensePeriod.Annual
+                licensePeriod == LicensePeriod.Annual,
+                isRenewal
             )
             year.churnAnnualPaidLicenses.processValue(
                 customer.code,
                 customer,
                 licenseInfo.validity,
-                licensePeriod == LicensePeriod.Annual && isPaidLicense
+                licensePeriod == LicensePeriod.Annual && isPaidLicense,
+                isRenewal
             )
 
             year.churnMonthlyLicenses.processValue(
                 customer.code,
                 customer,
                 licenseInfo.validity,
-                licensePeriod == LicensePeriod.Monthly
+                licensePeriod == LicensePeriod.Monthly,
+                isRenewal
             )
             year.churnMonthlyPaidLicenses.processValue(
                 customer.code,
                 customer,
                 licenseInfo.validity,
-                licensePeriod == LicensePeriod.Monthly && isPaidLicense
+                licensePeriod == LicensePeriod.Monthly && isPaidLicense,
+                isRenewal
             )
 
             year.months.values.forEach { month ->
-                month.customers.add(CustomerSegment.of(licenseInfo), licenseInfo)
+                month.customers.add(customerSegment, licenseInfo)
 
                 month.churnAnnualLicenses.processValue(
                     customer.code,
                     customer,
                     licenseInfo.validity,
-                    licensePeriod == LicensePeriod.Annual
+                    licensePeriod == LicensePeriod.Annual,
+                    isRenewal
                 )
                 month.churnAnnualPaidLicenses.processValue(
                     customer.code,
                     customer,
                     licenseInfo.validity,
-                    licensePeriod == LicensePeriod.Annual && isPaidLicense
+                    licensePeriod == LicensePeriod.Annual && isPaidLicense,
+                    isRenewal
                 )
 
                 month.churnMonthlyLicenses.processValue(
                     customer.code,
                     customer,
                     licenseInfo.validity,
-                    licensePeriod == LicensePeriod.Monthly
+                    licensePeriod == LicensePeriod.Monthly,
+                    isRenewal
                 )
                 month.churnMonthlyPaidLicenses.processValue(
                     customer.code,
                     customer,
                     licenseInfo.validity,
-                    licensePeriod == LicensePeriod.Monthly && isPaidLicense
+                    licensePeriod == LicensePeriod.Monthly && isPaidLicense,
+                    isRenewal
                 )
             }
         }
     }
 
-    override val sections: List<DataTableSection>
-        get() {
-            val now = YearMonthDay.now()
-            return years.entries
-                .toMutableList()
-                .dropLastWhile { it.value.isEmpty } // don't show empty years
-                .map { (year, yearData) ->
-                    val rows = yearData.months.entries.map { (month, monthData) ->
-                        val isCurrentMonth = now.year == year && now.month == month
+    override fun createSections(): List<DataTableSection> {
+        val now = YearMonthDay.now()
+        return years.entries
+            .toMutableList()
+            .dropLastWhile { it.value.isEmpty } // don't show empty years
+            .map { (year, yearData) ->
+                val rows = yearData.months.entries.map { (month, monthData) ->
+                    val isCurrentMonth = now.year == year && now.month == month
 
-                        val annualChurn = monthData.churnAnnualLicenses.getResult()
-                        val annualChurnRate = annualChurn.renderedChurnRate?.takeIf { !isCurrentMonth }
+                    val annualChurn = monthData.churnAnnualLicenses.getResult(LicensePeriod.Annual)
+                    val annualChurnRate = annualChurn.getRenderedChurnRate(pluginId!!).takeIf { !isCurrentMonth }
 
-                        val annualChurnPaid = monthData.churnAnnualPaidLicenses.getResult()
-                        val annualChurnRatePaid = annualChurnPaid.renderedChurnRate?.takeIf { !isCurrentMonth }
+                    val annualChurnPaid = monthData.churnAnnualPaidLicenses.getResult(LicensePeriod.Annual)
+                    val annualChurnRatePaid =
+                        annualChurnPaid.getRenderedChurnRate(pluginId!!).takeIf { !isCurrentMonth }
 
-                        val monthlyChurn = monthData.churnMonthlyLicenses.getResult()
-                        val monthlyChurnRate = monthlyChurn.renderedChurnRate?.takeIf { !isCurrentMonth }
+                    val monthlyChurn = monthData.churnMonthlyLicenses.getResult(LicensePeriod.Monthly)
+                    val monthlyChurnRate = monthlyChurn.getRenderedChurnRate(pluginId!!).takeIf { !isCurrentMonth }
 
-                        val monthlyChurnPaid = monthData.churnMonthlyPaidLicenses.getResult()
-                        val monthlyChurnRatePaid = monthlyChurnPaid.renderedChurnRate?.takeIf { !isCurrentMonth }
+                    val monthlyChurnPaid = monthData.churnMonthlyPaidLicenses.getResult(LicensePeriod.Monthly)
+                    val monthlyChurnRatePaid =
+                        monthlyChurnPaid.getRenderedChurnRate(pluginId!!).takeIf { !isCurrentMonth }
 
-                        val cssClass = when {
-                            isCurrentMonth -> "today"
-                            monthData.isEmpty -> "disabled"
-                            else -> null
-                        }
-
-                        val annualCustomersFree = monthData.customers.segmentCustomerCount(AnnualFree)
-                        val annualCustomersPaying = monthData.customers.segmentCustomerCount(AnnualPaying)
-                        val monthlyCustomersPaying = monthData.customers.segmentCustomerCount(MonthlyPaying)
-
-                        val totalCustomers = monthData.customers.totalCustomerCount
-                        val totalCustomersPaying = monthData.customers.payingCustomerCount
-
-                        val trialCount = trialData.count { it.date.year == year && it.date.month == month }
-                        val downloadCount = monthData.downloads
-
-                        SimpleDateTableRow(
-                            values = mapOf(
-                                columnYearMonth to String.format("%02d-%02d", year, month),
-                                columnActiveCustomers to totalCustomers.toBigInteger(),
-                                columnActiveCustomersPaying to totalCustomersPaying.toBigInteger(),
-                                columnAmountTotalUSD to monthData.amounts.totalAmountUSD.withCurrency(Currency.USD),
-                                columnAmountFeesUSD to monthData.amounts.feesAmountUSD.withCurrency(Currency.USD),
-                                columnAmountPaidUSD to monthData.amounts.paidAmountUSD.withCurrency(Currency.USD),
-                                columnAnnualChurn to annualChurnRate,
-                                columnAnnualChurnPaid to annualChurnRatePaid,
-                                columnMonthlyChurn to monthlyChurnRate,
-                                columnMonthlyChurnPaid to monthlyChurnRatePaid,
-                                columnTrials to (trialCount.takeIf { it > 0 }?.toBigInteger() ?: "—"),
-                                columnDownloads to (downloadCount.takeIf { it > 0 }?.toBigInteger() ?: "—"),
-                            ),
-                            tooltips = mapOf(
-                                columnActiveCustomers to "$annualCustomersPaying annual (paying)" +
-                                        "\n$annualCustomersFree annual (free)" +
-                                        "\n$monthlyCustomersPaying monthly (paying)",
-                                columnActiveCustomersPaying to "$annualCustomersPaying annual" +
-                                        "\n$monthlyCustomersPaying monthly",
-                                columnAnnualChurn to annualChurn.churnRateTooltip,
-                                columnAnnualChurnPaid to annualChurnPaid.churnRateTooltip,
-                                columnMonthlyChurn to monthlyChurn.churnRateTooltip,
-                                columnMonthlyChurnPaid to monthlyChurnPaid.churnRateTooltip,
-                            ),
-                            cssClass = cssClass
-                        )
+                    val cssClass = when {
+                        isCurrentMonth -> "today"
+                        monthData.isEmpty -> "disabled"
+                        else -> null
                     }
 
-                    val yearAnnualChurnResult = yearData.churnAnnualLicenses.getResult()
-                    val yearAnnualChurnResultPaid = yearData.churnAnnualPaidLicenses.getResult()
+                    val annualCustomersFree = monthData.customers.segmentCustomerCount(AnnualFree)
+                    val annualCustomersPaying = monthData.customers.segmentCustomerCount(AnnualPaying)
+                    val monthlyCustomersPaying = monthData.customers.segmentCustomerCount(MonthlyPaying)
 
-                    val yearMonthlyChurnResult = yearData.churnMonthlyLicenses.getResult()
-                    val yearMonthlyChurnResultPaid = yearData.churnMonthlyPaidLicenses.getResult()
+                    val totalCustomers = monthData.customers.totalCustomerCount
+                    val totalCustomersPaying = monthData.customers.payingCustomerCount
 
-                    SimpleTableSection(
-                        rows,
-                        "$year",
-                        footer = SimpleRowGroup(
-                            SimpleDateTableRow(
-                                values = mapOf(
-                                    columnAnnualChurn to yearAnnualChurnResult.renderedChurnRate,
-                                    columnAnnualChurnPaid to yearAnnualChurnResultPaid.renderedChurnRate,
-                                    columnMonthlyChurn to yearMonthlyChurnResult.renderedChurnRate,
-                                    columnMonthlyChurnPaid to yearMonthlyChurnResultPaid.renderedChurnRate,
-                                    columnDownloads to yearData.months.values.sumOf { it.downloads }.toBigInteger(),
-                                    columnTrials to trialData.count { it.date.year == year }.toBigInteger(),
-                                ),
-                                tooltips = mapOf(
-                                    columnAnnualChurn to yearAnnualChurnResult.churnRateTooltip,
-                                    columnAnnualChurnPaid to yearAnnualChurnResultPaid.churnRateTooltip,
-                                    columnMonthlyChurn to yearMonthlyChurnResult.churnRateTooltip,
-                                    columnMonthlyChurnPaid to yearMonthlyChurnResultPaid.churnRateTooltip,
-                                )
+                    val trialCount = trialData.count { it.date.year == year && it.date.month == month }
+                    val downloadCount = monthData.downloads
+
+                    SimpleDateTableRow(
+                        values = mapOf(
+                            columnYearMonth to String.format("%02d-%02d", year, month),
+                            columnActiveCustomers to totalCustomers.toBigInteger(),
+                            columnActiveCustomersPaying to totalCustomersPaying.toBigInteger(),
+                            columnAmountTotalUSD to monthData.amounts.totalAmountUSD.withCurrency(Currency.USD),
+                            columnAmountFeesUSD to monthData.amounts.feesAmountUSD.withCurrency(Currency.USD),
+                            columnAmountPaidUSD to monthData.amounts.paidAmountUSD.withCurrency(Currency.USD),
+                            columnAnnualChurn to annualChurnRate,
+                            columnAnnualChurnPaid to annualChurnRatePaid,
+                            columnMonthlyChurn to monthlyChurnRate,
+                            columnMonthlyChurnPaid to monthlyChurnRatePaid,
+                            columnTrials to (trialCount.takeIf { it > 0 }?.toBigInteger() ?: "—"),
+                            columnDownloads to (downloadCount.takeIf { it > 0 }?.toBigInteger() ?: "—"),
+                        ),
+                        tooltips = mapOf(
+                            columnActiveCustomers to "$annualCustomersPaying annual (paying)" +
+                                    "\n$annualCustomersFree annual (free)" +
+                                    "\n$monthlyCustomersPaying monthly (paying)",
+                            columnActiveCustomersPaying to "$annualCustomersPaying annual" +
+                                    "\n$monthlyCustomersPaying monthly",
+                            columnAnnualChurn to annualChurn.churnRateTooltip,
+                            columnAnnualChurnPaid to annualChurnPaid.churnRateTooltip,
+                            columnMonthlyChurn to monthlyChurn.churnRateTooltip,
+                            columnMonthlyChurnPaid to monthlyChurnPaid.churnRateTooltip,
+                        ),
+                        cssClass = cssClass
+                    )
+                }
+
+                val yearAnnualChurnResult = yearData.churnAnnualLicenses.getResult(LicensePeriod.Annual)
+                val yearAnnualChurnResultPaid = yearData.churnAnnualPaidLicenses.getResult(LicensePeriod.Annual)
+
+                val yearMonthlyChurnResult = yearData.churnMonthlyLicenses.getResult(LicensePeriod.Monthly)
+                val yearMonthlyChurnResultPaid = yearData.churnMonthlyPaidLicenses.getResult(LicensePeriod.Monthly)
+
+                SimpleTableSection(
+                    rows,
+                    "$year",
+                    footer = SimpleRowGroup(
+                        SimpleDateTableRow(
+                            values = mapOf(
+                                columnAnnualChurn to yearAnnualChurnResult.getRenderedChurnRate(pluginId!!),
+                                columnAnnualChurnPaid to yearAnnualChurnResultPaid.getRenderedChurnRate(pluginId!!),
+                                columnMonthlyChurn to yearMonthlyChurnResult.getRenderedChurnRate(pluginId!!),
+                                columnMonthlyChurnPaid to yearMonthlyChurnResultPaid.getRenderedChurnRate(pluginId!!),
+                                columnDownloads to yearData.months.values.sumOf { it.downloads }.toBigInteger(),
+                                columnTrials to trialData.count { it.date.year == year }.toBigInteger(),
+                            ),
+                            tooltips = mapOf(
+                                columnAnnualChurn to yearAnnualChurnResult.churnRateTooltip,
+                                columnAnnualChurnPaid to yearAnnualChurnResultPaid.churnRateTooltip,
+                                columnMonthlyChurn to yearMonthlyChurnResult.churnRateTooltip,
+                                columnMonthlyChurnPaid to yearMonthlyChurnResultPaid.churnRateTooltip,
                             )
                         )
                     )
-                }
-        }
+                )
+            }
+    }
+
+    private fun createChurnProcessor(
+        activeDate: YearMonthDay,
+        churnDate: YearMonthDay
+    ): ChurnProcessor<CustomerId, CustomerInfo> {
+        val processor = MarketplaceChurnProcessor<CustomerInfo>(activeDate, churnDate)
+        processor.init()
+        return processor
+    }
 }

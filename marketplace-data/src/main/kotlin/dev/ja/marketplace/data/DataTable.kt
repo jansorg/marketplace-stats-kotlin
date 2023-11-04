@@ -47,7 +47,11 @@ abstract class SimpleDataTable(
     override val id: String? = null,
     override val cssClass: String? = null,
     override val header: DataRowGroup? = null,
-) : DataTable
+) : DataTable {
+    final override val sections: List<DataTableSection> by lazy { createSections() }
+
+    protected abstract fun createSections(): List<DataTableSection>
+}
 
 data class DataTableColumn(
     val id: String,

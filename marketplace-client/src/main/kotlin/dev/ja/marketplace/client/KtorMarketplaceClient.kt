@@ -154,15 +154,15 @@ class KtorMarketplaceClient(
 
     private suspend fun getSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
         return httpClient.get("$apiPath/marketplace/plugin/$plugin/sales-info") {
-            parameter("beginDate", range.start.asIsoString())
-            parameter("endDate", range.end.asIsoString())
+            parameter("beginDate", range.start.asIsoString)
+            parameter("endDate", range.end.asIsoString)
         }.body()
     }
 
     private suspend fun getTrialsInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginTrial> {
         return httpClient.get("$apiPath/marketplace/plugin/$plugin/trials-info") {
-            parameter("beginDate", range.start.asIsoString())
-            parameter("endDate", range.end.asIsoString())
+            parameter("beginDate", range.start.asIsoString)
+            parameter("endDate", range.end.asIsoString)
         }.body()
     }
 
