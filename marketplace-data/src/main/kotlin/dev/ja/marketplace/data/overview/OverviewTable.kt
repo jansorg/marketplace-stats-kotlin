@@ -139,9 +139,6 @@ class OverviewTable :
 
             val months: Map<Int, MonthData> = monthRange.associateWithTo(TreeMap(Comparator.reverseOrder())) { month ->
                 val currentMonth = YearMonthDayRange.ofMonth(year, month)
-                val churnDate = currentMonth.end
-                val activeDate = churnDate.add(0, -1, 0)
-
                 val activeCustomerRange = when {
                     YearMonthDay.now() in currentMonth -> currentMonth.copy(end = YearMonthDay.now())
                     else -> currentMonth
@@ -152,10 +149,10 @@ class OverviewTable :
                     month,
                     CustomerTracker(activeCustomerRange),
                     PaymentAmountTracker(currentMonth),
-                    createChurnProcessor(activeDate, churnDate),
-                    createChurnProcessor(activeDate, churnDate),
-                    createChurnProcessor(activeDate, churnDate),
-                    createChurnProcessor(activeDate, churnDate),
+                    createChurnProcessor(currentMonth),
+                    createChurnProcessor(currentMonth),
+                    createChurnProcessor(currentMonth),
+                    createChurnProcessor(currentMonth),
                     downloadsMonthly
                         .firstOrNull { it.firstOfMonth.year == year && it.firstOfMonth.month == month }
                         ?.downloads
@@ -164,18 +161,16 @@ class OverviewTable :
             }
 
             // annual churn
-            val churnDate = when (now.year) {
-                year -> now
-                else -> YearMonthDay(year, 12, 31)
-            }
-            val activeDate = YearMonthDay(year - 1, 12, 31)
-
+            val activeTimeRange = YearMonthDayRange(
+                YearMonthDay(year, 1, 1),
+                if (now.year == year) now else YearMonthDay(year, 12, 31)
+            )
             years[year] = YearData(
                 year,
-                createChurnProcessor(activeDate, churnDate),
-                createChurnProcessor(activeDate, churnDate),
-                createChurnProcessor(activeDate, churnDate),
-                createChurnProcessor(activeDate, churnDate),
+                createChurnProcessor(activeTimeRange),
+                createChurnProcessor(activeTimeRange),
+                createChurnProcessor(activeTimeRange),
+                createChurnProcessor(activeTimeRange),
                 months
             )
         }
@@ -361,10 +356,9 @@ class OverviewTable :
             }
     }
 
-    private fun createChurnProcessor(
-        activeDate: YearMonthDay,
-        churnDate: YearMonthDay
-    ): ChurnProcessor<CustomerId, CustomerInfo> {
+    private fun createChurnProcessor(timeRange: YearMonthDayRange): ChurnProcessor<CustomerId, CustomerInfo> {
+        val churnDate = timeRange.end
+        val activeDate = timeRange.start.add(0, 0, -1)
         val processor = MarketplaceChurnProcessor<CustomerInfo>(activeDate, churnDate)
         processor.init()
         return processor
