@@ -6,7 +6,6 @@
 package dev.ja.marketplace.data
 
 import dev.ja.marketplace.client.*
-import dev.ja.marketplace.client.*
 import java.math.BigInteger
 
 typealias LicenseId = String
@@ -30,6 +29,11 @@ data class LicenseInfo(
     // the sale line item of this particular license purchase
     val saleLineItem: PluginSaleItem,
 ) : WithDateRange, WithAmounts, Comparable<LicenseInfo> {
+
+    val isRenewal: Boolean
+        get() {
+            return saleLineItem.type == PluginSaleItemType.Renew
+        }
 
     override val dateRange: YearMonthDayRange
         get() = validity

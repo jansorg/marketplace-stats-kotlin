@@ -6,7 +6,7 @@
 package dev.ja.marketplace.data.overview
 
 import dev.ja.marketplace.churn.ChurnProcessor
-import dev.ja.marketplace.churn.SimpleChurnProcessor
+import dev.ja.marketplace.churn.MarketplaceChurnProcessor
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.Currency
 import dev.ja.marketplace.data.*
@@ -115,9 +115,7 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
         columnAmountPaidUSD,
         columnActiveCustomers,
         columnActiveCustomersPaying,
-//        columnAnnualChurn,
         columnAnnualChurnPaid,
-//        columnMonthlyChurn,
         columnMonthlyChurnPaid,
         columnDownloads,
         columnTrials,
@@ -140,16 +138,16 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
                 val churnDate = currentMonth.end
                 val activeDate = churnDate.add(0, -1, 0)
 
-                val churnAnnual = SimpleChurnProcessor<CustomerInfo>(activeDate, churnDate, graceTimeDays)
+                val churnAnnual = createChurnProcessor(activeDate, churnDate)
                 churnAnnual.init()
 
-                val churnAnnualPaying = SimpleChurnProcessor<CustomerInfo>(activeDate, churnDate, graceTimeDays)
+                val churnAnnualPaying = createChurnProcessor(activeDate, churnDate)
                 churnAnnualPaying.init()
 
-                val churnMonthly = SimpleChurnProcessor<CustomerInfo>(activeDate, churnDate, graceTimeDays)
+                val churnMonthly = createChurnProcessor(activeDate, churnDate)
                 churnMonthly.init()
 
-                val churnMonthlyPaying = SimpleChurnProcessor<CustomerInfo>(activeDate, churnDate, graceTimeDays)
+                val churnMonthlyPaying = createChurnProcessor(activeDate, churnDate)
                 churnMonthlyPaying.init()
 
                 val activeCustomerRange = when {
@@ -180,16 +178,16 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
             }
             val activeDate = YearMonthDay(year - 1, 12, 31)
 
-            val churnAnnualCustomers = SimpleChurnProcessor<CustomerInfo>(activeDate, churnDate, graceTimeDays)
+            val churnAnnualCustomers = createChurnProcessor(activeDate, churnDate)
             churnAnnualCustomers.init()
 
-            val churnAnnualPayingCustomers = SimpleChurnProcessor<CustomerInfo>(activeDate, churnDate, graceTimeDays)
+            val churnAnnualPayingCustomers = createChurnProcessor(activeDate, churnDate)
             churnAnnualPayingCustomers.init()
 
-            val churnMonthlyCustomers = SimpleChurnProcessor<CustomerInfo>(activeDate, churnDate, graceTimeDays)
+            val churnMonthlyCustomers = createChurnProcessor(activeDate, churnDate)
             churnMonthlyCustomers.init()
 
-            val churnMonthlyPayingCustomers = SimpleChurnProcessor<CustomerInfo>(activeDate, churnDate, graceTimeDays)
+            val churnMonthlyPayingCustomers = createChurnProcessor(activeDate, churnDate)
             churnMonthlyPayingCustomers.init()
 
             years[year] = YearData(
@@ -211,63 +209,73 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
     override fun process(licenseInfo: LicenseInfo) {
         val customer = licenseInfo.sale.customer
         val licensePeriod = licenseInfo.sale.licensePeriod
+        val customerSegment = CustomerSegment.of(licenseInfo)
 
         years.values.forEach { year ->
             val isPaidLicense = licenseInfo.amountUSD != Amount.ZERO && !licenseInfo.saleLineItem.isFreeLicense
+            val isRenewal = licenseInfo.isRenewal
 
             year.churnAnnualLicenses.processValue(
                 customer.code,
                 customer,
                 licenseInfo.validity,
-                licensePeriod == LicensePeriod.Annual
+                licensePeriod == LicensePeriod.Annual,
+                isRenewal
             )
             year.churnAnnualPaidLicenses.processValue(
                 customer.code,
                 customer,
                 licenseInfo.validity,
-                licensePeriod == LicensePeriod.Annual && isPaidLicense
+                licensePeriod == LicensePeriod.Annual && isPaidLicense,
+                isRenewal
             )
 
             year.churnMonthlyLicenses.processValue(
                 customer.code,
                 customer,
                 licenseInfo.validity,
-                licensePeriod == LicensePeriod.Monthly
+                licensePeriod == LicensePeriod.Monthly,
+                isRenewal
             )
             year.churnMonthlyPaidLicenses.processValue(
                 customer.code,
                 customer,
                 licenseInfo.validity,
-                licensePeriod == LicensePeriod.Monthly && isPaidLicense
+                licensePeriod == LicensePeriod.Monthly && isPaidLicense,
+                isRenewal
             )
 
             year.months.values.forEach { month ->
-                month.customers.add(CustomerSegment.of(licenseInfo), licenseInfo)
+                month.customers.add(customerSegment, licenseInfo)
 
                 month.churnAnnualLicenses.processValue(
                     customer.code,
                     customer,
                     licenseInfo.validity,
-                    licensePeriod == LicensePeriod.Annual
+                    licensePeriod == LicensePeriod.Annual,
+                    isRenewal
                 )
                 month.churnAnnualPaidLicenses.processValue(
                     customer.code,
                     customer,
                     licenseInfo.validity,
-                    licensePeriod == LicensePeriod.Annual && isPaidLicense
+                    licensePeriod == LicensePeriod.Annual && isPaidLicense,
+                    isRenewal
                 )
 
                 month.churnMonthlyLicenses.processValue(
                     customer.code,
                     customer,
                     licenseInfo.validity,
-                    licensePeriod == LicensePeriod.Monthly
+                    licensePeriod == LicensePeriod.Monthly,
+                    isRenewal
                 )
                 month.churnMonthlyPaidLicenses.processValue(
                     customer.code,
                     customer,
                     licenseInfo.validity,
-                    licensePeriod == LicensePeriod.Monthly && isPaidLicense
+                    licensePeriod == LicensePeriod.Monthly && isPaidLicense,
+                    isRenewal
                 )
             }
         }
@@ -369,5 +377,13 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
                     )
                 )
             }
+    }
+
+    private fun createChurnProcessor(
+        activeDate: YearMonthDay,
+        churnDate: YearMonthDay
+    ): ChurnProcessor<Int, CustomerInfo> {
+        return MarketplaceChurnProcessor(activeDate, churnDate)
+        //return SimpleChurnProcessor(activeDate, churnDate, graceTimeDays)
     }
 }

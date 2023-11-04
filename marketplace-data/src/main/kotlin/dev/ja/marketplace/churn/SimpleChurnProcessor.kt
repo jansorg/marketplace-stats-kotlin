@@ -10,6 +10,9 @@ import dev.ja.marketplace.client.YearMonthDayRange
 
 /**
  * Churn rate is calculated as "number of users lost in the date range / users at beginning of the date range".
+ *
+ * This implementation is problematic, because
+ * - the grace period is not necessarily the same as the one used by JetBrains Marketplace
  */
 class SimpleChurnProcessor<T>(
     private val previouslyActiveMarkerDate: YearMonthDay,
@@ -22,7 +25,13 @@ class SimpleChurnProcessor<T>(
 
     override fun init() {}
 
-    override fun processValue(id: Int, value: T, validity: YearMonthDayRange, isAcceptedValue: Boolean) {
+    override fun processValue(
+        id: Int,
+        value: T,
+        validity: YearMonthDayRange,
+        isAcceptedValue: Boolean,
+        isExplicitRenewal: Boolean
+    ) {
         if (isAcceptedValue && previouslyActiveMarkerDate in validity) {
             previousPeriodItems += id
         }

@@ -12,10 +12,15 @@ import java.time.YearMonth
 import java.time.temporal.TemporalAdjusters
 import java.time.temporal.WeekFields
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 @Serializable(with = YearMonthDateSerializer::class)
 data class YearMonthDay(val year: Int, val month: Int, val day: Int) : Comparable<YearMonthDay> {
     private val instant = LocalDate(year, month, day).atStartOfDayIn(MarketplaceTimeZone)
+
+    val asIsoString: String by lazy {
+        String.format("%04d-%02d-%02d", year, month, day)
+    }
 
     fun rangeTo(end: YearMonthDay): YearMonthDayRange {
         return YearMonthDayRange(this, end)
@@ -24,8 +29,6 @@ data class YearMonthDay(val year: Int, val month: Int, val day: Int) : Comparabl
     fun rangeTo(end: Instant): YearMonthDayRange {
         return YearMonthDayRange(this, of(end))
     }
-
-    val asIsoString: String = String.format("%04d-%02d-%02d", year, month, day)
 
     override fun toString(): String {
         return asIsoString
@@ -37,6 +40,10 @@ data class YearMonthDay(val year: Int, val month: Int, val day: Int) : Comparabl
         }
 
     fun add(years: Int, months: Int, days: Int): YearMonthDay {
+        if (years == 0 && months == 0 && days == 0) {
+            return this
+        }
+
         return of(
             instant.plus(years, DateTimeUnit.YEAR, MarketplaceTimeZone)
                 .plus(months, DateTimeUnit.MONTH, MarketplaceTimeZone)
@@ -49,6 +56,11 @@ data class YearMonthDay(val year: Int, val month: Int, val day: Int) : Comparabl
     }
 
     companion object {
+        fun parse(date: String): YearMonthDay {
+            val (y, m, d) = date.split('-')
+            return YearMonthDay(y.toInt(), m.toInt(), d.toInt())
+        }
+
         fun now(): YearMonthDay {
             return of(Clock.System.now())
         }
@@ -66,13 +78,12 @@ data class YearMonthDay(val year: Int, val month: Int, val day: Int) : Comparabl
         }
 
         fun of(date: Instant): YearMonthDay {
-            return of(date.toLocalDateTime(MarketplaceTimeZone))
+            return instantCache.computeIfAbsent(date) {
+                of(date.toLocalDateTime(MarketplaceTimeZone))
+            }
         }
 
-        fun parse(date: String): YearMonthDay {
-            val (y, m, d) = date.split('-')
-            return YearMonthDay(y.toInt(), m.toInt(), d.toInt())
-        }
+        private val instantCache = ConcurrentHashMap<Instant, YearMonthDay>()
     }
 }
 
@@ -139,6 +150,9 @@ data class YearMonthDayRange(
     }
 
     fun expandEnd(years: Int, months: Int, days: Int): YearMonthDayRange {
+        if (years == 0 && months == 0 && days == 0) {
+            return this
+        }
         return YearMonthDayRange(start, end.add(years, months, days))
     }
 

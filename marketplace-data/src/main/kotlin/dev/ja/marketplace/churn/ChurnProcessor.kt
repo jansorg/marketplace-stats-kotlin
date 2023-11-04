@@ -10,7 +10,13 @@ import dev.ja.marketplace.client.YearMonthDayRange
 interface ChurnProcessor<ID, T> {
     fun init()
 
-    fun processValue(id: ID, value: T, validity: YearMonthDayRange, isAcceptedValue: Boolean)
+    fun processValue(
+        id: ID,
+        value: T,
+        validity: YearMonthDayRange,
+        isAcceptedValue: Boolean,
+        isExplicitRenewal: Boolean = false
+    )
 
     fun getResult(): ChurnResult<T>
 }

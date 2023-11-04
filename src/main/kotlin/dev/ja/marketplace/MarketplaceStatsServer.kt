@@ -136,7 +136,10 @@ class MarketplaceStatsServer(
     )
 
     private val httpServer = embeddedServer(Netty, host = host, port = port) {
-        install(Compression)
+        install(Compression) {
+            gzip()
+            deflate()
+        }
         install(Jte) {
             templateEngine = TemplateEngine.createPrecompiled(ContentType.Html).also {
                 it.prepareForRendering("main.kte")
