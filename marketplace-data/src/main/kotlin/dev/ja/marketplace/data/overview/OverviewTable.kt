@@ -138,18 +138,6 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
                 val churnDate = currentMonth.end
                 val activeDate = churnDate.add(0, -1, 0)
 
-                val churnAnnual = createChurnProcessor(activeDate, churnDate)
-                churnAnnual.init()
-
-                val churnAnnualPaying = createChurnProcessor(activeDate, churnDate)
-                churnAnnualPaying.init()
-
-                val churnMonthly = createChurnProcessor(activeDate, churnDate)
-                churnMonthly.init()
-
-                val churnMonthlyPaying = createChurnProcessor(activeDate, churnDate)
-                churnMonthlyPaying.init()
-
                 val activeCustomerRange = when {
                     YearMonthDay.now() in currentMonth -> currentMonth.copy(end = YearMonthDay.now())
                     else -> currentMonth
@@ -160,10 +148,10 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
                     month,
                     CustomerTracker(activeCustomerRange),
                     PaymentAmountTracker(currentMonth),
-                    churnAnnual,
-                    churnAnnualPaying,
-                    churnMonthly,
-                    churnMonthlyPaying,
+                    createChurnProcessor(activeDate, churnDate),
+                    createChurnProcessor(activeDate, churnDate),
+                    createChurnProcessor(activeDate, churnDate),
+                    createChurnProcessor(activeDate, churnDate),
                     downloadsMonthly
                         .firstOrNull { it.firstOfMonth.year == year && it.firstOfMonth.month == month }
                         ?.downloads
@@ -178,24 +166,12 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
             }
             val activeDate = YearMonthDay(year - 1, 12, 31)
 
-            val churnAnnualCustomers = createChurnProcessor(activeDate, churnDate)
-            churnAnnualCustomers.init()
-
-            val churnAnnualPayingCustomers = createChurnProcessor(activeDate, churnDate)
-            churnAnnualPayingCustomers.init()
-
-            val churnMonthlyCustomers = createChurnProcessor(activeDate, churnDate)
-            churnMonthlyCustomers.init()
-
-            val churnMonthlyPayingCustomers = createChurnProcessor(activeDate, churnDate)
-            churnMonthlyPayingCustomers.init()
-
             years[year] = YearData(
                 year,
-                churnAnnualCustomers,
-                churnAnnualPayingCustomers,
-                churnMonthlyCustomers,
-                churnMonthlyPayingCustomers,
+                createChurnProcessor(activeDate, churnDate),
+                createChurnProcessor(activeDate, churnDate),
+                createChurnProcessor(activeDate, churnDate),
+                createChurnProcessor(activeDate, churnDate),
                 months
             )
         }
@@ -382,8 +358,9 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
     private fun createChurnProcessor(
         activeDate: YearMonthDay,
         churnDate: YearMonthDay
-    ): ChurnProcessor<Int, CustomerInfo> {
-        return MarketplaceChurnProcessor(activeDate, churnDate)
-        //return SimpleChurnProcessor(activeDate, churnDate, graceTimeDays)
+    ): ChurnProcessor<CustomerId, CustomerInfo> {
+        val processor = MarketplaceChurnProcessor<CustomerInfo>(activeDate, churnDate)
+        processor.init()
+        return processor
     }
 }
