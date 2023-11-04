@@ -35,6 +35,11 @@ data class LicenseInfo(
             return saleLineItem.type == PluginSaleItemType.Renew
         }
 
+    val isPaidLicense: Boolean
+        get() {
+            return amountUSD != Amount.ZERO && !saleLineItem.isFreeLicense
+        }
+
     override val dateRange: YearMonthDayRange
         get() = validity
 

@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.churn
 
+import dev.ja.marketplace.client.LicensePeriod
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 
@@ -46,7 +47,7 @@ class SimpleChurnProcessor<T>(
         }
     }
 
-    override fun getResult(): ChurnResult<T> {
+    override fun getResult(period: LicensePeriod): ChurnResult<T> {
         val activeAtStart = previousPeriodItems.size
         val churned = previousPeriodItems.count { it !in activeItems && it !in activeItemsUnaccepted }
         val churnRate = when (activeAtStart) {
@@ -54,6 +55,14 @@ class SimpleChurnProcessor<T>(
             else -> churned.toDouble() / activeAtStart.toDouble()
         }
 
-        return ChurnResult(churnRate, activeAtStart, activeItems.size, churned)
+        return ChurnResult(
+            churnRate,
+            activeAtStart,
+            activeItems.size,
+            churned,
+            previouslyActiveMarkerDate,
+            currentlyActiveMarkerDate,
+            period
+        )
     }
 }

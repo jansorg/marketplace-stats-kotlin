@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.churn
 
+import dev.ja.marketplace.client.LicensePeriod
 import dev.ja.marketplace.client.YearMonthDayRange
 
 interface ChurnProcessor<ID, T> {
@@ -18,5 +19,5 @@ interface ChurnProcessor<ID, T> {
         isExplicitRenewal: Boolean = false
     )
 
-    fun getResult(): ChurnResult<T>
+    fun getResult(period: LicensePeriod): ChurnResult<T>
 }

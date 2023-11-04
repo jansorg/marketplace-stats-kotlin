@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.churn
 
+import dev.ja.marketplace.client.LicensePeriod
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet
@@ -45,20 +46,32 @@ class MarketplaceChurnProcessor<T>(
         }
     }
 
-    override fun getResult(): ChurnResult<T> {
+    override fun getResult(period: LicensePeriod): ChurnResult<T> {
         val activeAtStart = previousPeriodItems.size
 
         // e.g. users which were licensed end of last month, but no longer are licensed end of this month.
         // We're not counting users, which switched the license type, e.g. from "monthly" to "annual"
-        val churned = IntOpenHashSet(previousPeriodItems)
-        churned.removeAll(activeItems)
-        churned.removeAll(activeItemsUnaccepted)
-
+        val churned = churnedIds()
         val churnRate = when (activeAtStart) {
             0 -> 0.0
             else -> churned.size.toDouble() / activeAtStart.toDouble()
         }
 
-        return ChurnResult(churnRate, activeAtStart, activeItems.size, churned.size)
+        return ChurnResult(
+            churnRate,
+            activeAtStart,
+            activeItems.size,
+            churned.size,
+            previouslyActiveMarkerDate,
+            currentlyActiveMarkerDate,
+            period
+        )
+    }
+
+    fun churnedIds(): IntOpenHashSet {
+        val churned = IntOpenHashSet(previousPeriodItems)
+        churned.removeAll(activeItems)
+        churned.removeAll(activeItemsUnaccepted)
+        return churned
     }
 }

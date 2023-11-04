@@ -14,7 +14,7 @@ import dev.ja.marketplace.data.overview.OverviewTable.CustomerSegment.*
 import java.math.BigDecimal
 import java.util.*
 
-class OverviewTable(private val graceTimeDays: Int = 7) :
+class OverviewTable :
     SimpleDataTable("Overview", "overview", "table-striped tables-row"),
     MarketplaceDataSink {
 
@@ -73,6 +73,8 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
             }
     }
 
+    private var pluginId: PluginId? = null
+
     private lateinit var trialData: List<PluginTrial>
     private lateinit var downloadsMonthly: List<MonthlyDownload>
     private var downloadsTotal: Long = 0
@@ -122,6 +124,8 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
     )
 
     override fun init(data: PluginData) {
+        this.pluginId = data.pluginId
+
         val now = YearMonthDay.now()
         this.trialData = data.trials ?: emptyList()
         this.downloadsMonthly = data.downloadsMonthly
@@ -188,7 +192,7 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
         val customerSegment = CustomerSegment.of(licenseInfo)
 
         years.values.forEach { year ->
-            val isPaidLicense = licenseInfo.amountUSD != Amount.ZERO && !licenseInfo.saleLineItem.isFreeLicense
+            val isPaidLicense = licenseInfo.isPaidLicense
             val isRenewal = licenseInfo.isRenewal
 
             year.churnAnnualLicenses.processValue(
@@ -266,17 +270,19 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
                 val rows = yearData.months.entries.map { (month, monthData) ->
                     val isCurrentMonth = now.year == year && now.month == month
 
-                    val annualChurn = monthData.churnAnnualLicenses.getResult()
-                    val annualChurnRate = annualChurn.renderedChurnRate?.takeIf { !isCurrentMonth }
+                    val annualChurn = monthData.churnAnnualLicenses.getResult(LicensePeriod.Annual)
+                    val annualChurnRate = annualChurn.getRenderedChurnRate(pluginId!!).takeIf { !isCurrentMonth }
 
-                    val annualChurnPaid = monthData.churnAnnualPaidLicenses.getResult()
-                    val annualChurnRatePaid = annualChurnPaid.renderedChurnRate?.takeIf { !isCurrentMonth }
+                    val annualChurnPaid = monthData.churnAnnualPaidLicenses.getResult(LicensePeriod.Annual)
+                    val annualChurnRatePaid =
+                        annualChurnPaid.getRenderedChurnRate(pluginId!!).takeIf { !isCurrentMonth }
 
-                    val monthlyChurn = monthData.churnMonthlyLicenses.getResult()
-                    val monthlyChurnRate = monthlyChurn.renderedChurnRate?.takeIf { !isCurrentMonth }
+                    val monthlyChurn = monthData.churnMonthlyLicenses.getResult(LicensePeriod.Monthly)
+                    val monthlyChurnRate = monthlyChurn.getRenderedChurnRate(pluginId!!).takeIf { !isCurrentMonth }
 
-                    val monthlyChurnPaid = monthData.churnMonthlyPaidLicenses.getResult()
-                    val monthlyChurnRatePaid = monthlyChurnPaid.renderedChurnRate?.takeIf { !isCurrentMonth }
+                    val monthlyChurnPaid = monthData.churnMonthlyPaidLicenses.getResult(LicensePeriod.Monthly)
+                    val monthlyChurnRatePaid =
+                        monthlyChurnPaid.getRenderedChurnRate(pluginId!!).takeIf { !isCurrentMonth }
 
                     val cssClass = when {
                         isCurrentMonth -> "today"
@@ -324,11 +330,11 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
                     )
                 }
 
-                val yearAnnualChurnResult = yearData.churnAnnualLicenses.getResult()
-                val yearAnnualChurnResultPaid = yearData.churnAnnualPaidLicenses.getResult()
+                val yearAnnualChurnResult = yearData.churnAnnualLicenses.getResult(LicensePeriod.Annual)
+                val yearAnnualChurnResultPaid = yearData.churnAnnualPaidLicenses.getResult(LicensePeriod.Annual)
 
-                val yearMonthlyChurnResult = yearData.churnMonthlyLicenses.getResult()
-                val yearMonthlyChurnResultPaid = yearData.churnMonthlyPaidLicenses.getResult()
+                val yearMonthlyChurnResult = yearData.churnMonthlyLicenses.getResult(LicensePeriod.Monthly)
+                val yearMonthlyChurnResultPaid = yearData.churnMonthlyPaidLicenses.getResult(LicensePeriod.Monthly)
 
                 SimpleTableSection(
                     rows,
@@ -336,10 +342,10 @@ class OverviewTable(private val graceTimeDays: Int = 7) :
                     footer = SimpleRowGroup(
                         SimpleDateTableRow(
                             values = mapOf(
-                                columnAnnualChurn to yearAnnualChurnResult.renderedChurnRate,
-                                columnAnnualChurnPaid to yearAnnualChurnResultPaid.renderedChurnRate,
-                                columnMonthlyChurn to yearMonthlyChurnResult.renderedChurnRate,
-                                columnMonthlyChurnPaid to yearMonthlyChurnResultPaid.renderedChurnRate,
+                                columnAnnualChurn to yearAnnualChurnResult.getRenderedChurnRate(pluginId!!),
+                                columnAnnualChurnPaid to yearAnnualChurnResultPaid.getRenderedChurnRate(pluginId!!),
+                                columnMonthlyChurn to yearMonthlyChurnResult.getRenderedChurnRate(pluginId!!),
+                                columnMonthlyChurnPaid to yearMonthlyChurnResultPaid.getRenderedChurnRate(pluginId!!),
                                 columnDownloads to yearData.months.values.sumOf { it.downloads }.toBigInteger(),
                                 columnTrials to trialData.count { it.date.year == year }.toBigInteger(),
                             ),
