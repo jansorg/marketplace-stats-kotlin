@@ -18,8 +18,11 @@ import dev.ja.marketplace.client.YearMonthDayRange
 class SimpleChurnProcessor<T>(
     private val previouslyActiveMarkerDate: YearMonthDay,
     private val currentlyActiveMarkerDate: YearMonthDay,
-    private val graceTimeDays: Int,
+    graceTimeDays: Int,
 ) : ChurnProcessor<Int, T> {
+    private val previouslyActiveMarkerDateWithGraceTime = previouslyActiveMarkerDate.add(0, 0, graceTimeDays)
+    private val currentlyActiveMarkerDateWithGraceTime = currentlyActiveMarkerDate.add(0, 0, graceTimeDays)
+
     private val previousPeriodItems = mutableSetOf<Int>()
     private val activeItems = mutableSetOf<Int>()
     private val activeItemsUnaccepted = mutableSetOf<Int>()
@@ -38,7 +41,7 @@ class SimpleChurnProcessor<T>(
         }
 
         // valid before end, valid until end or later
-        if (currentlyActiveMarkerDate in validity.expandEnd(0, 0, graceTimeDays)) {
+        if (isValid(validity, currentlyActiveMarkerDate, currentlyActiveMarkerDateWithGraceTime)) {
             if (isAcceptedValue) {
                 activeItems += id
             } else {
@@ -64,5 +67,13 @@ class SimpleChurnProcessor<T>(
             currentlyActiveMarkerDate,
             period
         )
+    }
+
+    private fun isValid(
+        validity: YearMonthDayRange,
+        markerDate: YearMonthDay,
+        markerDateWithGraceTime: YearMonthDay
+    ): Boolean {
+        return markerDate in validity || markerDateWithGraceTime in validity
     }
 }
