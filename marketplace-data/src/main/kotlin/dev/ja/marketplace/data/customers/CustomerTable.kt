@@ -25,8 +25,9 @@ class CustomerTable(
     private val isChurnedStyling: Boolean = false,
     private val nowDate: YearMonthDay = YearMonthDay.now(),
 ) : SimpleDataTable("Customers", cssClass = "section-wide sortable"), MarketplaceDataSink {
-    private val columnValidSince = DataTableColumn("customer-since", "Since")
+    private val columnValidSince = DataTableColumn("customer-since", if (isChurnedStyling) "Licensed since" else "Since")
     private val columnValidUntil = DataTableColumn("customer-until", "Licensed Until")
+    private val columnChurnedAt = DataTableColumn("customer-churn-date", "Churn date")
     private val columnName = DataTableColumn("customer-name", "Name", cssStyle = "width:20%")
     private val columnCountry = DataTableColumn("customer-country", "Country")
     private val columnType = DataTableColumn("customer-type", "Type")
@@ -41,7 +42,7 @@ class CustomerTable(
     private var pluginId: PluginId? = null
 
     override val columns: List<DataTableColumn> = listOfNotNull(
-        columnValidUntil,
+        if (isChurnedStyling) columnChurnedAt else columnValidUntil,
         columnValidSince,
         columnName,
         columnSales,
@@ -88,6 +89,7 @@ class CustomerTable(
                 val customer = customerData.customer
                 val validSince = customerData.earliestLicenseStart!!
                 val validUntil = customerData.latestLicenseEnd!!
+                val churnedAt = validUntil.add(0, 0, 1)
                 val showValidUntil = validUntil != prevValidUntil
                 prevValidUntil = validUntil
 
@@ -98,7 +100,10 @@ class CustomerTable(
 
                 SimpleDateTableRow(
                     mapOf(
-                        columnValidUntil to if (showValidUntil) validUntil else null,
+                        when {
+                            isChurnedStyling -> columnChurnedAt to churnedAt.takeIf { showValidUntil }
+                            else -> columnValidUntil to validUntil.takeIf { showValidUntil }
+                        },
                         columnValidSince to validSince,
                         columnId to LinkedCustomer(customer.code, pluginId = pluginId!!),
                         columnName to (customer.name ?: "—"),
