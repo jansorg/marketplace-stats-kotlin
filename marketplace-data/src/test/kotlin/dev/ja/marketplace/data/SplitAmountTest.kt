@@ -45,7 +45,7 @@ class SplitAmountTest {
     fun splitNoRemainder() {
         val amountEUR = Amount(210)
         val amountUSD = Amount(150)
-        SplitAmount.split(amountEUR, amountUSD, listOf("a", "b", "c")) { splitEur, splitUsd, item ->
+        SplitAmount.split(amountEUR, amountUSD, listOf("a", "b", "c")) { splitEur, splitUsd, _ ->
             assertEquals(Amount(70).setScale(2, RoundingMode.HALF_UP), splitEur)
             assertEquals(Amount(50).setScale(2, RoundingMode.HALF_UP), splitUsd)
         }

@@ -9,11 +9,11 @@ val ktorVersion: String by project
 
 plugins {
     application
-    id("org.jetbrains.kotlin.jvm") version "1.9.10"
-    kotlin("plugin.serialization") version "1.9.10"
+    id("org.jetbrains.kotlin.jvm") version "1.9.21"
+    kotlin("plugin.serialization") version "1.9.21"
 
     id("com.github.johnrengelman.shadow") version "8.1.1"
-    id("gg.jte.gradle") version "3.1.4"
+    id("gg.jte.gradle") version "3.1.5"
 }
 
 allprojects {
@@ -76,7 +76,7 @@ project(":") {
         implementation("io.ktor:ktor-server-compression:$ktorVersion")
         implementation("io.ktor:ktor-server-jte:$ktorVersion")
 
-        implementation("gg.jte:jte:3.1.3")
+        implementation("gg.jte:jte:3.1.5")
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 
         runtimeOnly(provider {
@@ -86,7 +86,7 @@ project(":") {
 
     jte {
         sourceDirectory.set(file("src/main/resources/templates").toPath())
-        targetDirectory.set(project.buildDir.resolve("jte-classes").toPath())
+        targetDirectory.set(project.layout.buildDirectory.file("jte-classes").get().asFile.toPath())
         trimControlStructures.set(true)
         contentType.set(ContentType.Html)
 
