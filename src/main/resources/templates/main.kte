@@ -52,9 +52,7 @@
 </section>
 
 <footer class="menu subtitle section-small">
-    <form action="/refresh?pluginId=${plugin.id}" method="POST">
-        <button>Refresh</button>
-    </form>
+    <form action="/refresh?pluginId=${plugin.id}&reload=true" method="POST"><button>Refresh</button></form>
 </footer>
 
 </body>

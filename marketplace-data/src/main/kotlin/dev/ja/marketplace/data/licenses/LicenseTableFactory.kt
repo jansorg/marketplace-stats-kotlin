@@ -5,13 +5,12 @@
 
 package dev.ja.marketplace.data.licenses
 
-import dev.ja.marketplace.data.licenses.LicenseTable
 import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.data.MarketplaceDataSink
 import dev.ja.marketplace.data.MarketplaceDataSinkFactory
 
 class LicenseTableFactory : MarketplaceDataSinkFactory {
-    override fun createTableSink(client: MarketplaceClient): MarketplaceDataSink {
-        return LicenseTable()
+    override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
+        return LicenseTable(maxTableRows)
     }
 }

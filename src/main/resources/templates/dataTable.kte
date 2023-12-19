@@ -19,9 +19,20 @@
     @endfor
     @if(renderTableHeader)
         !{val footer = table.sections[0].footer}
-        @if(footer != null)
+        @if(footer != null || table.isLimitedRendering)
             <tfoot>
-            @template.dataRowGroup(table = table, group = footer, cssClass = "row-border-light-top", renderHeader = false)
+            @if (footer != null)
+                @template.dataRowGroup(table = table, group = footer, cssClass = "row-border-light-top", renderHeader = false)
+            @endif
+            @if(table.isLimitedRendering)
+                <tr>
+                    <th class="menu centered" colspan="${table.columns.size}">
+                        <form action="/refresh?rows=" method="POST">
+                            <button class="margin-top">Show all rows…</button>
+                        </form>
+                    </th>
+                </tr>
+            @endif
             </tfoot>
         @endif
     @endif

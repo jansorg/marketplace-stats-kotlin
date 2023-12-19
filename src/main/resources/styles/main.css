@@ -366,3 +366,7 @@ th.col-left, td.col-left {
     vertical-align: text-bottom;
     display: inline-block;
 }
+
+.margin-top {
+    margin-top: 0.5rem;
+}

@@ -5,6 +5,8 @@
 
 package dev.ja.marketplace
 
+import io.ktor.server.request.*
+
 interface PluginPageDefinition {
-    suspend fun createTemplateParameters(dataLoader: PluginDataLoader): Map<String, Any?>
+    suspend fun createTemplateParameters(dataLoader: PluginDataLoader, request: ApplicationRequest): Map<String, Any?>
 }

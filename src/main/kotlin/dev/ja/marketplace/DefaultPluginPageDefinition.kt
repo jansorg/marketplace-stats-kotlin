@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.MarketplaceUrlSupport
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.MarketplaceDataSinkFactory
+import io.ktor.server.request.*
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.toList
@@ -20,11 +21,13 @@ class DefaultPluginPageDefinition(
     private val pageCssClasses: String? = null,
     private val pageTitle: String? = null,
 ) : PluginPageDefinition {
-    override suspend fun createTemplateParameters(dataLoader: PluginDataLoader): Map<String, Any?> {
+    override suspend fun createTemplateParameters(dataLoader: PluginDataLoader, request: ApplicationRequest): Map<String, Any?> {
         val data = dataLoader.loadCached()
 
+        val maxTableRows = request.queryParameters["rows"]?.toIntOrNull()
+
         // process data in sinks concurrently
-        val dataSinks = factories.map { it.createTableSink(client) }
+        val dataSinks = factories.map { it.createTableSink(client, maxTableRows) }
             .asFlow()
             .onEach { table ->
                 table.init(data)

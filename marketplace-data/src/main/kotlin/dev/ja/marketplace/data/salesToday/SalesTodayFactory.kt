@@ -10,7 +10,7 @@ import dev.ja.marketplace.data.MarketplaceDataSink
 import dev.ja.marketplace.data.MarketplaceDataSinkFactory
 
 class SalesTodayFactory : MarketplaceDataSinkFactory {
-    override fun createTableSink(client: MarketplaceClient): MarketplaceDataSink {
+    override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
         return SalesTodayTable()
     }
 }
