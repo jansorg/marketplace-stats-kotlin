@@ -11,19 +11,19 @@ import dev.ja.marketplace.data.MarketplaceDataSink
 import dev.ja.marketplace.data.MarketplaceDataSinkFactory
 
 class CustomerTableFactory : MarketplaceDataSinkFactory {
-    override fun createTableSink(client: MarketplaceClient): MarketplaceDataSink {
+    override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
         return CustomerTable()
     }
 }
 
 class ActiveCustomerTableFactory : MarketplaceDataSinkFactory {
-    override fun createTableSink(client: MarketplaceClient): MarketplaceDataSink {
+    override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
         return CustomerTable({ it.activeLicenses.isNotEmpty() })
     }
 }
 
 class ChurnedCustomerTableFactory : MarketplaceDataSinkFactory {
-    override fun createTableSink(client: MarketplaceClient): MarketplaceDataSink {
+    override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
         return CustomerTable({ YearMonthDay.now() > it.latestLicenseEnd!! }, true)
     }
 }

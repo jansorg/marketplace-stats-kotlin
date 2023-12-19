@@ -13,7 +13,7 @@ plugins {
     kotlin("plugin.serialization") version "1.9.21"
 
     id("com.github.johnrengelman.shadow") version "8.1.1"
-    id("gg.jte.gradle") version "3.1.5"
+    id("gg.jte.gradle") version "3.1.6"
 }
 
 allprojects {
@@ -76,7 +76,7 @@ project(":") {
         implementation("io.ktor:ktor-server-compression:$ktorVersion")
         implementation("io.ktor:ktor-server-jte:$ktorVersion")
 
-        implementation("gg.jte:jte:3.1.5")
+        implementation("gg.jte:jte:3.1.6")
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 
         runtimeOnly(provider {

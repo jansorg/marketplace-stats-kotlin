@@ -8,5 +8,5 @@ package dev.ja.marketplace.data
 import dev.ja.marketplace.client.MarketplaceClient
 
 interface MarketplaceDataSinkFactory {
-    fun createTableSink(client: MarketplaceClient): MarketplaceDataSink
+    fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink
 }

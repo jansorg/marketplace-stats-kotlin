@@ -12,6 +12,7 @@ import dev.ja.marketplace.client.withCurrency
 import dev.ja.marketplace.data.*
 
 class LicenseTable(
+    private val maxTableRows: Int? = null,
     private val showDetails: Boolean = true,
     private val showFooter: Boolean = false,
     private val licenseFilter: (LicenseInfo) -> Boolean = { true },
@@ -30,6 +31,11 @@ class LicenseTable(
     private val data = mutableListOf<LicenseInfo>()
 
     private var pluginId: PluginId? = null
+
+    override val isLimitedRendering: Boolean
+        get() {
+            return this.maxTableRows != null
+        }
 
     override val columns: List<DataTableColumn> = listOfNotNull(
         columnPurchaseDate,
@@ -69,6 +75,12 @@ class LicenseTable(
         var lastPurchaseDate: YearMonthDay? = null
         val rows = data
             .sortedWith(comparator)
+            .let {
+                when (maxTableRows) {
+                    null -> it
+                    else -> it.take(maxTableRows)
+                }
+            }
             .map { license ->
                 val purchaseDate = license.sale.date
                 val showPurchaseDate = lastPurchaseDate != purchaseDate

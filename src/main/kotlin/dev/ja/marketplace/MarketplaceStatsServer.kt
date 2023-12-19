@@ -35,8 +35,10 @@ import io.ktor.server.http.content.*
 import io.ktor.server.jte.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.compression.*
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.util.*
 import io.ktor.util.pipeline.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -156,19 +158,42 @@ class MarketplaceStatsServer(
             staticResources("/js", "js")
 
             post("/refresh") {
-                val pluginId = context.request.queryParameters["pluginId"]?.toInt()
-                if (pluginId != null) {
-                    dataLoaders.remove(pluginId)
-                } else {
-                    dataLoaders.clear()
+                val whitelistedParamsNames = setOf("rows")
+
+                val refererUrl = context.request.header("Referer")?.let {
+                    try {
+                        Url(it)
+                    } catch (e: Exception) {
+                        null
+                    }
                 }
 
-                call.respondRedirect {
-                    path("/")
+                val pluginId = context.request.queryParameters["pluginId"]?.toIntOrNull()
+                    ?: refererUrl?.parameters?.get("pluginId")?.toInt()
+
+                if (context.request.queryParameters["reload"]?.toBooleanStrictOrNull() == true) {
                     if (pluginId != null) {
-                        parameters {
-                            append("pluginId", pluginId.toString())
-                        }
+                        dataLoaders.remove(pluginId)
+                    } else {
+                        dataLoaders.clear()
+                    }
+                }
+
+                val whitelistedRequestParams = context.request.queryParameters.filter(keepEmpty = true) { name, value ->
+                    name in whitelistedParamsNames && value.isNotBlank()
+                }
+
+                val whitelistedRefererParams = refererUrl?.parameters?.filter { name, value ->
+                    name in whitelistedParamsNames && value.isNotBlank() && name !in whitelistedRequestParams
+                } ?: Parameters.Empty
+
+                call.respondRedirect {
+                    path(refererUrl?.encodedPath ?: "/")
+
+                    parameters.appendMissing(whitelistedRequestParams)
+                    parameters.appendMissing(whitelistedRefererParams)
+                    if (pluginId != null) {
+                        parameters["pluginId"] = pluginId.toString()
                     }
                 }
             }
@@ -182,7 +207,7 @@ class MarketplaceStatsServer(
                         loader.plugin.isPaidOrFreemium -> indexPageData
                         else -> indexPageDataFree
                     }
-                    call.respond(JteContent("main.kte", pageData.createTemplateParameters(loader)))
+                    call.respond(JteContent("main.kte", pageData.createTemplateParameters(loader, context.request)))
                 } else {
                     call.respond(
                         JteContent(
@@ -195,42 +220,42 @@ class MarketplaceStatsServer(
             get("/licenses") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", licensePageData.createTemplateParameters(loader)))
+                call.respond(JteContent("main.kte", licensePageData.createTemplateParameters(loader, context.request)))
             }
             get("/countries") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", countriesPageData.createTemplateParameters(loader)))
+                call.respond(JteContent("main.kte", countriesPageData.createTemplateParameters(loader, context.request)))
             }
             get("/customers") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", allCustomersPageData.createTemplateParameters(loader)))
+                call.respond(JteContent("main.kte", allCustomersPageData.createTemplateParameters(loader, context.request)))
             }
             get("/customers/active") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", activeCustomersPageData.createTemplateParameters(loader)))
+                call.respond(JteContent("main.kte", activeCustomersPageData.createTemplateParameters(loader, context.request)))
             }
             get("/customers/churned") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", churnedCustomersPageData.createTemplateParameters(loader)))
+                call.respond(JteContent("main.kte", churnedCustomersPageData.createTemplateParameters(loader, context.request)))
             }
             get("/trials") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", trialsPageData.createTemplateParameters(loader)))
+                call.respond(JteContent("main.kte", trialsPageData.createTemplateParameters(loader, context.request)))
             }
             get("/trials/countries") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", trialCountriesPageData.createTemplateParameters(loader)))
+                call.respond(JteContent("main.kte", trialCountriesPageData.createTemplateParameters(loader, context.request)))
             }
             get("/downloads/monthly") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", monthlyDownloadsPageData.createTemplateParameters(loader)))
+                call.respond(JteContent("main.kte", monthlyDownloadsPageData.createTemplateParameters(loader, context.request)))
             }
             get("/customer/{id}") {
                 val customerId: CustomerId = call.parameters["id"]?.toIntOrNull()
@@ -309,7 +334,7 @@ class MarketplaceStatsServer(
                 val pageData = DefaultPluginPageDefinition(
                     client,
                     listOf(object : MarketplaceDataSinkFactory {
-                        override fun createTableSink(client: MarketplaceClient): MarketplaceDataSink {
+                        override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
                             return CustomerTable(
                                 { row -> row.customer.code in churnedIds },
                                 isChurnedStyling = true,
@@ -322,7 +347,7 @@ class MarketplaceStatsServer(
                     pageCssClasses = "wide"
                 )
 
-                call.respond(JteContent("main.kte", pageData.createTemplateParameters(loader)))
+                call.respond(JteContent("main.kte", pageData.createTemplateParameters(loader, context.request)))
             }
         }
     }

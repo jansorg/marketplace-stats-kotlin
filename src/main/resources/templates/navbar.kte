@@ -5,12 +5,12 @@
 <div class="subtitle menu small">
     <a href="/?pluginId=${plugin.id}">Overview</a>
     @if(plugin.isPaidOrFreemium)
-        <a href="/licenses?pluginId=${plugin.id}">Licenses</a>
+        <a href="/licenses?pluginId=${plugin.id}&rows=1000">Licenses</a>
         <a href="/customers/active?pluginId=${plugin.id}">Customers (active)</a>
         <a href="/customers/churned?pluginId=${plugin.id}">Customers (churned)</a>
         <a href="/customers?pluginId=${plugin.id}">Customers (all)</a>
         <a href="/countries?pluginId=${plugin.id}">Countries</a>
-        <a href="/trials?pluginId=${plugin.id}">Trials</a>
+        <a href="/trials?pluginId=${plugin.id}&rows=100">Trials</a>
         <a href="/trials/countries?pluginId=${plugin.id}">Trial (Countries)</a>
     @endif
 </div>

@@ -13,9 +13,10 @@ import dev.ja.marketplace.data.*
 import java.util.*
 
 class TrialsTable(
+    private val maxTableRows: Int? = null,
     private val showDetails: Boolean = true,
-    private val trialFilter: (PluginTrial) -> Boolean = { true }
-) : SimpleDataTable("Trials", "trials", "table-centered"), MarketplaceDataSink {
+    private val trialFilter: (PluginTrial) -> Boolean = { true },
+) : SimpleDataTable("Trials", "trials", "table-centered section-wide"), MarketplaceDataSink {
     private val columnDate = DataTableColumn("trial-date", "Date", "date")
     private val columnRefId = DataTableColumn("trial-id", "ID", "num")
     private val columnCustomer = DataTableColumn("trial-customer", "Customer")
@@ -25,6 +26,11 @@ class TrialsTable(
     private val trialData = TreeMap<YearMonthDay, List<PluginTrial>>()
 
     private var pluginId: PluginId? = null
+
+    override val isLimitedRendering: Boolean
+        get() {
+            return maxTableRows != null
+        }
 
     override fun init(data: PluginData) {
         this.pluginId = data.pluginId
@@ -51,7 +57,14 @@ class TrialsTable(
         val today = YearMonthDay.now()
 
         val rows = mutableListOf<SimpleDateTableRow>()
-        for ((day, trials) in trialData.entries.reversed()) {
+        val entries = trialData.entries.reversed().let {
+            when (maxTableRows != null) {
+                true -> it.take(maxTableRows)
+                false -> it
+            }
+        }
+
+        for ((day, trials) in entries) {
             var first = true
             for (trial in trials) {
                 rows += SimpleDateTableRow(
