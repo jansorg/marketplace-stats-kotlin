@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.withCurrency
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.util.takeNullable
 
 class LicenseTable(
     private val maxTableRows: Int? = null,
@@ -75,12 +76,7 @@ class LicenseTable(
         var lastPurchaseDate: YearMonthDay? = null
         val rows = data
             .sortedWith(comparator)
-            .let {
-                when (maxTableRows) {
-                    null -> it
-                    else -> it.take(maxTableRows)
-                }
-            }
+            .takeNullable(maxTableRows)
             .map { license ->
                 val purchaseDate = license.sale.date
                 val showPurchaseDate = lastPurchaseDate != purchaseDate

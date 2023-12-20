@@ -158,15 +158,9 @@ class MarketplaceStatsServer(
             staticResources("/js", "js")
 
             post("/refresh") {
-                val whitelistedParamsNames = setOf("rows")
-
-                val refererUrl = context.request.header("Referer")?.let {
-                    try {
-                        Url(it)
-                    } catch (e: Exception) {
-                        null
-                    }
-                }
+                val refererUrl = context.request.header("Referer")
+                    .asNullableUrl()
+                    ?.takeIf { it.host == host && it.port == port }
 
                 val pluginId = context.request.queryParameters["pluginId"]?.toIntOrNull()
                     ?: refererUrl?.parameters?.get("pluginId")?.toInt()
@@ -179,10 +173,10 @@ class MarketplaceStatsServer(
                     }
                 }
 
+                val whitelistedParamsNames = setOf("rows")
                 val whitelistedRequestParams = context.request.queryParameters.filter(keepEmpty = true) { name, value ->
                     name in whitelistedParamsNames && value.isNotBlank()
                 }
-
                 val whitelistedRefererParams = refererUrl?.parameters?.filter { name, value ->
                     name in whitelistedParamsNames && value.isNotBlank() && name !in whitelistedRequestParams
                 } ?: Parameters.Empty
