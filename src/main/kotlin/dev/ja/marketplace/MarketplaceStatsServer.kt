@@ -166,8 +166,9 @@ class MarketplaceStatsServer(
                     ?: refererUrl?.parameters?.get("pluginId")?.toInt()
 
                 if (context.request.queryParameters["reload"]?.toBooleanStrictOrNull() == true) {
-                    if (pluginId != null) {
-                        dataLoaders.remove(pluginId)
+                    val dataLoader = dataLoaders[pluginId]
+                    if (dataLoader != null) {
+                        dataLoader.reset()
                     } else {
                         dataLoaders.clear()
                     }
@@ -352,7 +353,7 @@ class MarketplaceStatsServer(
         val userInfo = client.userInfo()
         this.allPlugins = client.plugins(userInfo.id).sortedBy { it.name }
 
-        // preload in background
+        // preload in the background
         if (allPlugins.isNotEmpty()) {
             CoroutineScope(Dispatchers.IO).launch {
                 allPlugins.forEach {
@@ -362,7 +363,9 @@ class MarketplaceStatsServer(
         }
 
         // install ticker to reset the cache every 30min
-        cacheResetExecutor.scheduleWithFixedDelay(dataLoaders::clear, 0, 30, TimeUnit.MINUTES)
+        cacheResetExecutor.scheduleWithFixedDelay({
+            dataLoaders.values.forEach(PluginDataLoader::reset)
+        }, 0, 30, TimeUnit.MINUTES)
 
         println("Launching web server: http://$host:$port/")
         httpServer.start(true)

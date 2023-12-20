@@ -27,13 +27,16 @@ class KtorMarketplaceClient(
 ) : MarketplaceClient {
 
     private val httpClient = HttpClient(Java) {
-        install(Logging)
+        install(Logging) {
+            // level = LogLevel.INFO
+            level = LogLevel.NONE
+        }
         install(Resources)
         install(ContentNegotiation) {
             json(Json {
                 prettyPrint = true
                 ignoreUnknownKeys = true
-                // to support parsing Amount floats as BigDecimal
+                // to support parsing `Amount` floats as BigDecimal
                 isLenient = true
             })
         }

@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace
 
+import dev.ja.marketplace.client.CachingMarketplaceClient
 import dev.ja.marketplace.client.KtorMarketplaceClient
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -21,7 +22,7 @@ object Application {
             exitProcess(1)
         }
 
-        val client = KtorMarketplaceClient(config.marketplaceApiKey)
+        val client = CachingMarketplaceClient(KtorMarketplaceClient(config.marketplaceApiKey))
 
         runBlocking {
             val server = MarketplaceStatsServer(client)
