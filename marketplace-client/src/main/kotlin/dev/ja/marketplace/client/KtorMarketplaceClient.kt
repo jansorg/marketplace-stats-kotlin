@@ -28,8 +28,8 @@ class KtorMarketplaceClient(
 
     private val httpClient = HttpClient(Java) {
         install(Logging) {
-             level = LogLevel.INFO
-//            level = LogLevel.NONE
+            // level = LogLevel.INFO
+            level = LogLevel.NONE
         }
         install(Resources)
         install(ContentNegotiation) {

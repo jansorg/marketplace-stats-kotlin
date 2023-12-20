@@ -4,6 +4,7 @@
  */
 
 import gg.jte.ContentType
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 val ktorVersion: String by project
 
@@ -14,6 +15,7 @@ plugins {
 
     id("com.github.johnrengelman.shadow") version "8.1.1"
     id("gg.jte.gradle") version "3.1.6"
+    id("com.github.gmazzo.buildconfig") version "5.1.0"
 }
 
 allprojects {
@@ -26,6 +28,20 @@ allprojects {
         plugin("org.jetbrains.kotlin.plugin.serialization")
     }
 
+    kotlin {
+        jvmToolchain(17)
+    }
+
+    tasks {
+        withType<KotlinCompile> {
+            kotlinOptions.jvmTarget = JavaVersion.VERSION_17.toString()
+        }
+
+        test {
+            useJUnitPlatform()
+        }
+    }
+
     dependencies {
         // https://mvnrepository.com/artifact/it.unimi.dsi/fastutil-core
         implementation("it.unimi.dsi:fastutil-core:8.5.12")
@@ -35,14 +51,11 @@ allprojects {
 
         implementation("ch.qos.logback:logback-classic:1.4.14")
 
+        // https://github.com/ajalt/clikt
+        implementation("com.github.ajalt.clikt:clikt:4.2.1")
+
         testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
         testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.0")
-    }
-
-    tasks {
-        test {
-            useJUnitPlatform()
-        }
     }
 }
 
@@ -93,7 +106,16 @@ project(":") {
     }
 
     application {
-        mainClass.set("dev.ja.marketplace.Application")
+        mainClass.set("dev.ja.marketplace.ApplicationKt")
+    }
+
+
+    buildConfig {
+        className("BuildConfig")
+        packageName("dev.ja.marketplace")
+        useKotlinOutput()
+
+        buildConfigField("APP_VERSION", provider { rootDir.resolve("VERSION.txt").readText() })
     }
 
     tasks {

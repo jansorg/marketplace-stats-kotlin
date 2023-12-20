@@ -5,41 +5,67 @@
 
 package dev.ja.marketplace
 
+import com.github.ajalt.clikt.core.BadParameterValue
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.context
+import com.github.ajalt.clikt.output.MordantHelpFormatter
+import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.arguments.convert
+import com.github.ajalt.clikt.parameters.arguments.help
+import com.github.ajalt.clikt.parameters.arguments.optional
+import com.github.ajalt.clikt.parameters.options.default
+import com.github.ajalt.clikt.parameters.options.help
+import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.options.versionOption
+import com.github.ajalt.clikt.parameters.types.int
+import com.github.ajalt.clikt.parameters.types.path
 import dev.ja.marketplace.client.CachingMarketplaceClient
 import dev.ja.marketplace.client.KtorMarketplaceClient
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import java.nio.file.Files
-import java.nio.file.Path
-import kotlin.system.exitProcess
 
-object Application {
-    @JvmStatic
-    fun main(args: Array<String>) {
-        val config = createConfig(args)
-        if (config == null) {
-            println("Usage: path/to/config.json")
-            exitProcess(1)
+class Application(version: String) : CliktCommand(
+    name = "marketplace-stats",
+    help = "Marketplace Stats provides reports for plugins hosted on the JetBrains Marketplace.",
+) {
+    init {
+        versionOption(version)
+        context {
+            helpFormatter = { MordantHelpFormatter(it, showDefaultValues = true) }
         }
+    }
 
-        val client = CachingMarketplaceClient(KtorMarketplaceClient(config.marketplaceApiKey))
+    private val applicationConfig: ApplicationConfig? by argument("config.json file path")
+        .help("Path to the application configuration JSON file. It's used as fallback for the other command line options. A template is available at https://github.com/jansorg/marketplace-stats-kotlin/blob/main/config-template.json.")
+        .path(mustExist = true, canBeDir = false, mustBeReadable = true)
+        .convert { Json.decodeFromString<ApplicationConfig>(Files.readString(it)) }
+        .optional()
 
+    private val apiKey: String? by option("-k", "--api-key", envvar = "MARKETPLACE_API_KEY")
+        .help("API key for the JetBrains Marketplace. The key is used to find available plugins and to load the data needed to generate a plugin report.")
+
+    private val serverHostname: String by option("-h", "--host", envvar = "MARKETPLACE_SERVER_HOSTNAME")
+        .default("0.0.0.0")
+        .help("IP address or hostname the integrated webserver is bound to.")
+
+    private val serverPort: Int by option("-p", "--port", envvar = "MARKETPLACE_SERVER_PORT").int()
+        .default(8080)
+        .help("Port used by the integrated webserver.")
+
+    override fun run() {
+        val apiKey = this.apiKey
+            ?: applicationConfig?.marketplaceApiKey
+            ?: throw BadParameterValue("No API key provided. Please refer to --help how to provide it.")
+
+        val client = CachingMarketplaceClient(KtorMarketplaceClient(apiKey))
         runBlocking {
-            val server = MarketplaceStatsServer(client)
+            val server = MarketplaceStatsServer(client, serverHostname, serverPort)
             server.start()
         }
     }
+}
 
-    private fun createConfig(args: Array<String>): ApplicationConfig? {
-        val envApiKey = System.getenv("MARKETPLACE_API_KEY")?.trim()
-        if (!envApiKey.isNullOrEmpty()) {
-            return ApplicationConfig(envApiKey)
-        }
-
-        return when {
-            args.isEmpty() -> null
-            else -> Json.decodeFromString<ApplicationConfig>(Files.readString(Path.of(args[0])))
-        }
-
-    }
+fun main(args: Array<String>) {
+    Application(BuildConfig.APP_VERSION).main(args)
 }
