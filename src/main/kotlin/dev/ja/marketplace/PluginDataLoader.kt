@@ -17,6 +17,10 @@ import java.util.concurrent.atomic.AtomicReference
 class PluginDataLoader(val plugin: PluginInfoSummary, val client: MarketplaceClient) {
     private val cachedData = AtomicReference<PluginData>()
 
+    fun reset() {
+        cachedData.set(null)
+    }
+
     suspend fun loadCached(): PluginData {
         return when (val cached = cachedData.get()) {
             null -> {

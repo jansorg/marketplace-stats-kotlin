@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.PluginTrial
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.util.takeNullable
 import java.util.*
 
 class TrialsTable(
@@ -57,14 +58,7 @@ class TrialsTable(
         val today = YearMonthDay.now()
 
         val rows = mutableListOf<SimpleDateTableRow>()
-        val entries = trialData.entries.reversed().let {
-            when (maxTableRows != null) {
-                true -> it.take(maxTableRows)
-                false -> it
-            }
-        }
-
-        for ((day, trials) in entries) {
+        loop@ for ((day, trials) in trialData.entries.reversed().takeNullable(maxTableRows)) {
             var first = true
             for (trial in trials) {
                 rows += SimpleDateTableRow(
@@ -77,8 +71,10 @@ class TrialsTable(
                     ),
                     htmlId = if (day == today) "today" else null,
                 )
-
                 first = false
+                if (maxTableRows != null && rows.size >= maxTableRows) {
+                    break@loop
+                }
             }
         }
         return listOf(SimpleTableSection(rows))

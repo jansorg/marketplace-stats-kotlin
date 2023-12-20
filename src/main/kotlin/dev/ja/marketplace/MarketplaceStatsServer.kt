@@ -158,31 +158,26 @@ class MarketplaceStatsServer(
             staticResources("/js", "js")
 
             post("/refresh") {
-                val whitelistedParamsNames = setOf("rows")
-
-                val refererUrl = context.request.header("Referer")?.let {
-                    try {
-                        Url(it)
-                    } catch (e: Exception) {
-                        null
-                    }
-                }
+                val refererUrl = context.request.header("Referer")
+                    .asNullableUrl()
+                    ?.takeIf { it.host == host && it.port == port }
 
                 val pluginId = context.request.queryParameters["pluginId"]?.toIntOrNull()
                     ?: refererUrl?.parameters?.get("pluginId")?.toInt()
 
                 if (context.request.queryParameters["reload"]?.toBooleanStrictOrNull() == true) {
-                    if (pluginId != null) {
-                        dataLoaders.remove(pluginId)
+                    val dataLoader = dataLoaders[pluginId]
+                    if (dataLoader != null) {
+                        dataLoader.reset()
                     } else {
                         dataLoaders.clear()
                     }
                 }
 
+                val whitelistedParamsNames = setOf("rows")
                 val whitelistedRequestParams = context.request.queryParameters.filter(keepEmpty = true) { name, value ->
                     name in whitelistedParamsNames && value.isNotBlank()
                 }
-
                 val whitelistedRefererParams = refererUrl?.parameters?.filter { name, value ->
                     name in whitelistedParamsNames && value.isNotBlank() && name !in whitelistedRequestParams
                 } ?: Parameters.Empty
@@ -358,7 +353,7 @@ class MarketplaceStatsServer(
         val userInfo = client.userInfo()
         this.allPlugins = client.plugins(userInfo.id).sortedBy { it.name }
 
-        // preload in background
+        // preload in the background
         if (allPlugins.isNotEmpty()) {
             CoroutineScope(Dispatchers.IO).launch {
                 allPlugins.forEach {
@@ -368,7 +363,9 @@ class MarketplaceStatsServer(
         }
 
         // install ticker to reset the cache every 30min
-        cacheResetExecutor.scheduleWithFixedDelay(dataLoaders::clear, 0, 30, TimeUnit.MINUTES)
+        cacheResetExecutor.scheduleWithFixedDelay({
+            dataLoaders.values.forEach(PluginDataLoader::reset)
+        }, 0, 30, TimeUnit.MINUTES)
 
         println("Launching web server: http://$host:$port/")
         httpServer.start(true)
