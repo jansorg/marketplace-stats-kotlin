@@ -82,27 +82,28 @@ class MarketplaceStatsServer(
     private val licensePageData: PluginPageDefinition = DefaultPluginPageDefinition(
         client,
         listOf(LicenseTableFactory()),
-        pageTitle = "Licenses"
+        pageCssClasses = "wide",
+        pageTitle = "Licenses",
     )
 
     private val countriesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
         client,
         listOf(TopCountriesFactory(Int.MAX_VALUE)),
-        pageTitle = "Countries"
+        pageTitle = "Countries",
     )
 
     private val allCustomersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
         client,
         listOf(CustomerTableFactory()),
         pageCssClasses = "wide",
-        pageTitle = "Customers (all)"
+        pageTitle = "Customers (all)",
     )
 
     private val activeCustomersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
         client,
         listOf(ActiveCustomerTableFactory()),
         pageCssClasses = "wide",
-        pageTitle = "Customers With Active Licenses"
+        pageTitle = "Customers With Active Licenses",
     )
 
     private val churnedCustomersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
