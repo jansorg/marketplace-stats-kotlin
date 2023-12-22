@@ -173,8 +173,8 @@ dd {
 }
 
 .table-centered {
-    margin-left: auto;
-    margin-right: auto;
+    margin-left: auto !important;
+    margin-right: auto !important;
 }
 
 .menu {
@@ -345,13 +345,20 @@ th.col-left, td.col-left {
     margin: 0 1rem 0 0;
 }
 
-.section-fit {
-    width: max-content;
+.section-medium, .section-medium table {
+    width: 60%;
     margin: 0 1rem 0 0;
 }
 
 .section-wide, .section-wide table {
+    box-sizing: border-box;
     width: 100%;
+    margin: 0 1rem 0 0;
+}
+
+.section-fit {
+    width: max-content;
+    margin: 0 1rem 0 0;
 }
 
 .plugin-icon {

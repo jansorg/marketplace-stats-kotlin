@@ -17,7 +17,7 @@ class TrialsTable(
     private val maxTableRows: Int? = null,
     private val showDetails: Boolean = true,
     private val trialFilter: (PluginTrial) -> Boolean = { true },
-) : SimpleDataTable("Trials", "trials", "table-centered section-wide"), MarketplaceDataSink {
+) : SimpleDataTable("Trials", "trials", "table-centered section-medium"), MarketplaceDataSink {
     private val columnDate = DataTableColumn("trial-date", "Date", "date")
     private val columnRefId = DataTableColumn("trial-id", "ID", "num")
     private val columnCustomer = DataTableColumn("trial-customer", "Customer")
