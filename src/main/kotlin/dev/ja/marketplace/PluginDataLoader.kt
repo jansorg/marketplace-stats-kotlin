@@ -12,28 +12,9 @@ import dev.ja.marketplace.data.LicenseInfo
 import dev.ja.marketplace.data.PluginData
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import java.util.concurrent.atomic.AtomicReference
 
 class PluginDataLoader(val plugin: PluginInfoSummary, val client: MarketplaceClient) {
-    private val cachedData = AtomicReference<PluginData>()
-
-    fun reset() {
-        cachedData.set(null)
-    }
-
-    suspend fun loadCached(): PluginData {
-        return when (val cached = cachedData.get()) {
-            null -> {
-                val data = load()
-                cachedData.set(data)
-                data
-            }
-
-            else -> cached
-        }
-    }
-
-    private suspend fun load(): PluginData {
+    suspend fun load(): PluginData {
         return coroutineScope {
             val pluginInfo = async { client.pluginInfo(plugin.id) }
             val pluginRating = async { client.pluginRating(plugin.id) }

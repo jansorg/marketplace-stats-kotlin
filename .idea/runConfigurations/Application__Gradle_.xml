@@ -12,7 +12,7 @@
         <list>
           <option value="precompileJte" />
           <option value="run" />
-          <option value="--args=&quot;config.json&quot;" />
+          <option value="--args=&quot;-d verbose config.json&quot;" />
         </list>
       </option>
       <option name="vmOptions" />

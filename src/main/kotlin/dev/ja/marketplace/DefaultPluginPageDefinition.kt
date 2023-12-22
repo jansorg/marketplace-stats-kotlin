@@ -22,7 +22,7 @@ class DefaultPluginPageDefinition(
     private val pageTitle: String? = null,
 ) : PluginPageDefinition {
     override suspend fun createTemplateParameters(dataLoader: PluginDataLoader, request: ApplicationRequest): Map<String, Any?> {
-        val data = dataLoader.loadCached()
+        val data = dataLoader.load()
 
         val maxTableRows = request.queryParameters["rows"]?.toIntOrNull()
 
