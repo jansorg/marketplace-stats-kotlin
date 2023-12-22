@@ -2,7 +2,9 @@
 @import dev.ja.marketplace.data.DataTableColumn
 @import dev.ja.marketplace.data.DataTableSection
 @import dev.ja.marketplace.data.DataTableRow
+@import dev.ja.marketplace.client.PluginInfo
 
+@param plugin: PluginInfo
 @param table: DataTable
 
 !{val renderTableHeader = table.sections.size == 1}
@@ -27,7 +29,7 @@
             @if(table.isLimitedRendering)
                 <tr>
                     <th class="menu centered" colspan="${table.columns.size}">
-                        <form action="/refresh?rows=" method="POST">
+                        <form action="/refresh?pluginId=${plugin.id}&rows=" method="POST">
                             <button class="margin-top">Show all rows…</button>
                         </form>
                     </th>

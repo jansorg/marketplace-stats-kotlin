@@ -155,8 +155,8 @@ class MarketplaceStatsServer(
                 val pluginId = context.request.queryParameters["pluginId"]?.toIntOrNull()
                     ?: refererUrl?.parameters?.get("pluginId")?.toInt()
 
-                val reloadFromServer = context.request.queryParameters["reload"]?.toBooleanStrictOrNull() == true
-                if (reloadFromServer && client is CachingMarketplaceClient) {
+                val dropCachedData = context.request.queryParameters["reload"]?.toBooleanStrictOrNull() == true
+                if (dropCachedData && client is CachingMarketplaceClient) {
                     client.reset()
                 }
 
