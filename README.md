@@ -39,12 +39,13 @@ Usage: marketplace-stats [<options>] [<config.json file path>]
   Marketplace Stats provides reports for plugins hosted on the JetBrains Marketplace.
 
 Options:
-  --version             Show the version and exit
-  -k, --api-key=<text>  API key for the JetBrains Marketplace. The key is used to find available plugins and to load the data needed to generate a plugin
-                        report.
-  -h, --host=<text>     IP address or hostname the integrated webserver is bound to. (default: 0.0.0.0)
-  -p, --port=<int>      Port used by the integrated webserver. (default: 8080)
-  --help                Show this message and exit
+  --version                          Show the version and exit
+  -k, --api-key=<text>               API key for the JetBrains Marketplace. The key is used to find available plugins and to load the data needed to
+                                     generate a plugin report.
+  -h, --host=<text>                  IP address or hostname the integrated webserver is bound to. (default: 0.0.0.0)
+  -p, --port=<int>                   Port used by the integrated webserver. (default: 8080)
+  -d, --debug=(none|normal|verbose)  The log level used for the server and the API requests to the marketplace (default: None)
+  --help                             Show this message and exit
 
 Arguments:
   <config.json file path>  Path to the application configuration JSON file. It's used as fallback for the other command line options. A template is

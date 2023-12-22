@@ -17,9 +17,11 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.versionOption
+import com.github.ajalt.clikt.parameters.types.enum
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
 import dev.ja.marketplace.client.CachingMarketplaceClient
+import dev.ja.marketplace.client.ClientLogLevel
 import dev.ja.marketplace.client.KtorMarketplaceClient
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -53,14 +55,18 @@ class Application(version: String) : CliktCommand(
         .default(8080)
         .help("Port used by the integrated webserver.")
 
+    private val logging: ClientLogLevel by option("-d", "--debug").enum<ClientLogLevel>(key = { it.name.lowercase() })
+        .default(ClientLogLevel.None)
+        .help("The log level used for the server and the API requests to the marketplace")
+
     override fun run() {
         val apiKey = this.apiKey
             ?: applicationConfig?.marketplaceApiKey
             ?: throw BadParameterValue("No API key provided. Please refer to --help how to provide it.")
 
-        val client = CachingMarketplaceClient(KtorMarketplaceClient(apiKey))
         runBlocking {
-            val server = MarketplaceStatsServer(client, serverHostname, serverPort)
+            val marketplaceClient = CachingMarketplaceClient(KtorMarketplaceClient(apiKey = apiKey, logLevel = logging))
+            val server = MarketplaceStatsServer(marketplaceClient, serverHostname, serverPort)
             server.start()
         }
     }

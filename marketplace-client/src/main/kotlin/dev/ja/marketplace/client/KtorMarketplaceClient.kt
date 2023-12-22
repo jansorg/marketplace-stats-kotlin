@@ -23,13 +23,12 @@ import kotlinx.serialization.json.Json
 class KtorMarketplaceClient(
     private val apiKey: String,
     private val apiHost: String = "plugins.jetbrains.com",
-    private val apiPath: String = "api"
+    private val apiPath: String = "api",
+    private val logLevel: ClientLogLevel = ClientLogLevel.None,
 ) : MarketplaceClient {
-
     private val httpClient = HttpClient(Java) {
         install(Logging) {
-            // level = LogLevel.INFO
-            level = LogLevel.NONE
+            level = logLevel.ktorLogLevel
         }
         install(Resources)
         install(ContentNegotiation) {

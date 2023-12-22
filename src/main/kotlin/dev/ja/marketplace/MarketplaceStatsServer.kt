@@ -40,12 +40,6 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.*
 import io.ktor.util.pipeline.*
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 
 class MarketplaceStatsServer(
     private val client: MarketplaceClient,
@@ -54,12 +48,8 @@ class MarketplaceStatsServer(
 ) {
     private lateinit var allPlugins: List<PluginInfoSummary>
 
-    private val dataLoaders = ConcurrentHashMap<PluginId, PluginDataLoader>()
-
     private fun getDataLoader(plugin: PluginInfoSummary): PluginDataLoader {
-        return dataLoaders.computeIfAbsent(plugin.id) {
-            PluginDataLoader(plugin, client)
-        }
+        return PluginDataLoader(plugin, client)
     }
 
     private fun PipelineContext<Unit, ApplicationCall>.getDataLoader(): PluginDataLoader? {
@@ -165,13 +155,9 @@ class MarketplaceStatsServer(
                 val pluginId = context.request.queryParameters["pluginId"]?.toIntOrNull()
                     ?: refererUrl?.parameters?.get("pluginId")?.toInt()
 
-                if (context.request.queryParameters["reload"]?.toBooleanStrictOrNull() == true) {
-                    val dataLoader = dataLoaders[pluginId]
-                    if (dataLoader != null) {
-                        dataLoader.reset()
-                    } else {
-                        dataLoaders.clear()
-                    }
+                val reloadFromServer = context.request.queryParameters["reload"]?.toBooleanStrictOrNull() == true
+                if (reloadFromServer && client is CachingMarketplaceClient) {
+                    client.reset()
                 }
 
                 val whitelistedParamsNames = setOf("rows")
@@ -257,7 +243,7 @@ class MarketplaceStatsServer(
                     ?: throw IllegalStateException("unable to find customer id")
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                val data = loader.loadCached()
+                val data = loader.load()
                 val customerInfo = data.sales?.firstOrNull { it.customer.code == customerId }?.customer
                     ?: data.trials?.firstOrNull { it.customer.code == customerId }?.customer
                     ?: throw IllegalStateException("Customer with id $customerId not found")
@@ -305,7 +291,7 @@ class MarketplaceStatsServer(
                 val lastActiveMarker = YearMonthDay.parse(call.parameters["lastActiveMarker"]!!)
                 val activeMarker = YearMonthDay.parse(call.parameters["activeMarker"]!!)
                 val loader = getDataLoader() ?: throw IllegalStateException("Unable to find plugin")
-                val data = loader.loadCached()
+                val data = loader.load()
 
                 val churnProcessor = MarketplaceChurnProcessor<CustomerInfo>(lastActiveMarker, activeMarker)
                 churnProcessor.init()
@@ -347,25 +333,9 @@ class MarketplaceStatsServer(
         }
     }
 
-    private val cacheResetExecutor = Executors.newSingleThreadScheduledExecutor()
-
     suspend fun start() {
         val userInfo = client.userInfo()
         this.allPlugins = client.plugins(userInfo.id).sortedBy { it.name }
-
-        // preload in the background
-        if (allPlugins.isNotEmpty()) {
-            CoroutineScope(Dispatchers.IO).launch {
-                allPlugins.forEach {
-                    getDataLoader(it).loadCached()
-                }
-            }
-        }
-
-        // install ticker to reset the cache every 30min
-        cacheResetExecutor.scheduleWithFixedDelay({
-            dataLoaders.values.forEach(PluginDataLoader::reset)
-        }, 0, 30, TimeUnit.MINUTES)
 
         println("Launching web server: http://$host:$port/")
         httpServer.start(true)
