@@ -87,11 +87,11 @@ class CachingMarketplaceClient(
     }
 
     override suspend fun trialsInfo(plugin: PluginId): List<PluginTrial> {
-        return loadHistoricPluginData(plugin, cachedTrialsInfo, delegate::trialsInfo)
+        return loadHistoricPluginData(plugin, "trialsInfo", cachedTrialsInfo, delegate::trialsInfo)
     }
 
     override suspend fun salesInfo(plugin: PluginId): List<PluginSale> {
-        return loadHistoricPluginData(plugin, cachedSalesInfo, delegate::salesInfo)
+        return loadHistoricPluginData(plugin, "salesInfo", cachedSalesInfo, delegate::salesInfo)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -111,6 +111,7 @@ class CachingMarketplaceClient(
 
     private suspend fun <T> loadHistoricPluginData(
         plugin: PluginId,
+        cacheKey: String,
         cacheMap: MutableMap<PluginId, Pair<YearMonthDayRange, List<T>>>,
         dataLoader: suspend (PluginId, YearMonthDayRange) -> List<T>
     ): List<T> {
@@ -119,15 +120,21 @@ class CachingMarketplaceClient(
         val unstableStartDate = stableEndDate.add(0, 0, 1)
         val unstableDataRange = Marketplace.Birthday.rangeTo(stableEndDate)
 
+        // The current data is only cached for a short duration (30 minutes).
+        // It's merged to the stable data, which is cached for a longer period (1 day).
+        val unstableData = loadCached("$cacheKey.$plugin") {
+            dataLoader(plugin, unstableStartDate.rangeTo(now))
+        }
+
         val cachedStableData = cacheMap[plugin]
         if (cachedStableData != null && cachedStableData.first == unstableDataRange) {
-            return cachedStableData.second + dataLoader(plugin, unstableStartDate.rangeTo(now))
+            return cachedStableData.second + unstableData
         }
 
         // add fresh data to the cache
         val newStableData = unstableDataRange to dataLoader(plugin, unstableDataRange)
         cacheMap[plugin] = newStableData
-        return newStableData.second + dataLoader(plugin, unstableStartDate.rangeTo(now))
+        return newStableData.second + unstableData
     }
 
     private fun Array<out DownloadFilter>.filtersString(): String {
