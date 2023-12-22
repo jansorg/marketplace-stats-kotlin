@@ -342,18 +342,15 @@ th.col-left, td.col-left {
 
 .section-small {
     width: auto;
-    margin: 0 1rem 0 0;
 }
 
 .section-medium, .section-medium table {
     width: 60%;
-    margin: 0 1rem 0 0;
 }
 
 .section-wide, .section-wide table {
     box-sizing: border-box;
     width: 100%;
-    margin: 0 1rem 0 0;
 }
 
 .section-fit {

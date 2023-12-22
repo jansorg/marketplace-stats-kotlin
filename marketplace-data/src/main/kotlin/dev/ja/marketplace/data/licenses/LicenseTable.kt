@@ -22,7 +22,7 @@ class LicenseTable(
     private val columnPurchaseDate = DataTableColumn("sale-date", "Purchase", "date")
     private val columnValidityStart = DataTableColumn("license-validity", "License Start", "date")
     private val columnValidityEnd = DataTableColumn("license-validity", "End", "date")
-    private val columnCustomerName = DataTableColumn("customer", "Name", cssStyle = "max-width: 35%")
+    private val columnCustomerName = DataTableColumn("customer", "Name", cssStyle = "width: 20%; max-width: 35%")
     private val columnCustomerId = DataTableColumn("customer-id", "Cust. ID", "num")
     private val columnAmountUSD = DataTableColumn("sale-amount-usd", "Amount", "num")
     private val columnDiscount = DataTableColumn("license-discount", "Discount", "num")
