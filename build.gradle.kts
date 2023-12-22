@@ -10,8 +10,8 @@ val ktorVersion: String by project
 
 plugins {
     application
-    id("org.jetbrains.kotlin.jvm") version "1.9.21"
-    kotlin("plugin.serialization") version "1.9.21"
+    id("org.jetbrains.kotlin.jvm") version "1.9.22"
+    kotlin("plugin.serialization") version "1.9.22"
 
     id("com.github.johnrengelman.shadow") version "8.1.1"
     id("gg.jte.gradle") version "3.1.6"
@@ -108,7 +108,6 @@ project(":") {
     application {
         mainClass.set("dev.ja.marketplace.ApplicationKt")
     }
-
 
     buildConfig {
         className("BuildConfig")
