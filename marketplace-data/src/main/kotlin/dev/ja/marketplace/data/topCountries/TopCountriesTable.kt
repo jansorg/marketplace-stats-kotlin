@@ -14,7 +14,7 @@ import java.math.BigDecimal
 import java.util.*
 
 class TopCountriesTable(private val maxItems: Int = 10) :
-    SimpleDataTable(if (maxItems != Int.MAX_VALUE) "Top Countries" else "Countries", "top-countries"),
+    SimpleDataTable(if (maxItems != Int.MAX_VALUE) "Top Countries" else "Countries", "top-countries", "table-centered section-medium"),
     MarketplaceDataSink {
 
     private val columnCountry = DataTableColumn("country", null, "col-right")
