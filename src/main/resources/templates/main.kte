@@ -47,7 +47,7 @@
 
 <section class="tables">
     @for(table in tables)
-        @template.dataTable(table)
+        @template.dataTable(plugin, table)
     @endfor
 </section>
 

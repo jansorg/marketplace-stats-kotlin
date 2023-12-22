@@ -44,7 +44,7 @@
         @if (licenseTableAnnual.isEmpty)
             <p class="em">No annual licenses available.</p>
         @else
-            @template.dataTable(licenseTableAnnual)
+            @template.dataTable(plugin, licenseTableAnnual)
         @endif
     </div>
 
@@ -54,7 +54,7 @@
         @if (licenseTableMonthly.isEmpty)
             <p class="em">No monthly licenses available.</p>
         @else
-            @template.dataTable(licenseTableMonthly)
+            @template.dataTable(plugin, licenseTableMonthly)
         @endif
     </div>
 
@@ -63,7 +63,7 @@
         @if (trials.isEmpty())
             <p class="em">No trials available.</p>
         @else
-            @template.dataTable(trialTable)
+            @template.dataTable(plugin, trialTable)
         @endif
     </div>
 </div>
