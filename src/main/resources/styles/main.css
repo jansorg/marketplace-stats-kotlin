@@ -40,7 +40,7 @@ html {
 }
 
 body {
-    max-width: 800px;
+    max-width: 860px;
     margin: 2rem auto;
 }
 
@@ -156,7 +156,17 @@ dd {
     row-gap: 1rem;
 }
 
-.tables-row {
+.tables table {
+    margin-top: 0;
+    margin-bottom: 1rem;
+}
+
+.tables .tables-row {
+    width: 100%;
+}
+
+.tables .table-column-wide {
+    box-sizing: border-box;
     width: 100%;
 }
 
@@ -344,11 +354,11 @@ th.col-left, td.col-left {
     width: auto;
 }
 
-.section-medium, .section-medium table {
+.section-medium {
     width: 60%;
 }
 
-.section-wide, .section-wide table {
+.section-wide {
     box-sizing: border-box;
     width: 100%;
 }

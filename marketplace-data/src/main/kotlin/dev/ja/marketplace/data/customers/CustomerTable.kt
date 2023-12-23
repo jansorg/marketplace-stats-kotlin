@@ -23,7 +23,7 @@ class CustomerTable(
     private val customerFilter: (CustomerTableRowData) -> Boolean = { true },
     private val isChurnedStyling: Boolean = false,
     private val nowDate: YearMonthDay = YearMonthDay.now(),
-) : SimpleDataTable("Customers", cssClass = "section-wide sortable"), MarketplaceDataSink {
+) : SimpleDataTable("Customers", cssClass = "table-column-wide sortable"), MarketplaceDataSink {
     private val columnValidSince = DataTableColumn("customer-since", if (isChurnedStyling) "Licensed since" else "Since")
     private val columnValidUntil = DataTableColumn("customer-until", "Licensed Until")
     private val columnChurnedAt = DataTableColumn("customer-churn-date", "Churn date")
@@ -66,7 +66,8 @@ class CustomerTable(
         data.latestLicenseEnd = maxOf(licenseEnd, data.latestLicenseEnd ?: licenseEnd)
 
         data.totalLicenses += licenseInfo.id
-        if (nowDate in licenseInfo.validity) {
+        // calculate active state of a license in the same way as LicenseTable
+        if (licenseInfo.validity.end >= nowDate) {
             data.activeLicenses += licenseInfo.id
         }
         data.totalSalesUSD += licenseInfo.amountUSD
