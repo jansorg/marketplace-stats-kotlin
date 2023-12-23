@@ -43,11 +43,12 @@ allprojects {
     }
 
     dependencies {
+        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
+
         // https://mvnrepository.com/artifact/it.unimi.dsi/fastutil-core
         implementation("it.unimi.dsi:fastutil-core:8.5.12")
-
-        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
-        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 
         implementation("ch.qos.logback:logback-classic:1.4.14")
 
@@ -67,8 +68,6 @@ project("marketplace-client") {
         implementation("io.ktor:ktor-client-resources:$ktorVersion")
         implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
         implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
-
-        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.1")
     }
 }
 

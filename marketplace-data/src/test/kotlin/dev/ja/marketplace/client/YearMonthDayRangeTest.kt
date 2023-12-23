@@ -43,4 +43,16 @@ class YearMonthDayRangeTest {
         assert(!second.isIntersecting(first))
         assert(second.isIntersecting(second))
     }
+
+    @Test
+    fun contains() {
+        val start = YearMonthDay(2023, 12, 1)
+        val end = YearMonthDay(2023, 12, 10)
+        val range = start.rangeTo(end)
+        assert(start in range)
+        assert(end in range)
+
+        assert(start in start..end)
+        assert(end in start..end)
+    }
 }
