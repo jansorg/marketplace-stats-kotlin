@@ -16,7 +16,6 @@ data class CustomerTableRowData(
     val totalLicenses: MutableSet<LicenseId> = mutableSetOf(),
     val activeLicenses: MutableSet<LicenseId> = mutableSetOf(),
     var lastSaleUSD: Amount = Amount.ZERO,
-    var nextSaleUSD: Amount = Amount.ZERO,
     var totalSalesUSD: Amount = Amount.ZERO,
 )
 
@@ -37,7 +36,6 @@ class CustomerTable(
     private val columnId = DataTableColumn("customer-id", "Cust. ID", "num")
 
     private val customerMap = mutableMapOf<CustomerId, CustomerTableRowData>()
-    private val salesCalculator = SaleCalculator()
 
     private var pluginId: PluginId? = null
 
@@ -73,11 +71,9 @@ class CustomerTable(
         }
         data.totalSalesUSD += licenseInfo.amountUSD
         data.lastSaleUSD += licenseInfo.amountUSD
-        data.nextSaleUSD += salesCalculator.nextSale(licenseInfo).amountUSD
     }
 
     override fun createSections(): List<DataTableSection> {
-        val now = YearMonthDay.now()
         var prevValidUntil: YearMonthDay? = null
         val displayedCustomers = customerMap.values
             .filter(customerFilter)
@@ -94,7 +90,7 @@ class CustomerTable(
                 prevValidUntil = validUntil
 
                 val cssClass: String? = when {
-                    !isChurnedStyling && validUntil < now -> "churned"
+                    !isChurnedStyling && validUntil < nowDate -> "churned"
                     else -> null
                 }
 

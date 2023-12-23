@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.client
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.IntArraySerializer
 import kotlinx.serialization.descriptors.PrimitiveKind
@@ -15,7 +16,7 @@ import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.*
 import java.math.BigDecimal
 
-@Suppress("OPT_IN_USAGE")
+@OptIn(ExperimentalSerializationApi::class)
 class YearMonthDateSerializer : KSerializer<YearMonthDay> {
     override fun deserialize(decoder: Decoder): YearMonthDay {
         decoder as JsonDecoder
@@ -24,7 +25,7 @@ class YearMonthDateSerializer : KSerializer<YearMonthDay> {
         return YearMonthDay(
             values[0].jsonPrimitive.int,
             values[1].jsonPrimitive.int,
-            values[2].jsonPrimitive.int
+            values[2].jsonPrimitive.int,
         )
     }
 
