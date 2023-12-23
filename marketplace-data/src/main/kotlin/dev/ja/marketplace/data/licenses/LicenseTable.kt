@@ -17,7 +17,7 @@ class LicenseTable(
     private val showDetails: Boolean = true,
     private val showFooter: Boolean = false,
     private val licenseFilter: (LicenseInfo) -> Boolean = { true },
-) : SimpleDataTable("Licenses", "licenses", "section-wide"), MarketplaceDataSink {
+) : SimpleDataTable("Licenses", "licenses", "table-column-wide"), MarketplaceDataSink {
     private val columnLicenseId = DataTableColumn("license-id", "License ID", "col-right")
     private val columnPurchaseDate = DataTableColumn("sale-date", "Purchase", "date")
     private val columnValidityStart = DataTableColumn("license-validity", "License Start", "date")

@@ -25,6 +25,7 @@ class CachingMarketplaceClient(
     private val cachedTrialsInfo = ConcurrentMap<PluginId, Pair<YearMonthDayRange, List<PluginTrial>>>()
 
     fun reset() {
+        genericDataCache.clear()
         cachedSalesInfo.clear()
         cachedTrialsInfo.clear()
     }

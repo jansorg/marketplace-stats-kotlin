@@ -10,7 +10,7 @@ import dev.ja.marketplace.client.Currency
 import dev.ja.marketplace.data.*
 import java.util.*
 
-class YearlySummaryTable : SimpleDataTable("Years", "years", "section-wide"), MarketplaceDataSink {
+class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"), MarketplaceDataSink {
     private lateinit var downloads: List<MonthlyDownload>
     private val data = TreeMap<Int, YearSummary>(Comparator.reverseOrder())
 

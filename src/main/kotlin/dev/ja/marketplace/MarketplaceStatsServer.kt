@@ -240,50 +240,16 @@ class MarketplaceStatsServer(
                 call.respond(JteContent("main.kte", monthlyDownloadsPageData.createTemplateParameters(loader, context.request)))
             }
             get("/customer/{id}") {
-                val customerId: CustomerId = call.parameters["id"]?.toIntOrNull()
-                    ?: throw IllegalStateException("unable to find customer id")
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                val data = loader.load()
-                val customerInfo = data.sales?.firstOrNull { it.customer.code == customerId }?.customer
-                    ?: data.trials?.firstOrNull { it.customer.code == customerId }?.customer
-                    ?: throw IllegalStateException("Customer with id $customerId not found")
+                val customerId: CustomerId = call.parameters["id"]?.toIntOrNull()
+                    ?: throw IllegalStateException("unable to find customer id")
 
-                val sales = data.sales?.filter { it.customer.code == customerId } ?: emptyList()
-                val licenses = data.licenses?.filter { it.sale.customer.code == customerId } ?: emptyList()
-                val trials = data.trials?.filter { it.customer.code == customerId } ?: emptyList()
-
-                val licenseTableMonthly = LicenseTable(showDetails = false, showFooter = true) {
-                    it.sale.licensePeriod == LicensePeriod.Monthly
-                }
-
-                val licenseTableAnnual = LicenseTable(showDetails = false, showFooter = true) {
-                    it.sale.licensePeriod == LicensePeriod.Annual
-                }
-
-                val trialsTable = TrialsTable(showDetails = false) { trial -> trial.customer.code == customerId }
-
-                listOf(licenseTableMonthly, licenseTableAnnual, trialsTable).forEach { table ->
-                    table.init(data)
-                    sales.forEach(table::process)
-                    licenses.forEach(table::process)
-                }
-
-                call.respond(
-                    JteContent(
-                        "customer.kte", mapOf(
-                            "cssClass" to null,
-                            "plugin" to data.pluginInfo,
-                            "customer" to customerInfo,
-                            "licenseTableMonthly" to licenseTableMonthly,
-                            "licenseTableAnnual" to licenseTableAnnual,
-                            "trials" to trials,
-                            "trialTable" to trialsTable,
-                        )
-                    )
-                )
+                renderCustomerPage(loader, customerId)
             }
             get("/churn-rate/{licensePeriod}/{lastActiveMarker}/{activeMarker}") {
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
                 val period = when (val periodName = call.parameters["licensePeriod"]) {
                     "annual" -> LicensePeriod.Annual
                     "monthly" -> LicensePeriod.Monthly
@@ -291,45 +257,8 @@ class MarketplaceStatsServer(
                 }
                 val lastActiveMarker = YearMonthDay.parse(call.parameters["lastActiveMarker"]!!)
                 val activeMarker = YearMonthDay.parse(call.parameters["activeMarker"]!!)
-                val loader = getDataLoader() ?: throw IllegalStateException("Unable to find plugin")
-                val data = loader.load()
 
-                val churnProcessor = MarketplaceChurnProcessor<CustomerInfo>(lastActiveMarker, activeMarker)
-                churnProcessor.init()
-
-                val customerMapping = mutableMapOf<CustomerId, CustomerInfo>()
-
-                data.licenses!!.forEach {
-                    churnProcessor.processValue(
-                        it.sale.customer.code,
-                        it.sale.customer,
-                        it.validity,
-                        it.sale.licensePeriod == period && it.isPaidLicense,
-                        it.isRenewal
-                    )
-
-                    customerMapping[it.sale.customer.code] = it.sale.customer
-                }
-
-                val churnedIds = churnProcessor.churnedIds()
-
-                val pageData = DefaultPluginPageDefinition(
-                    client,
-                    listOf(object : MarketplaceDataSinkFactory {
-                        override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
-                            return CustomerTable(
-                                { row -> row.customer.code in churnedIds },
-                                isChurnedStyling = true,
-                                nowDate = activeMarker
-                            )
-                        }
-                    }),
-                    pageTitle = "Churned Customers:\n" +
-                            "${lastActiveMarker.add(0, 0, 1).asIsoString} — ${activeMarker.asIsoString} ($period)",
-                    pageCssClasses = "wide"
-                )
-
-                call.respond(JteContent("main.kte", pageData.createTemplateParameters(loader, context.request)))
+                renderChurnRatePage(loader, period, lastActiveMarker, activeMarker)
             }
         }
     }
@@ -340,5 +269,93 @@ class MarketplaceStatsServer(
 
         println("Launching web server: http://$host:$port/")
         httpServer.start(true)
+    }
+
+    private suspend fun PipelineContext<Unit, ApplicationCall>.renderCustomerPage(loader: PluginDataLoader, customerId: CustomerId) {
+        val data = loader.load()
+
+        val customerInfo = data.sales?.firstOrNull { it.customer.code == customerId }?.customer
+            ?: data.trials?.firstOrNull { it.customer.code == customerId }?.customer
+            ?: throw IllegalStateException("Customer with id $customerId not found")
+
+        val sales = data.sales?.filter { it.customer.code == customerId } ?: emptyList()
+        val licenses = data.licenses?.filter { it.sale.customer.code == customerId } ?: emptyList()
+        val trials = data.trials?.filter { it.customer.code == customerId } ?: emptyList()
+
+        val licenseTableMonthly = LicenseTable(showDetails = false, showFooter = true) {
+            it.sale.licensePeriod == LicensePeriod.Monthly
+        }
+
+        val licenseTableAnnual = LicenseTable(showDetails = false, showFooter = true) {
+            it.sale.licensePeriod == LicensePeriod.Annual
+        }
+
+        val trialsTable = TrialsTable(showDetails = false) { trial -> trial.customer.code == customerId }
+
+        listOf(licenseTableMonthly, licenseTableAnnual, trialsTable).forEach { table ->
+            table.init(data)
+            sales.forEach(table::process)
+            licenses.forEach(table::process)
+        }
+
+        call.respond(
+            JteContent(
+                "customer.kte", mapOf(
+                    "cssClass" to null,
+                    "plugin" to data.pluginInfo,
+                    "customer" to customerInfo,
+                    "licenseTableMonthly" to licenseTableMonthly,
+                    "licenseTableAnnual" to licenseTableAnnual,
+                    "trials" to trials,
+                    "trialTable" to trialsTable,
+                )
+            )
+        )
+    }
+
+    private suspend fun PipelineContext<Unit, ApplicationCall>.renderChurnRatePage(
+        loader: PluginDataLoader,
+        period: LicensePeriod,
+        lastActiveMarker: YearMonthDay,
+        activeMarker: YearMonthDay
+    ) {
+        val data = loader.load()
+
+        val churnProcessor = MarketplaceChurnProcessor<CustomerInfo>(lastActiveMarker, activeMarker)
+        churnProcessor.init()
+
+        val customerMapping = mutableMapOf<CustomerId, CustomerInfo>()
+
+        data.licenses!!.forEach {
+            churnProcessor.processValue(
+                it.sale.customer.code,
+                it.sale.customer,
+                it.validity,
+                it.sale.licensePeriod == period && it.isPaidLicense,
+                it.isRenewal
+            )
+
+            customerMapping[it.sale.customer.code] = it.sale.customer
+        }
+
+        val churnedIds = churnProcessor.churnedIds()
+
+        val pageData = DefaultPluginPageDefinition(
+            client,
+            listOf(object : MarketplaceDataSinkFactory {
+                override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
+                    return CustomerTable(
+                        { row -> row.customer.code in churnedIds },
+                        isChurnedStyling = true,
+                        nowDate = activeMarker
+                    )
+                }
+            }),
+            pageTitle = "Churned Customers:\n" +
+                    "${lastActiveMarker.add(0, 0, 1).asIsoString} — ${activeMarker.asIsoString} ($period)",
+            pageCssClasses = "wide"
+        )
+
+        call.respond(JteContent("main.kte", pageData.createTemplateParameters(loader, context.request)))
     }
 }
