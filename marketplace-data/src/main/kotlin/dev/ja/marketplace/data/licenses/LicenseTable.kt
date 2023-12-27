@@ -16,9 +16,11 @@ class LicenseTable(
     private val maxTableRows: Int? = null,
     private val showDetails: Boolean = true,
     private val showFooter: Boolean = false,
+    private val showLicenseColumn: Boolean = true,
     private val licenseFilter: (LicenseInfo) -> Boolean = { true },
 ) : SimpleDataTable("Licenses", "licenses", "table-column-wide"), MarketplaceDataSink {
     private val columnLicenseId = DataTableColumn("license-id", "License ID", "col-right")
+    private val columnRefNum = DataTableColumn("license-refnum", "Ref Num", "col-right")
     private val columnPurchaseDate = DataTableColumn("sale-date", "Purchase", "date")
     private val columnValidityStart = DataTableColumn("license-validity", "License Start", "date")
     private val columnValidityEnd = DataTableColumn("license-validity", "End", "date")
@@ -28,7 +30,6 @@ class LicenseTable(
     private val columnDiscount = DataTableColumn("license-discount", "Discount", "num")
     private val columnLicenseType = DataTableColumn("license-type", "Period")
     private val columnLicenseRenewalType = DataTableColumn("license-type", "Type")
-    private val columnRefNum = DataTableColumn("license-ref-num", "Ref Num")
 
     private val data = mutableListOf<LicenseInfo>()
 
@@ -49,7 +50,7 @@ class LicenseTable(
         columnDiscount,
         columnLicenseType.takeIf { showDetails },
         columnLicenseRenewalType,
-        columnLicenseId,
+        columnLicenseId.takeIf { showLicenseColumn },
         columnRefNum,
     )
 
@@ -86,7 +87,7 @@ class LicenseTable(
 
                 SimpleDateTableRow(
                     values = mapOf(
-                        columnLicenseId to license.id,
+                        columnLicenseId to LinkedLicense(license.id, pluginId!!),
                         columnRefNum to license.sale.ref,
                         columnPurchaseDate to if (showPurchaseDate) purchaseDate else null,
                         columnValidityStart to license.validity.start,

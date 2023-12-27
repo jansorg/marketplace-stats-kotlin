@@ -1,0 +1,44 @@
+@import dev.ja.marketplace.data.DataTable
+@import dev.ja.marketplace.data.LicenseInfo
+@import dev.ja.marketplace.client.PluginInfo
+@import dev.ja.marketplace.client.PluginTrial
+@import dev.ja.marketplace.data.LicenseId
+
+@param cssClass: String?
+@param plugin: PluginInfo
+@param licenseId: LicenseId
+@param licenseTable: DataTable
+
+<html lang="en">
+<head>
+    <title>License Details: ${licenseId}</title>
+    <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
+    <link rel="stylesheet" type="text/css" media="print" href="/styles/main.css"/>
+</head>
+
+<body class="${cssClass}">
+@template.navbar(plugin = plugin)
+
+<div class="sections">
+    <h1>License Details</h1>
+
+    <div class="section-wide">
+        <dl>
+            <dt>ID</dt>
+            <dd>${licenseId}</dd>
+        </dl>
+    </div>
+
+    <div class="section-wide">
+        <h2>Sales</h2>
+
+        @if (licenseTable.isEmpty)
+            <p class="em">No sales available.</p>
+        @else
+            @template.dataTable(plugin, licenseTable)
+        @endif
+    </div>
+</div>
+
+</body>
+</html>

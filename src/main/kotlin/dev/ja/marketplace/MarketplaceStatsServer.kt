@@ -247,6 +247,14 @@ class MarketplaceStatsServer(
 
                 renderCustomerPage(loader, customerId)
             }
+            get("/license/{id}") {
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                val licenseId: LicenseId = call.parameters["id"]
+                    ?: throw IllegalStateException("unable to find customer id")
+
+                renderLicensePage(loader, licenseId)
+            }
             get("/churn-rate/{licensePeriod}/{lastActiveMarker}/{activeMarker}") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
@@ -308,6 +316,30 @@ class MarketplaceStatsServer(
                     "licenseTableAnnual" to licenseTableAnnual,
                     "trials" to trials,
                     "trialTable" to trialsTable,
+                )
+            )
+        )
+    }
+
+    private suspend fun PipelineContext<Unit, ApplicationCall>.renderLicensePage(loader: PluginDataLoader, licenseId: LicenseId) {
+        val data = loader.load()
+        val sales = data.sales ?: emptyList()
+        val licenses = data.licenses ?: emptyList()
+
+        val licenseTable = LicenseTable(showLicenseColumn = false, showFooter = true) { it.id == licenseId }
+        listOf(licenseTable).forEach { table ->
+            table.init(data)
+            sales.forEach(table::process)
+            licenses.forEach(table::process)
+        }
+
+        call.respond(
+            JteContent(
+                "license.kte", mapOf(
+                    "cssClass" to null,
+                    "plugin" to data.pluginInfo,
+                    "licenseId" to licenseId,
+                    "licenseTable" to licenseTable,
                 )
             )
         )
