@@ -28,6 +28,7 @@ class LicenseTable(
     private val columnDiscount = DataTableColumn("license-discount", "Discount", "num")
     private val columnLicenseType = DataTableColumn("license-type", "Period")
     private val columnLicenseRenewalType = DataTableColumn("license-type", "Type")
+    private val columnRefNum = DataTableColumn("license-ref-num", "Ref Num")
 
     private val data = mutableListOf<LicenseInfo>()
 
@@ -49,6 +50,7 @@ class LicenseTable(
         columnLicenseType.takeIf { showDetails },
         columnLicenseRenewalType,
         columnLicenseId,
+        columnRefNum,
     )
 
     override fun init(data: PluginData) {
@@ -85,6 +87,7 @@ class LicenseTable(
                 SimpleDateTableRow(
                     values = mapOf(
                         columnLicenseId to license.id,
+                        columnRefNum to license.sale.ref,
                         columnPurchaseDate to if (showPurchaseDate) purchaseDate else null,
                         columnValidityStart to license.validity.start,
                         columnValidityEnd to license.validity.end,
