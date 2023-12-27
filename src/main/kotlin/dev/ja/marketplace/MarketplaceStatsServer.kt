@@ -287,15 +287,17 @@ class MarketplaceStatsServer(
             ?: throw IllegalStateException("Customer with id $customerId not found")
 
         val sales = data.sales?.filter { it.customer.code == customerId } ?: emptyList()
-        val licenses = data.licenses?.filter { it.sale.customer.code == customerId } ?: emptyList()
+        // we're not filtering licenses by customer ID here because the same license can be assigned to different customer
+        // with new sales, e.g., when moved to an organization
+        val licenses = data.licenses ?: emptyList()
         val trials = data.trials?.filter { it.customer.code == customerId } ?: emptyList()
 
         val licenseTableMonthly = LicenseTable(showDetails = false, showFooter = true) {
-            it.sale.licensePeriod == LicensePeriod.Monthly
+            it.sale.licensePeriod == LicensePeriod.Monthly && it.sale.customer.code == customerId
         }
 
         val licenseTableAnnual = LicenseTable(showDetails = false, showFooter = true) {
-            it.sale.licensePeriod == LicensePeriod.Annual
+            it.sale.licensePeriod == LicensePeriod.Annual && it.sale.customer.code == customerId
         }
 
         val trialsTable = TrialsTable(showDetails = false) { trial -> trial.customer.code == customerId }

@@ -32,6 +32,7 @@ class LicenseTable(
     private val columnLicenseRenewalType = DataTableColumn("license-type", "Type")
 
     private val data = mutableListOf<LicenseInfo>()
+    private val licenseMaxValidity = mutableMapOf<LicenseId, YearMonthDay>()
 
     private var pluginId: PluginId? = null
 
@@ -59,6 +60,13 @@ class LicenseTable(
     }
 
     override fun process(licenseInfo: LicenseInfo) {
+        val previousMaxValidity = licenseMaxValidity[licenseInfo.id]
+        val currentValidityEnd = licenseInfo.validity.end
+        licenseMaxValidity[licenseInfo.id] = when {
+            previousMaxValidity != null -> maxOf(previousMaxValidity, currentValidityEnd)
+            else -> currentValidityEnd
+        }
+
         if (licenseFilter(licenseInfo)) {
             data += licenseInfo
         }
@@ -74,16 +82,14 @@ class LicenseTable(
     override fun createSections(): List<DataTableSection> {
         val now = YearMonthDay.now()
 
-        val licenseMaxValidity = data.groupBy { it.id }.mapValues { it.value.maxOf { l -> l.validity.end } }
-
-        var lastPurchaseDate: YearMonthDay? = null
+        var previousPurchaseDate: YearMonthDay? = null
         val rows = data
             .sortedWith(comparator)
             .takeNullable(maxTableRows)
             .map { license ->
                 val purchaseDate = license.sale.date
-                val showPurchaseDate = lastPurchaseDate != purchaseDate
-                lastPurchaseDate = purchaseDate
+                val showPurchaseDate = previousPurchaseDate != purchaseDate
+                previousPurchaseDate = purchaseDate
 
                 SimpleDateTableRow(
                     values = mapOf(
