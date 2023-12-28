@@ -17,6 +17,7 @@ class LicenseTable(
     private val showDetails: Boolean = true,
     private val showFooter: Boolean = false,
     private val showLicenseColumn: Boolean = true,
+    private val nowDate: YearMonthDay = YearMonthDay.now(),
     private val licenseFilter: (LicenseInfo) -> Boolean = { true },
 ) : SimpleDataTable("Licenses", "licenses", "table-column-wide"), MarketplaceDataSink {
     private val columnLicenseId = DataTableColumn("license-id", "License ID", "col-right")
@@ -33,7 +34,7 @@ class LicenseTable(
 
     private val data = mutableListOf<LicenseInfo>()
     private val licenseMaxValidity = mutableMapOf<LicenseId, YearMonthDay>()
-
+    private val filteredLicenseMaxValidity = mutableMapOf<LicenseId, YearMonthDay>()
     private var pluginId: PluginId? = null
 
     override val isLimitedRendering: Boolean
@@ -60,15 +61,12 @@ class LicenseTable(
     }
 
     override fun process(licenseInfo: LicenseInfo) {
-        val previousMaxValidity = licenseMaxValidity[licenseInfo.id]
-        val currentValidityEnd = licenseInfo.validity.end
-        licenseMaxValidity[licenseInfo.id] = when {
-            previousMaxValidity != null -> maxOf(previousMaxValidity, currentValidityEnd)
-            else -> currentValidityEnd
-        }
+        val licenseId = licenseInfo.id
+        licenseMaxValidity[licenseId] = maxOfNullable(licenseMaxValidity[licenseId], licenseInfo.validity.end)
 
         if (licenseFilter(licenseInfo)) {
             data += licenseInfo
+            filteredLicenseMaxValidity[licenseId] = maxOfNullable(filteredLicenseMaxValidity[licenseId], licenseInfo.validity.end)
         }
     }
 
@@ -80,8 +78,6 @@ class LicenseTable(
         .thenDescending(Comparator.comparing { it.amountUSD.sortValue() })
 
     override fun createSections(): List<DataTableSection> {
-        val now = YearMonthDay.now()
-
         var previousPurchaseDate: YearMonthDay? = null
         val rows = data
             .sortedWith(comparator)
@@ -108,7 +104,7 @@ class LicenseTable(
                             .sorted()
                             .map { it.asPercentageValue(false) }
                     ),
-                    cssClass = if (licenseMaxValidity[license.id]!! < now) "disabled" else null,
+                    cssClass = if (licenseMaxValidity[license.id]!! < nowDate) "disabled" else null,
                     tooltips = mapOf(
                         columnDiscount to license.saleLineItem.discountDescriptions
                             .sortedBy { it.percent ?: 0.0 }
@@ -122,8 +118,8 @@ class LicenseTable(
                 )
             }
 
-        val licenseCount = licenseMaxValidity.size
-        val activeLicenseCount = licenseMaxValidity.count { it.value >= now }
+        val licenseCount = filteredLicenseMaxValidity.size
+        val activeLicenseCount = filteredLicenseMaxValidity.count { it.value >= nowDate }
         val footer = when {
             showFooter -> SimpleRowGroup(
                 SimpleDateTableRow(
@@ -141,5 +137,13 @@ class LicenseTable(
         }
 
         return listOf(SimpleTableSection(rows, null, footer = footer))
+    }
+}
+
+private fun <T : Comparable<T>> maxOfNullable(a: T?, b: T?): T {
+    return when {
+        a == null -> b!!
+        b == null -> a
+        else -> maxOf(a, b)
     }
 }
