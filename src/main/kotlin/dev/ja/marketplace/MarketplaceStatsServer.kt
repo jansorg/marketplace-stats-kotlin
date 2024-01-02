@@ -7,12 +7,12 @@ package dev.ja.marketplace
 
 import dev.ja.marketplace.churn.MarketplaceChurnProcessor
 import dev.ja.marketplace.client.*
+import dev.ja.marketplace.data.LicenseInfo
 import dev.ja.marketplace.data.MarketplaceDataSink
 import dev.ja.marketplace.data.MarketplaceDataSinkFactory
 import dev.ja.marketplace.data.customerType.CustomerTypeFactory
 import dev.ja.marketplace.data.customers.ActiveCustomerTableFactory
 import dev.ja.marketplace.data.customers.ChurnedCustomerTableFactory
-import dev.ja.marketplace.data.customers.CustomerTable
 import dev.ja.marketplace.data.customers.CustomerTableFactory
 import dev.ja.marketplace.data.downloads.MonthlyDownloadsFactory
 import dev.ja.marketplace.data.licenses.LicenseTable
@@ -40,7 +40,6 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.*
 import io.ktor.util.pipeline.*
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 
 class MarketplaceStatsServer(
     private val client: MarketplaceClient,
@@ -267,7 +266,7 @@ class MarketplaceStatsServer(
                 val lastActiveMarker = YearMonthDay.parse(call.parameters["lastActiveMarker"]!!)
                 val activeMarker = YearMonthDay.parse(call.parameters["activeMarker"]!!)
 
-                renderChurnRatePage(loader, period, lastActiveMarker, activeMarker)
+                renderLicenseChurnRatePage(loader, period, lastActiveMarker, activeMarker)
             }
         }
     }
@@ -348,7 +347,7 @@ class MarketplaceStatsServer(
         )
     }
 
-    private suspend fun PipelineContext<Unit, ApplicationCall>.renderChurnRatePage(
+    private suspend fun PipelineContext<Unit, ApplicationCall>.renderLicenseChurnRatePage(
         loader: PluginDataLoader,
         period: LicensePeriod,
         lastActiveMarker: YearMonthDay,
@@ -356,21 +355,17 @@ class MarketplaceStatsServer(
     ) {
         val data = loader.load()
 
-        val churnProcessor = MarketplaceChurnProcessor<CustomerId, CustomerInfo>(lastActiveMarker, activeMarker, ::IntOpenHashSet)
+        val churnProcessor = MarketplaceChurnProcessor<LicenseId, LicenseInfo>(lastActiveMarker, activeMarker, ::HashSet)
         churnProcessor.init()
-
-        val customerMapping = mutableMapOf<CustomerId, CustomerInfo>()
 
         data.licenses!!.forEach {
             churnProcessor.processValue(
-                it.sale.customer.code,
-                it.sale.customer,
+                it.id,
+                it,
                 it.validity,
                 it.sale.licensePeriod == period && it.isPaidLicense,
                 it.isRenewal
             )
-
-            customerMapping[it.sale.customer.code] = it.sale.customer
         }
 
         val churnedIds = churnProcessor.churnedIds()
@@ -379,15 +374,20 @@ class MarketplaceStatsServer(
             client,
             listOf(object : MarketplaceDataSinkFactory {
                 override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
-                    return CustomerTable(
-                        { row -> row.customer.code in churnedIds },
-                        isChurnedStyling = true,
-                        nowDate = activeMarker
-                    )
+                    return LicenseTable(
+                        showFooter = true,
+                        showPurchaseColumn = false,
+                        supportedChurnStyling = false,
+                        showOnlyLatestLicenseInfo = true,
+                    ) {
+                        it.id in churnedIds
+                    }
                 }
             }),
-            pageTitle = "Churned Customers:\n" +
-                    "${lastActiveMarker.add(0, 0, 1).asIsoString} — ${activeMarker.asIsoString} ($period)",
+            pageTitle = buildString {
+                append("Churned Licenses: ")
+                append("${lastActiveMarker.add(0, 0, 1).asIsoString} — ${activeMarker.asIsoString}, $period subscriptions")
+            },
             pageCssClasses = "wide"
         )
 

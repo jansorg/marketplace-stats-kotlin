@@ -49,7 +49,7 @@ class MarketplaceChurnProcessor<ID, T>(
     override fun getResult(period: LicensePeriod): ChurnResult<T> {
         val activeAtStart = previousPeriodItems.size
 
-        // e.g. users which were licensed end of last month, but no longer are licensed end of this month.
+        // For example, users which were licensed end of last month, but no longer are licensed end of this month.
         // We're not counting users, which switched the license type, e.g. from "monthly" to "annual"
         val churned = churnedIds()
         val churnRate = when (activeAtStart) {
@@ -69,10 +69,10 @@ class MarketplaceChurnProcessor<ID, T>(
     }
 
     fun churnedIds(): Set<ID> {
-        val churned = hashSetFactory()
+        val churned = hashSetFactory().toMutableSet()
         churned.addAll(previousPeriodItems)
         churned.removeAll(activeItems)
         churned.removeAll(activeItemsUnaccepted)
-        return churned.toSet()
+        return churned
     }
 }

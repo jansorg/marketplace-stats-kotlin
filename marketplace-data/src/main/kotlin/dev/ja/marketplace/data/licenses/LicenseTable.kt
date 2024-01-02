@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -17,7 +17,10 @@ class LicenseTable(
     private val showDetails: Boolean = true,
     private val showFooter: Boolean = false,
     private val showLicenseColumn: Boolean = true,
+    private val showPurchaseColumn: Boolean = true,
     private val nowDate: YearMonthDay = YearMonthDay.now(),
+    private val supportedChurnStyling: Boolean = true,
+    private val showOnlyLatestLicenseInfo: Boolean = false,
     private val licenseFilter: (LicenseInfo) -> Boolean = { true },
 ) : SimpleDataTable("Licenses", "licenses", "table-column-wide"), MarketplaceDataSink {
     private val columnLicenseId = DataTableColumn("license-id", "License ID", "col-right")
@@ -43,7 +46,7 @@ class LicenseTable(
         }
 
     override val columns: List<DataTableColumn> = listOfNotNull(
-        columnPurchaseDate,
+        columnPurchaseDate.takeIf { showPurchaseColumn },
         columnValidityStart,
         columnValidityEnd,
         columnCustomerName.takeIf { showDetails },
@@ -79,10 +82,22 @@ class LicenseTable(
 
     override fun createSections(): List<DataTableSection> {
         var previousPurchaseDate: YearMonthDay? = null
+        val shownLicenseInfos = if (showOnlyLatestLicenseInfo) mutableSetOf<LicenseId>() else null
         val rows = data
             .sortedWith(comparator)
             .takeNullable(maxTableRows)
-            .map { license ->
+            .mapNotNull { license ->
+                // only display the latest renewal (or the first purchase if new)
+                if (shownLicenseInfos != null) {
+                    try {
+                        if (license.id in shownLicenseInfos) {
+                            return@mapNotNull null
+                        }
+                    } finally {
+                        shownLicenseInfos += license.id
+                    }
+                }
+
                 val purchaseDate = license.sale.date
                 val showPurchaseDate = previousPurchaseDate != purchaseDate
                 previousPurchaseDate = purchaseDate
@@ -104,7 +119,7 @@ class LicenseTable(
                             .sorted()
                             .map { it.asPercentageValue(false) }
                     ),
-                    cssClass = if (licenseMaxValidity[license.id]!! < nowDate) "disabled" else null,
+                    cssClass = if (supportedChurnStyling && licenseMaxValidity[license.id]!! < nowDate) "disabled" else null,
                     tooltips = mapOf(
                         columnDiscount to license.saleLineItem.discountDescriptions
                             .sortedBy { it.percent ?: 0.0 }
@@ -125,8 +140,8 @@ class LicenseTable(
                 SimpleDateTableRow(
                     values = mapOf(
                         columnAmountUSD to data.sumOf(LicenseInfo::amountUSD).withCurrency(Currency.USD),
-                        columnLicenseId to (if (licenseCount == 0) "—" else listOf(
-                            "$activeLicenseCount active",
+                        columnLicenseId to (if (licenseCount == 0) "—" else listOfNotNull(
+                            "$activeLicenseCount active".takeIf { supportedChurnStyling },
                             "$licenseCount total"
                         ))
                     ),
