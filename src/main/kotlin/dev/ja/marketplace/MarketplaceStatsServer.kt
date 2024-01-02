@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -40,6 +40,7 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.*
 import io.ktor.util.pipeline.*
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 
 class MarketplaceStatsServer(
     private val client: MarketplaceClient,
@@ -355,7 +356,7 @@ class MarketplaceStatsServer(
     ) {
         val data = loader.load()
 
-        val churnProcessor = MarketplaceChurnProcessor<CustomerInfo>(lastActiveMarker, activeMarker)
+        val churnProcessor = MarketplaceChurnProcessor<CustomerId, CustomerInfo>(lastActiveMarker, activeMarker, ::IntOpenHashSet)
         churnProcessor.init()
 
         val customerMapping = mutableMapOf<CustomerId, CustomerInfo>()

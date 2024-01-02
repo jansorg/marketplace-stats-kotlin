@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -8,7 +8,7 @@ package dev.ja.marketplace.data
 import dev.ja.marketplace.client.*
 import java.math.BigInteger
 
-typealias LicenseId = String
+typealias LicenseId = dev.ja.marketplace.client.LicenseId
 
 /**
  * Purchase of a single plugin license, identified by a unique ID.

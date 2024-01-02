@@ -11,6 +11,7 @@ import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.Currency
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.overview.OverviewTable.CustomerSegment.*
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import java.math.BigDecimal
 import java.util.*
 
@@ -308,7 +309,7 @@ class OverviewTable :
     private fun createChurnProcessor(timeRange: YearMonthDayRange): ChurnProcessor<CustomerId, CustomerInfo> {
         val churnDate = timeRange.end
         val activeDate = timeRange.start.add(0, 0, -1)
-        val processor = MarketplaceChurnProcessor<CustomerInfo>(activeDate, churnDate)
+        val processor = MarketplaceChurnProcessor<CustomerId, CustomerInfo>(activeDate, churnDate, ::IntOpenHashSet)
         processor.init()
         return processor
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -8,27 +8,27 @@ package dev.ja.marketplace.churn
 import dev.ja.marketplace.client.LicensePeriod
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 
 /**
  * Churn rate is calculated as "number of users lost in the date range / users at beginning of the date range".
  *
  * Churn processor, which uses the license type (new / renewal) to decide if a user churned or not.
  * Users with renewals even after the end of the range (e.g. after end of month) are considered as active and not as churned.
- * We're not using any kind of grace period, because it's implicitly used if the license type is "renewal".
+ * We're not using any kind of grace period because it's implicitly used if the license type is "renewal".
  */
-class MarketplaceChurnProcessor<T>(
+class MarketplaceChurnProcessor<ID, T>(
     private val previouslyActiveMarkerDate: YearMonthDay,
-    private val currentlyActiveMarkerDate: YearMonthDay
-) : ChurnProcessor<Int, T> {
+    private val currentlyActiveMarkerDate: YearMonthDay,
+    private val hashSetFactory: () -> MutableCollection<ID>,
+) : ChurnProcessor<ID, T> {
     override fun init() {}
 
-    private val previousPeriodItems = IntOpenHashSet()
-    private val activeItems = IntOpenHashSet()
-    private val activeItemsUnaccepted = IntOpenHashSet()
+    private val previousPeriodItems: MutableCollection<ID> = hashSetFactory()
+    private val activeItems: MutableCollection<ID> = hashSetFactory()
+    private val activeItemsUnaccepted: MutableCollection<ID> = hashSetFactory()
 
     override fun processValue(
-        id: Int,
+        id: ID,
         value: T,
         validity: YearMonthDayRange,
         isAcceptedValue: Boolean,
@@ -68,10 +68,11 @@ class MarketplaceChurnProcessor<T>(
         )
     }
 
-    fun churnedIds(): IntOpenHashSet {
-        val churned = IntOpenHashSet(previousPeriodItems)
+    fun churnedIds(): Set<ID> {
+        val churned = hashSetFactory()
+        churned.addAll(previousPeriodItems)
         churned.removeAll(activeItems)
         churned.removeAll(activeItemsUnaccepted)
-        return churned
+        return churned.toSet()
     }
 }
