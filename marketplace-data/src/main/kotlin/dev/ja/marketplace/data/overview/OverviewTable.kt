@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -99,7 +99,7 @@ class OverviewTable :
         "trials", "Trials", "num ", tooltip = "Number of new trials at the end of the month"
     )
     private val columnDownloads = DataTableColumn(
-        "downloads", "Downloads", "num ", tooltip = "Number of downloads in the month"
+        "downloads", "↓", "num ", tooltip = "Number of downloads in the month"
     )
 
     override val columns: List<DataTableColumn> = listOf(
