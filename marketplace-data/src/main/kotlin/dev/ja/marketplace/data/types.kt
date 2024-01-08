@@ -16,7 +16,7 @@ import java.math.RoundingMode
 data class PercentageValue(val value: BigDecimal) {
     companion object {
         val ONE_HUNDRED = PercentageValue(BigDecimal(100.0))
-        val ZERO = PercentageValue(BigDecimal(100.0))
+        val ZERO = PercentageValue(BigDecimal(0.0))
 
         fun of(first: BigDecimal, second: BigDecimal): PercentageValue {
             if (first == BigDecimal.ZERO || second == BigDecimal.ZERO) {

@@ -12,13 +12,13 @@ import dev.ja.marketplace.data.util.SimpleTrialTracker
 import dev.ja.marketplace.data.util.TrialTracker
 import kotlin.math.absoluteValue
 
-class FunnelTable : SimpleDataTable("Trial Funnel", "funnel", "table-centered"), MarketplaceDataSink {
+class FunnelTable : SimpleDataTable("Trial Funnel", "funnel", "table-centered sortable"), MarketplaceDataSink {
     private var pluginId: PluginId? = null
     private val trialTracker: TrialTracker = SimpleTrialTracker()
 
-    private val trialDateColumn = DataTableColumn("funnel-trial", "Trial", "date")
-    private val licensedDateColumn = DataTableColumn("funnel-license", "Licensed", "date")
-    private val testDurationColumn = DataTableColumn("funnel-test-duration", "Test Period", "num")
+    private val trialDateColumn = DataTableColumn("funnel-trial", "Trial Start Date", "date")
+    private val licensedDateColumn = DataTableColumn("funnel-license", "Licensed Date", "date")
+    private val testDurationColumn = DataTableColumn("funnel-test-duration", "Test Duration (days)", "num")
     private val customerColumn = DataTableColumn("funnel-customer", "Customer", "num")
 
     override val columns: List<DataTableColumn> = listOf(trialDateColumn, licensedDateColumn, testDurationColumn, customerColumn)
@@ -44,11 +44,19 @@ class FunnelTable : SimpleDataTable("Trial Funnel", "funnel", "table-centered"),
         val rows = convertedTrials.entries
             .sortedByDescending { it.key.date }
             .map { (pluginTrial, pluginSale) ->
+                val testDuration = pluginTrial.date.daysUntil(pluginSale.date).absoluteValue
                 SimpleDateTableRow(
-                    trialDateColumn to pluginTrial.date,
-                    licensedDateColumn to pluginSale.date,
-                    testDurationColumn to pluginTrial.date.daysUntil(pluginSale.date).absoluteValue,
-                    customerColumn to LinkedCustomer(pluginTrial.customer.code, pluginId!!),
+                    values = mapOf(
+                        trialDateColumn to pluginTrial.date,
+                        licensedDateColumn to pluginSale.date,
+                        testDurationColumn to testDuration.toBigInteger(),
+                        customerColumn to LinkedCustomer(pluginTrial.customer.code, pluginId!!),
+                    ),
+                    sortValues = mapOf(
+                        trialDateColumn to pluginTrial.date.sortValue,
+                        licensedDateColumn to pluginSale.date.sortValue,
+                        testDurationColumn to testDuration.absoluteValue.toLong(),
+                    )
                 )
             }
 
