@@ -15,6 +15,7 @@ import dev.ja.marketplace.data.customers.ActiveCustomerTableFactory
 import dev.ja.marketplace.data.customers.ChurnedCustomerTableFactory
 import dev.ja.marketplace.data.customers.CustomerTableFactory
 import dev.ja.marketplace.data.downloads.MonthlyDownloadsFactory
+import dev.ja.marketplace.data.funnel.FunnelTableFactory
 import dev.ja.marketplace.data.licenses.LicenseTable
 import dev.ja.marketplace.data.licenses.LicenseTableFactory
 import dev.ja.marketplace.data.overview.OverviewTableFactory
@@ -69,7 +70,7 @@ class MarketplaceStatsServer(
             TrialsTodayFactory(),
             CustomerTypeFactory(),
             TopCountriesFactory(),
-            TopTrialCountriesFactory(),
+            TopTrialCountriesFactory(smallSpaceFormat = true),
             OverviewTableFactory()
         )
     )
@@ -122,8 +123,14 @@ class MarketplaceStatsServer(
 
     private val trialCountriesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
         client,
-        listOf(TopTrialCountriesFactory(Int.MAX_VALUE)),
-        pageTitle = "Countries of Trial Users",
+        listOf(TopTrialCountriesFactory(Int.MAX_VALUE, smallSpaceFormat = false)),
+        pageTitle = "Trials Grouped by Country",
+    )
+
+    private val funnelPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+        client,
+        listOf(FunnelTableFactory()),
+        pageTitle = "Trial Funnel",
     )
 
     private val monthlyDownloadsPageData: PluginPageDefinition = DefaultPluginPageDefinition(
@@ -233,6 +240,11 @@ class MarketplaceStatsServer(
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
                 call.respond(JteContent("main.kte", trialCountriesPageData.createTemplateParameters(loader, context.request)))
+            }
+            get("/trials/funnel") {
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", funnelPageData.createTemplateParameters(loader, context.request)))
             }
             get("/downloads/monthly") {
                 val loader = getDataLoader()

@@ -122,6 +122,7 @@ thead th, .row-border-bottom {
 table h2, table h3, table h4 {
     font-size: 1em;
     white-space: nowrap;
+    display: inline-block;
 }
 
 tfoot th, .row-border-top {

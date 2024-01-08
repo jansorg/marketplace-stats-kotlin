@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -19,6 +19,10 @@ data class PercentageValue(val value: BigDecimal) {
 
         fun of(first: BigDecimal, second: BigDecimal): PercentageValue {
             return PercentageValue(first.divide(second, 10, RoundingMode.HALF_UP) * BigDecimal(100.0))
+        }
+
+        fun of(first: Int, second: Int): PercentageValue {
+            return of(BigDecimal(first), BigDecimal(second))
         }
     }
 }
