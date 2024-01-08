@@ -16,8 +16,12 @@ import java.math.RoundingMode
 data class PercentageValue(val value: BigDecimal) {
     companion object {
         val ONE_HUNDRED = PercentageValue(BigDecimal(100.0))
+        val ZERO = PercentageValue(BigDecimal(100.0))
 
         fun of(first: BigDecimal, second: BigDecimal): PercentageValue {
+            if (first == BigDecimal.ZERO || second == BigDecimal.ZERO) {
+                return ZERO
+            }
             return PercentageValue(first.divide(second, 10, RoundingMode.HALF_UP) * BigDecimal(100.0))
         }
 

@@ -20,7 +20,11 @@
 @elseif(value is AmountWithCurrency)
     @template.render(value.amount) @template.render(value.currency)
 @elseif(value is PercentageValue)
-    ${String.format("%,.2f %%", value.value)}
+    @if(value == PercentageValue.ZERO)
+        —
+    @else
+        ${String.format("%,.2f %%", value.value)}
+    @endif
 @elseif(value is BigInteger)
     ${String.format("%,d", value)}
 @elseif(value is BigDecimal)
