@@ -14,6 +14,7 @@ import java.util.*
 
 class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"), MarketplaceDataSink {
     private lateinit var downloads: List<MonthlyDownload>
+    private val allTrialsTracker: TrialTracker = SimpleTrialTracker()
     private val data = TreeMap<Int, YearSummary>(Comparator.reverseOrder())
 
     private data class YearSummary(val sales: PaymentAmountTracker, val trials: TrialTracker = SimpleTrialTracker())
@@ -28,12 +29,15 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
 
         if (data.trials != null) {
             for (trial in data.trials) {
+                allTrialsTracker.registerTrial(trial)
                 this.data[trial.date.year]?.trials?.registerTrial(trial)
             }
         }
     }
 
     override fun process(sale: PluginSale) {
+        allTrialsTracker.processSale(sale)
+
         val yearData = data[sale.date.year]!!
         yearData.sales.add(sale.date, sale.amountUSD)
         yearData.trials.processSale(sale)
@@ -81,6 +85,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
             )
         }
 
+        val allTrialsResult = allTrialsTracker.getResult()
         return listOf(
             SimpleTableSection(
                 rows, footer = SimpleTableSection(
@@ -89,7 +94,8 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                         columnSalesFees to data.values.sumOf { it.sales.feesAmountUSD }.withCurrency(Currency.USD),
                         columnSalesPaid to data.values.sumOf { it.sales.paidAmountUSD }.withCurrency(Currency.USD),
                         columnDownloads to downloads.sumOf { it.downloads.toBigInteger() },
-                        columnTrials to data.values.sumOf { it.trials.getResult().totalTrials }.toBigInteger(),
+                        columnTrials to allTrialsResult.totalTrials.toBigInteger(),
+                        columnTrialsConverted to allTrialsResult.convertedTrialsPercentage,
                     )
                 )
             )
