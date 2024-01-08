@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -59,6 +59,10 @@ data class YearMonthDay(
 
     override operator fun compareTo(other: YearMonthDay): Int {
         return instant.compareTo(other.instant)
+    }
+
+    fun daysUntil(date: YearMonthDay): Int {
+        return instant.daysUntil(date.instant, timezone)
     }
 
     companion object {
