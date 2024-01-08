@@ -33,28 +33,32 @@ interface TrialTracker {
 }
 
 class SimpleTrialTracker() : TrialTracker {
-    private val trials = mutableMapOf<CustomerId, PluginTrial>()
+    private val allTrials = mutableSetOf<PluginTrial>()
+    private val trialsByCustomer = mutableMapOf<CustomerId, PluginTrial>()
     private val convertedTrials = mutableMapOf<CustomerId, MutableList<PluginSale>>()
 
     override fun registerTrial(trial: PluginTrial) {
+        allTrials += trial
+
         // only record the latest trials
-        if (trial.customer.code !in this.trials) {
-            this.trials[trial.customer.code] = trial
+        val customerId = trial.customer.code
+        if (customerId !in this.trialsByCustomer || this.trialsByCustomer[customerId]!!.date < trial.date) {
+            this.trialsByCustomer[customerId] = trial
         }
     }
 
     override fun processSale(saleInfo: PluginSale) {
         val customerId = saleInfo.customer.code
-        val trial = trials[customerId]
+        val trial = trialsByCustomer[customerId]
         if (trial != null && trial.date <= saleInfo.date) {
             convertedTrials.getOrPut(customerId, ::ArrayList) += saleInfo
         }
     }
 
     override fun getResult(): TrialTrackerInfo {
-        val convertedTrialsList = convertedTrials.mapKeys { trials[it.key]!! }
+        val convertedTrialsList = convertedTrials.mapKeys { trialsByCustomer[it.key]!! }
         return TrialTrackerInfo(
-            trials.size,
+            allTrials.size,
             convertedTrials.size,
             convertedTrialsList.mapValues { it.value.minBy { it.date } }
         )
