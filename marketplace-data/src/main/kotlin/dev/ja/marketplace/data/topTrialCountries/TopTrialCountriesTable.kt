@@ -14,7 +14,11 @@ import java.math.BigDecimal
 import java.util.*
 
 class TopTrialCountriesTable(private val maxItems: Int = 10, private val smallSpaceFormat: Boolean) :
-    SimpleDataTable("Top Trial Countries", "top-trial-countries", "table-centered sortable"), MarketplaceDataSink {
+    SimpleDataTable(
+        "Top Trial Countries",
+        "top-trial-countries",
+        if (smallSpaceFormat) "table-centered" else "table-centered sortable"
+    ), MarketplaceDataSink {
 
     private val columnCountry = DataTableColumn("country", null, "col-right")
     private val columnTrialCount = DataTableColumn("trials", "Trials".takeUnless { smallSpaceFormat }, "num")
