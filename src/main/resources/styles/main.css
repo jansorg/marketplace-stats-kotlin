@@ -157,9 +157,8 @@ dd {
     row-gap: 1rem;
 }
 
-.tables table {
-    margin-top: 0;
-    margin-bottom: 1rem;
+.tables table, .tables .table-centered {
+    margin: 0 0 1rem;
 }
 
 .tables .tables-row {
@@ -184,8 +183,8 @@ dd {
 }
 
 .table-centered {
-    margin-left: auto !important;
-    margin-right: auto !important;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .menu {
