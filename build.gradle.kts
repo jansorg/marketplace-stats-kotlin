@@ -1,11 +1,13 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 import gg.jte.ContentType
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
+// https://mvnrepository.com/artifact/io.ktor/ktor-client-core-jvm
 val ktorVersion: String by project
 
 plugins {
@@ -14,7 +16,7 @@ plugins {
     kotlin("plugin.serialization") version "1.9.22"
 
     id("com.github.johnrengelman.shadow") version "8.1.1"
-    id("gg.jte.gradle") version "3.1.6"
+    id("gg.jte.gradle") version "3.1.9"
     id("com.github.gmazzo.buildconfig") version "5.1.0"
 }
 
@@ -30,6 +32,9 @@ allprojects {
 
     kotlin {
         jvmToolchain(17)
+        compilerOptions {
+            jvmTarget = JvmTarget.JVM_17
+        }
     }
 
     tasks {
@@ -43,20 +48,24 @@ allprojects {
     }
 
     dependencies {
+        // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-datetime-jvm
         implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
-        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
-        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
+
+        // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-serialization-json-jvm
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
         // https://mvnrepository.com/artifact/it.unimi.dsi/fastutil-core
-        implementation("it.unimi.dsi:fastutil-core:8.5.12")
+        implementation("it.unimi.dsi:fastutil-core:8.5.13")
 
-        implementation("ch.qos.logback:logback-classic:1.4.14")
+        // https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
+        implementation("ch.qos.logback:logback-classic:1.5.1")
 
         // https://github.com/ajalt/clikt
         implementation("com.github.ajalt.clikt:clikt:4.2.1")
 
-        testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.0")
-        testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.0")
+        // https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api
+        testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.2")
+        testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.2")
     }
 }
 
@@ -87,8 +96,11 @@ project(":") {
         implementation("io.ktor:ktor-server-compression:$ktorVersion")
         implementation("io.ktor:ktor-server-jte:$ktorVersion")
 
-        implementation("gg.jte:jte:3.1.6")
-        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+        // https://mvnrepository.com/artifact/gg.jte/jte
+        implementation("gg.jte:jte:3.1.9")
+
+        // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-coroutines-core
+        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
 
         runtimeOnly(provider {
             files(tasks.precompileJte.get().targetDirectory)
