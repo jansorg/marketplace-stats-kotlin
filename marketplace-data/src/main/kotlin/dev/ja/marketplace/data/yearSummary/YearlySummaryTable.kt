@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.Currency
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.util.SimpleTrialTracker
 import dev.ja.marketplace.data.util.TrialTracker
+import java.math.BigDecimal
 import java.util.*
 
 class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"), MarketplaceDataSink {
@@ -66,29 +67,33 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
     override fun createSections(): List<DataTableSection> {
         val now = YearMonthDay.now()
 
-        val rows = data.entries.map { (year, value) ->
-            val trialResult = value.trials.getResult()
-            SimpleDateTableRow(
-                values = mapOf(
-                    columnYear to year,
-                    columnSalesTotal to value.sales.totalAmountUSD.withCurrency(Currency.USD),
-                    columnSalesFees to value.sales.feesAmountUSD.withCurrency(Currency.USD),
-                    columnSalesPaid to value.sales.paidAmountUSD.withCurrency(Currency.USD),
-                    columnDownloads to downloads.filter { it.firstOfMonth.year == year }.sumOf(MonthlyDownload::downloads).toBigInteger(),
-                    columnTrials to trialResult.totalTrials.toBigInteger(),
-                    columnTrialsConverted to trialResult.convertedTrialsPercentage,
-                ),
-                cssClass = when {
-                    year == now.year -> "today"
-                    else -> null
-                }
-            )
-        }
+        val rows = data.entries.toList()
+            .dropLastWhile { it.value.sales.totalAmountUSD == BigDecimal.ZERO }
+            .map { (year, value) ->
+                val trialResult = value.trials.getResult()
+                SimpleDateTableRow(
+                    values = mapOf(
+                        columnYear to year,
+                        columnSalesTotal to value.sales.totalAmountUSD.withCurrency(Currency.USD),
+                        columnSalesFees to value.sales.feesAmountUSD.withCurrency(Currency.USD),
+                        columnSalesPaid to value.sales.paidAmountUSD.withCurrency(Currency.USD),
+                        columnDownloads to downloads.filter { it.firstOfMonth.year == year }.sumOf(MonthlyDownload::downloads)
+                            .toBigInteger(),
+                        columnTrials to trialResult.totalTrials.toBigInteger(),
+                        columnTrialsConverted to trialResult.convertedTrialsPercentage,
+                    ),
+                    cssClass = when {
+                        year == now.year -> "today"
+                        else -> null
+                    }
+                )
+            }
 
         val allTrialsResult = allTrialsTracker.getResult()
         return listOf(
             SimpleTableSection(
-                rows, footer = SimpleTableSection(
+                rows = rows,
+                footer = SimpleTableSection(
                     SimpleDateTableRow(
                         columnSalesTotal to data.values.sumOf { it.sales.totalAmountUSD }.withCurrency(Currency.USD),
                         columnSalesFees to data.values.sumOf { it.sales.feesAmountUSD }.withCurrency(Currency.USD),
