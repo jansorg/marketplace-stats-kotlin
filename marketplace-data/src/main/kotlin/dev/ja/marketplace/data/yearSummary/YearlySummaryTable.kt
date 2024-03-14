@@ -18,14 +18,21 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
     private val allTrialsTracker: TrialTracker = SimpleTrialTracker()
     private val data = TreeMap<Int, YearSummary>(Comparator.reverseOrder())
 
-    private data class YearSummary(val sales: PaymentAmountTracker, val trials: TrialTracker = SimpleTrialTracker())
+    private data class YearSummary(
+        val sales: PaymentAmountTracker,
+        val trials: TrialTracker,
+    )
 
     override fun init(data: PluginData) {
         this.downloads = data.downloadsMonthly
 
         val now = YearMonthDay.now()
         for (year in Marketplace.Birthday.year..now.year) {
-            this.data[year] = YearSummary(PaymentAmountTracker(YearMonthDayRange.ofYear(year)))
+            val yearRange = YearMonthDayRange.ofYear(year)
+            this.data[year] = YearSummary(
+                PaymentAmountTracker(yearRange),
+                SimpleTrialTracker { it.date in yearRange }
+            )
         }
 
         if (data.trials != null) {
@@ -69,18 +76,23 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
 
         val rows = data.entries.toList()
             .dropLastWhile { it.value.sales.totalAmountUSD == BigDecimal.ZERO }
-            .map { (year, value) ->
-                val trialResult = value.trials.getResult()
+            .map { (year, yearData) ->
+                val trialResult = yearData.trials.getResult()
                 SimpleDateTableRow(
                     values = mapOf(
                         columnYear to year,
-                        columnSalesTotal to value.sales.totalAmountUSD.withCurrency(Currency.USD),
-                        columnSalesFees to value.sales.feesAmountUSD.withCurrency(Currency.USD),
-                        columnSalesPaid to value.sales.paidAmountUSD.withCurrency(Currency.USD),
-                        columnDownloads to downloads.filter { it.firstOfMonth.year == year }.sumOf(MonthlyDownload::downloads)
+                        columnSalesTotal to yearData.sales.totalAmountUSD.withCurrency(Currency.USD),
+                        columnSalesFees to yearData.sales.feesAmountUSD.withCurrency(Currency.USD),
+                        columnSalesPaid to yearData.sales.paidAmountUSD.withCurrency(Currency.USD),
+                        columnDownloads to downloads
+                            .filter { it.firstOfMonth.year == year }
+                            .sumOf(MonthlyDownload::downloads)
                             .toBigInteger(),
                         columnTrials to trialResult.totalTrials.toBigInteger(),
                         columnTrialsConverted to trialResult.convertedTrialsPercentage,
+                    ),
+                    tooltips = mapOf(
+                        columnTrialsConverted to trialResult.tooltipConverted,
                     ),
                     cssClass = when {
                         year == now.year -> "today"

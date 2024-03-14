@@ -19,6 +19,11 @@ data class TrialTrackerInfo(
         get() {
             return PercentageValue.of(convertedTrialsCount, totalTrials)
         }
+
+    val tooltipConverted: String
+        get() {
+            return "$convertedTrialsCount trials of $totalTrials converted"
+        }
 }
 
 /**
@@ -32,18 +37,20 @@ interface TrialTracker {
     fun getResult(): TrialTrackerInfo
 }
 
-class SimpleTrialTracker() : TrialTracker {
+class SimpleTrialTracker(val trialFilter: (PluginTrial) -> Boolean = { true }) : TrialTracker {
     private val allTrials = mutableSetOf<PluginTrial>()
     private val trialsByCustomer = mutableMapOf<CustomerId, PluginTrial>()
     private val convertedTrials = mutableMapOf<CustomerId, MutableList<PluginSale>>()
 
     override fun registerTrial(trial: PluginTrial) {
-        allTrials += trial
+        if (trialFilter(trial)) {
+            allTrials += trial
 
-        // only record the latest trials
-        val customerId = trial.customer.code
-        if (customerId !in this.trialsByCustomer || this.trialsByCustomer[customerId]!!.date < trial.date) {
-            this.trialsByCustomer[customerId] = trial
+            // only record the latest trials
+            val customerId = trial.customer.code
+            if (customerId !in this.trialsByCustomer || this.trialsByCustomer[customerId]!!.date < trial.date) {
+                this.trialsByCustomer[customerId] = trial
+            }
         }
     }
 
@@ -60,7 +67,7 @@ class SimpleTrialTracker() : TrialTracker {
         return TrialTrackerInfo(
             allTrials.size,
             convertedTrials.size,
-            convertedTrialsList.mapValues { it.value.minBy { it.date } }
+            convertedTrialsList.mapValues { it.value.minBy(PluginSale::date) }
         )
     }
 }
