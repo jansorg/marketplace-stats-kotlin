@@ -12,7 +12,8 @@ import dev.ja.marketplace.client.Currency
 import dev.ja.marketplace.client.LicenseId
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.overview.OverviewTable.CustomerSegment.*
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet
+import dev.ja.marketplace.data.util.SimpleTrialTracker
+import dev.ja.marketplace.data.util.TrialTracker
 import java.math.BigDecimal
 import java.util.*
 
@@ -53,6 +54,7 @@ class OverviewTable(private val showCustomerChurn: Boolean = false) : SimpleData
         val churnCustomersMonthly: ChurnProcessor<CustomerId, CustomerInfo>,
         val churnLicensesMonthly: ChurnProcessor<LicenseId, LicenseInfo>,
         val downloads: Long,
+        val trials: TrialTracker,
     ) {
         val isEmpty: Boolean
             get() {
@@ -66,7 +68,8 @@ class OverviewTable(private val showCustomerChurn: Boolean = false) : SimpleData
         val churnLicensesAnnual: ChurnProcessor<LicenseId, LicenseInfo>,
         val churnCustomersMonthly: ChurnProcessor<CustomerId, CustomerInfo>,
         val churnLicensesMonthly: ChurnProcessor<LicenseId, LicenseInfo>,
-        val months: Map<Int, MonthData>
+        val months: Map<Int, MonthData>,
+        val trials: TrialTracker,
     ) {
         val isEmpty: Boolean
             get() {
@@ -76,7 +79,6 @@ class OverviewTable(private val showCustomerChurn: Boolean = false) : SimpleData
 
     private var pluginId: PluginId? = null
 
-    private lateinit var trialData: List<PluginTrial>
     private lateinit var downloadsMonthly: List<MonthlyDownload>
     private var downloadsTotal: Long = 0
 
@@ -104,11 +106,14 @@ class OverviewTable(private val showCustomerChurn: Boolean = false) : SimpleData
     private val columnLicenseChurnMonthly = DataTableColumn(
         "churn-monthly-paid", "Churn (monthly)", "num num-percentage", tooltip = "Churn of paid monthly licenses"
     )
-    private val columnTrials = DataTableColumn(
-        "trials", "Trials", "num ", tooltip = "Number of new trials at the end of the month"
-    )
     private val columnDownloads = DataTableColumn(
-        "downloads", "↓", "num ", tooltip = "Number of downloads in the month"
+        "downloads", "↓", "num", tooltip = "Number of downloads in the month"
+    )
+    private val columnTrials = DataTableColumn(
+        "trials", "Trials", "num", tooltip = "Number of new trials at the end of the month"
+    )
+    private val columnTrialsConverted = DataTableColumn(
+        "trials-converted", "Trials Conv.", "num", tooltip = "Percentage of converted trials of the month"
     )
 
     override val columns: List<DataTableColumn> = listOfNotNull(
@@ -124,13 +129,13 @@ class OverviewTable(private val showCustomerChurn: Boolean = false) : SimpleData
         columnCustomerChurnMonthly.takeIf { showCustomerChurn },
         columnDownloads,
         columnTrials,
+        columnTrialsConverted,
     )
 
     override fun init(data: PluginData) {
         this.pluginId = data.pluginId
 
         val now = YearMonthDay.now()
-        this.trialData = data.trials ?: emptyList()
         this.downloadsMonthly = data.downloadsMonthly
         this.downloadsTotal = data.totalDownloads
 
@@ -160,6 +165,7 @@ class OverviewTable(private val showCustomerChurn: Boolean = false) : SimpleData
                         .firstOrNull { it.firstOfMonth.year == year && it.firstOfMonth.month == month }
                         ?.downloads
                         ?: 0L,
+                    SimpleTrialTracker { currentMonth.contains(it.date) },
                 )
             }
 
@@ -171,14 +177,28 @@ class OverviewTable(private val showCustomerChurn: Boolean = false) : SimpleData
                 createLicenseChurnProcessor(activeTimeRange),
                 createCustomerChurnProcessor(activeTimeRange),
                 createLicenseChurnProcessor(activeTimeRange),
-                months
+                months,
+                SimpleTrialTracker { activeTimeRange.contains(it.date) },
             )
+        }
+
+        // apply trials to all years and months
+        data.trials?.forEach { trial ->
+            val yearData = years[trial.date.year]
+            if (yearData != null) {
+                yearData.trials.registerTrial(trial)
+                yearData.months[trial.date.month]?.trials?.registerTrial(trial)
+            }
         }
     }
 
     override fun process(sale: PluginSale) {
-        val monthData = years[sale.date.year]!!.months[sale.date.month]!!
+        val yearData = years[sale.date.year]!!
+        yearData.trials.processSale(sale)
+
+        val monthData = yearData.months[sale.date.month]!!
         monthData.amounts.add(sale.date, sale.amountUSD)
+        monthData.trials.processSale(sale)
     }
 
     override fun process(licenseInfo: LicenseInfo) {
@@ -275,7 +295,8 @@ class OverviewTable(private val showCustomerChurn: Boolean = false) : SimpleData
                     val annualCustomerChurn = monthData.churnCustomersAnnual.getResult(LicensePeriod.Annual).takeUnless { isCurrentMonth }
                     val annualCustomerChurnRate = annualCustomerChurn?.getRenderedChurnRate(pluginId)
 
-                    val monthlyCustomerChurn = monthData.churnCustomersMonthly.getResult(LicensePeriod.Monthly).takeUnless { isCurrentMonth }
+                    val monthlyCustomerChurn =
+                        monthData.churnCustomersMonthly.getResult(LicensePeriod.Monthly).takeUnless { isCurrentMonth }
                     val monthlyCustomerChurnRate = monthlyCustomerChurn?.getRenderedChurnRate(pluginId)
 
                     val cssClass = when {
@@ -290,8 +311,7 @@ class OverviewTable(private val showCustomerChurn: Boolean = false) : SimpleData
 
                     val totalCustomers = monthData.customers.totalCustomerCount
                     val totalCustomersPaying = monthData.customers.payingCustomerCount
-
-                    val trialCount = trialData.count { it.date.year == year && it.date.month == month }
+                    val trialsMonth = monthData.trials.getResult()
                     val downloadCount = monthData.downloads
 
                     SimpleDateTableRow(
@@ -306,8 +326,9 @@ class OverviewTable(private val showCustomerChurn: Boolean = false) : SimpleData
                             columnLicenseChurnMonthly to monthlyLicenseChurnRate,
                             columnCustomerChurnMonthly to monthlyCustomerChurnRate,
                             columnCustomerChurnAnnual to annualCustomerChurnRate,
-                            columnTrials to (trialCount.takeIf { it > 0 }?.toBigInteger() ?: "—"),
                             columnDownloads to (downloadCount.takeIf { it > 0 }?.toBigInteger() ?: "—"),
+                            columnTrials to (trialsMonth.totalTrials.takeIf { it > 0 }?.toBigInteger() ?: "—"),
+                            columnTrialsConverted to trialsMonth.convertedTrialsPercentage,
                         ),
                         tooltips = mapOf(
                             columnActiveCustomers to "$annualCustomersPaying annual (paying)" +
@@ -318,6 +339,7 @@ class OverviewTable(private val showCustomerChurn: Boolean = false) : SimpleData
                             columnLicenseChurnMonthly to monthlyLicenseChurn?.churnRateTooltip,
                             columnCustomerChurnAnnual to annualCustomerChurn?.churnRateTooltip,
                             columnCustomerChurnMonthly to monthlyCustomerChurn?.churnRateTooltip,
+                            columnTrialsConverted to trialsMonth.tooltipConverted,
                         ),
                         cssClass = cssClass
                     )
@@ -328,6 +350,8 @@ class OverviewTable(private val showCustomerChurn: Boolean = false) : SimpleData
 
                 val yearCustomerChurnMonthly = yearData.churnCustomersMonthly.getResult(LicensePeriod.Monthly)
                 val yearLicenseChurnMonthly = yearData.churnLicensesMonthly.getResult(LicensePeriod.Monthly)
+
+                val trialsYear = yearData.trials.getResult()
 
                 SimpleTableSection(
                     rows,
@@ -340,13 +364,15 @@ class OverviewTable(private val showCustomerChurn: Boolean = false) : SimpleData
                                 columnCustomerChurnAnnual to yearCustomerChurnAnnual.getRenderedChurnRate(pluginId),
                                 columnCustomerChurnMonthly to yearCustomerChurnMonthly.getRenderedChurnRate(pluginId),
                                 columnDownloads to yearData.months.values.sumOf { it.downloads }.toBigInteger(),
-                                columnTrials to trialData.count { it.date.year == year }.toBigInteger(),
+                                columnTrials to trialsYear.totalTrials.toBigInteger(),
+                                columnTrialsConverted to trialsYear.convertedTrialsPercentage,
                             ),
                             tooltips = mapOf(
                                 columnLicenseChurnAnnual to yearLicenseChurnAnnual.churnRateTooltip,
                                 columnLicenseChurnMonthly to yearLicenseChurnMonthly.churnRateTooltip,
                                 columnCustomerChurnAnnual to yearCustomerChurnAnnual.churnRateTooltip,
                                 columnCustomerChurnMonthly to yearCustomerChurnMonthly.churnRateTooltip,
+                                columnTrialsConverted to trialsYear.tooltipConverted,
                             )
                         )
                     )
