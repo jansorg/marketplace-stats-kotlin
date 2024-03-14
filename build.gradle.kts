@@ -12,8 +12,8 @@ val ktorVersion: String by project
 
 plugins {
     application
-    id("org.jetbrains.kotlin.jvm") version "1.9.22"
-    kotlin("plugin.serialization") version "1.9.22"
+    id("org.jetbrains.kotlin.jvm") version "1.9.23"
+    kotlin("plugin.serialization") version "1.9.23"
 
     id("com.github.johnrengelman.shadow") version "8.1.1"
     id("gg.jte.gradle") version "3.1.9"
@@ -61,7 +61,7 @@ allprojects {
         implementation("ch.qos.logback:logback-classic:1.5.1")
 
         // https://github.com/ajalt/clikt
-        implementation("com.github.ajalt.clikt:clikt:4.2.1")
+        implementation("com.github.ajalt.clikt:clikt:4.2.2")
 
         // https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api
         testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.2")
