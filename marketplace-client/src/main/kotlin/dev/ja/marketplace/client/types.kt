@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -395,7 +395,12 @@ data class ResellerInfo(
     val country: Country,
     @SerialName("type")
     val type: ResellerType,
-)
+) {
+    val tooltip: String
+        get() {
+            return "$name ($country, type: $type, ID: $code)"
+        }
+}
 
 @Serializable
 enum class ResellerType {
