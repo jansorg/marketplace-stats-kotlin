@@ -21,6 +21,7 @@ class LicenseTable(
     private val nowDate: YearMonthDay = YearMonthDay.now(),
     private val supportedChurnStyling: Boolean = true,
     private val showOnlyLatestLicenseInfo: Boolean = false,
+    private val showReseller: Boolean = false,
     private val licenseFilter: (LicenseInfo) -> Boolean = { true },
 ) : SimpleDataTable("Licenses", "licenses", "table-column-wide"), MarketplaceDataSink {
     private val columnLicenseId = DataTableColumn("license-id", "License ID", "col-right")
@@ -34,6 +35,7 @@ class LicenseTable(
     private val columnDiscount = DataTableColumn("license-discount", "Discount", "num")
     private val columnLicenseType = DataTableColumn("license-type", "Period")
     private val columnLicenseRenewalType = DataTableColumn("license-type", "Type")
+    private val columnReseller = DataTableColumn("reseller", "Reseller")
 
     private val data = mutableListOf<LicenseInfo>()
     private val licenseMaxValidity = mutableMapOf<LicenseId, YearMonthDay>()
@@ -52,10 +54,11 @@ class LicenseTable(
         columnCustomerName.takeIf { showDetails },
         columnCustomerId.takeIf { showDetails },
         columnAmountUSD,
-        columnDiscount,
         columnLicenseType.takeIf { showDetails },
         columnLicenseRenewalType,
         columnLicenseId.takeIf { showLicenseColumn },
+        columnDiscount,
+        columnReseller.takeIf { showReseller },
         columnRefNum,
     )
 
@@ -117,7 +120,8 @@ class LicenseTable(
                         columnDiscount to license.saleLineItem.discountDescriptions
                             .mapNotNull { it.percent }
                             .sorted()
-                            .map { it.asPercentageValue(false) }
+                            .map { it.asPercentageValue(false) },
+                        columnReseller to license.sale.reseller?.name,
                     ),
                     cssClass = if (supportedChurnStyling && licenseMaxValidity[license.id]!! < nowDate) "disabled" else null,
                     tooltips = mapOf(
@@ -128,7 +132,8 @@ class LicenseTable(
                                     it.percent != null -> "%.2f%% (%s)".format(it.percent, it.description)
                                     else -> it.description
                                 }
-                            }
+                            },
+                        columnReseller to license.sale.reseller?.tooltip,
                     )
                 )
             }

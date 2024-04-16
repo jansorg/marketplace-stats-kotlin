@@ -35,6 +35,9 @@
 
             <dt>Country</dt>
             <dd>${customer.country}</dd>
+
+            <dt>ID</dt>
+            <dd>${customer.code}</dd>
         </dl>
     </div>
 

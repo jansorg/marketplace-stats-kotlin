@@ -304,11 +304,11 @@ class MarketplaceStatsServer(
         val licenses = data.licenses ?: emptyList()
         val trials = data.trials?.filter { it.customer.code == customerId } ?: emptyList()
 
-        val licenseTableMonthly = LicenseTable(showDetails = false, showFooter = true) {
+        val licenseTableMonthly = LicenseTable(showDetails = false, showFooter = true, showReseller = true) {
             it.sale.licensePeriod == LicensePeriod.Monthly && it.sale.customer.code == customerId
         }
 
-        val licenseTableAnnual = LicenseTable(showDetails = false, showFooter = true) {
+        val licenseTableAnnual = LicenseTable(showDetails = false, showFooter = true, showReseller = true) {
             it.sale.licensePeriod == LicensePeriod.Annual && it.sale.customer.code == customerId
         }
 
@@ -340,7 +340,7 @@ class MarketplaceStatsServer(
         val sales = data.sales ?: emptyList()
         val licenses = data.licenses ?: emptyList()
 
-        val licenseTable = LicenseTable(showLicenseColumn = false, showFooter = true) { it.id == licenseId }
+        val licenseTable = LicenseTable(showLicenseColumn = false, showFooter = true, showReseller = true) { it.id == licenseId }
         listOf(licenseTable).forEach { table ->
             table.init(data)
             sales.forEach(table::process)
