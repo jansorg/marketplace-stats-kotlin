@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.LicenseId
 import dev.ja.marketplace.client.LicensePeriod
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.YearMonthDay
+import dev.ja.marketplace.util.isZero
 import java.math.BigDecimal
 import java.math.RoundingMode
 
@@ -19,7 +20,7 @@ data class PercentageValue(val value: BigDecimal) {
         val ZERO = PercentageValue(BigDecimal(0.0))
 
         fun of(first: BigDecimal, second: BigDecimal): PercentageValue {
-            if (BigDecimal.ZERO.compareTo(first) == 0 || BigDecimal.ZERO.compareTo(second) == 0) {
+            if (first.isZero() || second.isZero()) {
                 return ZERO
             }
             return PercentageValue(first.divide(second, 10, RoundingMode.HALF_UP) * BigDecimal(100.0))
