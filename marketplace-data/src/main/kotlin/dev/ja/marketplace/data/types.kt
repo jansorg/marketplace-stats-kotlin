@@ -19,7 +19,7 @@ data class PercentageValue(val value: BigDecimal) {
         val ZERO = PercentageValue(BigDecimal(0.0))
 
         fun of(first: BigDecimal, second: BigDecimal): PercentageValue {
-            if (first == BigDecimal.ZERO || second == BigDecimal.ZERO) {
+            if (BigDecimal.ZERO.compareTo(first) == 0 || BigDecimal.ZERO.compareTo(second) == 0) {
                 return ZERO
             }
             return PercentageValue(first.divide(second, 10, RoundingMode.HALF_UP) * BigDecimal(100.0))

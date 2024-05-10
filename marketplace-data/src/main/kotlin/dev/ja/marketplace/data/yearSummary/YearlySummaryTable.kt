@@ -75,7 +75,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
         val now = YearMonthDay.now()
 
         val rows = data.entries.toList()
-            .dropLastWhile { it.value.sales.totalAmountUSD == BigDecimal.ZERO }
+            .dropLastWhile {  BigDecimal.ZERO.compareTo(it.value.sales.totalAmountUSD) == 0 }
             .map { (year, yearData) ->
                 val trialResult = yearData.trials.getResult()
                 SimpleDateTableRow(

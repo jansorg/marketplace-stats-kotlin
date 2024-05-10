@@ -58,7 +58,7 @@ class OverviewTable(private val showCustomerChurn: Boolean = false) : SimpleData
     ) {
         val isEmpty: Boolean
             get() {
-                return amounts.totalAmountUSD == BigDecimal.ZERO
+                return BigDecimal.ZERO.compareTo(amounts.totalAmountUSD) == 0
             }
     }
 
