@@ -86,7 +86,7 @@ data class PluginInfoSummary(
     @SerialName("vendor")
     val vendorName: String? = null,
     @SerialName("cdate")
-    val cdate: Long, // fixme verify
+    val cdate: Long? = null,
     // fixme vendorName{name,isVerified}
 ) {
     val isPaidOrFreemium: Boolean
@@ -118,7 +118,7 @@ data class PluginInfo(
     @SerialName("email")
     val email: String? = null,
     @SerialName("cdate")
-    val cdate: Long, // fixme verify
+    val cdate: Long? = null,
     @SerialName("family")
     val family: String,
     @SerialName("copyright")
@@ -162,10 +162,14 @@ data class PluginPurchaseInfo(
     val purchaseTerms: String? = null,
     @SerialName("optional")
     val optional: Boolean,
+    @SerialName("trialPeriod")
+    val trialPeriod: Int? = null,
 )
 
 @Serializable
 data class PluginVendor(
+    @SerialName("type")
+    val type: String,
     @SerialName("name")
     val name: String,
     @SerialName("url")
@@ -190,10 +194,10 @@ data class PluginVendor(
     val vendorId: Int? = null,
     @SerialName("isTrader")
     val isTrader: Boolean? = null,
-    @SerialName("type")
-    val type: String,
     @SerialName("servicesDescription")
     val servicesDescription: List<String>? = null,
+    @SerialName("id")
+    val id: Int? = null,
 )
 
 @Serializable
