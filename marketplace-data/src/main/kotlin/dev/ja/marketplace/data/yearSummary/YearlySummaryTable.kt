@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.Currency
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.util.SimpleTrialTracker
 import dev.ja.marketplace.data.util.TrialTracker
+import dev.ja.marketplace.util.isZero
 import java.math.BigDecimal
 import java.util.*
 
@@ -75,7 +76,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
         val now = YearMonthDay.now()
 
         val rows = data.entries.toList()
-            .dropLastWhile {  BigDecimal.ZERO.compareTo(it.value.sales.totalAmountUSD) == 0 }
+            .dropLastWhile {  it.value.sales.totalAmountUSD.isZero() }
             .map { (year, yearData) ->
                 val trialResult = yearData.trials.getResult()
                 SimpleDateTableRow(

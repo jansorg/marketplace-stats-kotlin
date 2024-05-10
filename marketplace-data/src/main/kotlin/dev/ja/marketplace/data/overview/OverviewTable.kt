@@ -14,6 +14,7 @@ import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.overview.OverviewTable.CustomerSegment.*
 import dev.ja.marketplace.data.util.SimpleTrialTracker
 import dev.ja.marketplace.data.util.TrialTracker
+import dev.ja.marketplace.util.isZero
 import java.math.BigDecimal
 import java.util.*
 
@@ -58,7 +59,7 @@ class OverviewTable(private val showCustomerChurn: Boolean = false) : SimpleData
     ) {
         val isEmpty: Boolean
             get() {
-                return BigDecimal.ZERO.compareTo(amounts.totalAmountUSD) == 0
+                return amounts.totalAmountUSD.isZero()
             }
     }
 
