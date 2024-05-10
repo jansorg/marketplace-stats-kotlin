@@ -12,12 +12,12 @@ val ktorVersion: String by project
 
 plugins {
     application
-    id("org.jetbrains.kotlin.jvm") version "1.9.23"
-    kotlin("plugin.serialization") version "1.9.23"
+    id("org.jetbrains.kotlin.jvm") version "1.9.24"
+    kotlin("plugin.serialization") version "1.9.24"
 
     id("com.github.johnrengelman.shadow") version "8.1.1"
-    id("gg.jte.gradle") version "3.1.9"
-    id("com.github.gmazzo.buildconfig") version "5.1.0"
+    id("gg.jte.gradle") version "3.1.10"
+    id("com.github.gmazzo.buildconfig") version "5.3.5"
 }
 
 allprojects {
@@ -61,7 +61,7 @@ allprojects {
         implementation("ch.qos.logback:logback-classic:1.5.1")
 
         // https://github.com/ajalt/clikt
-        implementation("com.github.ajalt.clikt:clikt:4.2.2")
+        implementation("com.github.ajalt.clikt:clikt:4.4.0")
 
         // https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api
         testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.2")
@@ -97,7 +97,7 @@ project(":") {
         implementation("io.ktor:ktor-server-jte:$ktorVersion")
 
         // https://mvnrepository.com/artifact/gg.jte/jte
-        implementation("gg.jte:jte:3.1.9")
+        implementation("gg.jte:jte:3.1.10")
 
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-coroutines-core
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
