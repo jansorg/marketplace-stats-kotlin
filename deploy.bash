@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2023 Joachim Ansorg.
+# Copyright (c) 2023-2024 Joachim Ansorg.
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
 
@@ -17,7 +17,11 @@ git push
 git push --tags
 gh release create "v$VERSION" --generate-notes ./build/libs/marketplace-*.jar
 
-docker build -f Dockerfile -t "jansorg/jetbrains-marketplace-stats:$VERSION" .
-docker tag "jansorg/jetbrains-marketplace-stats:$VERSION" "jansorg/jetbrains-marketplace-stats:latest"
-docker push jansorg/jetbrains-marketplace-stats
+echo "Publishing Docker containers..."
+docker buildx create --use
+docker buildx build --platform linux/amd64,linux/arm64 -f Dockerfile \
+  -t "jansorg/jetbrains-marketplace-stats:$VERSION" \
+  -t "jansorg/jetbrains-marketplace-stats:latest" \
+  --push \
+  .
 
