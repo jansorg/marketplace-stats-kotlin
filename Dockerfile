@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17-alpine
+FROM eclipse-temurin:17-jre
 LABEL maintainer="Joachim Ansorg <mail@ja-dev.eu>"
 LABEL org.opencontainers.image.source="https://github.com/jansorg/marketplace-stats-kotlin"
 
