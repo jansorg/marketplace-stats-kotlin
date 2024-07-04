@@ -5,18 +5,20 @@
 
 import gg.jte.ContentType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 // https://mvnrepository.com/artifact/io.ktor/ktor-client-core-jvm
 val ktorVersion: String by project
 
 plugins {
     application
-    id("org.jetbrains.kotlin.jvm") version "1.9.24"
-    kotlin("plugin.serialization") version "1.9.24"
+    id("org.jetbrains.kotlin.jvm") version "2.0.0"
+    kotlin("plugin.serialization") version "2.0.0"
 
+    // https://github.com/johnrengelman/shadow
     id("com.github.johnrengelman.shadow") version "8.1.1"
-    id("gg.jte.gradle") version "3.1.10"
+    // https://plugins.gradle.org/plugin/gg.jte.gradle
+    id("gg.jte.gradle") version "3.1.12"
+    // https://github.com/gmazzo/gradle-buildconfig-plugin
     id("com.github.gmazzo.buildconfig") version "5.3.5"
 }
 
@@ -31,17 +33,13 @@ allprojects {
     }
 
     kotlin {
-        jvmToolchain(17)
+        jvmToolchain(21)
         compilerOptions {
-            jvmTarget = JvmTarget.JVM_17
+            jvmTarget = JvmTarget.JVM_21
         }
     }
 
     tasks {
-        withType<KotlinCompile> {
-            kotlinOptions.jvmTarget = JavaVersion.VERSION_17.toString()
-        }
-
         test {
             useJUnitPlatform()
         }
@@ -49,23 +47,23 @@ allprojects {
 
     dependencies {
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-datetime-jvm
-        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
+        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
 
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-serialization-json-jvm
-        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
 
         // https://mvnrepository.com/artifact/it.unimi.dsi/fastutil-core
         implementation("it.unimi.dsi:fastutil-core:8.5.13")
 
         // https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
-        implementation("ch.qos.logback:logback-classic:1.5.1")
+        implementation("ch.qos.logback:logback-classic:1.5.6")
 
         // https://github.com/ajalt/clikt
         implementation("com.github.ajalt.clikt:clikt:4.4.0")
 
         // https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api
-        testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.2")
-        testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.2")
+        testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.3")
+        testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.3")
     }
 }
 
