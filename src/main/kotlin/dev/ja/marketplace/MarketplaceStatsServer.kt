@@ -20,7 +20,7 @@ import dev.ja.marketplace.data.licenses.LicenseTable
 import dev.ja.marketplace.data.licenses.LicenseTableFactory
 import dev.ja.marketplace.data.overview.OverviewTableFactory
 import dev.ja.marketplace.data.resellers.ResellerTableFactory
-import dev.ja.marketplace.data.salesToday.SalesTodayFactory
+import dev.ja.marketplace.data.salesDay.SalesDayFactory
 import dev.ja.marketplace.data.topCountries.TopCountriesFactory
 import dev.ja.marketplace.data.topTrialCountries.TopTrialCountriesFactory
 import dev.ja.marketplace.data.trials.TrialsTable
@@ -67,7 +67,8 @@ class MarketplaceStatsServer(
         listOf(
             YearlySummaryFactory(),
             WeekFactory(),
-            SalesTodayFactory(),
+            SalesDayFactory(YearMonthDay.now(), "Today"),
+            SalesDayFactory(YearMonthDay.now().add(0, 0, -1), "Yesterday"),
             TrialsTodayFactory(),
             CustomerTypeFactory(),
             TopCountriesFactory(),
