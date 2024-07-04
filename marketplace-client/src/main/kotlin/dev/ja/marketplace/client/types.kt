@@ -407,12 +407,12 @@ data class ResellerInfo(
 }
 
 @Serializable
-enum class ResellerType {
+enum class ResellerType(val displayString: String) {
     @SerialName("Reseller")
-    Reseller,
+    Reseller("Reseller"),
 
     @SerialName("Organization")
-    Organization,
+    Organization("Organization"),
 }
 
 @Serializable
