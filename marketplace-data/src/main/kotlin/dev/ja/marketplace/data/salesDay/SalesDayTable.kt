@@ -1,24 +1,24 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-package dev.ja.marketplace.data.salesToday
+package dev.ja.marketplace.data.salesDay
 
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.data.*
 
-class SalesTodayTable : SimpleDataTable("Sales Today", cssClass = "small table-striped"), MarketplaceDataSink {
+class SalesDayTable(val date: YearMonthDay, title: String) : SimpleDataTable(title, cssClass = "small table-striped"), MarketplaceDataSink {
+    private val sales = mutableListOf<PluginSale>()
+
     private val columnSubscriptionType = DataTableColumn("subscription", null, "col-right")
     private val columnCustomerType = DataTableColumn("type", null, "col-right")
     private val columnAmount = DataTableColumn("amount", "Sales", "num")
+
     override val columns: List<DataTableColumn> = listOf(columnSubscriptionType, columnCustomerType, columnAmount)
 
-    private val now = YearMonthDay.now()
-    private val sales = mutableListOf<PluginSale>()
-
     override fun process(sale: PluginSale) {
-        if (sale.date == now) {
+        if (sale.date == date) {
             sales += sale
         }
     }
