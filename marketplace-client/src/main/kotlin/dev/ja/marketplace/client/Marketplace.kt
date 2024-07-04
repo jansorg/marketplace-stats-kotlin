@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -19,5 +19,9 @@ object Marketplace {
             date < FeeChangeTimestamp -> amount * 0.05.toBigDecimal()
             else -> amount * 0.15.toBigDecimal()
         }
+    }
+
+    fun paidAmount(date: YearMonthDay, amount: Amount): Amount {
+        return amount - feeAmount(date, amount)
     }
 }

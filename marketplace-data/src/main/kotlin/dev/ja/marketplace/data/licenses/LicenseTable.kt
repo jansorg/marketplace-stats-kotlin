@@ -5,11 +5,9 @@
 
 package dev.ja.marketplace.data.licenses
 
-import dev.ja.marketplace.client.Currency
-import dev.ja.marketplace.client.PluginId
-import dev.ja.marketplace.client.YearMonthDay
-import dev.ja.marketplace.client.withCurrency
+import dev.ja.marketplace.client.*
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.LicenseId
 import dev.ja.marketplace.util.takeNullable
 
 class LicenseTable(
@@ -22,6 +20,7 @@ class LicenseTable(
     private val supportedChurnStyling: Boolean = true,
     private val showOnlyLatestLicenseInfo: Boolean = false,
     private val showReseller: Boolean = false,
+    private val showFees: Boolean = false,
     private val licenseFilter: (LicenseInfo) -> Boolean = { true },
 ) : SimpleDataTable("Licenses", "licenses", "table-column-wide"), MarketplaceDataSink {
     private val columnLicenseId = DataTableColumn("license-id", "License ID", "col-right")
@@ -32,6 +31,8 @@ class LicenseTable(
     private val columnCustomerName = DataTableColumn("customer", "Name", cssStyle = "width: 20%; max-width: 35%")
     private val columnCustomerId = DataTableColumn("customer-id", "Cust. ID", "num")
     private val columnAmountUSD = DataTableColumn("sale-amount-usd", "Amount", "num")
+    private val columnAmountFeeUSD = DataTableColumn("fee-amount-usd", "Fee", "num")
+    private val columnAmountPaidUSD = DataTableColumn("paid-amount-usd", "Paid", "num")
     private val columnDiscount = DataTableColumn("license-discount", "Discount", "num")
     private val columnLicenseType = DataTableColumn("license-type", "Period")
     private val columnLicenseRenewalType = DataTableColumn("license-type", "Type")
@@ -54,6 +55,8 @@ class LicenseTable(
         columnCustomerName.takeIf { showDetails },
         columnCustomerId.takeIf { showDetails },
         columnAmountUSD,
+        columnAmountFeeUSD.takeIf { showFees },
+        columnAmountPaidUSD.takeIf { showFees },
         columnLicenseType.takeIf { showDetails },
         columnLicenseRenewalType,
         columnLicenseId.takeIf { showLicenseColumn },
@@ -86,6 +89,7 @@ class LicenseTable(
     override fun createSections(): List<DataTableSection> {
         var previousPurchaseDate: YearMonthDay? = null
         val shownLicenseInfos = if (showOnlyLatestLicenseInfo) mutableSetOf<LicenseId>() else null
+        val amountTracker = PaymentAmountTracker(YearMonthDayRange.MAX) // any date because the consumed data is already filtered
         val rows = data
             .sortedWith(comparator)
             .takeNullable(maxTableRows)
@@ -105,6 +109,8 @@ class LicenseTable(
                 val showPurchaseDate = previousPurchaseDate != purchaseDate
                 previousPurchaseDate = purchaseDate
 
+                amountTracker.add(license.sale.date, license.amountUSD)
+
                 SimpleDateTableRow(
                     values = mapOf(
                         columnLicenseId to LinkedLicense(license.id, pluginId!!),
@@ -115,6 +121,8 @@ class LicenseTable(
                         columnCustomerName to (license.sale.customer.name ?: "—"),
                         columnCustomerId to LinkedCustomer(license.sale.customer.code, pluginId = pluginId!!),
                         columnAmountUSD to license.amountUSD.withCurrency(Currency.USD),
+                        columnAmountFeeUSD to Marketplace.feeAmount(license.sale.date, license.amountUSD).withCurrency(Currency.USD),
+                        columnAmountPaidUSD to Marketplace.paidAmount(license.sale.date, license.amountUSD).withCurrency(Currency.USD),
                         columnLicenseType to license.sale.licensePeriod,
                         columnLicenseRenewalType to license.saleLineItem.type,
                         columnDiscount to license.saleLineItem.discountDescriptions
@@ -144,7 +152,9 @@ class LicenseTable(
             showFooter -> SimpleRowGroup(
                 SimpleDateTableRow(
                     values = mapOf(
-                        columnAmountUSD to data.sumOf(LicenseInfo::amountUSD).withCurrency(Currency.USD),
+                        columnAmountUSD to amountTracker.totalAmountUSD.withCurrency(Currency.USD),
+                        columnAmountFeeUSD to amountTracker.feesAmountUSD.withCurrency(Currency.USD),
+                        columnAmountPaidUSD to amountTracker.paidAmountUSD.withCurrency(Currency.USD),
                         columnLicenseId to (if (licenseCount == 0) "—" else listOfNotNull(
                             "$activeLicenseCount active".takeIf { supportedChurnStyling },
                             "$licenseCount total"

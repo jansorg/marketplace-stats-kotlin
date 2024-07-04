@@ -66,6 +66,9 @@ data class YearMonthDay(
     }
 
     companion object {
+        val MIN = YearMonthDay(1, 1, 1)
+        val MAX = YearMonthDay(9999, 12, 31)
+
         fun parse(date: String): YearMonthDay {
             val (y, m, d) = date.split('-')
             return YearMonthDay(y.toInt(), m.toInt(), d.toInt())
@@ -181,5 +184,7 @@ data class YearMonthDayRange(
             val last = YearMonth.of(year, month).atEndOfMonth()
             return YearMonthDayRange(first, YearMonthDay(year, month, last.dayOfMonth))
         }
+
+        val MAX: YearMonthDayRange = YearMonthDayRange(YearMonthDay.MIN, YearMonthDay.MAX)
     }
 }

@@ -15,6 +15,10 @@ java -jar /path/to/marketplace-stats-all.jar \
   --api-key="Your JetBrains API key" ]
 ```
 
+## Requirements
+
+This software is build upon Java 21.
+
 ## Building
 
 If you don't want to use the release assets, you can build it yourself:
