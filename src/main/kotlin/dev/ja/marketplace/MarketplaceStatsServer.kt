@@ -19,6 +19,7 @@ import dev.ja.marketplace.data.funnel.FunnelTableFactory
 import dev.ja.marketplace.data.licenses.LicenseTable
 import dev.ja.marketplace.data.licenses.LicenseTableFactory
 import dev.ja.marketplace.data.overview.OverviewTableFactory
+import dev.ja.marketplace.data.resellers.ResellerTableFactory
 import dev.ja.marketplace.data.salesToday.SalesTodayFactory
 import dev.ja.marketplace.data.topCountries.TopCountriesFactory
 import dev.ja.marketplace.data.topTrialCountries.TopTrialCountriesFactory
@@ -137,6 +138,12 @@ class MarketplaceStatsServer(
         client,
         listOf(MonthlyDownloadsFactory()),
         pageTitle = "Downloads",
+    )
+
+    private val resellerPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+        client,
+        listOf(ResellerTableFactory()),
+        pageTitle = "Resellers",
     )
 
     private val httpServer = embeddedServer(Netty, host = host, port = port) {
@@ -279,6 +286,11 @@ class MarketplaceStatsServer(
                 val activeMarker = YearMonthDay.parse(call.parameters["activeMarker"]!!)
 
                 renderLicenseChurnRatePage(loader, period, lastActiveMarker, activeMarker)
+            }
+            get("/resellers") {
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", resellerPageData.createTemplateParameters(loader, context.request)))
             }
         }
     }
