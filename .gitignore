@@ -3,3 +3,4 @@ build/
 jte-classes/
 /config.json
 /config.*.json
+.kotlin/sessions
