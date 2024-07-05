@@ -1,8 +1,10 @@
 @import dev.ja.marketplace.data.DataRowGroup
+@import dev.ja.marketplace.data.DataTableColumn
 @import dev.ja.marketplace.data.DataTable
 
 @param table: DataTable
 @param group: DataRowGroup
+@param columns: List<DataTableColumn>
 @param cssClass: String?
 @param renderHeader: Boolean
 
@@ -10,7 +12,7 @@
     !{val rowClass = if (rowIndex == 0) row.cssClass ?: cssClass else row.cssClass}
     !{var tagName = if (renderHeader) "th" else "td"}
     <tr class="${rowClass}" id="${row.htmlId}">
-        @for((columnIndex, column) in table.columns.withIndex())
+        @for((columnIndex, column) in columns.withIndex())
             @if(renderHeader)
                 <th colspan="${column.columnSpan}" title="${row.getTooltip(column)}" class="${column.cssClass}" style="${column.cssStyle}">
                     !{val value = row.getValue(column)}
