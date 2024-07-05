@@ -82,4 +82,9 @@ interface MarketplaceClient : MarketplaceUrlSupport {
      * @return The volume discounts defined for this plugin.
      */
     suspend fun volumeDiscounts(plugin: PluginId): List<VolumeDiscountResponse>
+
+    /**
+     * @return The public plugin information of the given plugin.
+     */
+    suspend fun marketplacePluginInfo(plugin: PluginId, fullInfo: Boolean = false): MarketplacePluginInfo
 }
