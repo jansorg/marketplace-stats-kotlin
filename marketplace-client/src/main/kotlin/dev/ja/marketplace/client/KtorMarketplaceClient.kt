@@ -168,8 +168,64 @@ class KtorMarketplaceClient(
         }.body()
     }
 
+    override suspend fun marketplaceSearchPlugins(
+        maxResults: Int,
+        offset: Int,
+        queryFilter: String?,
+        orderBy: PluginSearchOrderBy?,
+        products: List<PluginSearchProductId>?,
+        requiredTags: List<String>,
+        excludeTags: List<String>,
+        pricingModels: List<PluginPricingModel>?,
+        shouldHaveSource: Boolean?,
+        isFeaturedSearch: Boolean?,
+    ): MarketplacePluginSearchResult {
+        return httpClient.get("${apiPath}/searchPlugins") {
+            parameter("max", maxResults)
+            parameter("offset", offset)
+
+            if (!queryFilter.isNullOrEmpty()) {
+                parameter("search", queryFilter)
+            }
+
+            if (orderBy?.parameterValue != null) {
+                parameter("orderBy", orderBy.parameterValue)
+            }
+
+            if (shouldHaveSource != null) {
+                parameter("shouldHaveSource", shouldHaveSource)
+            }
+
+            if (isFeaturedSearch != null) {
+                parameter("isFeaturedSearch", isFeaturedSearch)
+            }
+
+            url {
+                if (products != null) {
+                    parameters.appendAll("products", products.map(PluginSearchProductId::parameterValue))
+                }
+
+                if (requiredTags.isNotEmpty()) {
+                    parameters.appendAll("tags", requiredTags)
+                }
+
+                if (excludeTags.isNotEmpty()) {
+                    parameters.appendAll("excludeTags", excludeTags)
+                }
+
+                if (!pricingModels.isNullOrEmpty()) {
+                    parameters.appendAll("pricingModels", pricingModels.map(PluginPricingModel::searchQueryValue))
+                }
+            }
+        }.body()
+    }
+
+    override suspend fun comments(plugin: PluginId): List<PluginComment> {
+        return httpClient.get("${apiPath}/plugins/${plugin}/comments").body()
+    }
+
     private suspend fun getSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
-        return httpClient.get("$apiPath/marketplace/plugin/$plugin") {
+        return httpClient.get("$apiPath/marketplace/plugin/$plugin/sales-info") {
             parameter("beginDate", range.start.asIsoString)
             parameter("endDate", range.end.asIsoString)
         }.body()
