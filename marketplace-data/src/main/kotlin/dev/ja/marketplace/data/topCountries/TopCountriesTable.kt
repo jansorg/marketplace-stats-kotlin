@@ -22,7 +22,11 @@ class TopCountriesTable(
     smallSpace: Boolean,
     private val maxItems: Int?,
     private val showTrials: Boolean
-) : SimpleDataTable(if (maxItems == null) "" else "Top Countries", "top-countries", "table-centered sortable"), MarketplaceDataSink {
+) : SimpleDataTable(
+    if (maxItems == null) "" else "Top Countries",
+    "top-countries",
+    if (maxItems != null) "table-centered" else "table-centered sortable",
+), MarketplaceDataSink {
     private fun Country.orEmptyCountry(): Country = ifEmpty { "—" }
 
     private val columnCountry = DataTableColumn("country", if (smallSpace) null else "Country", "col-right")
@@ -116,18 +120,22 @@ class TopCountriesTable(
         val countriesWithTrials = this.data.values.count { it.trials.getResult().totalTrials > 0 }
         return listOf(
             SimpleTableSection(
-                rows, footer = SimpleTableSection(
-                    SimpleDateTableRow(
-                        columnCountry to listOf(
-                            "${data.size} countries",
-                            "$countriesWithSales with sales",
-                            "$countriesWithTrials with trials",
-                        ),
-                        columnSales to totalSalesAmount.withCurrency(Currency.USD),
-                        columnTrialCount to totalTrialCount.toBigInteger(),
-                        columnTrialConvertedPercentage to allTrialsResult.convertedTrialsPercentage,
+                rows,
+                footer = when {
+                    maxItems != null -> null
+                    else -> SimpleTableSection(
+                        SimpleDateTableRow(
+                            columnCountry to listOf(
+                                "${data.size} countries",
+                                "$countriesWithSales with sales",
+                                "$countriesWithTrials with trials",
+                            ),
+                            columnSales to totalSalesAmount.withCurrency(Currency.USD),
+                            columnTrialCount to totalTrialCount.toBigInteger(),
+                            columnTrialConvertedPercentage to allTrialsResult.convertedTrialsPercentage,
+                        )
                     )
-                )
+                }
             )
         )
     }
