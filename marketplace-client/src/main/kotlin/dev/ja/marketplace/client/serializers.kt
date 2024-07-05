@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -8,6 +8,8 @@ package dev.ja.marketplace.client
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.IntArraySerializer
+import kotlinx.serialization.builtins.nullable
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -54,4 +56,16 @@ object AmountSerializer : KSerializer<BigDecimal> {
     }
 
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("BigDecimal", PrimitiveKind.STRING)
+}
+
+class NullableStringSerializer : KSerializer<String?> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("NullableString", PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): String? {
+        return String.serializer().nullable.deserialize(decoder)?.takeUnless(String::isEmpty)
+    }
+
+    override fun serialize(encoder: Encoder, value: String?) {
+        return String.serializer().nullable.serialize(encoder, value)
+    }
 }

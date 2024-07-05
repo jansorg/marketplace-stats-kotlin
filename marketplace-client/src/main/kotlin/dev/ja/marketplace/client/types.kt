@@ -5,16 +5,8 @@
 
 package dev.ja.marketplace.client
 
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.nullable
-import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.descriptors.PrimitiveKind
-import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
-import kotlinx.serialization.descriptors.SerialDescriptor
-import kotlinx.serialization.encoding.Decoder
-import kotlinx.serialization.encoding.Encoder
 import java.math.BigDecimal
 
 typealias UserId = String
@@ -371,18 +363,6 @@ data class CustomerInfo(
     }
 }
 
-class NullableStringSerializer : KSerializer<String?> {
-    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("NullableString", PrimitiveKind.STRING)
-
-    override fun deserialize(decoder: Decoder): String? {
-        return String.serializer().nullable.deserialize(decoder)?.takeUnless(String::isEmpty)
-    }
-
-    override fun serialize(encoder: Encoder, value: String?) {
-        return String.serializer().nullable.serialize(encoder, value)
-    }
-}
-
 // keep order because it's used for sorting
 @Serializable
 enum class CustomerType {
@@ -465,11 +445,24 @@ data class PluginTrial(
     @SerialName("customer")
     val customer: CustomerInfo,
 ) : Comparable<PluginTrial> {
-
     override fun compareTo(other: PluginTrial): Int {
         return date.compareTo(other.date)
     }
 }
+
+data class VolumeDiscountResponse(
+    @SerialName("isEnabled")
+    val enabled: Boolean,
+    @SerialName("levels")
+    val volumeDiscounts: List<VolumeDiscountLevel>,
+)
+
+data class VolumeDiscountLevel(
+    @SerialName("quantity")
+    val quantity: Int,
+    @SerialName("discountPercent")
+    val discountPercent: Int,
+)
 
 enum class DownloadCountType(val requestPathSegment: String) {
     Downloads("downloads-count"),

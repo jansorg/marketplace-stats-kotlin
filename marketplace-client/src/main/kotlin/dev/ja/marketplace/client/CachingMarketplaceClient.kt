@@ -101,6 +101,12 @@ class CachingMarketplaceClient(
         }
     }
 
+    override suspend fun volumeDiscounts(plugin: PluginId): List<VolumeDiscountResponse> {
+        return loadCached("volumeDiscounts.$plugin") {
+            delegate.volumeDiscounts(plugin)
+        }
+    }
+
     @Suppress("UNCHECKED_CAST")
     private suspend fun <T> loadCached(key: String, cacheDuration: Duration = 30.minutes, dataProvider: suspend () -> T): T {
         val now = Clock.System.now()
