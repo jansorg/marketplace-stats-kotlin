@@ -13,7 +13,11 @@ import dev.ja.marketplace.data.util.TrialTracker
 import java.math.BigDecimal
 import java.util.*
 
-class TopTrialCountriesTable(private val maxItems: Int = 10, private val smallSpaceFormat: Boolean) :
+class TopTrialCountriesTable(
+    private val maxItems: Int?,
+    private val smallSpaceFormat: Boolean,
+    private val showEmptyCountry: Boolean,
+) :
     SimpleDataTable(
         "Top Trial Countries",
         "top-trial-countries",
@@ -30,7 +34,7 @@ class TopTrialCountriesTable(private val maxItems: Int = 10, private val smallSp
     )
     private val columnTrialConvertedPercentage = DataTableColumn(
         "trials-converted",
-        if (smallSpaceFormat) "% Conv." else "Converted Trials",
+        "Converted Trials",
         cssClass = "num num-percentage",
         tooltip = "Percentage of trials which turned into a subscription after the trial started"
     )
@@ -50,8 +54,12 @@ class TopTrialCountriesTable(private val maxItems: Int = 10, private val smallSp
         data.trials?.forEach { trial ->
             allTrialsTracker.registerTrial(trial)
 
-            val country = trial.customer.country.orEmptyCountry()
-            if (!smallSpaceFormat) {
+            val country = when {
+                showEmptyCountry -> trial.customer.country.orEmptyCountry()
+                else -> trial.customer.country
+            }
+
+            if (country.isNotEmpty()) {
                 this.data.merge(country, 1, Int::plus)
                 this.countryTrialConversion.getOrPut(country, ::SimpleTrialTracker).registerTrial(trial)
             }
@@ -60,7 +68,15 @@ class TopTrialCountriesTable(private val maxItems: Int = 10, private val smallSp
 
     override fun process(sale: PluginSale) {
         allTrialsTracker.processSale(sale)
-        countryTrialConversion[sale.customer.country.orEmptyCountry()]?.processSale(sale)
+
+        val country = when {
+            showEmptyCountry -> sale.customer.country.orEmptyCountry()
+            else -> sale.customer.country
+        }
+
+        if (country.isNotEmpty()) {
+            countryTrialConversion[country]?.processSale(sale)
+        }
     }
 
     override fun process(licenseInfo: LicenseInfo) {
@@ -70,14 +86,14 @@ class TopTrialCountriesTable(private val maxItems: Int = 10, private val smallSp
     override fun createSections(): List<DataTableSection> {
         val totalTrialCount = data.values.sumOf { it }
         val rows = data.entries
-            .sortedByDescending { it.value }
-            .take(maxItems)
+            .sortedByDescending(Map.Entry<Country, Int>::value)
+            .take(maxItems ?: Int.MAX_VALUE)
             .map { (country, trialCount) ->
                 val trialPercentage = PercentageValue.of(trialCount, totalTrialCount)
                 val trialConversion = countryTrialConversion[country]!!.getResult().convertedTrialsPercentage
                 SimpleDateTableRow(
                     values = mapOf(
-                        columnCountry to country.orEmptyCountry(),
+                        columnCountry to country,
                         columnTrialCount to trialCount.toBigInteger(),
                         columnTrialsPercentage to trialPercentage,
                         columnTrialConvertedPercentage to trialConversion,

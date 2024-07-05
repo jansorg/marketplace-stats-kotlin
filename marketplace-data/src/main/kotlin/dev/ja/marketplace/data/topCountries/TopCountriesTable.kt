@@ -14,7 +14,7 @@ import java.util.*
 
 private data class CountryData(
     var salesCount: Int = 0,
-    var totalSales: Amount = Amount.ZERO,
+    var totalSales: Amount = Amount(0),
     var trials: TrialTracker = SimpleTrialTracker(),
 )
 
