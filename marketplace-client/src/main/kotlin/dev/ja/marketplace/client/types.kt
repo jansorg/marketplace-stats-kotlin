@@ -490,7 +490,7 @@ data class MarketplacePluginInfo(
     @SerialName("name")
     val name: String,
     @SerialName("periods")
-    val licensePeriod: LicensePeriod,
+    val licensePeriod: List<LicensePeriod>,
     @SerialName("individualPrice")
     @Serializable(with = AmountSerializer::class)
     val individualPrice: Amount,

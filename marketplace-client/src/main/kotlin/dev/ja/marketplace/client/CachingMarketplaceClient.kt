@@ -111,7 +111,7 @@ class CachingMarketplaceClient(
         }
     }
 
-    override suspend fun volumeDiscounts(plugin: PluginId): List<VolumeDiscountResponse> {
+    override suspend fun volumeDiscounts(plugin: PluginId): VolumeDiscountResponse {
         return loadCached("volumeDiscounts.$plugin") {
             delegate.volumeDiscounts(plugin)
         }
