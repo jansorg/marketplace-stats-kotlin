@@ -129,6 +129,8 @@ data class PluginInfo(
     val purchaseInfo: PluginPurchaseInfo? = null,
     @SerialName("vendor")
     val vendor: PluginVendor? = null,
+    @SerialName("pluginXmlVendor")
+    val pluginXmlVendor: String? = null,
     @SerialName("urls")
     val urls: PluginUrls? = null,
     @SerialName("tags")
