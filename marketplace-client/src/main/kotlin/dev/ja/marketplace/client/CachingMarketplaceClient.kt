@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -93,6 +93,12 @@ class CachingMarketplaceClient(
 
     override suspend fun salesInfo(plugin: PluginId): List<PluginSale> {
         return loadHistoricPluginData(plugin, "salesInfo", cachedSalesInfo, delegate::salesInfo)
+    }
+
+    override suspend fun compatibleProducts(plugin: PluginId): List<JetBrainsProductId> {
+        return loadCached("compatibleProducts.$plugin") {
+            delegate.compatibleProducts(plugin)
+        }
     }
 
     @Suppress("UNCHECKED_CAST")
