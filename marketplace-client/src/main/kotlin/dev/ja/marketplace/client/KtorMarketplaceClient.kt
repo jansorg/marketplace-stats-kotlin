@@ -158,12 +158,12 @@ class KtorMarketplaceClient(
         return httpClient.get("${apiPath}/plugins/${plugin}/compatible-products").body()
     }
 
-    override suspend fun volumeDiscounts(plugin: PluginId): List<VolumeDiscountResponse> {
+    override suspend fun volumeDiscounts(plugin: PluginId): VolumeDiscountResponse {
         return httpClient.get("${apiPath}/marketplace/plugin/${plugin}/volume-discounts").body()
     }
 
     override suspend fun marketplacePluginInfo(plugin: PluginId, fullInfo: Boolean): MarketplacePluginInfo {
-        return httpClient.get("${apiPath}/marketplace/plugin/${plugin}/volume-discounts") {
+        return httpClient.get("${apiPath}/marketplace/plugin/${plugin}") {
             parameter("fullInfo", fullInfo)
         }.body()
     }
