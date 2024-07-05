@@ -95,15 +95,6 @@ class CachingMarketplaceClient(
         return loadHistoricPluginData(plugin, "salesInfo", cachedSalesInfo, delegate::salesInfo)
     }
 
-    override suspend fun salesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
-        // uncached
-        return delegate.salesInfo(plugin, range)
-    }
-
-    override suspend fun trialsInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginTrial> {
-        // uncached
-        return delegate.trialsInfo(plugin, range)
-    }
 
     override suspend fun compatibleProducts(plugin: PluginId): List<JetBrainsProductId> {
         return loadCached("compatibleProducts.$plugin") {
@@ -114,6 +105,18 @@ class CachingMarketplaceClient(
     override suspend fun volumeDiscounts(plugin: PluginId): VolumeDiscountResponse {
         return loadCached("volumeDiscounts.$plugin") {
             delegate.volumeDiscounts(plugin)
+        }
+    }
+
+    override suspend fun marketplacePluginInfo(plugin: PluginId, fullInfo: Boolean): MarketplacePluginInfo {
+        return loadCached("marketplacePluginInfo.$plugin.$fullInfo") {
+            delegate.marketplacePluginInfo(plugin, fullInfo)
+        }
+    }
+
+    override suspend fun comments(plugin: PluginId): List<PluginComment> {
+        return loadCached("comments.$plugin") {
+            delegate.comments(plugin)
         }
     }
 

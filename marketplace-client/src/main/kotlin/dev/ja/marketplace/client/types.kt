@@ -68,6 +68,16 @@ data class UserInfo(
 )
 
 @Serializable
+data class ShortPluginInfo(
+    @SerialName("id")
+    val id: PluginId,
+    @SerialName("name")
+    val name: String,
+    @SerialName("link")
+    val link: String? = null,
+)
+
+@Serializable
 data class PluginInfoSummary(
     @SerialName("id")
     val id: PluginId,
@@ -179,12 +189,25 @@ data class PluginPurchaseInfo(
     val trialPeriod: Int? = null,
 )
 
+interface PluginVendorInformation {
+    val name: String
+    val isVerified: Boolean?
+}
+
+@Serializable
+data class PluginVendorSearchResult(
+    @SerialName("name")
+    override val name: String,
+    @SerialName("isVerified")
+    override val isVerified: Boolean? = null,
+) : PluginVendorInformation
+
 @Serializable
 data class PluginVendor(
     @SerialName("type")
     val type: String,
     @SerialName("name")
-    val name: String,
+    override val name: String,
     @SerialName("url")
     val url: PluginUrl? = null,
     @SerialName("totalPlugins")
@@ -202,7 +225,7 @@ data class PluginVendor(
     @SerialName("country")
     val country: Country? = null,
     @SerialName("isVerified")
-    val isVerified: Boolean? = null,
+    override val isVerified: Boolean? = null,
     @SerialName("vendorId")
     val vendorId: Int? = null,
     @SerialName("isTrader")
@@ -211,7 +234,7 @@ data class PluginVendor(
     val servicesDescription: List<String>? = null,
     @SerialName("id")
     val id: Int? = null,
-)
+) : PluginVendorInformation
 
 @Serializable
 data class PluginUrls(
@@ -258,17 +281,15 @@ data class PluginTag(
 )
 
 @Serializable
-enum class PluginPricingModel {
+enum class PluginPricingModel(val searchQueryValue: String) {
     @SerialName("PAID")
-    Paid,
+    Paid("PAID"),
 
-    //fixme verify
     @SerialName("FREEMIUM")
-    Freemium,
+    Freemium("FREEMIUM"),
 
-    //fixme verify
     @SerialName("FREE")
-    Free,
+    Free("FREE"),
 }
 
 @Serializable
@@ -636,3 +657,125 @@ data class MonthlyDownload(val firstOfMonth: YearMonthDay, val downloads: Long)
 data class DailyDownload(val day: YearMonthDay, val downloads: Long)
 
 data class ProductDownload(val productCode: String, val productName: String?, val downloads: Long)
+
+@Serializable
+enum class PluginSearchProductId(val parameterValue: String) {
+    ANDROIDSTUDIO("androidstudio"),
+    APPCODE("appcode"),
+    AQUA("aqua"),
+    CLION("clion"),
+    DATASPELL("dataspell"),
+    DBE("dbe"),
+    GO("go"),
+    IDEA("idea"),
+    IDEA_CE("idea_ce"),
+    MPS("mps"),
+    PHPSTORM("phpstorm"),
+    PYCHARM("pycharm"),
+    PYCHARM_CE("pycharm_ce"),
+    RIDER("rider"),
+    RUBY("ruby"),
+    RUST("rust"),
+    WEBSTORM("webstorm"),
+    WRITERSIDE("writerside"),
+}
+
+@Serializable
+enum class PluginSearchOrderBy(val parameterValue: String?) {
+    Relevance(null),
+    Name("name"),
+    Downloads("downloads"),
+    Rating("rating"),
+    PublishDate("publish date"),
+    UpdateDate("update date"),
+}
+
+@Serializable
+data class MarketplacePluginSearchResult(
+    @SerialName("total")
+    val totalResult: Int,
+    @SerialName("correctedQuery")
+    val correctedQuery: String? = null,
+    @SerialName("plugins")
+    val plugins: List<MarketplacePluginSearchResultItem>
+)
+
+@Serializable
+data class MarketplacePluginSearchResultItem(
+    @SerialName("id")
+    val id: PluginId,
+    @SerialName("xmlId")
+    val xmlId: String,
+    @SerialName("link")
+    val link: String? = null,
+    @SerialName("name")
+    val name: String,
+    @SerialName("preview")
+    val preview: String? = null,
+    @SerialName("downloads")
+    val downloads: Int,
+    @SerialName("pricingModel")
+    val pricingModel: PluginPricingModel,
+    @SerialName("organization")
+    val organization: String? = null,
+    @SerialName("icon")
+    val iconUrlPath: String? = null,
+    @SerialName("previewImage")
+    val previewImageUrlPath: String? = null,
+    @SerialName("cdate")
+    val cdate: Long? = null,
+    @SerialName("hasSource")
+    val hasSource: Boolean,
+    @SerialName("tags")
+    val tags: List<String> = emptyList(),
+    @SerialName("vendorInfo")
+    val vendorInfo: PluginVendorSearchResult? = null,
+)
+
+@Serializable
+data class PluginComment(
+    @SerialName("id")
+    val id: Long,
+    @SerialName("cdate")
+    val cdate: String,
+    @SerialName("comment")
+    val comment: String,
+    @SerialName("plugin")
+    val plugin: ShortPluginInfo,
+    @SerialName("rating")
+    val rating: Short,
+    @SerialName("repliesCount")
+    val repliesCount: Int,
+    @SerialName("vendor")
+    val vendor: Boolean,
+    @SerialName("markedAsSpam")
+    val markedAsSpam: Boolean,
+    @SerialName("author")
+    val author: PluginCommentAuthor? = null,
+    @SerialName("votes")
+    val votes: PluginCommentVotes? = null,
+)
+
+@Serializable
+data class PluginCommentAuthor(
+    @SerialName("id")
+    val id: String,
+    @SerialName("name")
+    val name: String? = null,
+    @SerialName("link")
+    val link: String? = null,
+    @SerialName("hubLogin")
+    val hubLogin: String? = null,
+    @SerialName("icon")
+    val iconUrl: String? = null,
+    @SerialName("showMarketoCheckbox")
+    val showMarketoCheckbox: Boolean? = null,
+)
+
+@Serializable
+data class PluginCommentVotes(
+    @SerialName("positive")
+    val positive: Int,
+    @SerialName("negative")
+    val negative: Int,
+)

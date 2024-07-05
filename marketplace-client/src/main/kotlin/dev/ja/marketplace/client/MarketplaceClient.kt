@@ -87,4 +87,25 @@ interface MarketplaceClient : MarketplaceUrlSupport {
      * @return The public plugin information of the given plugin.
      */
     suspend fun marketplacePluginInfo(plugin: PluginId, fullInfo: Boolean = false): MarketplacePluginInfo
+
+    /**
+     * Search for plugins.
+     */
+    suspend fun marketplaceSearchPlugins(
+        maxResults: Int = 12,
+        offset: Int = 0,
+        queryFilter: String? = null,
+        orderBy: PluginSearchOrderBy? = PluginSearchOrderBy.Relevance,
+        products: List<PluginSearchProductId>? = null,
+        requiredTags: List<String> = emptyList(),
+        excludeTags: List<String> = listOf("theme"),
+        pricingModels: List<PluginPricingModel>? = null,
+        shouldHaveSource: Boolean? = null,
+        isFeaturedSearch: Boolean? = null,
+    ): MarketplacePluginSearchResult
+
+    /**
+     * @return Review comments about a plugin
+     */
+    suspend fun comments(plugin: PluginId): List<PluginComment>
 }
