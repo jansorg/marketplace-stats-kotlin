@@ -250,6 +250,12 @@ class KtorMarketplaceClient(
         }.body()
     }
 
+    override suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo {
+        return httpClient.get("${apiPath}/marketplace/plugin/${plugin}/prices") {
+            parameter("countryCode", isoCountryCode)
+        }.body()
+    }
+
     private suspend fun getSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
         return httpClient.get("$apiPath/marketplace/plugin/$plugin/sales-info") {
             parameter("beginDate", range.start.asIsoString)

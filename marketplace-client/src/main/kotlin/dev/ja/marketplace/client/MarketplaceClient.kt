@@ -117,5 +117,7 @@ interface MarketplaceClient : MarketplaceUrlSupport {
      * @param page Page to fetch, `1` is the first page.
      * @return Releases of the plugin, sorted by date in descending order.
      */
-    suspend fun releases(plugin: PluginId, channel: PluginChannel, size: Int = 16, page: Int = 1) : List<PluginReleaseInfo>
+    suspend fun releases(plugin: PluginId, channel: PluginChannel, size: Int = 16, page: Int = 1): List<PluginReleaseInfo>
+
+    suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo
 }

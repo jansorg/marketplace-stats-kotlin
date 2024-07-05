@@ -850,3 +850,63 @@ data class PluginReleaseInfo(
     @SerialName("modules")
     val modules: List<PluginModuleName> = emptyList(),
 )
+
+@Serializable
+data class PluginPriceInfo(
+    @SerialName("shopBuyUrl")
+    val shopBuyUrl: String,
+    @SerialName("shopQuoteUrl")
+    val shopQuoteUrl: String,
+    @SerialName("currency")
+    val currency: CurrencyInfo,
+    @SerialName("pluginInfo")
+    val prices: PluginPriceInfoByType,
+)
+
+@Serializable
+data class CurrencyInfo(
+    @SerialName("iso")
+    val currencyIsoId: String,
+    @SerialName("symbol")
+    val symbol: String,
+    @SerialName("prefixSymbol")
+    val prefixSymbol: Boolean,
+)
+
+@Serializable
+data class PluginPriceInfoByType(
+    @SerialName("personal")
+    val personal: PriceInfoByPeriod,
+    @SerialName("commercial")
+    val commercial: PriceInfoByPeriod,
+)
+
+@Serializable
+data class PriceInfoByPeriod(
+    @SerialName("monthly")
+    val monthly: PriceInfoTypeData,
+    @SerialName("annual")
+    val annual: PriceInfoTypeData,
+)
+
+@Serializable
+data class PriceInfoTypeData(
+    @SerialName("firstYear")
+    val firstYear: PriceInfoData,
+    @SerialName("secondYear")
+    val secondYear: PriceInfoData,
+    @SerialName("thirdYear")
+    val thirdYear: PriceInfoData,
+)
+
+@Serializable
+data class PriceInfoData(
+    @SerialName("price")
+    @Serializable(AmountSerializer::class)
+    val price: Amount,
+    @SerialName("priceTaxed")
+    @Serializable(AmountSerializer::class)
+    val priceTaxed: Amount,
+    @SerialName("newShopCode")
+    val newShopCode: String,
+)
