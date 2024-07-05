@@ -107,4 +107,15 @@ interface MarketplaceClient : MarketplaceUrlSupport {
      * @return Review comments about a plugin
      */
     suspend fun comments(plugin: PluginId): List<PluginComment>
+
+    /**
+     * @return The release channels available for the given [plugin]. An empty value indicates the stable, default channel.
+     */
+    suspend fun channels(plugin: PluginId): List<PluginChannel>
+
+    /**
+     * @param page Page to fetch, `1` is the first page.
+     * @return Releases of the plugin, sorted by date in descending order.
+     */
+    suspend fun releases(plugin: PluginId, channel: PluginChannel, size: Int = 16, page: Int = 1) : List<PluginReleaseInfo>
 }

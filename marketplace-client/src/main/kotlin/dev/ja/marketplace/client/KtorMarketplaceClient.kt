@@ -235,6 +235,20 @@ class KtorMarketplaceClient(
         return httpClient.get("${apiPath}/plugins/${plugin}/comments").body()
     }
 
+    override suspend fun channels(plugin: PluginId): List<PluginChannel> {
+        return httpClient.get("${apiPath}/plugins/${plugin}/channels").body()
+    }
+
+    override suspend fun releases(plugin: PluginId, channel: PluginChannel, size: Int, page: Int): List<PluginReleaseInfo> {
+        assert(size >= 1)
+        assert(page >= 1)
+
+        return httpClient.get("${apiPath}/plugins/${plugin}/updates") {
+            parameter("channel", channel)
+            parameter("size", size)
+            parameter("page", page)
+        }.body()
+    }
 
     private suspend fun getSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
         return httpClient.get("$apiPath/marketplace/plugin/$plugin/sales-info") {
