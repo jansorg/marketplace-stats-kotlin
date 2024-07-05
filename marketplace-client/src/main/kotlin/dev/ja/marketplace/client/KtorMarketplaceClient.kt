@@ -162,8 +162,14 @@ class KtorMarketplaceClient(
         return httpClient.get("${apiPath}/marketplace/plugin/${plugin}/volume-discounts").body()
     }
 
+    override suspend fun marketplacePluginInfo(plugin: PluginId, fullInfo: Boolean): MarketplacePluginInfo {
+        return httpClient.get("${apiPath}/marketplace/plugin/${plugin}/volume-discounts") {
+            parameter("fullInfo", fullInfo)
+        }.body()
+    }
+
     private suspend fun getSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
-        return httpClient.get("$apiPath/marketplace/plugin/$plugin/sales-info") {
+        return httpClient.get("$apiPath/marketplace/plugin/$plugin") {
             parameter("beginDate", range.start.asIsoString)
             parameter("endDate", range.end.asIsoString)
         }.body()

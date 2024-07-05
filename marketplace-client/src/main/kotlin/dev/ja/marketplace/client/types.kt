@@ -43,6 +43,23 @@ interface WithAmounts {
 }
 
 @Serializable
+enum class LicensingType {
+    @SerialName("SUBSCRIPTION")
+    Subscription,
+
+    @SerialName("SUBSCRIPTION_FALLBACK")
+    SubscriptionWithFallback,
+}
+
+@Serializable
+data class PluginMajorVersion(
+    @SerialName("version")
+    val version: String,
+    @SerialName("date")
+    val date: YearMonthDay,
+)
+
+@Serializable
 data class UserInfo(
     @SerialName("id")
     val id: UserId,
@@ -450,6 +467,7 @@ data class PluginTrial(
     }
 }
 
+@Serializable
 data class VolumeDiscountResponse(
     @SerialName("isEnabled")
     val enabled: Boolean,
@@ -457,11 +475,43 @@ data class VolumeDiscountResponse(
     val volumeDiscounts: List<VolumeDiscountLevel>,
 )
 
+@Serializable
 data class VolumeDiscountLevel(
     @SerialName("quantity")
     val quantity: Int,
     @SerialName("discountPercent")
     val discountPercent: Int,
+)
+
+@Serializable
+data class MarketplacePluginInfo(
+    @SerialName("code")
+    val code: String,
+    @SerialName("name")
+    val name: String,
+    @SerialName("periods")
+    val licensePeriod: LicensePeriod,
+    @SerialName("individualPrice")
+    @Serializable(with = AmountSerializer::class)
+    val individualPrice: Amount,
+    @SerialName("businessPrice")
+    @Serializable(with = AmountSerializer::class)
+    val businessPrice: Amount,
+    @SerialName("licensing")
+    val licensingType: LicensingType,
+    @SerialName("status")
+    val status: String? = null,
+    @SerialName("allowResellers")
+    val allowResellers: Boolean,
+    @SerialName("link")
+    val pluginPageLink: String,
+    @SerialName("trialPeriod")
+    val trialPeriod: Int,
+    @SerialName("hasContinuityDiscount")
+    val hasContinuityDiscount: Boolean,
+    // only available with fullInfo=true
+    @SerialName("versions")
+    val majorVersions: List<PluginMajorVersion>? = null,
 )
 
 enum class DownloadCountType(val requestPathSegment: String) {
