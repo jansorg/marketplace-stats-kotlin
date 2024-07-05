@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.client
 
+import kotlinx.datetime.Instant
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.IntArraySerializer
@@ -19,7 +20,7 @@ import kotlinx.serialization.json.*
 import java.math.BigDecimal
 
 @OptIn(ExperimentalSerializationApi::class)
-class YearMonthDateSerializer : KSerializer<YearMonthDay> {
+object YearMonthDateSerializer : KSerializer<YearMonthDay> {
     override fun deserialize(decoder: Decoder): YearMonthDay {
         decoder as JsonDecoder
 
@@ -56,6 +57,19 @@ object AmountSerializer : KSerializer<BigDecimal> {
     }
 
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("BigDecimal", PrimitiveKind.STRING)
+}
+
+object CDateSerializer : KSerializer<Instant> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("Instant", PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): Instant {
+        val millis = decoder.decodeString().toLong()
+        return Instant.fromEpochMilliseconds(millis)
+    }
+
+    override fun serialize(encoder: Encoder, value: Instant) {
+        encoder.encodeString(value.toEpochMilliseconds().toString())
+    }
 }
 
 class NullableStringSerializer : KSerializer<String?> {

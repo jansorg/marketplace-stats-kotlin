@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.client
 
+import kotlinx.datetime.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.math.BigDecimal
@@ -107,7 +108,8 @@ data class PluginInfoSummary(
     @SerialName("vendor")
     val vendorName: String? = null,
     @SerialName("cdate")
-    val cdate: Long? = null,
+    @Serializable(CDateSerializer::class)
+    val createdTimestamp: Instant? = null,
     // fixme vendorName{name,isVerified}
 ) {
     val isPaidOrFreemium: Boolean
@@ -139,7 +141,8 @@ data class PluginInfo(
     @SerialName("email")
     val email: String? = null,
     @SerialName("cdate")
-    val cdate: Long? = null,
+    @Serializable(CDateSerializer::class)
+    val createdTimestamp: Instant? = null,
     @SerialName("family")
     val family: String,
     @SerialName("copyright")
@@ -690,14 +693,28 @@ enum class PluginSearchOrderBy(val parameterValue: String?) {
     UpdateDate("update date"),
 }
 
+data class MarketplacePluginSearchRequest(
+    /* `null` means all results */
+    val maxResults: Int? = null,
+    val offset: Int = 0,
+    val queryFilter: String? = null,
+    val orderBy: PluginSearchOrderBy? = PluginSearchOrderBy.Relevance,
+    val products: List<PluginSearchProductId>? = null,
+    val requiredTags: List<String> = emptyList(),
+    val excludeTags: List<String> = listOf("theme"),
+    val pricingModels: List<PluginPricingModel>? = null,
+    val shouldHaveSource: Boolean? = null,
+    val isFeaturedSearch: Boolean? = null,
+)
+
 @Serializable
-data class MarketplacePluginSearchResult(
+data class MarketplacePluginSearchResponse(
     @SerialName("total")
     val totalResult: Int,
     @SerialName("correctedQuery")
     val correctedQuery: String? = null,
     @SerialName("plugins")
-    val plugins: List<MarketplacePluginSearchResultItem>
+    val searchResult: List<MarketplacePluginSearchResultItem>,
 )
 
 @Serializable
@@ -723,7 +740,8 @@ data class MarketplacePluginSearchResultItem(
     @SerialName("previewImage")
     val previewImageUrlPath: String? = null,
     @SerialName("cdate")
-    val cdate: Long? = null,
+    @Serializable(CDateSerializer::class)
+    val createdTimestamp: Instant? = null,
     @SerialName("hasSource")
     val hasSource: Boolean,
     @SerialName("tags")
@@ -737,7 +755,8 @@ data class PluginComment(
     @SerialName("id")
     val id: Long,
     @SerialName("cdate")
-    val cdate: String,
+    @Serializable(CDateSerializer::class)
+    val createdTimestamp: Instant? = null,
     @SerialName("comment")
     val comment: String,
     @SerialName("plugin")

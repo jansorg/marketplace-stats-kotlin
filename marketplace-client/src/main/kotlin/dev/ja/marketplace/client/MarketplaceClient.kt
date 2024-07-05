@@ -90,19 +90,18 @@ interface MarketplaceClient : MarketplaceUrlSupport {
 
     /**
      * Search for plugins.
+     * This method automatically retrieves paged results and returns the combined result set.
      */
-    suspend fun marketplaceSearchPlugins(
-        maxResults: Int = 12,
-        offset: Int = 0,
-        queryFilter: String? = null,
-        orderBy: PluginSearchOrderBy? = PluginSearchOrderBy.Relevance,
-        products: List<PluginSearchProductId>? = null,
-        requiredTags: List<String> = emptyList(),
-        excludeTags: List<String> = listOf("theme"),
-        pricingModels: List<PluginPricingModel>? = null,
-        shouldHaveSource: Boolean? = null,
-        isFeaturedSearch: Boolean? = null,
-    ): MarketplacePluginSearchResult
+    suspend fun marketplaceSearchPlugins(request: MarketplacePluginSearchRequest): MarketplacePluginSearchResponse
+
+    /**
+     * Search for plugins.
+     * This method automatically retrieves paged results and returns the combined result set.
+     */
+    suspend fun marketplaceSearchPluginsPaging(
+        request: MarketplacePluginSearchRequest,
+        pageSize: Int = 100
+    ): List<MarketplacePluginSearchResultItem>
 
     /**
      * @return Review comments about a plugin

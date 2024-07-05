@@ -168,61 +168,73 @@ class KtorMarketplaceClient(
         }.body()
     }
 
-    override suspend fun marketplaceSearchPlugins(
-        maxResults: Int,
-        offset: Int,
-        queryFilter: String?,
-        orderBy: PluginSearchOrderBy?,
-        products: List<PluginSearchProductId>?,
-        requiredTags: List<String>,
-        excludeTags: List<String>,
-        pricingModels: List<PluginPricingModel>?,
-        shouldHaveSource: Boolean?,
-        isFeaturedSearch: Boolean?,
-    ): MarketplacePluginSearchResult {
+    override suspend fun marketplaceSearchPlugins(request: MarketplacePluginSearchRequest): MarketplacePluginSearchResponse {
         return httpClient.get("${apiPath}/searchPlugins") {
-            parameter("max", maxResults)
-            parameter("offset", offset)
+            parameter("max", request.maxResults)
+            parameter("offset", request.offset)
 
-            if (!queryFilter.isNullOrEmpty()) {
-                parameter("search", queryFilter)
+            if (!request.queryFilter.isNullOrEmpty()) {
+                parameter("search", request.queryFilter)
             }
 
-            if (orderBy?.parameterValue != null) {
-                parameter("orderBy", orderBy.parameterValue)
+            if (request.orderBy?.parameterValue != null) {
+                parameter("orderBy", request.orderBy.parameterValue)
             }
 
-            if (shouldHaveSource != null) {
-                parameter("shouldHaveSource", shouldHaveSource)
+            if (request.shouldHaveSource != null) {
+                parameter("shouldHaveSource", request.shouldHaveSource)
             }
 
-            if (isFeaturedSearch != null) {
-                parameter("isFeaturedSearch", isFeaturedSearch)
+            if (request.isFeaturedSearch != null) {
+                parameter("isFeaturedSearch", request.isFeaturedSearch)
             }
 
             url {
-                if (products != null) {
-                    parameters.appendAll("products", products.map(PluginSearchProductId::parameterValue))
+                if (request.products != null) {
+                    parameters.appendAll("products", request.products.map(PluginSearchProductId::parameterValue))
                 }
 
-                if (requiredTags.isNotEmpty()) {
-                    parameters.appendAll("tags", requiredTags)
+                if (request.requiredTags.isNotEmpty()) {
+                    parameters.appendAll("tags", request.requiredTags)
                 }
 
-                if (excludeTags.isNotEmpty()) {
-                    parameters.appendAll("excludeTags", excludeTags)
+                if (request.excludeTags.isNotEmpty()) {
+                    parameters.appendAll("excludeTags", request.excludeTags)
                 }
 
-                if (!pricingModels.isNullOrEmpty()) {
-                    parameters.appendAll("pricingModels", pricingModels.map(PluginPricingModel::searchQueryValue))
+                if (!request.pricingModels.isNullOrEmpty()) {
+                    parameters.appendAll("pricingModels", request.pricingModels.map(PluginPricingModel::searchQueryValue))
                 }
             }
         }.body()
     }
 
+    override suspend fun marketplaceSearchPluginsPaging(
+        request: MarketplacePluginSearchRequest,
+        pageSize: Int
+    ): List<MarketplacePluginSearchResultItem> {
+        val completeResult = mutableListOf<MarketplacePluginSearchResultItem>()
+
+        var pendingResultSize = request.maxResults ?: Int.MAX_VALUE
+        var offset = request.offset
+        while (pendingResultSize > 0) {
+            val resultPage = marketplaceSearchPlugins(request.copy(offset = offset, maxResults = pageSize))
+            if (resultPage.searchResult.isEmpty()) {
+                break
+            }
+
+            pendingResultSize -= resultPage.searchResult.size
+            offset += resultPage.searchResult.size
+            completeResult += resultPage.searchResult
+        }
+
+        return completeResult
+    }
+
     override suspend fun comments(plugin: PluginId): List<PluginComment> {
         return httpClient.get("${apiPath}/plugins/${plugin}/comments").body()
     }
+
 
     private suspend fun getSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
         return httpClient.get("$apiPath/marketplace/plugin/$plugin/sales-info") {
