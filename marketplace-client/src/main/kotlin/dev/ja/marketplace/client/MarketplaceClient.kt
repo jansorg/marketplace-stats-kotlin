@@ -73,7 +73,13 @@ interface MarketplaceClient : MarketplaceUrlSupport {
      */
     suspend fun downloadsByProduct(plugin: PluginId, countType: DownloadCountType): List<ProductDownload>
 
+    /**
+     * @return The list of JetBrains products, which are compatible with the given plugin.
+     */
     suspend fun compatibleProducts(plugin: PluginId): List<JetBrainsProductId>
 
+    /**
+     * @return The volume discounts defined for this plugin.
+     */
     suspend fun volumeDiscounts(plugin: PluginId): List<VolumeDiscountResponse>
 }
