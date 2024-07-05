@@ -50,8 +50,8 @@ class TopTrialCountriesTable(private val maxItems: Int = 10, private val smallSp
         data.trials?.forEach { trial ->
             allTrialsTracker.registerTrial(trial)
 
-            val country = trial.customer.country
-            if (!smallSpaceFormat || country.isNotEmpty()) {
+            val country = trial.customer.country.orEmptyCountry()
+            if (!smallSpaceFormat) {
                 this.data.merge(country, 1, Int::plus)
                 this.countryTrialConversion.getOrPut(country, ::SimpleTrialTracker).registerTrial(trial)
             }
@@ -60,11 +60,7 @@ class TopTrialCountriesTable(private val maxItems: Int = 10, private val smallSp
 
     override fun process(sale: PluginSale) {
         allTrialsTracker.processSale(sale)
-
-        val country = sale.customer.country
-        if (country in countryTrialConversion) {
-            countryTrialConversion[country]!!.processSale(sale)
-        }
+        countryTrialConversion[sale.customer.country.orEmptyCountry()]?.processSale(sale)
     }
 
     override fun process(licenseInfo: LicenseInfo) {
@@ -81,7 +77,7 @@ class TopTrialCountriesTable(private val maxItems: Int = 10, private val smallSp
                 val trialConversion = countryTrialConversion[country]!!.getResult().convertedTrialsPercentage
                 SimpleDateTableRow(
                     values = mapOf(
-                        columnCountry to country.ifEmpty { "—" },
+                        columnCountry to country.orEmptyCountry(),
                         columnTrialCount to trialCount.toBigInteger(),
                         columnTrialsPercentage to trialPercentage,
                         columnTrialConvertedPercentage to trialConversion,
@@ -108,4 +104,8 @@ class TopTrialCountriesTable(private val maxItems: Int = 10, private val smallSp
             )
         )
     }
+}
+
+private fun String.orEmptyCountry(): Country {
+    return if (isNotEmpty()) this else "—"
 }
