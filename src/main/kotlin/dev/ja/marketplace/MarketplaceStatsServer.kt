@@ -67,8 +67,8 @@ class MarketplaceStatsServer(
         listOf(
             YearlySummaryFactory(),
             WeekFactory(),
-            SalesDayFactory(YearMonthDay.now(), "Today"),
-            SalesDayFactory(YearMonthDay.now().add(0, 0, -1), "Yesterday"),
+            SalesDayFactory(0, "Today"),
+            SalesDayFactory(-1, "Yesterday"),
             TrialsTodayFactory(),
             CustomerTypeFactory(),
             TopCountriesFactory(smallSpace = true),

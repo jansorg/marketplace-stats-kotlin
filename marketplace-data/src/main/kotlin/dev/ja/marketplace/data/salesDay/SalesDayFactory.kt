@@ -10,8 +10,8 @@ import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.MarketplaceDataSink
 import dev.ja.marketplace.data.MarketplaceDataSinkFactory
 
-class SalesDayFactory(val date: YearMonthDay, val title: String) : MarketplaceDataSinkFactory {
+class SalesDayFactory(val offsetDays: Int, val title: String) : MarketplaceDataSinkFactory {
     override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
-        return SalesDayTable(date, title)
+        return SalesDayTable(YearMonthDay.now().add(0, 0, offsetDays), title)
     }
 }
