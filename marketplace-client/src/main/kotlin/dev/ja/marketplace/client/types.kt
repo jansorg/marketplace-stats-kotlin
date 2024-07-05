@@ -14,6 +14,7 @@ typealias UserId = String
 typealias PluginId = Int
 typealias PluginProductCode = String
 typealias PluginUrl = String
+typealias PluginChannel = String
 
 typealias CustomerId = Int
 typealias Country = String
@@ -21,6 +22,7 @@ typealias ResellerId = Int
 typealias LicenseId = String
 
 typealias JetBrainsProductId = String
+typealias PluginModuleName = String
 
 typealias Amount = BigDecimal
 
@@ -770,13 +772,13 @@ data class PluginComment(
     @SerialName("markedAsSpam")
     val markedAsSpam: Boolean,
     @SerialName("author")
-    val author: PluginCommentAuthor? = null,
+    val author: JetBrainsAccountInfo? = null,
     @SerialName("votes")
     val votes: PluginCommentVotes? = null,
 )
 
 @Serializable
-data class PluginCommentAuthor(
+data class JetBrainsAccountInfo(
     @SerialName("id")
     val id: String,
     @SerialName("name")
@@ -789,6 +791,9 @@ data class PluginCommentAuthor(
     val iconUrl: String? = null,
     @SerialName("showMarketoCheckbox")
     val showMarketoCheckbox: Boolean? = null,
+    // used in release info data
+    @SerialName("personalVendorId")
+    val personalVendorId: Int? = null,
 )
 
 @Serializable
@@ -797,4 +802,51 @@ data class PluginCommentVotes(
     val positive: Int,
     @SerialName("negative")
     val negative: Int,
+)
+
+@Serializable
+data class PluginReleaseInfo(
+    @SerialName("id")
+    val id: Int,
+    @SerialName("pluginId")
+    val pluginId: PluginId,
+    @SerialName("link")
+    val linkUrlPath: String,
+    @SerialName("version")
+    val version: String,
+    @SerialName("approve")
+    val approve: Boolean,
+    @SerialName("listed")
+    val listed: Boolean,
+    @SerialName("hidden")
+    val hidden: Boolean,
+    @SerialName("recalculateCompatibilityAllowed")
+    val recalculateCompatibilityAllowed: Boolean? = null,
+    @SerialName("cdate")
+    @Serializable(CDateSerializer::class)
+    val createdTimestamp: Instant? = null,
+    @SerialName("file")
+    val fileUrlPath: String,
+    @SerialName("size")
+    val fileSizeBytes: Long,
+    @SerialName("notes")
+    val notes: String? = null,
+    @SerialName("since")
+    val since: String? = null,
+    @SerialName("until")
+    val until: String? = null,
+    @SerialName("sinceUntil")
+    val sinceUntil: String? = null,
+    @SerialName("channel")
+    val channel: PluginChannel,
+    @SerialName("downloads")
+    val downloads: Int,
+    @SerialName("compatibleVersions")
+    val compatibleVersions: Map<JetBrainsProductId, String>,
+    @SerialName("author")
+    val author: JetBrainsAccountInfo,
+    @SerialName("releaseVersion")
+    val releaseVersion: String,
+    @SerialName("modules")
+    val modules: List<PluginModuleName> = emptyList(),
 )
