@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -152,6 +152,14 @@ class KtorMarketplaceClient(
         return response.data.serie
             .map { ProductDownload(it.name, it.comment, it.value) }
             .sortedBy { it.productName }
+    }
+
+    override suspend fun compatibleProducts(plugin: PluginId): List<JetBrainsProductId> {
+        return httpClient.get("${apiPath}/plugins/${plugin}/compatible-products").body()
+    }
+
+    override suspend fun volumeDiscounts(plugin: PluginId): List<VolumeDiscountResponse> {
+        return httpClient.get("${apiPath}/marketplace/plugin/${plugin}/volume-discounts").body()
     }
 
     private suspend fun getSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {

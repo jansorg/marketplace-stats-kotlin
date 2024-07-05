@@ -27,6 +27,8 @@ typealias Country = String
 typealias ResellerId = Int
 typealias LicenseId = String
 
+typealias JetBrainsProductId = String
+
 typealias Amount = BigDecimal
 
 data class AmountWithCurrency(val amount: Amount, val currency: Currency) : Comparable<AmountWithCurrency> {

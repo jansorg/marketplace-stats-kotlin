@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -72,4 +72,6 @@ interface MarketplaceClient : MarketplaceUrlSupport {
      * Helper method to retrieve downloads grouped by product.
      */
     suspend fun downloadsByProduct(plugin: PluginId, countType: DownloadCountType): List<ProductDownload>
+
+    suspend fun compatibleProducts(plugin: PluginId): List<JetBrainsProductId>
 }
