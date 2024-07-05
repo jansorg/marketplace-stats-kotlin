@@ -71,8 +71,8 @@ class MarketplaceStatsServer(
             SalesDayFactory(YearMonthDay.now().add(0, 0, -1), "Yesterday"),
             TrialsTodayFactory(),
             CustomerTypeFactory(),
-            TopCountriesFactory(),
-            TopTrialCountriesFactory(smallSpaceFormat = true),
+            TopCountriesFactory(smallSpace = true),
+            TopTrialCountriesFactory(smallSpace = true),
             OverviewTableFactory()
         )
     )
@@ -91,8 +91,8 @@ class MarketplaceStatsServer(
 
     private val countriesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
         client,
-        listOf(TopCountriesFactory(Int.MAX_VALUE)),
-        pageTitle = "Countries",
+        listOf(TopCountriesFactory(smallSpace = false, maxCountries = null, showTrials = true)),
+        pageTitle = "Countries and Trials",
     )
 
     private val allCustomersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
@@ -125,7 +125,7 @@ class MarketplaceStatsServer(
 
     private val trialCountriesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
         client,
-        listOf(TopTrialCountriesFactory(Int.MAX_VALUE, smallSpaceFormat = false)),
+        listOf(TopTrialCountriesFactory(Int.MAX_VALUE, smallSpace = false)),
         pageTitle = "Trials Grouped by Country",
     )
 

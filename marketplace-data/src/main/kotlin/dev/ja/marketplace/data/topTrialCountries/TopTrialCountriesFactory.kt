@@ -9,8 +9,8 @@ import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.data.MarketplaceDataSink
 import dev.ja.marketplace.data.MarketplaceDataSinkFactory
 
-class TopTrialCountriesFactory(private val maxCountries: Int = 10, private val smallSpaceFormat: Boolean) : MarketplaceDataSinkFactory {
+class TopTrialCountriesFactory(private val maxCountries: Int = 10, private val smallSpace: Boolean) : MarketplaceDataSinkFactory {
     override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
-        return TopTrialCountriesTable(maxCountries, smallSpaceFormat)
+        return TopTrialCountriesTable(maxCountries, smallSpace)
     }
 }
