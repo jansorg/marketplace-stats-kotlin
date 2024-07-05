@@ -129,6 +129,10 @@ tfoot th, .row-border-top {
     border-top: 1px solid var(--separator-color);
 }
 
+tfoot tr {
+    vertical-align: text-top;
+}
+
 .row-border-light-bottom {
     border-bottom: 1px solid var(--separator-light-color);
 }

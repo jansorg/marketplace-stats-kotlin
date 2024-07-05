@@ -27,16 +27,16 @@ class ResellerTable : SimpleDataTable("Resellers", cssClass = "table-column-wide
     private val columnType = DataTableColumn("reseller-type", "Type")
     private val columnCustomerCount = DataTableColumn("reseller-customers", "Customers")
     private val columnLicenseCount = DataTableColumn("reseller-licenses", "Licenses Sold")
-    private val columnTotalSales = DataTableColumn("reseller-sales", "Total Sales")
+    private val columnTotalSales = DataTableColumn("reseller-sales", "Total Sales", preSorted = AriaSortOrder.Descending)
 
     override val columns: List<DataTableColumn> = listOf(
         columnName,
-        columnCode,
-        columnCountry,
-        columnType,
+        columnTotalSales,
         columnCustomerCount,
         columnLicenseCount,
-        columnTotalSales,
+        columnCountry,
+        columnType,
+        columnCode,
     )
 
     override fun createSections(): List<DataTableSection> {

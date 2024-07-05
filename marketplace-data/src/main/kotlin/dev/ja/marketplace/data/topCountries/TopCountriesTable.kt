@@ -10,7 +10,6 @@ import dev.ja.marketplace.client.Currency
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.util.SimpleTrialTracker
 import dev.ja.marketplace.data.util.TrialTracker
-import java.math.BigDecimal
 import java.util.*
 
 private data class CountryData(
@@ -27,7 +26,7 @@ class TopCountriesTable(
     private fun Country.orEmptyCountry(): Country = ifEmpty { "—" }
 
     private val columnCountry = DataTableColumn("country", if (smallSpace) null else "Country", "col-right")
-    private val columnSales = DataTableColumn("sales", if (smallSpace) null else "Total Sales", "num")
+    private val columnSales = DataTableColumn("sales", if (smallSpace) null else "Total Sales", "num", preSorted = AriaSortOrder.Descending)
     private val columnSalesPercentage = DataTableColumn("sales", "% of Sales", "num num-percentage")
     private val columnTrialCount = DataTableColumn("trials", "Trials", "num")
     private val columnTrialsPercentage = DataTableColumn(

@@ -16,7 +16,7 @@ class FunnelTable : SimpleDataTable("Trial Funnel", "funnel", "table-centered so
     private var pluginId: PluginId? = null
     private val trialTracker: TrialTracker = SimpleTrialTracker()
 
-    private val trialDateColumn = DataTableColumn("funnel-trial", "Trial Start Date", "date")
+    private val trialDateColumn = DataTableColumn("funnel-trial", "Trial Start Date", "date", preSorted = AriaSortOrder.Descending)
     private val licensedDateColumn = DataTableColumn("funnel-license", "Licensed Date", "date")
     private val testDurationColumn = DataTableColumn("funnel-test-duration", "Test Duration (days)", "num")
     private val customerColumn = DataTableColumn("funnel-customer", "Customer", "num")

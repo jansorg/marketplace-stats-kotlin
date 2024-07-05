@@ -6,7 +6,7 @@
 
 <tr class="${cssClass}">
     @for((columnIndex, column) in table.columns.withIndex())
-        <th colspan="${column.columnSpan}" class="${column.cssClass}" style="${column.cssStyle}" title="${column.tooltip}">
+        <th colspan="${column.columnSpan}" class="${column.cssClass}" style="${column.cssStyle}" title="${column.tooltip}" aria-sort="${column.preSorted?.attributeValue}">
             @if(columnIndex == 0 && title != null && column.title == null)
                 <h2>${title}</h2>
             @elseif(column.title != null)
