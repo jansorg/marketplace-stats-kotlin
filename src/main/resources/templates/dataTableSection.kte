@@ -11,20 +11,22 @@
 @if(section != null)
     !{val header = section.header}
     !{val title = section.title ?: title}
+    !{val columns = section.columns ?: table.columns}
+
     @if(renderHeader)
         @if(renderColumns)
-            @template.tableColumnsRow(table, title = title, cssClass = "row-border-bottom")
+            @template.tableColumnsRow(table, title = title, columns = columns, cssClass = "row-border-bottom")
         @endif
         @if(header != null)
-            @template.dataRowGroup(table = table, group = header, cssClass = "row-border-bottom", renderHeader = true)
+            @template.dataRowGroup(table = table, group = header, columns = columns, cssClass = "row-border-bottom", renderHeader = true)
         @elseif (!renderColumns && title != null)
-            @template.titleRow(columns = table.columns, title = title, cssClass = "row-border-bottom")
+            @template.titleRow(columns = columns, title = title, cssClass = "row-border-bottom")
         @endif
     @endif
 
     @for(row in section.rows)
         <tr class="${row.cssClass}">
-            @for(column in table.columns)
+            @for(column in columns)
                 <td colspan="${column.columnSpan}" class="${column.cssClass}" title="${row.getTooltip(column)}" data-sort="${row.getSortValue(column)}">
                     @template.render(row.getValue(column))
                 </td>
@@ -34,6 +36,6 @@
 
     !{val footer = section.footer}
     @if(renderFooter && footer != null)
-        @template.dataRowGroup(table = table, group = footer, cssClass = "row-border-light-top", renderHeader = false)
+        @template.dataRowGroup(table = table, group = footer, columns = columns, cssClass = "row-border-light-top", renderHeader = false)
     @endif
 @endif

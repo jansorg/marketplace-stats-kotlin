@@ -11,12 +11,18 @@
 <table class="small table-striped ${table.cssClass}">
     @if(renderTableHeader)
         <thead>
-        @template.tableColumnsRow(table, title = table.title, cssClass = "row-border-bottom")
+        @template.tableColumnsRow(table, columns = table.columns, title = table.title, cssClass = "row-border-bottom")
         </thead>
     @endif
     @for(section in table.sections)
         <tbody>
-        @template.dataTableSection(table = table, section = section, renderColumns = true, renderHeader = !renderTableHeader, renderFooter = !renderTableHeader, title = table.title)
+        @template.dataTableSection(
+            table = table,
+            section = section,
+            renderColumns = true,
+            renderHeader = !renderTableHeader,
+            renderFooter = !renderTableHeader,
+            title = section.title ?: table.title)
         </tbody>
     @endfor
     @if(renderTableHeader)
@@ -24,7 +30,7 @@
         @if(footer != null || table.isLimitedRendering)
             <tfoot>
             @if (footer != null)
-                @template.dataRowGroup(table = table, group = footer, cssClass = "row-border-light-top", renderHeader = false)
+                @template.dataRowGroup(table = table, group = footer, columns = table.columns, cssClass = "row-border-light-top", renderHeader = false)
             @endif
             @if(table.isLimitedRendering)
                 <tr>

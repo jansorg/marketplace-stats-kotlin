@@ -1,11 +1,13 @@
 @import dev.ja.marketplace.data.DataTable
+@import dev.ja.marketplace.data.DataTableColumn
 
 @param table: DataTable
+@param columns: List<DataTableColumn>
 @param title: String?
 @param cssClass: String?
 
 <tr class="${cssClass}">
-    @for((columnIndex, column) in table.columns.withIndex())
+    @for((columnIndex, column) in columns.withIndex())
         <th colspan="${column.columnSpan}" class="${column.cssClass}" style="${column.cssStyle}" title="${column.tooltip}" aria-sort="${column.preSorted?.attributeValue}">
             @if(columnIndex == 0 && title != null && column.title == null)
                 <h2>${title}</h2>

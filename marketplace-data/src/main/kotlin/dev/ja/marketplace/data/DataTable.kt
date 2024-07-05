@@ -47,6 +47,7 @@ interface DataRowGroup {
 }
 
 interface DataTableSection : DataRowGroup {
+    val columns: List<DataTableColumn>?
     val header: DataRowGroup?
     val footer: DataRowGroup?
     val cssClass: String?
@@ -79,6 +80,7 @@ data class SimpleTableSection(
     override val header: DataRowGroup? = null,
     override val footer: DataRowGroup? = null,
     override val cssClass: String? = null,
+    override val columns: List<DataTableColumn>? = null,
 ) : DataTableSection {
     constructor(singleRow: DataTableRow) : this(listOf(singleRow))
 }
