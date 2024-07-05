@@ -1,9 +1,14 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 package dev.ja.marketplace.data
+
+enum class AriaSortOrder(val attributeValue: String) {
+    Ascending("ascending"),
+    Descending("descending"),
+}
 
 /**
  * Tabular data calculated based on the Marketplace data.
@@ -65,6 +70,7 @@ data class DataTableColumn(
     val columnSpan: Int? = null,
     val cssStyle: String? = null,
     val tooltip: String? = null,
+    val preSorted: AriaSortOrder? = null,
 )
 
 data class SimpleTableSection(
