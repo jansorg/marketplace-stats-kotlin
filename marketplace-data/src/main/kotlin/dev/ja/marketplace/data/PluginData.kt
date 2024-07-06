@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -11,6 +11,7 @@ data class PluginData(
     val pluginId: PluginId,
     val pluginSummary: PluginInfoSummary,
     val pluginInfo: PluginInfo,
+    val marketplacePluginInfo: MarketplacePluginInfo,
     val pluginRating: PluginRating,
     val totalDownloads: Long,
     val downloadsMonthly: List<MonthlyDownload>,

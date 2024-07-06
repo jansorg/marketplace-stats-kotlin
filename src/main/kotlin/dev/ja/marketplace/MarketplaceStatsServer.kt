@@ -401,7 +401,7 @@ class MarketplaceStatsServer(
                 it,
                 it.validity,
                 it.sale.licensePeriod == period && it.isPaidLicense,
-                it.isRenewal
+                it.isRenewalLicense
             )
         }
 

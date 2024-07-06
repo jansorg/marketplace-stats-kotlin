@@ -30,7 +30,12 @@ data class LicenseInfo(
     val saleLineItem: PluginSaleItem,
 ) : WithDateRange, WithAmounts, Comparable<LicenseInfo> {
 
-    val isRenewal: Boolean
+    val isNewLicense: Boolean
+        get() {
+            return saleLineItem.type == PluginSaleItemType.New
+        }
+
+    val isRenewalLicense: Boolean
         get() {
             return saleLineItem.type == PluginSaleItemType.Renew
         }
