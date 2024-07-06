@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-package dev.ja.marketplace.data.overview
+package dev.ja.marketplace.data.trackers
 
 import dev.ja.marketplace.client.CustomerInfo
 import dev.ja.marketplace.client.YearMonthDayRange
@@ -40,10 +40,10 @@ class CustomerTracker<T>(private val dateRange: YearMonthDayRange) {
 
             customers += customer
 
-            if (licenseInfo.saleLineItem.isFreeLicense) {
-                customersFree += customer
-            } else {
+            if (licenseInfo.isPaidLicense) {
                 customersPaying += customer
+            } else {
+                customersFree += customer
             }
 
             segmentedCustomers.computeIfAbsent(segment) { mutableSetOf() } += customer

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -17,6 +17,7 @@ class PluginDataLoader(val plugin: PluginInfoSummary, val client: MarketplaceCli
     suspend fun load(): PluginData {
         return coroutineScope {
             val pluginInfo = async { client.pluginInfo(plugin.id) }
+            val marketplacePluginInfo = async { client.marketplacePluginInfo(plugin.id) }
             val pluginRating = async { client.pluginRating(plugin.id) }
             val downloadsTotal = async { client.downloadsTotal(plugin.id) }
             val downloadsMonthly = async { client.downloadsMonthly(plugin.id, Downloads) }
@@ -40,6 +41,7 @@ class PluginDataLoader(val plugin: PluginInfoSummary, val client: MarketplaceCli
                 plugin.id,
                 plugin,
                 pluginInfo.await(),
+                marketplacePluginInfo.await(),
                 pluginRating.await(),
                 downloadsTotal.await(),
                 downloadsMonthly.await(),

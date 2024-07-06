@@ -8,8 +8,8 @@ package dev.ja.marketplace.data.yearSummary
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.Currency
 import dev.ja.marketplace.data.*
-import dev.ja.marketplace.data.util.SimpleTrialTracker
-import dev.ja.marketplace.data.util.TrialTracker
+import dev.ja.marketplace.data.trackers.SimpleTrialTracker
+import dev.ja.marketplace.data.trackers.TrialTracker
 import dev.ja.marketplace.util.isZero
 import java.util.*
 

@@ -491,7 +491,12 @@ data class PluginSaleItemDiscount(
     val description: String,
     @SerialName("percent")
     val percent: Double? = null,
-)
+) {
+    val isContinuityDiscount: Boolean
+        get() {
+            return description.contains(" continuity discount")
+        }
+}
 
 @Serializable
 data class PluginTrial(
@@ -552,7 +557,19 @@ data class MarketplacePluginInfo(
     // only available with fullInfo=true
     @SerialName("versions")
     val majorVersions: List<PluginMajorVersion>? = null,
-)
+) {
+    fun subscriptionPrice(customerType: CustomerType, subscriptionType: LicensePeriod): Amount {
+        val basePrice = when (customerType) {
+            CustomerType.Organization -> this.businessPrice
+            CustomerType.Personal -> this.individualPrice
+        }
+        val factor = when (subscriptionType) {
+            LicensePeriod.Annual -> 10.0
+            LicensePeriod.Monthly -> 1.0
+        }
+        return basePrice * factor.toBigDecimal()
+    }
+}
 
 enum class DownloadCountType(val requestPathSegment: String) {
     Downloads("downloads-count"),

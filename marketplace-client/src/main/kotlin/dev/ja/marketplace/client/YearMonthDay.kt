@@ -65,6 +65,10 @@ data class YearMonthDay(
         return instant.daysUntil(date.instant, timezone)
     }
 
+    fun monthsUntil(date: YearMonthDay): Int {
+        return instant.monthsUntil(date.instant, timezone)
+    }
+
     companion object {
         val MIN = YearMonthDay(1, 1, 1)
         val MAX = YearMonthDay(9999, 12, 31)
@@ -156,11 +160,22 @@ data class YearMonthDayRange(
         return YearMonthDayRange(start.add(years, months, days), end.add(years, months, days))
     }
 
+    fun expandStart(years: Int, months: Int, days: Int): YearMonthDayRange {
+        if (years == 0 && months == 0 && days == 0) {
+            return this
+        }
+        return YearMonthDayRange(start.add(years, months, days), end)
+    }
+
     fun expandEnd(years: Int, months: Int, days: Int): YearMonthDayRange {
         if (years == 0 && months == 0 && days == 0) {
             return this
         }
         return YearMonthDayRange(start, end.add(years, months, days))
+    }
+
+    fun countDays(): Int {
+        return start.daysUntil(end) + 1
     }
 
     private fun asIsoStringRange(): String {

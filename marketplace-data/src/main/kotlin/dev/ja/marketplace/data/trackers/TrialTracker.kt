@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-package dev.ja.marketplace.data.util
+package dev.ja.marketplace.data.trackers
 
 import dev.ja.marketplace.client.CustomerId
 import dev.ja.marketplace.client.PluginSale

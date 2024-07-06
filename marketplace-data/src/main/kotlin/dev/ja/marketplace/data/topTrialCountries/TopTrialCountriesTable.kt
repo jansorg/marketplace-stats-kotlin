@@ -8,8 +8,8 @@ package dev.ja.marketplace.data.topTrialCountries
 import dev.ja.marketplace.client.Country
 import dev.ja.marketplace.client.PluginSale
 import dev.ja.marketplace.data.*
-import dev.ja.marketplace.data.util.SimpleTrialTracker
-import dev.ja.marketplace.data.util.TrialTracker
+import dev.ja.marketplace.data.trackers.SimpleTrialTracker
+import dev.ja.marketplace.data.trackers.TrialTracker
 import java.math.BigDecimal
 import java.util.*
 

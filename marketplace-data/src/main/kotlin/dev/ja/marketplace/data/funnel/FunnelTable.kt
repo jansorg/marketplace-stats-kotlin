@@ -8,8 +8,8 @@ package dev.ja.marketplace.data.funnel
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.PluginSale
 import dev.ja.marketplace.data.*
-import dev.ja.marketplace.data.util.SimpleTrialTracker
-import dev.ja.marketplace.data.util.TrialTracker
+import dev.ja.marketplace.data.trackers.SimpleTrialTracker
+import dev.ja.marketplace.data.trackers.TrialTracker
 import kotlin.math.absoluteValue
 
 class FunnelTable : SimpleDataTable("Trial Funnel", "funnel", "table-centered sortable"), MarketplaceDataSink {
