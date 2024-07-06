@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-package dev.ja.marketplace.data.week
+package dev.ja.marketplace.data.timeSpanSummary
 
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.Currency
@@ -11,7 +11,7 @@ import dev.ja.marketplace.data.*
 import java.math.BigDecimal
 import java.util.*
 
-class WeekTable(title: String = "This week") : SimpleDataTable(title, cssClass = "small table-striped"),
+class TimeSpanSummaryTable(maxDays: Int, title: String) : SimpleDataTable(title, cssClass = "small table-striped"),
     MarketplaceDataSink {
 
     private data class WeekData(
@@ -25,7 +25,7 @@ class WeekTable(title: String = "This week") : SimpleDataTable(title, cssClass =
     private val columnDownloads = DataTableColumn("total", "↓", "num", tooltip = "Downloads")
     private val columnTrials = DataTableColumn("total", "Trials", "num")
 
-    private val dateRange = YearMonthDayRange.currentWeek()
+    private val dateRange = YearMonthDay.now().let { YearMonthDayRange(it.add(0, 0, -maxDays), it) }
     private val data = TreeMap<YearMonthDay, WeekData>()
 
     override val columns: List<DataTableColumn> = listOf(columnDay, columnSales, columnDownloads, columnTrials)
