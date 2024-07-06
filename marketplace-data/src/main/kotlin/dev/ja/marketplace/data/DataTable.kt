@@ -22,6 +22,11 @@ interface DataTable {
     val cssClass: String?
     val header: DataRowGroup?
 
+    val alwaysShowMainColumns: Boolean
+        get() {
+            return false
+        }
+
     val isLimitedRendering: Boolean
         get() {
             return false

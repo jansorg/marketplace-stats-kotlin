@@ -21,6 +21,7 @@
     --negative-color: #ff0000;
     --text-color: #000;
     --text-color-disabled: #808080;
+    --background-highlighted-color: rgba(255, 255, 0, 0.1);
 }
 
 .today {
@@ -214,6 +215,10 @@ table .subheading, table .subheading h3 {
     white-space: nowrap;
 }
 
+.smaller {
+    font-size: .9rem;
+}
+
 .small {
     font-size: .8rem;
 }
@@ -292,6 +297,10 @@ th.num, td.num, th.date, td.date, th.col-right, td.col-right {
 
 th.col-left, td.col-left {
     text-align: left;
+}
+
+th.highlighted, td.highlighted {
+    background-color: var(--background-highlighted-color);
 }
 
 .num-plus {
@@ -387,4 +396,8 @@ th.col-left, td.col-left {
 
 .margin-top {
     margin-top: 0.5rem;
+}
+
+.margin-bottom {
+    margin-bottom: 0.5rem;
 }

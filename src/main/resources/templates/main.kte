@@ -8,6 +8,7 @@
 @import dev.ja.marketplace.client.MarketplaceUrlSupport
 
 @param pageTitle: String?
+@param pageDescription: String?
 @param today: YearMonthDay
 @param plugin: PluginInfo
 @param rating: PluginRating
@@ -43,6 +44,10 @@
 
 @if(pageTitle != null)
     <h2 class="centered">${pageTitle}</h2>
+@endif
+
+@if(pageDescription != null)
+    <p class="desc smaller margin-bottom">$unsafe{pageDescription}</p>
 @endif
 
 <section class="tables">

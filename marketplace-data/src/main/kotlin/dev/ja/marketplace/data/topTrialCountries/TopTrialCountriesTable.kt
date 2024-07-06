@@ -50,7 +50,7 @@ class TopTrialCountriesTable(
         columnTrialConvertedPercentage.takeUnless { smallSpaceFormat }
     )
 
-    override fun init(data: PluginData) {
+    override suspend fun init(data: PluginData) {
         data.trials?.forEach { trial ->
             allTrialsTracker.registerTrial(trial)
 

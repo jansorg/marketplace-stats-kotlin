@@ -9,7 +9,7 @@
 
 !{val renderTableHeader = table.sections.size == 1}
 <table class="small table-striped ${table.cssClass}">
-    @if(renderTableHeader)
+    @if(renderTableHeader || table.alwaysShowMainColumns)
         <thead>
         @template.tableColumnsRow(table, columns = table.columns, title = table.title, cssClass = "row-border-bottom")
         </thead>

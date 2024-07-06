@@ -377,7 +377,21 @@ enum class Currency {
     CZK,
 
     @SerialName("CNY")
-    CNY,
+    CNY;
+
+    companion object {
+        fun of(id: String): Currency {
+            return when (id) {
+                "USD" -> USD
+                "EUR" -> EUR
+                "JPY" -> JPY
+                "GBP" -> GBP
+                "CZK" -> CZK
+                "CNY" -> CNY
+                else -> throw IllegalStateException("Unknown currency $id")
+            }
+        }
+    }
 }
 
 @Serializable
@@ -906,7 +920,7 @@ data class PriceInfoData(
     val price: Amount,
     @SerialName("priceTaxed")
     @Serializable(AmountSerializer::class)
-    val priceTaxed: Amount,
+    val priceTaxed: Amount? = null,
     @SerialName("newShopCode")
     val newShopCode: String,
 )

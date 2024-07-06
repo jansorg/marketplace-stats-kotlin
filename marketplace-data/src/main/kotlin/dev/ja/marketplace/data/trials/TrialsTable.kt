@@ -1,14 +1,11 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 package dev.ja.marketplace.data.trials
 
-import dev.ja.marketplace.client.Country
-import dev.ja.marketplace.client.PluginId
-import dev.ja.marketplace.client.PluginTrial
-import dev.ja.marketplace.client.YearMonthDay
+import dev.ja.marketplace.client.*
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.util.takeNullable
 import java.util.*
@@ -33,7 +30,7 @@ class TrialsTable(
             return maxTableRows != null
         }
 
-    override fun init(data: PluginData) {
+    override suspend fun init(data: PluginData) {
         this.pluginId = data.pluginId
         data.trials?.forEach {
             if (trialFilter(it)) {
