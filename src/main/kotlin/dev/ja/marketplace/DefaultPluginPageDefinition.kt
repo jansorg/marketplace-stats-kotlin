@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -20,6 +20,7 @@ class DefaultPluginPageDefinition(
     private val factories: List<MarketplaceDataSinkFactory>,
     private val pageCssClasses: String? = null,
     private val pageTitle: String? = null,
+    private val pageDescription: String? = null,
 ) : PluginPageDefinition {
     override suspend fun createTemplateParameters(dataLoader: PluginDataLoader, request: ApplicationRequest): Map<String, Any?> {
         val data = dataLoader.load()
@@ -37,6 +38,7 @@ class DefaultPluginPageDefinition(
 
         return mapOf(
             "pageTitle" to pageTitle,
+            "pageDescription" to pageDescription,
             "today" to YearMonthDay.now(),
             "plugin" to data.pluginInfo,
             "rating" to data.pluginRating,

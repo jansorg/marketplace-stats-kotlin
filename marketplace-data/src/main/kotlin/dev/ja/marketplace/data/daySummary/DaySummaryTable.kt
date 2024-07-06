@@ -25,7 +25,7 @@ class DaySummaryTable(
 
     override val columns: List<DataTableColumn> = listOf(columnSubscriptionType, columnCustomerType, columnAmount)
 
-    override fun init(data: PluginData) {
+    override suspend fun init(data: PluginData) {
         trials = data.trials
             ?.filter { it.date == date }
             ?.sortedBy { it.customer.country }

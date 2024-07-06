@@ -65,7 +65,7 @@ class LicenseTable(
         columnRefNum,
     )
 
-    override fun init(data: PluginData) {
+    override suspend fun init(data: PluginData) {
         this.pluginId = data.pluginId
     }
 

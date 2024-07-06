@@ -11,7 +11,6 @@ import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.util.SimpleTrialTracker
 import dev.ja.marketplace.data.util.TrialTracker
 import dev.ja.marketplace.util.isZero
-import java.math.BigDecimal
 import java.util.*
 
 class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"), MarketplaceDataSink {
@@ -24,7 +23,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
         val trials: TrialTracker,
     )
 
-    override fun init(data: PluginData) {
+    override suspend fun init(data: PluginData) {
         this.downloads = data.downloadsMonthly
 
         val now = YearMonthDay.now()

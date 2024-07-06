@@ -9,7 +9,18 @@ import io.ktor.util.collections.*
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
+
+private data class CacheItem(
+    val timestamp: Instant,
+    val data: Any?,
+    val exception: Throwable?,
+) {
+    init {
+        assert(data != null || exception != null)
+    }
+}
 
 /**
  * Caching client implementation, which keeps immutable data in memory and only fetches mutable data with new requests to the server.
@@ -20,7 +31,7 @@ class CachingMarketplaceClient(
     private val unstableDataMonths = 2
 
     // cached data
-    private val genericDataCache = ConcurrentMap<String, Pair<Instant, *>>()
+    private val genericDataCache = ConcurrentMap<String, CacheItem>()
     private val cachedSalesInfo = ConcurrentMap<PluginId, Pair<YearMonthDayRange, List<PluginSale>>>()
     private val cachedTrialsInfo = ConcurrentMap<PluginId, Pair<YearMonthDayRange, List<PluginTrial>>>()
 
@@ -120,19 +131,46 @@ class CachingMarketplaceClient(
         }
     }
 
+    override suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo {
+        // pricing data is expensive to fetch and is expected to change very seldom
+        return loadCached("priceInfo.$plugin.$isoCountryCode", cacheDuration = 24.hours) {
+            delegate.priceInfo(plugin, isoCountryCode)
+        }
+    }
+
+    override suspend fun channels(plugin: PluginId): List<PluginChannel> {
+        return loadCached("channels.$plugin") {
+            delegate.channels(plugin)
+        }
+    }
+
+    override suspend fun releases(plugin: PluginId, channel: PluginChannel, size: Int, page: Int): List<PluginReleaseInfo> {
+        return loadCached("releases.$plugin.$channel.$size.$page") {
+            delegate.releases(plugin, channel, size, page)
+        }
+    }
+
     @Suppress("UNCHECKED_CAST")
     private suspend fun <T> loadCached(key: String, cacheDuration: Duration = 30.minutes, dataProvider: suspend () -> T): T {
         val now = Clock.System.now()
-        val current = genericDataCache[key]
 
-        val cacheDate = current?.first
-        if (cacheDate != null && cacheDate + cacheDuration > now) {
-            return current.second as T
+        val cachedResult = genericDataCache[key]?.takeIf { it.timestamp + cacheDuration > now }
+        val finalResult = if (cachedResult == null) {
+            val newCacheItem = try {
+                CacheItem(now, dataProvider(), null)
+            } catch (e: Throwable) {
+                CacheItem(now, null, e)
+            }
+            genericDataCache[key] = newCacheItem
+            newCacheItem
+        } else {
+            cachedResult
         }
 
-        val newData = dataProvider()
-        genericDataCache[key] = now to newData
-        return newData
+        if (finalResult.data != null) {
+            return finalResult.data as T
+        }
+        throw finalResult.exception!!
     }
 
     private suspend fun <T> loadHistoricPluginData(

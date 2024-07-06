@@ -20,6 +20,7 @@ import dev.ja.marketplace.data.funnel.FunnelTableFactory
 import dev.ja.marketplace.data.licenses.LicenseTable
 import dev.ja.marketplace.data.licenses.LicenseTableFactory
 import dev.ja.marketplace.data.overview.OverviewTableFactory
+import dev.ja.marketplace.data.privingOverview.PricingOverviewTableFactory
 import dev.ja.marketplace.data.resellers.ResellerTableFactory
 import dev.ja.marketplace.data.topCountries.TopCountriesFactory
 import dev.ja.marketplace.data.topTrialCountries.TopTrialCountriesFactory
@@ -143,6 +144,14 @@ class MarketplaceStatsServer(
         client,
         listOf(ResellerTableFactory()),
         pageTitle = "Resellers",
+    )
+
+    private val pricingPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+        client,
+        listOf(PricingOverviewTableFactory()),
+        pageTitle = "Plugin Pricing",
+        pageDescription = "The pricing shown on the JetBrains Marketplace.<br>" +
+                "If there are two prices in the same column, then the 1st excludes VAT and the 2nd includes VAT."
     )
 
     private val httpServer = embeddedServer(Netty, host = host, port = port) {
@@ -290,6 +299,11 @@ class MarketplaceStatsServer(
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
                 call.respond(JteContent("main.kte", resellerPageData.createTemplateParameters(loader, context.request)))
+            }
+            get("/pricing") {
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", pricingPageData.createTemplateParameters(loader, context.request)))
             }
         }
     }

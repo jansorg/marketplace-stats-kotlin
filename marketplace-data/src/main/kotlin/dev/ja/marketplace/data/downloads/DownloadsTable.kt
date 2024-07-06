@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -32,7 +32,7 @@ class DownloadsTable : SimpleDataTable("", "downloads"), MarketplaceDataSink {
         )
     }
 
-    override fun init(data: PluginData) {
+    override suspend fun init(data: PluginData) {
         this.data = data.downloadsMonthly
     }
 

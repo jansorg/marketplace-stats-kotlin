@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -30,7 +30,7 @@ class WeekTable(title: String = "This week") : SimpleDataTable(title, cssClass =
 
     override val columns: List<DataTableColumn> = listOf(columnDay, columnSales, columnDownloads, columnTrials)
 
-    override fun init(data: PluginData) {
+    override suspend fun init(data: PluginData) {
         dateRange.days().forEach { day ->
             val downloads = data.downloadsDaily.firstOrNull { it.day == day }?.downloads ?: 0
             val trials = data.trials?.filter { it.date == day }?.size ?: 0

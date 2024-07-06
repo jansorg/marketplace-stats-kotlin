@@ -15,7 +15,6 @@ import dev.ja.marketplace.data.overview.OverviewTable.CustomerSegment.*
 import dev.ja.marketplace.data.util.SimpleTrialTracker
 import dev.ja.marketplace.data.util.TrialTracker
 import dev.ja.marketplace.util.isZero
-import java.math.BigDecimal
 import java.util.*
 
 class OverviewTable(private val showCustomerChurn: Boolean = false) : SimpleDataTable("Overview", "overview", "table-striped tables-row"),
@@ -133,7 +132,7 @@ class OverviewTable(private val showCustomerChurn: Boolean = false) : SimpleData
         columnTrialsConverted,
     )
 
-    override fun init(data: PluginData) {
+    override suspend fun init(data: PluginData) {
         this.pluginId = data.pluginId
 
         val now = YearMonthDay.now()

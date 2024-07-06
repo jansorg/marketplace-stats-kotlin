@@ -58,7 +58,7 @@ class TopCountriesTable(
         columnTrialConvertedPercentage.takeIf { showTrials },
     )
 
-    override fun init(data: PluginData) {
+    override suspend fun init(data: PluginData) {
         data.trials ?: return
         for (trial in data.trials) {
             allTrialsTracker.registerTrial(trial)

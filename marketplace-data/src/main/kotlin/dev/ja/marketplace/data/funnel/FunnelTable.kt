@@ -23,7 +23,7 @@ class FunnelTable : SimpleDataTable("Trial Funnel", "funnel", "table-centered so
 
     override val columns: List<DataTableColumn> = listOf(trialDateColumn, licensedDateColumn, testDurationColumn, customerColumn)
 
-    override fun init(data: PluginData) {
+    override suspend fun init(data: PluginData) {
         this.pluginId = data.pluginId
         if (data.trials != null) {
             data.trials.forEach(trialTracker::registerTrial)
