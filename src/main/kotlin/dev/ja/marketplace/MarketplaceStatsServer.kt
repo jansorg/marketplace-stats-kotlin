@@ -26,7 +26,7 @@ import dev.ja.marketplace.data.topCountries.TopCountriesFactory
 import dev.ja.marketplace.data.topTrialCountries.TopTrialCountriesFactory
 import dev.ja.marketplace.data.trials.TrialsTable
 import dev.ja.marketplace.data.trials.TrialsTableFactory
-import dev.ja.marketplace.data.week.WeekFactory
+import dev.ja.marketplace.data.timeSpanSummary.TimeSpanSummaryFactory
 import dev.ja.marketplace.data.yearSummary.YearlySummaryFactory
 import gg.jte.ContentType
 import gg.jte.TemplateEngine
@@ -66,7 +66,7 @@ class MarketplaceStatsServer(
         client,
         listOf(
             YearlySummaryFactory(),
-            WeekFactory(),
+            TimeSpanSummaryFactory(7, "Past 7 days"),
             DaySummaryFactory(0, "Today"),
             DaySummaryFactory(-1, "Yesterday"),
             CustomerTypeFactory(),
