@@ -5,3 +5,4 @@ jte-classes/
 /config.*.json
 .kotlin/sessions
 .env
+export-data/
