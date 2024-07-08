@@ -9,6 +9,7 @@ import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.java.*
 import io.ktor.client.plugins.*
+import io.ktor.client.plugins.cache.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.logging.*
 import io.ktor.client.plugins.resources.*
@@ -31,6 +32,7 @@ class KtorMarketplaceClient(
             level = logLevel.ktorLogLevel
         }
         install(Resources)
+        install(HttpCache)
         install(ContentNegotiation) {
             json(Json {
                 prettyPrint = true
