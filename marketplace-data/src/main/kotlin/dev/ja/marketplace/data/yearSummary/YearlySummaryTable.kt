@@ -9,6 +9,7 @@ import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.Currency
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.AnnualRecurringRevenueTracker
+import dev.ja.marketplace.data.trackers.PaymentAmountTracker
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.TrialTracker
 import dev.ja.marketplace.util.isZero
