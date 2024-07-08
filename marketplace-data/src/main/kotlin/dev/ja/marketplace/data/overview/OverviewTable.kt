@@ -183,7 +183,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                     createCustomerChurnProcessor(currentMonth),
                     createLicenseChurnProcessor(currentMonth),
                     createMonthlyRecurringRevenueTracker(currentMonth, data.marketplacePluginInfo),
-                    createAnnualRecurringRevenueTracker(currentMonth.expandStart(-1, 0, 0), data.marketplacePluginInfo),
+                    createAnnualRecurringRevenueTracker(currentMonth, data.marketplacePluginInfo),
                     downloadsMonthly
                         .firstOrNull { it.firstOfMonth.year == year && it.firstOfMonth.month == month }
                         ?.downloads
@@ -219,8 +219,8 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         return MonthlyRecurringRevenueTracker(month, pluginInfo)
     }
 
-    private fun createAnnualRecurringRevenueTracker(year: YearMonthDayRange, pluginInfo: MarketplacePluginInfo): RecurringRevenueTracker {
-        return AnnualRecurringRevenueTracker(year, pluginInfo)
+    private fun createAnnualRecurringRevenueTracker(month: YearMonthDayRange, pluginInfo: MarketplacePluginInfo): RecurringRevenueTracker {
+        return AnnualRecurringRevenueTracker(month, pluginInfo)
     }
 
     override fun process(sale: PluginSale) {

@@ -155,21 +155,24 @@ class CachingMarketplaceClient(
         val now = Clock.System.now()
 
         val cachedResult = genericDataCache[key]?.takeIf { it.timestamp + cacheDuration > now }
-        val finalResult = if (cachedResult == null) {
-            val newCacheItem = try {
-                CacheItem(now, dataProvider(), null)
-            } catch (e: Throwable) {
-                CacheItem(now, null, e)
+        val finalResult = when {
+            cachedResult != null -> cachedResult
+            else -> {
+                val newCacheItem = try {
+                    CacheItem(now, dataProvider(), null)
+                } catch (e: Throwable) {
+                    CacheItem(now, null, e)
+                }
+
+                genericDataCache[key] = newCacheItem
+                newCacheItem
             }
-            genericDataCache[key] = newCacheItem
-            newCacheItem
-        } else {
-            cachedResult
         }
 
         if (finalResult.data != null) {
             return finalResult.data as T
         }
+
         throw finalResult.exception!!
     }
 
