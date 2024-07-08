@@ -17,7 +17,6 @@ class PluginDataLoader(val plugin: PluginInfoSummary, val client: MarketplaceCli
     suspend fun load(): PluginData {
         return coroutineScope {
             val pluginInfo = async { client.pluginInfo(plugin.id) }
-            val marketplacePluginInfo = async { client.marketplacePluginInfo(plugin.id) }
             val pluginRating = async { client.pluginRating(plugin.id) }
             val downloadsTotal = async { client.downloadsTotal(plugin.id) }
             val downloadsMonthly = async { client.downloadsMonthly(plugin.id, Downloads) }
@@ -36,12 +35,15 @@ class PluginDataLoader(val plugin: PluginInfoSummary, val client: MarketplaceCli
                 plugin.isPaidOrFreemium -> async { client.trialsInfo(plugin.id) }
                 else -> null
             }
+            val marketplacePluginInfo = when {
+                plugin.isPaidOrFreemium -> async { client.marketplacePluginInfo(plugin.id) }
+                else -> null
+            }
 
             PluginData(
                 plugin.id,
                 plugin,
                 pluginInfo.await(),
-                marketplacePluginInfo.await(),
                 pluginRating.await(),
                 downloadsTotal.await(),
                 downloadsMonthly.await(),
@@ -50,6 +52,7 @@ class PluginDataLoader(val plugin: PluginInfoSummary, val client: MarketplaceCli
                 sales?.await(),
                 licenseInfo?.await(),
                 trials?.await(),
+                marketplacePluginInfo?.await(),
             )
         }
     }

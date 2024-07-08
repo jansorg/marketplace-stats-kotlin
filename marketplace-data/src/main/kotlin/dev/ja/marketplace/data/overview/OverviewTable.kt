@@ -182,8 +182,8 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                     createLicenseChurnProcessor(currentMonth),
                     createCustomerChurnProcessor(currentMonth),
                     createLicenseChurnProcessor(currentMonth),
-                    createMonthlyRecurringRevenueTracker(currentMonth, data.marketplacePluginInfo),
-                    createAnnualRecurringRevenueTracker(currentMonth, data.marketplacePluginInfo),
+                    createMonthlyRecurringRevenueTracker(currentMonth, data),
+                    createAnnualRecurringRevenueTracker(currentMonth, data),
                     downloadsMonthly
                         .firstOrNull { it.firstOfMonth.year == year && it.firstOfMonth.month == month }
                         ?.downloads
@@ -215,12 +215,12 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         }
     }
 
-    private fun createMonthlyRecurringRevenueTracker(month: YearMonthDayRange, pluginInfo: MarketplacePluginInfo): RecurringRevenueTracker {
-        return MonthlyRecurringRevenueTracker(month, pluginInfo)
+    private fun createMonthlyRecurringRevenueTracker(month: YearMonthDayRange, pluginData: PluginData): RecurringRevenueTracker {
+        return MonthlyRecurringRevenueTracker(month, pluginData.marketplacePluginInfo!!, pluginData.continuityDiscountTracker!!)
     }
 
-    private fun createAnnualRecurringRevenueTracker(month: YearMonthDayRange, pluginInfo: MarketplacePluginInfo): RecurringRevenueTracker {
-        return AnnualRecurringRevenueTracker(month, pluginInfo)
+    private fun createAnnualRecurringRevenueTracker(month: YearMonthDayRange, pluginData: PluginData): RecurringRevenueTracker {
+        return AnnualRecurringRevenueTracker(month, pluginData.marketplacePluginInfo!!, pluginData.continuityDiscountTracker!!)
     }
 
     override fun process(sale: PluginSale) {
@@ -235,12 +235,11 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     override fun process(licenseInfo: LicenseInfo) {
         val customer = licenseInfo.sale.customer
         val licensePeriod = licenseInfo.sale.licensePeriod
+        val isPaidLicense = licenseInfo.isPaidLicense
+        val isRenewal = licenseInfo.isRenewalLicense
         val customerSegment = CustomerSegment.of(licenseInfo)
 
         years.values.forEach { year ->
-            val isPaidLicense = licenseInfo.isPaidLicense
-            val isRenewal = licenseInfo.isRenewalLicense
-
             year.churnCustomersAnnual.processValue(
                 customer.code,
                 customer,

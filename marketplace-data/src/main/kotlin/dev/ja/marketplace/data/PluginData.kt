@@ -6,12 +6,12 @@
 package dev.ja.marketplace.data
 
 import dev.ja.marketplace.client.*
+import dev.ja.marketplace.data.trackers.ContinuityDiscountTracker
 
 data class PluginData(
     val pluginId: PluginId,
     val pluginSummary: PluginInfoSummary,
     val pluginInfo: PluginInfo,
-    val marketplacePluginInfo: MarketplacePluginInfo,
     val pluginRating: PluginRating,
     val totalDownloads: Long,
     val downloadsMonthly: List<MonthlyDownload>,
@@ -21,5 +21,20 @@ data class PluginData(
     val sales: List<PluginSale>?,
     val licenses: List<LicenseInfo>?,
     val trials: List<PluginTrial>?,
-)
+    val marketplacePluginInfo: MarketplacePluginInfo?,
+) {
+    val continuityDiscountTracker: ContinuityDiscountTracker?
 
+    init {
+        when (licenses) {
+            null -> {
+                continuityDiscountTracker = null
+            }
+
+            else -> {
+                continuityDiscountTracker = ContinuityDiscountTracker()
+                licenses.forEach(continuityDiscountTracker::process)
+            }
+        }
+    }
+}
