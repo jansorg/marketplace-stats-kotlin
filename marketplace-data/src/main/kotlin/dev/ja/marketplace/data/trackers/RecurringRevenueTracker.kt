@@ -15,26 +15,20 @@ import java.util.*
  * Tracks recurring revenue for a given time period, e.g. one month or one year.
  */
 abstract class RecurringRevenueTracker(
-    protected val dateRange: YearMonthDayRange,
+    private val dateRange: YearMonthDayRange,
     protected val pluginInfo: MarketplacePluginInfo,
-    protected val continuityTracker: ContinuityDiscountTracker,
+    private val continuityTracker: ContinuityDiscountTracker,
 ) {
     private val latestSales = TreeMap<LicenseId, LicenseInfo>()
 
-    protected abstract fun dateRangeSubscriptionPrice(license: LicenseInfo): Amount
+    protected abstract fun dateRangeSubscriptionPrice(basePrice: Amount, licensePeriod: LicensePeriod): Amount
 
-    /**
-     * @return The expected continuity discount for the next month or year.
-     */
-    protected abstract fun nextContinuityDiscountFactor(license: LicenseInfo): Double
+    protected abstract fun nextContinuityCheckDate(date: YearMonthDay): YearMonthDay
 
     fun processLicenseSale(licenseInfo: LicenseInfo) {
         if (!licenseInfo.isPaidLicense) {
             return
         }
-
-        // track all, not just those in the filtered revenue range
-        continuityTracker.process(licenseInfo)
 
         // only keep the latest valid sale of a license
         if (isValid(licenseInfo)) {
@@ -51,7 +45,12 @@ abstract class RecurringRevenueTracker(
         var result = Amount(0)
 
         for ((_, license) in latestSales) {
-            val rangeBasePrice = dateRangeSubscriptionPrice(license)
+            val basePrice = when (license.sale.customer.type) {
+                CustomerType.Personal -> pluginInfo.individualPrice
+                CustomerType.Organization -> pluginInfo.businessPrice
+            }
+
+            val rangeBasePrice = dateRangeSubscriptionPrice(basePrice, license.sale.licensePeriod)
             val continuityFactor = nextContinuityDiscountFactor(license)
             val discounts = otherDiscountsFactor(license) * continuityFactor
 
@@ -59,6 +58,13 @@ abstract class RecurringRevenueTracker(
         }
 
         return RecurringRevenue(dateRange, result)
+    }
+
+    /**
+     * @return The expected continuity discount for the next month or year.
+     */
+    private fun nextContinuityDiscountFactor(license: LicenseInfo): Double {
+        return continuityTracker.nextContinuityFactor(license.id, nextContinuityCheckDate(license.validity.start))
     }
 
     private fun isValid(license: LicenseInfo): Boolean {
@@ -89,17 +95,12 @@ class MonthlyRecurringRevenueTracker(
     // annual subscription is 12 * monthly subscription price, calculated for a single month
     private val annualToMonthlyFactor = BigDecimal.valueOf(10.0 / 12.0)
 
-    override fun nextContinuityDiscountFactor(license: LicenseInfo): Double {
-        return continuityTracker.nextContinuityFactor(license.id, license.validity.start.add(0, 1, 0))
+    override fun nextContinuityCheckDate(date: YearMonthDay): YearMonthDay {
+        return date.add(0, 1, 0)
     }
 
-    override fun dateRangeSubscriptionPrice(license: LicenseInfo): Amount {
-        val basePrice = when (license.sale.customer.type) {
-            CustomerType.Personal -> pluginInfo.individualPrice
-            CustomerType.Organization -> pluginInfo.businessPrice
-        }
-
-        return when (license.sale.licensePeriod) {
+    override fun dateRangeSubscriptionPrice(basePrice: Amount, licensePeriod: LicensePeriod): Amount {
+        return when (licensePeriod) {
             LicensePeriod.Monthly -> basePrice
             LicensePeriod.Annual -> basePrice * annualToMonthlyFactor
         }
@@ -117,17 +118,12 @@ class AnnualRecurringRevenueTracker(
     // monthly subscription is paid 12 times per year
     private val monthlyToAnnualFactor = BigDecimal.valueOf(12)
 
-    override fun nextContinuityDiscountFactor(license: LicenseInfo): Double {
-        return continuityTracker.nextContinuityFactor(license.id, license.validity.start.add(1, 0, 0))
+    override fun nextContinuityCheckDate(date: YearMonthDay): YearMonthDay {
+        return date.add(1, 0, 0)
     }
 
-    override fun dateRangeSubscriptionPrice(license: LicenseInfo): Amount {
-        val basePrice = when (license.sale.customer.type) {
-            CustomerType.Personal -> pluginInfo.individualPrice
-            CustomerType.Organization -> pluginInfo.businessPrice
-        }
-
-        return when (license.sale.licensePeriod) {
+    override fun dateRangeSubscriptionPrice(basePrice: Amount, licensePeriod: LicensePeriod): Amount {
+        return when (licensePeriod) {
             LicensePeriod.Monthly -> basePrice * monthlyToAnnualFactor
             LicensePeriod.Annual -> basePrice * annualFactor
         }
