@@ -16,10 +16,10 @@ import java.util.*
  */
 abstract class RecurringRevenueTracker(
     protected val dateRange: YearMonthDayRange,
-    protected val pluginInfo: MarketplacePluginInfo
+    protected val pluginInfo: MarketplacePluginInfo,
+    protected val continuityTracker: ContinuityDiscountTracker,
 ) {
     private val latestSales = TreeMap<LicenseId, LicenseInfo>()
-    protected val continuityTracker = ContinuityDiscountTracker()
 
     protected abstract fun dateRangeSubscriptionPrice(license: LicenseInfo): Amount
 
@@ -36,8 +36,8 @@ abstract class RecurringRevenueTracker(
         // track all, not just those in the filtered revenue range
         continuityTracker.process(licenseInfo)
 
+        // only keep the latest valid sale of a license
         if (isValid(licenseInfo)) {
-            // only keep the latest valid license sale
             latestSales.merge(licenseInfo.id, licenseInfo) { old, new ->
                 when {
                     new.validity > old.validity -> new
@@ -83,7 +83,8 @@ abstract class RecurringRevenueTracker(
 class MonthlyRecurringRevenueTracker(
     timeRange: YearMonthDayRange,
     pluginInfo: MarketplacePluginInfo,
-) : RecurringRevenueTracker(timeRange, pluginInfo) {
+    continuityTracker: ContinuityDiscountTracker,
+) : RecurringRevenueTracker(timeRange, pluginInfo, continuityTracker) {
 
     // annual subscription is 12 * monthly subscription price, calculated for a single month
     private val annualToMonthlyFactor = BigDecimal.valueOf(10.0 / 12.0)
@@ -108,7 +109,8 @@ class MonthlyRecurringRevenueTracker(
 class AnnualRecurringRevenueTracker(
     timeRange: YearMonthDayRange,
     pluginInfo: MarketplacePluginInfo,
-) : RecurringRevenueTracker(timeRange, pluginInfo) {
+    continuityTracker: ContinuityDiscountTracker,
+) : RecurringRevenueTracker(timeRange, pluginInfo, continuityTracker) {
     // annual subscription price is 10 * monthly subscription price
     private val annualFactor = BigDecimal.valueOf(10)
 

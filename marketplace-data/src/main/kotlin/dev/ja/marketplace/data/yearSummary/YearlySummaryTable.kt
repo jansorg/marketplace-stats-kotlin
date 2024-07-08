@@ -34,7 +34,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
             this.data[year] = YearSummary(
                 PaymentAmountTracker(yearRange),
                 SimpleTrialTracker { it.date in yearRange },
-                AnnualRecurringRevenueTracker(yearRange, data.marketplacePluginInfo)
+                AnnualRecurringRevenueTracker(yearRange, data.marketplacePluginInfo!!, data.continuityDiscountTracker!!)
             )
         }
 
@@ -55,7 +55,10 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
     }
 
     override fun process(licenseInfo: LicenseInfo) {
-        data[licenseInfo.sale.date.year]!!.annualRevenue.processLicenseSale(licenseInfo)
+        // a license has to be processes by every year's arr tracker because of the continuity discount
+        data.values.forEach { yearData ->
+            yearData.annualRevenue.processLicenseSale(licenseInfo)
+        }
     }
 
     private val columnYear = DataTableColumn("year", null)
