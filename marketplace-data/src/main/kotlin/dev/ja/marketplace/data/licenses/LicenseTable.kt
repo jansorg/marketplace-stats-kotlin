@@ -118,7 +118,7 @@ class LicenseTable(
                         columnPurchaseDate to if (showPurchaseDate) purchaseDate else null,
                         columnValidityStart to license.validity.start,
                         columnValidityEnd to license.validity.end,
-                        columnCustomerName to (license.sale.customer.name ?: "—"),
+                        columnCustomerName to (license.sale.customer.name ?: NoValue),
                         columnCustomerId to LinkedCustomer(license.sale.customer.code, pluginId = pluginId!!),
                         columnAmountUSD to license.amountUSD.withCurrency(Currency.USD),
                         columnAmountFeeUSD to Marketplace.feeAmount(license.sale.date, license.amountUSD).withCurrency(Currency.USD),
@@ -155,7 +155,7 @@ class LicenseTable(
                         columnAmountUSD to amountTracker.totalAmountUSD.withCurrency(Currency.USD),
                         columnAmountFeeUSD to amountTracker.feesAmountUSD.withCurrency(Currency.USD),
                         columnAmountPaidUSD to amountTracker.paidAmountUSD.withCurrency(Currency.USD),
-                        columnLicenseId to (if (licenseCount == 0) "—" else listOfNotNull(
+                        columnLicenseId to (if (licenseCount == 0) NoValue else listOfNotNull(
                             "$activeLicenseCount active".takeIf { supportedChurnStyling },
                             "$licenseCount total"
                         ))

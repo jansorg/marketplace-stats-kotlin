@@ -123,5 +123,5 @@ class TopTrialCountriesTable(
 }
 
 private fun String.orEmptyCountry(): Country {
-    return if (isNotEmpty()) this else "—"
+    return ifEmpty { NoValue }
 }

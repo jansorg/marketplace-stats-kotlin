@@ -80,9 +80,9 @@ abstract class RecurringRevenueTracker(
 }
 
 class MonthlyRecurringRevenueTracker(
-    month: YearMonthDayRange,
+    timeRange: YearMonthDayRange,
     pluginInfo: MarketplacePluginInfo,
-) : RecurringRevenueTracker(month, pluginInfo) {
+) : RecurringRevenueTracker(timeRange, pluginInfo) {
 
     // annual subscription is 12 * monthly subscription price, calculated for a single month
     private val annualToMonthlyFactor = BigDecimal.valueOf(10.0 / 12.0)
@@ -105,9 +105,9 @@ class MonthlyRecurringRevenueTracker(
 }
 
 class AnnualRecurringRevenueTracker(
-    month: YearMonthDayRange,
+    timeRange: YearMonthDayRange,
     pluginInfo: MarketplacePluginInfo,
-) : RecurringRevenueTracker(month, pluginInfo) {
+) : RecurringRevenueTracker(timeRange, pluginInfo) {
     // annual subscription price is 10 * monthly subscription price
     private val annualFactor = BigDecimal.valueOf(10)
 

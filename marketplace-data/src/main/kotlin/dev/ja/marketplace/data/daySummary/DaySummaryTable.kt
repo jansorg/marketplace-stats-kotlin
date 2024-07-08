@@ -62,7 +62,7 @@ class DaySummaryTable(
             .flatMap { (_, countryTrials) ->
                 countryTrials.map { (country, trials) ->
                     SimpleDateTableRow(
-                        columnTrialCountry to (country.takeIf(Country::isNotEmpty) ?: "—"),
+                        columnTrialCountry to (country.takeIf(Country::isNotEmpty) ?: NoValue),
                         columnTrialCount to trials.size.toBigInteger()
                     )
                 }
