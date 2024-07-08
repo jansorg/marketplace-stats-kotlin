@@ -16,7 +16,7 @@ import java.util.*
  */
 abstract class RecurringRevenueTracker(
     private val dateRange: YearMonthDayRange,
-    protected val pluginInfo: MarketplacePluginInfo,
+    private val pluginInfo: MarketplacePluginInfo,
     private val continuityTracker: ContinuityDiscountTracker,
 ) {
     private val latestSales = TreeMap<LicenseId, LicenseInfo>()
@@ -42,7 +42,7 @@ abstract class RecurringRevenueTracker(
     }
 
     fun getResult(): RecurringRevenue {
-        var result = Amount(0)
+        val resultAmounts = AmountWithCurrencyTracker()
 
         for ((_, license) in latestSales) {
             val basePrice = when (license.sale.customer.type) {
@@ -54,7 +54,7 @@ abstract class RecurringRevenueTracker(
             val continuityFactor = nextContinuityDiscountFactor(license)
             val discounts = otherDiscountsFactor(license) * continuityFactor
 
-            result += Marketplace.paidAmount(license.validity.end, rangeBasePrice * discounts.toBigDecimal())
+            val recurringAmount = Marketplace.paidAmount(license.validity.end, rangeBasePrice * discounts.toBigDecimal())
         }
 
         return RecurringRevenue(dateRange, result)
