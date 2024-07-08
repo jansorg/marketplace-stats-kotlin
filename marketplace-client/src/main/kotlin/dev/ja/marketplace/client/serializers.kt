@@ -17,7 +17,6 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.*
-import java.math.BigDecimal
 
 @OptIn(ExperimentalSerializationApi::class)
 object YearMonthDateSerializer : KSerializer<YearMonthDay> {
@@ -47,12 +46,12 @@ object YearMonthDateSerializer : KSerializer<YearMonthDay> {
     )
 }
 
-object AmountSerializer : KSerializer<BigDecimal> {
-    override fun deserialize(decoder: Decoder): BigDecimal {
+object AmountSerializer : KSerializer<Amount> {
+    override fun deserialize(decoder: Decoder): Amount {
         return decoder.decodeString().toBigDecimal()
     }
 
-    override fun serialize(encoder: Encoder, value: BigDecimal) {
+    override fun serialize(encoder: Encoder, value: Amount) {
         encoder.encodeString(value.toPlainString())
     }
 
