@@ -27,7 +27,7 @@ class TopCountriesTable(
     "top-countries",
     if (maxItems != null) "table-centered" else "table-centered sortable",
 ), MarketplaceDataSink {
-    private fun Country.orEmptyCountry(): Country = ifEmpty { "—" }
+    private fun Country.orEmptyCountry(): Country = ifEmpty { NoValue }
 
     private val columnCountry = DataTableColumn("country", if (smallSpace) null else "Country", "col-right")
     private val columnSales = DataTableColumn("sales", if (smallSpace) null else "Total Sales", "num", preSorted = AriaSortOrder.Descending)
@@ -100,9 +100,9 @@ class TopCountriesTable(
                 SimpleDateTableRow(
                     values = mapOf(
                         columnCountry to country,
-                        columnSales to (totalSales?.withCurrency(Currency.USD) ?: "—"),
+                        columnSales to (totalSales?.withCurrency(Currency.USD) ?: NoValue),
                         columnSalesPercentage to salesPercentage,
-                        columnTrialCount to (trialsResult.totalTrials.takeUnless { it == 0 }?.toBigInteger() ?: "—"),
+                        columnTrialCount to (trialsResult.totalTrials.takeUnless { it == 0 }?.toBigInteger() ?: NoValue),
                         columnTrialsPercentage to trialPercentage,
                         columnTrialConvertedPercentage to trialConversion,
                     ),

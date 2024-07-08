@@ -103,7 +103,7 @@ class CustomerTable(
                         },
                         columnValidSince to validSince,
                         columnId to LinkedCustomer(customer.code, pluginId = pluginId!!),
-                        columnName to (customer.name ?: "—"),
+                        columnName to (customer.name ?: NoValue),
                         columnCountry to customer.country,
                         columnType to customer.type,
                         columnTotalLicenses to customerData.totalLicenses.size,

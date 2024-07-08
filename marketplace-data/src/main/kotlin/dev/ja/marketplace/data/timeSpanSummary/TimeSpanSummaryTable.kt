@@ -55,8 +55,8 @@ class TimeSpanSummaryTable(maxDays: Int, title: String) : SimpleDataTable(title,
                 mapOf(
                     columnDay to date,
                     columnSales to weekData.sales.withCurrency(Currency.USD),
-                    columnDownloads to if (date < now) weekData.downloads.toBigInteger() else "—",
-                    columnTrials to if (date <= now) weekData.trials.toBigInteger() else "—",
+                    columnDownloads to if (date < now) weekData.downloads.toBigInteger() else NoValue,
+                    columnTrials to if (date <= now) weekData.trials.toBigInteger() else NoValue,
                 ),
                 cssClass = when {
                     date == now -> "today"

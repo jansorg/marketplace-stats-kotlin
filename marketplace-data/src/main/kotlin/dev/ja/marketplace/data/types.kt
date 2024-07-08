@@ -55,3 +55,5 @@ data class LinkedChurnRate(
     val period: LicensePeriod,
     val pluginId: PluginId,
 )
+
+const val NoValue: String = "—"

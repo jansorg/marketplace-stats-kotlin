@@ -8,6 +8,7 @@ package dev.ja.marketplace.data.yearSummary
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.Currency
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.trackers.AnnualRecurringRevenueTracker
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.TrialTracker
 import dev.ja.marketplace.util.isZero
@@ -21,6 +22,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
     private data class YearSummary(
         val sales: PaymentAmountTracker,
         val trials: TrialTracker,
+        val annualRevenue: AnnualRecurringRevenueTracker,
     )
 
     override suspend fun init(data: PluginData) {
@@ -31,7 +33,8 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
             val yearRange = YearMonthDayRange.ofYear(year)
             this.data[year] = YearSummary(
                 PaymentAmountTracker(yearRange),
-                SimpleTrialTracker { it.date in yearRange }
+                SimpleTrialTracker { it.date in yearRange },
+                AnnualRecurringRevenueTracker(yearRange, data.marketplacePluginInfo)
             )
         }
 
@@ -51,12 +54,15 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
         yearData.trials.processSale(sale)
     }
 
-    override fun process(licenseInfo: LicenseInfo) {}
+    override fun process(licenseInfo: LicenseInfo) {
+        data[licenseInfo.sale.date.year]!!.annualRevenue.processLicenseSale(licenseInfo)
+    }
 
     private val columnYear = DataTableColumn("year", null)
     private val columnSalesTotal = DataTableColumn("sales", "Sales Total", "num")
     private val columnSalesFees = DataTableColumn("fees", "Fees", "num")
     private val columnSalesPaid = DataTableColumn("paid", "Paid", "num")
+    private val columnARR = DataTableColumn("arr", "ARR", "num")
     private val columnDownloads = DataTableColumn("downloads", "↓", "num", tooltip = "Downloads")
     private val columnTrials = DataTableColumn("trials", "Trials", "num")
     private val columnTrialsConverted = DataTableColumn("trials-converted", "Conv. Trials", "num")
@@ -66,6 +72,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
         columnSalesTotal,
         columnSalesFees,
         columnSalesPaid,
+        columnARR,
         columnDownloads,
         columnTrials,
         columnTrialsConverted,
@@ -73,9 +80,10 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
 
     override fun createSections(): List<DataTableSection> {
         val now = YearMonthDay.now()
+        val allTrialsResult = allTrialsTracker.getResult()
 
         val rows = data.entries.toList()
-            .dropLastWhile {  it.value.sales.totalAmountUSD.isZero() }
+            .dropLastWhile { it.value.sales.totalAmountUSD.isZero() }
             .map { (year, yearData) ->
                 val trialResult = yearData.trials.getResult()
                 SimpleDateTableRow(
@@ -84,6 +92,10 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                         columnSalesTotal to yearData.sales.totalAmountUSD.withCurrency(Currency.USD),
                         columnSalesFees to yearData.sales.feesAmountUSD.withCurrency(Currency.USD),
                         columnSalesPaid to yearData.sales.paidAmountUSD.withCurrency(Currency.USD),
+                        columnARR to (when {
+                            year != now.year -> yearData.annualRevenue.getResult().averageAmount.withCurrency(Currency.USD)
+                            else -> NoValue
+                        }),
                         columnDownloads to downloads
                             .filter { it.firstOfMonth.year == year }
                             .sumOf(MonthlyDownload::downloads)
@@ -101,7 +113,6 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                 )
             }
 
-        val allTrialsResult = allTrialsTracker.getResult()
         return listOf(
             SimpleTableSection(
                 rows = rows,
