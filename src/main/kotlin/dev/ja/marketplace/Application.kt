@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -23,6 +23,7 @@ import com.github.ajalt.clikt.parameters.types.path
 import dev.ja.marketplace.client.CachingMarketplaceClient
 import dev.ja.marketplace.client.ClientLogLevel
 import dev.ja.marketplace.client.KtorMarketplaceClient
+import dev.ja.marketplace.services.JetBrainsServices
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import java.nio.file.Files
@@ -66,7 +67,8 @@ class Application(version: String) : CliktCommand(
 
         runBlocking {
             val marketplaceClient = CachingMarketplaceClient(KtorMarketplaceClient(apiKey = apiKey, logLevel = logging))
-            val server = MarketplaceStatsServer(marketplaceClient, serverHostname, serverPort)
+            val servicesClient = JetBrainsServices()
+            val server = MarketplaceStatsServer(marketplaceClient, servicesClient, serverHostname, serverPort)
             server.start()
         }
     }

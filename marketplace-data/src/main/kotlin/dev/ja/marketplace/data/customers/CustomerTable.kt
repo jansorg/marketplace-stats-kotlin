@@ -108,7 +108,7 @@ class CustomerTable(
                         columnType to customer.type,
                         columnTotalLicenses to customerData.totalLicenses.size,
                         columnActiveLicenses to customerData.activeLicenses.size,
-                        columnSales to customerData.totalSalesUSD.withCurrency(Currency.USD),
+                        columnSales to customerData.totalSalesUSD.withCurrency(MarketplaceCurrencies.USD),
                     ),
                     cssClass = cssClass,
                     sortValues = mapOf(
@@ -124,7 +124,7 @@ class CustomerTable(
                 columnName to "${displayedCustomers.size} customers",
                 columnTotalLicenses to displayedCustomers.sumOf { it.totalLicenses.size },
                 columnActiveLicenses to displayedCustomers.sumOf { it.activeLicenses.size },
-                columnSales to displayedCustomers.sumOf { it.totalSalesUSD }.withCurrency(Currency.USD),
+                columnSales to displayedCustomers.sumOf { it.totalSalesUSD }.withCurrency(MarketplaceCurrencies.USD),
             )
         )
 

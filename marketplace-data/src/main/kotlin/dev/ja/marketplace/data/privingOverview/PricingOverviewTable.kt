@@ -6,14 +6,15 @@
 package dev.ja.marketplace.data.privingOverview
 
 import dev.ja.marketplace.client.*
-import dev.ja.marketplace.client.Currency
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.services.Countries
+import dev.ja.marketplace.services.CountryWithCurrency
 import java.text.Collator
-import java.util.*
 
-class PricingOverviewTable(private val client: MarketplaceClient) : SimpleDataTable("Pricing", "pricing", "table-column-wide"),
+class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column-wide"),
     MarketplaceDataSink {
-    private val countryPricing = mutableListOf<Pair<Locale, PluginPriceInfo>>()
+    private lateinit var pluginPricing: PluginPricing
+    private lateinit var countries: Countries
 
     private val columnEmpty = DataTableColumn("pricing-empty", "", columnSpan = 2)
     private val columnPersonal = DataTableColumn("pricing-personal", "Personal", columnSpan = 3)
@@ -32,15 +33,8 @@ class PricingOverviewTable(private val client: MarketplaceClient) : SimpleDataTa
     override val alwaysShowMainColumns: Boolean = true
 
     override suspend fun init(data: PluginData) {
-        val countryCodeToLocale = Locale.getAvailableLocales().associateBy { it.country }
-        for ((countryCode, locale) in countryCodeToLocale) {
-            try {
-                val priceInfo = client.priceInfo(data.pluginId, countryCode)
-                countryPricing += locale to priceInfo
-            } catch (e: Exception) {
-                // ignore
-            }
-        }
+        this.countries = data.countries
+        this.pluginPricing = data.pluginPricing!!
     }
 
     override fun process(licenseInfo: LicenseInfo) {
@@ -58,29 +52,37 @@ class PricingOverviewTable(private val client: MarketplaceClient) : SimpleDataTa
             columnThirdYearCommercial,
         )
 
-        val countryComparator = Comparator.comparing<Pair<Locale, PluginPriceInfo>, String>(
-            { it.first.displayCountry },
+        val countryComparator = Comparator.comparing<Pair<CountryWithCurrency, PluginPriceInfo>, String>(
+            { it.first.country.printableName },
             Collator.getInstance()
         )
 
-        val currencySections = countryPricing
-            .groupBy { Currency.of(it.second.currency.currencyIsoId) }
+        val currencyToPricing = MarketplaceCurrencies.associate { currency ->
+            currency.isoCode to countries.byCurrencyIsoCode(currency.isoCode)!!.mapNotNull { countryWithCurrency ->
+                val pricing = pluginPricing.getCountryPricing(countryWithCurrency.country.isoCode) ?: return@mapNotNull null
+                countryWithCurrency to pricing
+            }
+        }
+
+        val currencySections = currencyToPricing
             .entries
-            .sortedByDescending { it.key }
             .sortedByDescending { it.value.size } // show currencies with most entries first
-            .map { (currency, items) ->
+            .map { (currencyCode, items) ->
                 val subTableRows = items
                     .sortedWith(countryComparator)
-                    .map { (countryLocale, pricing) ->
-                        val (personalA, personalB, personalC) = pricing.prices.personal.annual.mapYears(currency)
-                        val (personalTaxedA, personalTaxedB, personalTaxedC) = pricing.prices.personal.annual.mapYearsTaxed(currency)
+                    .map { (countryWithCurrency, priceInfo) ->
+                        val currency = countryWithCurrency.currency
+                        val (personalA, personalB, personalC) = priceInfo.prices.personal.annual.mapYears(currency)
+                        val (personalTaxedA, personalTaxedB, personalTaxedC) = priceInfo.prices.personal.annual.mapYearsTaxed(currency)
 
-                        val (commercialA, commercialB, commercialC) = pricing.prices.commercial.annual.mapYears(currency)
-                        val (commercialTaxedA, commercialTaxedB, commercialTaxedC) = pricing.prices.commercial.annual.mapYearsTaxed(currency)
+                        val (commercialA, commercialB, commercialC) = priceInfo.prices.commercial.annual.mapYears(currency)
+                        val (commercialTaxedA, commercialTaxedB, commercialTaxedC) = priceInfo.prices.commercial.annual.mapYearsTaxed(
+                            currency
+                        )
 
                         SimpleDateTableRow(
                             values = mapOf(
-                                columnCountry to countryLocale.displayCountry,
+                                columnCountry to countryWithCurrency.country.printableName,
                                 columnFirstYearPersonal to listOfNotNull(personalA, personalTaxedA),
                                 columnSecondYearPersonal to listOfNotNull(personalB, personalTaxedB),
                                 columnThirdYearPersonal to listOfNotNull(personalC, personalTaxedC),
@@ -100,13 +102,13 @@ class PricingOverviewTable(private val client: MarketplaceClient) : SimpleDataTa
                         )
                     }
 
-                SimpleTableSection(rows = subTableRows, columns = subColumns, title = currency.name)
+                SimpleTableSection(rows = subTableRows, columns = subColumns, title = currencyCode)
             }
 
         return currencySections
     }
 
-    private fun PriceInfoTypeData.mapYears(currency: Currency): Triple<AmountWithCurrency, AmountWithCurrency, AmountWithCurrency> {
+    private fun PriceInfoTypeData.mapYears(currency: dev.ja.marketplace.services.Currency): Triple<AmountWithCurrency, AmountWithCurrency, AmountWithCurrency> {
         return Triple(
             firstYear.price.withCurrency(currency),
             secondYear.price.withCurrency(currency),
@@ -114,7 +116,7 @@ class PricingOverviewTable(private val client: MarketplaceClient) : SimpleDataTa
         )
     }
 
-    private fun PriceInfoTypeData.mapYearsTaxed(currency: Currency): Triple<AmountWithCurrency?, AmountWithCurrency?, AmountWithCurrency?> {
+    private fun PriceInfoTypeData.mapYearsTaxed(currency: dev.ja.marketplace.services.Currency): Triple<AmountWithCurrency?, AmountWithCurrency?, AmountWithCurrency?> {
         return Triple(
             firstYear.priceTaxed?.withCurrency(currency),
             secondYear.priceTaxed?.withCurrency(currency),

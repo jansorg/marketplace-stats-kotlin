@@ -5,6 +5,8 @@
 
 package dev.ja.marketplace.client
 
+import dev.ja.marketplace.services.Country
+import dev.ja.marketplace.services.Currency
 import kotlinx.datetime.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -17,7 +19,6 @@ typealias PluginUrl = String
 typealias PluginChannel = String
 
 typealias CustomerId = Int
-typealias Country = String
 typealias ResellerId = Int
 typealias LicenseId = String
 
@@ -27,11 +28,25 @@ typealias PluginModuleName = String
 typealias Amount = BigDecimal
 
 data class AmountWithCurrency(val amount: Amount, val currency: Currency) : Comparable<AmountWithCurrency> {
+    constructor(amount: Amount, currencyIsoId: String) : this(amount, MarketplaceCurrencies.of(currencyIsoId))
+
     override fun compareTo(other: AmountWithCurrency): Int {
         return when (this.currency) {
             other.currency -> this.amount.compareTo(other.amount)
             else -> this.currency.compareTo(other.currency)
         }
+    }
+
+    operator fun times(other: BigDecimal): AmountWithCurrency {
+        return AmountWithCurrency(amount.times(other), currency)
+    }
+
+    operator fun minus(other: BigDecimal): AmountWithCurrency {
+        return AmountWithCurrency(amount.minus(other), currency)
+    }
+
+    operator fun plus(other: BigDecimal): AmountWithCurrency {
+        return AmountWithCurrency(amount.plus(other), currency)
     }
 }
 
@@ -228,7 +243,7 @@ data class PluginVendor(
     @SerialName("countryCode")
     val countryCode: String? = null,
     @SerialName("country")
-    val country: Country? = null,
+    val country: String? = null,
     @SerialName("isVerified")
     override val isVerified: Boolean? = null,
     @SerialName("vendorId")
@@ -343,6 +358,7 @@ data class PluginSale(
     @Serializable(with = AmountSerializer::class)
     override val amountUSD: Amount,
     @SerialName("currency")
+    @Serializable(CurrencySerializer::class)
     override val currency: Currency,
     @SerialName("period")
     val licensePeriod: LicensePeriod,
@@ -359,37 +375,29 @@ data class PluginSale(
     }
 }
 
-@Serializable
-enum class Currency {
-    @SerialName("USD")
-    USD,
+object MarketplaceCurrencies : Iterable<Currency> {
+    val USD = Currency("USD", "US $", true)
+    val EUR = Currency("EUR", "Є", true)
+    val JPY = Currency("JPY", "JPY", false)
+    val GBP = Currency("GBP", "£", true)
+    val CZK = Currency("CZK", "Kč", false)
+    val CNY = Currency("CNY", "CNY", false)
 
-    @SerialName("EUR")
-    EUR,
+    private val allCurrencies = listOf(USD, EUR, JPY, GBP, CZK, CNY)
 
-    @SerialName("JPY")
-    JPY,
+    override fun iterator(): Iterator<Currency> {
+        return allCurrencies.iterator()
+    }
 
-    @SerialName("GBP")
-    GBP,
-
-    @SerialName("CZK")
-    CZK,
-
-    @SerialName("CNY")
-    CNY;
-
-    companion object {
-        fun of(id: String): Currency {
-            return when (id) {
-                "USD" -> USD
-                "EUR" -> EUR
-                "JPY" -> JPY
-                "GBP" -> GBP
-                "CZK" -> CZK
-                "CNY" -> CNY
-                else -> throw IllegalStateException("Unknown currency $id")
-            }
+    fun of(id: String): Currency {
+        return when (id) {
+            "USD" -> USD
+            "EUR" -> EUR
+            "JPY" -> JPY
+            "GBP" -> GBP
+            "CZK" -> CZK
+            "CNY" -> CNY
+            else -> throw IllegalStateException("Unknown currency $id")
         }
     }
 }
@@ -408,7 +416,7 @@ data class CustomerInfo(
     @SerialName("code")
     val code: CustomerId,
     @SerialName("country")
-    val country: Country,
+    val country: String,
     @SerialName("type")
     val type: CustomerType,
     @SerialName("name")
@@ -437,7 +445,7 @@ data class ResellerInfo(
     @SerialName("name")
     val name: String,
     @SerialName("country")
-    val country: Country,
+    val country: String,
     @SerialName("type")
     val type: ResellerType,
 ) {
@@ -675,14 +683,14 @@ data class DownloadFilter(
         }
 
         fun country(country: Country): DownloadFilter {
-            return DownloadFilter(DownloadFilterType.Country, country)
+            return DownloadFilter(DownloadFilterType.Country, country.printableName)
         }
 
         fun productCode(productCode: String): DownloadFilter {
             return DownloadFilter(DownloadFilterType.ProductCode, productCode)
         }
 
-        fun majorVersion(majorVersion: Country): DownloadFilter {
+        fun majorVersion(majorVersion: String): DownloadFilter {
             return DownloadFilter(DownloadFilterType.MajorVersion, majorVersion)
         }
     }

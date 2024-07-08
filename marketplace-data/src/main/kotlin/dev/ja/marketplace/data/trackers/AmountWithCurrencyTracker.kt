@@ -7,21 +7,22 @@ package dev.ja.marketplace.data.trackers
 
 import dev.ja.marketplace.client.Amount
 import dev.ja.marketplace.client.AmountWithCurrency
-import dev.ja.marketplace.client.Currency
-import java.util.*
+import dev.ja.marketplace.services.Currency
+import java.util.TreeMap
 
 /**
  * Tracks amounts with currency.
  */
 class AmountWithCurrencyTracker {
-    private val amounts = TreeMap<Currency, Amount>()
+    // currency code to amount
+    private val amounts = TreeMap<String, Amount>()
 
     fun getValues(): List<AmountWithCurrency> {
         return amounts.entries.map { AmountWithCurrency(it.value, it.key) }
     }
 
     fun getAmount(currency: Currency): Amount {
-        return amounts[currency] ?: Amount.ZERO
+        return amounts[currency.isoCode] ?: Amount.ZERO
     }
 
     fun add(amount: AmountWithCurrency) {
@@ -29,6 +30,10 @@ class AmountWithCurrencyTracker {
     }
 
     fun add(amount: Amount, currency: Currency) {
-        amounts.merge(currency, amount) { sum, new -> sum + new }
+        amounts.merge(currency.isoCode, amount) { sum, new -> sum + new }
+    }
+
+    operator fun plusAssign(paidAmount: AmountWithCurrency) {
+        add(paidAmount)
     }
 }

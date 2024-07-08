@@ -6,7 +6,6 @@
 package dev.ja.marketplace.data.timeSpanSummary
 
 import dev.ja.marketplace.client.*
-import dev.ja.marketplace.client.Currency
 import dev.ja.marketplace.data.*
 import java.math.BigDecimal
 import java.util.*
@@ -54,7 +53,7 @@ class TimeSpanSummaryTable(maxDays: Int, title: String) : SimpleDataTable(title,
             SimpleDateTableRow(
                 mapOf(
                     columnDay to date,
-                    columnSales to weekData.sales.withCurrency(Currency.USD),
+                    columnSales to weekData.sales.withCurrency(MarketplaceCurrencies.USD),
                     columnDownloads to if (date < now) weekData.downloads.toBigInteger() else NoValue,
                     columnTrials to if (date <= now) weekData.trials.toBigInteger() else NoValue,
                 ),
@@ -70,7 +69,7 @@ class TimeSpanSummaryTable(maxDays: Int, title: String) : SimpleDataTable(title,
             SimpleTableSection(
                 rows, footer = SimpleTableSection(
                     SimpleDateTableRow(
-                        columnSales to data.values.sumOf { it.sales }.withCurrency(Currency.USD),
+                        columnSales to data.values.sumOf { it.sales }.withCurrency(MarketplaceCurrencies.USD),
                         columnDownloads to data.values.sumOf { it.downloads },
                         columnTrials to data.values.sumOf { it.trials },
                     )

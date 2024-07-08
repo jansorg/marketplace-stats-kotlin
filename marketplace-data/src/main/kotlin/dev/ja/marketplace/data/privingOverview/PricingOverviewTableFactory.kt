@@ -11,6 +11,6 @@ import dev.ja.marketplace.data.MarketplaceDataSinkFactory
 
 class PricingOverviewTableFactory : MarketplaceDataSinkFactory {
     override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
-        return PricingOverviewTable(client)
+        return PricingOverviewTable()
     }
 }

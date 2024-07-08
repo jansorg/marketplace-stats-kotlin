@@ -7,6 +7,7 @@ package dev.ja
 
 import dev.ja.marketplace.TestCustomers
 import dev.ja.marketplace.client.*
+import dev.ja.marketplace.services.Currency
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
 
@@ -17,7 +18,7 @@ object SalesGenerator {
         validity: YearMonthDayRange? = null,
         customer: CustomerInfo? = null,
         amount: Amount? = null,
-        currency: Currency = Currency.USD,
+        currency: Currency = MarketplaceCurrencies.USD,
         saleType: PluginSaleItemType = PluginSaleItemType.New,
     ): PluginSale {
         val start = saleDate ?: nextDate()

@@ -24,4 +24,8 @@ object Marketplace {
     fun paidAmount(date: YearMonthDay, amount: Amount): Amount {
         return amount - feeAmount(date, amount)
     }
+
+    fun paidAmount(date: YearMonthDay, amount: AmountWithCurrency): AmountWithCurrency {
+        return amount - feeAmount(date, amount.amount)
+    }
 }

@@ -27,35 +27,7 @@ class KtorMarketplaceClient(
     private val apiPath: String = "api",
     private val logLevel: ClientLogLevel = ClientLogLevel.None,
 ) : MarketplaceClient {
-    private val httpClient = HttpClient(Java) {
-        install(Logging) {
-            level = logLevel.ktorLogLevel
-        }
-        install(Resources)
-        install(HttpCache)
-        install(ContentNegotiation) {
-            json(Json {
-                prettyPrint = true
-                ignoreUnknownKeys = true
-                // to support parsing `Amount` floats as BigDecimal
-                isLenient = true
-            })
-        }
-
-        install(DefaultRequest) {
-            url {
-                protocol = URLProtocol.HTTPS
-                host = apiHost
-            }
-            bearerAuth(apiKey)
-            header("Content-Type", "application/json")
-        }
-
-        expectSuccess = true
-        engine {
-            pipelining = true
-        }
-    }
+    private val httpClient = KtorHttpClientFactory.createHttpClient(apiHost, apiKey, logLevel)
 
     override fun assetUrl(path: String): String {
         return "https://$apiHost/${path.removePrefix("/")}"

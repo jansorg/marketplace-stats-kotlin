@@ -28,6 +28,7 @@ import dev.ja.marketplace.data.trials.TrialsTable
 import dev.ja.marketplace.data.trials.TrialsTableFactory
 import dev.ja.marketplace.data.timeSpanSummary.TimeSpanSummaryFactory
 import dev.ja.marketplace.data.yearSummary.YearlySummaryFactory
+import dev.ja.marketplace.services.JetBrainsServices
 import gg.jte.ContentType
 import gg.jte.TemplateEngine
 import io.ktor.http.*
@@ -45,13 +46,14 @@ import io.ktor.util.pipeline.*
 
 class MarketplaceStatsServer(
     private val client: MarketplaceClient,
+    private val servicesClient: JetBrainsServices,
     private val host: String = "0.0.0.0",
     private val port: Int = 8080
 ) {
     private lateinit var allPlugins: List<PluginInfoSummary>
 
     private fun getDataLoader(plugin: PluginInfoSummary): PluginDataLoader {
-        return PluginDataLoader(plugin, client)
+        return PluginDataLoader(plugin, client, servicesClient)
     }
 
     private fun PipelineContext<Unit, ApplicationCall>.getDataLoader(): PluginDataLoader? {
