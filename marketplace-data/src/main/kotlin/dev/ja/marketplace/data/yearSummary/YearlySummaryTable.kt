@@ -6,7 +6,6 @@
 package dev.ja.marketplace.data.yearSummary
 
 import dev.ja.marketplace.client.*
-import dev.ja.marketplace.client.Currency
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.AnnualRecurringRevenueTracker
 import dev.ja.marketplace.data.trackers.PaymentAmountTracker
@@ -35,9 +34,9 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
             this.data[year] = YearSummary(
                 PaymentAmountTracker(yearRange),
                 SimpleTrialTracker { it.date in yearRange },
-                AnnualRecurringRevenueTracker(yearRange, data.marketplacePluginInfo!!, data.continuityDiscountTracker!!)
+                AnnualRecurringRevenueTracker(yearRange, data.continuityDiscountTracker!!, data.pluginPricing!!)
             )
-        }
+       }
 
         if (data.trials != null) {
             for (trial in data.trials) {
@@ -93,11 +92,11 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                 SimpleDateTableRow(
                     values = mapOf(
                         columnYear to year,
-                        columnSalesTotal to yearData.sales.totalAmountUSD.withCurrency(Currency.USD),
-                        columnSalesFees to yearData.sales.feesAmountUSD.withCurrency(Currency.USD),
-                        columnSalesPaid to yearData.sales.paidAmountUSD.withCurrency(Currency.USD),
+                        columnSalesTotal to yearData.sales.totalAmountUSD.withCurrency(MarketplaceCurrencies.USD),
+                        columnSalesFees to yearData.sales.feesAmountUSD.withCurrency(MarketplaceCurrencies.USD),
+                        columnSalesPaid to yearData.sales.paidAmountUSD.withCurrency(MarketplaceCurrencies.USD),
                         columnARR to (when {
-                            year != now.year -> yearData.annualRevenue.getResult().averageAmount.withCurrency(Currency.USD)
+                            year != now.year -> yearData.annualRevenue.getResult().amounts.getValues()
                             else -> NoValue
                         }),
                         columnDownloads to downloads
@@ -122,9 +121,9 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                 rows = rows,
                 footer = SimpleTableSection(
                     SimpleDateTableRow(
-                        columnSalesTotal to data.values.sumOf { it.sales.totalAmountUSD }.withCurrency(Currency.USD),
-                        columnSalesFees to data.values.sumOf { it.sales.feesAmountUSD }.withCurrency(Currency.USD),
-                        columnSalesPaid to data.values.sumOf { it.sales.paidAmountUSD }.withCurrency(Currency.USD),
+                        columnSalesTotal to data.values.sumOf { it.sales.totalAmountUSD }.withCurrency(MarketplaceCurrencies.USD),
+                        columnSalesFees to data.values.sumOf { it.sales.feesAmountUSD }.withCurrency(MarketplaceCurrencies.USD),
+                        columnSalesPaid to data.values.sumOf { it.sales.paidAmountUSD }.withCurrency(MarketplaceCurrencies.USD),
                         columnDownloads to downloads.sumOf { it.downloads.toBigInteger() },
                         columnTrials to allTrialsResult.totalTrials.toBigInteger(),
                         columnTrialsConverted to allTrialsResult.convertedTrialsPercentage,

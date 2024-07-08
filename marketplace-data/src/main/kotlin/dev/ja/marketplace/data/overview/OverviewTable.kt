@@ -8,7 +8,6 @@ package dev.ja.marketplace.data.overview
 import dev.ja.marketplace.churn.ChurnProcessor
 import dev.ja.marketplace.churn.MarketplaceChurnProcessor
 import dev.ja.marketplace.client.*
-import dev.ja.marketplace.client.Currency
 import dev.ja.marketplace.client.LicenseId
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.overview.OverviewTable.CustomerSegment.*
@@ -216,11 +215,11 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     }
 
     private fun createMonthlyRecurringRevenueTracker(month: YearMonthDayRange, pluginData: PluginData): RecurringRevenueTracker {
-        return MonthlyRecurringRevenueTracker(month, pluginData.marketplacePluginInfo!!, pluginData.continuityDiscountTracker!!)
+        return MonthlyRecurringRevenueTracker(month, pluginData.continuityDiscountTracker!!, pluginData.pluginPricing!!)
     }
 
     private fun createAnnualRecurringRevenueTracker(month: YearMonthDayRange, pluginData: PluginData): RecurringRevenueTracker {
-        return AnnualRecurringRevenueTracker(month, pluginData.marketplacePluginInfo!!, pluginData.continuityDiscountTracker!!)
+        return AnnualRecurringRevenueTracker(month, pluginData.continuityDiscountTracker!!, pluginData.pluginPricing!!)
     }
 
     override fun process(sale: PluginSale) {
@@ -320,8 +319,8 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                 val rows = yearData.months.entries.map { (month, monthData) ->
                     val isCurrentMonth = now.year == year && now.month == month
 
-                    val mrrValue = monthData.mrrTracker.getResult().averageAmount.takeUnless { isCurrentMonth }
-                    val arrValue = monthData.arrTracker.getResult().averageAmount.takeUnless { isCurrentMonth }
+                    val mrrValue = monthData.mrrTracker.getResult().amounts.getValues().takeUnless { isCurrentMonth }
+                    val arrValue = monthData.arrTracker.getResult().amounts.getValues().takeUnless { isCurrentMonth }
 
                     val annualLicenseChurn = monthData.churnLicensesAnnual.getResult(LicensePeriod.Annual).takeUnless { isCurrentMonth }
                     val annualLicenseChurnRate = annualLicenseChurn?.getRenderedChurnRate(pluginId)
@@ -387,11 +386,11 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                             columnActiveCustomersPaying to totalCustomersPaying.toBigInteger(),
                             columnActiveLicenses to totalLicenses.toBigInteger(),
                             columnActiveLicensesPaying to totalLicensesPaying.toBigInteger(),
-                            columnMonthlyRecurringRevenue to (mrrValue?.withCurrency(Currency.USD) ?: NoValue),
-                            columnAnnualRecurringRevenue to (arrValue?.withCurrency(Currency.USD) ?: NoValue),
-                            columnAmountTotalUSD to monthData.amounts.totalAmountUSD.withCurrency(Currency.USD),
-                            columnAmountFeesUSD to monthData.amounts.feesAmountUSD.withCurrency(Currency.USD),
-                            columnAmountPaidUSD to monthData.amounts.paidAmountUSD.withCurrency(Currency.USD),
+                            columnMonthlyRecurringRevenue to (mrrValue ?: NoValue),
+                            columnAnnualRecurringRevenue to (arrValue ?: NoValue),
+                            columnAmountTotalUSD to monthData.amounts.totalAmountUSD.withCurrency(MarketplaceCurrencies.USD),
+                            columnAmountFeesUSD to monthData.amounts.feesAmountUSD.withCurrency(MarketplaceCurrencies.USD),
+                            columnAmountPaidUSD to monthData.amounts.paidAmountUSD.withCurrency(MarketplaceCurrencies.USD),
                             columnLicenseChurnAnnual to (annualLicenseChurnRate ?: NoValue),
                             columnLicenseChurnMonthly to (monthlyLicenseChurnRate ?: NoValue),
                             columnDownloads to (downloadCount.takeIf { it > 0 }?.toBigInteger() ?: NoValue),

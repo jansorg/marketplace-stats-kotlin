@@ -6,7 +6,6 @@
 package dev.ja.marketplace.data.topCountries
 
 import dev.ja.marketplace.client.*
-import dev.ja.marketplace.client.Currency
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.TrialTracker
@@ -27,7 +26,7 @@ class TopCountriesTable(
     "top-countries",
     if (maxItems != null) "table-centered" else "table-centered sortable",
 ), MarketplaceDataSink {
-    private fun Country.orEmptyCountry(): Country = ifEmpty { NoValue }
+    private fun String.orEmptyCountry(): String = ifEmpty { NoValue }
 
     private val columnCountry = DataTableColumn("country", if (smallSpace) null else "Country", "col-right")
     private val columnSales = DataTableColumn("sales", if (smallSpace) null else "Total Sales", "num", preSorted = AriaSortOrder.Descending)
@@ -46,7 +45,7 @@ class TopCountriesTable(
         tooltip = "Percentage of trials which turned into a subscription after the trial started"
     )
 
-    private val data = TreeMap<Country, CountryData>()
+    private val data = TreeMap<String, CountryData>()
     private val allTrialsTracker: TrialTracker = SimpleTrialTracker()
 
     override val columns: List<DataTableColumn> = listOfNotNull(
@@ -100,7 +99,7 @@ class TopCountriesTable(
                 SimpleDateTableRow(
                     values = mapOf(
                         columnCountry to country,
-                        columnSales to (totalSales?.withCurrency(Currency.USD) ?: NoValue),
+                        columnSales to (totalSales?.withCurrency(MarketplaceCurrencies.USD) ?: NoValue),
                         columnSalesPercentage to salesPercentage,
                         columnTrialCount to (trialsResult.totalTrials.takeUnless { it == 0 }?.toBigInteger() ?: NoValue),
                         columnTrialsPercentage to trialPercentage,
@@ -130,7 +129,7 @@ class TopCountriesTable(
                                 "$countriesWithSales with sales",
                                 "$countriesWithTrials with trials",
                             ),
-                            columnSales to totalSalesAmount.withCurrency(Currency.USD),
+                            columnSales to totalSalesAmount.withCurrency(MarketplaceCurrencies.USD),
                             columnTrialCount to totalTrialCount.toBigInteger(),
                             columnTrialConvertedPercentage to allTrialsResult.convertedTrialsPercentage,
                         )

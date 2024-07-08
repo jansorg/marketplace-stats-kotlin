@@ -5,7 +5,9 @@
 
 package dev.ja.marketplace.data.trials
 
-import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.PluginId
+import dev.ja.marketplace.client.PluginTrial
+import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.util.takeNullable
 import java.util.*
@@ -64,7 +66,7 @@ class TrialsTable(
                         columnRefId to trial.referenceId,
                         columnCustomer to LinkedCustomer(trial.customer.code, pluginId = pluginId!!),
                         columnCustomerType to trial.customer.type,
-                        columnCustomerCountry to trial.customer.country.takeIf(Country::isNotBlank),
+                        columnCustomerCountry to trial.customer.country.takeIf(String::isNotBlank),
                     ),
                     htmlId = if (day == today) "today" else null,
                 )

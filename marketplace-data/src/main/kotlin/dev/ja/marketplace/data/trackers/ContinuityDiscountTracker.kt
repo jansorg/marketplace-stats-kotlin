@@ -6,6 +6,7 @@
 package dev.ja.marketplace.data.trackers
 
 import dev.ja.marketplace.client.YearMonthDay
+import dev.ja.marketplace.data.ContinuityDiscount
 import dev.ja.marketplace.data.LicenseId
 import dev.ja.marketplace.data.LicenseInfo
 import java.util.*
@@ -23,13 +24,13 @@ class ContinuityDiscountTracker {
         }
     }
 
-    fun nextContinuityFactor(licenseId: LicenseId, atDate: YearMonthDay): Double {
-        val latestNewSale = newSalesValidity[licenseId]?.lastOrNull { it.validity.end < atDate } ?: return 1.0
+    fun nextContinuity(licenseId: LicenseId, atDate: YearMonthDay): ContinuityDiscount {
+        val latestNewSale = newSalesValidity[licenseId]?.lastOrNull { it.validity.end < atDate } ?: return ContinuityDiscount.FirstYear
         val months = latestNewSale.validity.start.monthsUntil(atDate)
         return when {
-            months >= 24 -> 0.6 // 40% in the 3rd year or later
-            months >= 12 -> 0.8 // 20% in the 2nd year or later
-            else -> 1.0 // 0%
+            months >= 24 -> ContinuityDiscount.ThirdYear
+            months >= 12 -> ContinuityDiscount.SecondYear
+            else -> ContinuityDiscount.FirstYear
         }
     }
 }

@@ -50,12 +50,12 @@ class ResellerTable : SimpleDataTable("Resellers", cssClass = "table-column-wide
                     columnType to row.resellerInfo.type.displayString,
                     columnCustomerCount to row.customers.size,
                     columnLicenseCount to row.licenses.size,
-                    columnTotalSales to row.totalSales.withCurrency(Currency.USD),
+                    columnTotalSales to row.totalSales.withCurrency(MarketplaceCurrencies.USD),
                 )
             }
 
         val footer = SimpleDateTableRow(
-            columnTotalSales to data.values.sumOf { it.totalSales }.withCurrency(Currency.USD),
+            columnTotalSales to data.values.sumOf { it.totalSales }.withCurrency(MarketplaceCurrencies.USD),
             columnLicenseCount to data.values.sumOf { it.licenses.size },
             columnCustomerCount to data.values.sumOf { it.customers.size },
         )

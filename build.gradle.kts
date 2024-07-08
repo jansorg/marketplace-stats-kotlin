@@ -52,6 +52,9 @@ allprojects {
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-serialization-json-jvm
         implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
 
+        // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-coroutines-core
+        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+
         // https://mvnrepository.com/artifact/it.unimi.dsi/fastutil-core
         implementation("it.unimi.dsi:fastutil-core:8.5.13")
 
@@ -96,9 +99,6 @@ project(":") {
 
         // https://mvnrepository.com/artifact/gg.jte/jte
         implementation("gg.jte:jte:3.1.10")
-
-        // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-coroutines-core
-        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
 
         runtimeOnly(provider {
             files(tasks.precompileJte.get().targetDirectory)

@@ -5,7 +5,6 @@
 
 package dev.ja.marketplace.data.topTrialCountries
 
-import dev.ja.marketplace.client.Country
 import dev.ja.marketplace.client.PluginSale
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
@@ -39,8 +38,8 @@ class TopTrialCountriesTable(
         tooltip = "Percentage of trials which turned into a subscription after the trial started"
     )
 
-    private val data = TreeMap<Country, Int>()
-    private val countryTrialConversion = TreeMap<Country, TrialTracker>()
+    private val data = TreeMap<String, Int>()
+    private val countryTrialConversion = TreeMap<String, TrialTracker>()
     private val allTrialsTracker: TrialTracker = SimpleTrialTracker()
 
     override val columns: List<DataTableColumn> = listOfNotNull(
@@ -86,7 +85,7 @@ class TopTrialCountriesTable(
     override fun createSections(): List<DataTableSection> {
         val totalTrialCount = data.values.sumOf { it }
         val rows = data.entries
-            .sortedByDescending(Map.Entry<Country, Int>::value)
+            .sortedByDescending(Map.Entry<String, Int>::value)
             .take(maxItems ?: Int.MAX_VALUE)
             .map { (country, trialCount) ->
                 val trialPercentage = PercentageValue.of(trialCount, totalTrialCount)
@@ -122,6 +121,6 @@ class TopTrialCountriesTable(
     }
 }
 
-private fun String.orEmptyCountry(): Country {
+private fun String.orEmptyCountry(): String {
     return ifEmpty { NoValue }
 }

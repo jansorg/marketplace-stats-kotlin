@@ -1,12 +1,11 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 package dev.ja.marketplace.data.customerType
 
 import dev.ja.marketplace.client.*
-import dev.ja.marketplace.client.Currency
 import dev.ja.marketplace.data.*
 import java.util.*
 
@@ -31,7 +30,7 @@ class CustomerTypeTable : SimpleDataTable("Customer Type", "customer-type"), Mar
         val rows = data.entries.map { (customerType, amount) ->
             SimpleDateTableRow(
                 columnType to customerType,
-                columnAmount to amount.withCurrency(Currency.USD),
+                columnAmount to amount.withCurrency(MarketplaceCurrencies.USD),
                 columnPercentage to PercentageValue.of(amount, totalAmount)
             )
         }
@@ -41,7 +40,7 @@ class CustomerTypeTable : SimpleDataTable("Customer Type", "customer-type"), Mar
                 rows,
                 footer = SimpleTableSection(
                     SimpleDateTableRow(
-                        columnAmount to totalAmount.withCurrency(Currency.USD),
+                        columnAmount to totalAmount.withCurrency(MarketplaceCurrencies.USD),
                         columnPercentage to PercentageValue.ONE_HUNDRED,
                     )
                 )

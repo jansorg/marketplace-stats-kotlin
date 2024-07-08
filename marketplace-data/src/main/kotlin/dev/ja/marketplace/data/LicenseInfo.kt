@@ -6,6 +6,7 @@
 package dev.ja.marketplace.data
 
 import dev.ja.marketplace.client.*
+import dev.ja.marketplace.services.Currency
 import java.math.BigInteger
 
 typealias LicenseId = dev.ja.marketplace.client.LicenseId

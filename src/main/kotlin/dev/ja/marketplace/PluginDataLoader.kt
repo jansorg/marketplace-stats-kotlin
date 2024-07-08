@@ -10,12 +10,15 @@ import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.client.PluginInfoSummary
 import dev.ja.marketplace.data.LicenseInfo
 import dev.ja.marketplace.data.PluginData
+import dev.ja.marketplace.data.PluginPricing
+import dev.ja.marketplace.services.JetBrainsServices
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 
-class PluginDataLoader(val plugin: PluginInfoSummary, val client: MarketplaceClient) {
+class PluginDataLoader(val plugin: PluginInfoSummary, val client: MarketplaceClient, val servicesClient: JetBrainsServices) {
     suspend fun load(): PluginData {
         return coroutineScope {
+            val countries = async { servicesClient.countries() }
             val pluginInfo = async { client.pluginInfo(plugin.id) }
             val pluginRating = async { client.pluginRating(plugin.id) }
             val downloadsTotal = async { client.downloadsTotal(plugin.id) }
@@ -39,8 +42,13 @@ class PluginDataLoader(val plugin: PluginInfoSummary, val client: MarketplaceCli
                 plugin.isPaidOrFreemium -> async { client.marketplacePluginInfo(plugin.id) }
                 else -> null
             }
+            val pricingInfo = when {
+                plugin.isPaidOrFreemium -> async { PluginPricing.create(countries.await(), plugin.id, client) }
+                else -> null
+            }
 
             PluginData(
+                countries.await(),
                 plugin.id,
                 plugin,
                 pluginInfo.await(),
@@ -53,6 +61,7 @@ class PluginDataLoader(val plugin: PluginInfoSummary, val client: MarketplaceCli
                 licenseInfo?.await(),
                 trials?.await(),
                 marketplacePluginInfo?.await(),
+                pricingInfo?.await(),
             )
         }
     }

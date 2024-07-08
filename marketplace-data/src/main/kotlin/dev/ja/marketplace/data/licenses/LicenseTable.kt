@@ -121,9 +121,9 @@ class LicenseTable(
                         columnValidityEnd to license.validity.end,
                         columnCustomerName to (license.sale.customer.name ?: NoValue),
                         columnCustomerId to LinkedCustomer(license.sale.customer.code, pluginId = pluginId!!),
-                        columnAmountUSD to license.amountUSD.withCurrency(Currency.USD),
-                        columnAmountFeeUSD to Marketplace.feeAmount(license.sale.date, license.amountUSD).withCurrency(Currency.USD),
-                        columnAmountPaidUSD to Marketplace.paidAmount(license.sale.date, license.amountUSD).withCurrency(Currency.USD),
+                        columnAmountUSD to license.amountUSD.withCurrency(MarketplaceCurrencies.USD),
+                        columnAmountFeeUSD to Marketplace.feeAmount(license.sale.date, license.amountUSD).withCurrency(MarketplaceCurrencies.USD),
+                        columnAmountPaidUSD to Marketplace.paidAmount(license.sale.date, license.amountUSD).withCurrency(MarketplaceCurrencies.USD),
                         columnLicenseType to license.sale.licensePeriod,
                         columnLicenseRenewalType to license.saleLineItem.type,
                         columnDiscount to license.saleLineItem.discountDescriptions
@@ -153,9 +153,9 @@ class LicenseTable(
             showFooter -> SimpleRowGroup(
                 SimpleDateTableRow(
                     values = mapOf(
-                        columnAmountUSD to amountTracker.totalAmountUSD.withCurrency(Currency.USD),
-                        columnAmountFeeUSD to amountTracker.feesAmountUSD.withCurrency(Currency.USD),
-                        columnAmountPaidUSD to amountTracker.paidAmountUSD.withCurrency(Currency.USD),
+                        columnAmountUSD to amountTracker.totalAmountUSD.withCurrency(MarketplaceCurrencies.USD),
+                        columnAmountFeeUSD to amountTracker.feesAmountUSD.withCurrency(MarketplaceCurrencies.USD),
+                        columnAmountPaidUSD to amountTracker.paidAmountUSD.withCurrency(MarketplaceCurrencies.USD),
                         columnLicenseId to (if (licenseCount == 0) NoValue else listOfNotNull(
                             "$activeLicenseCount active".takeIf { supportedChurnStyling },
                             "$licenseCount total"

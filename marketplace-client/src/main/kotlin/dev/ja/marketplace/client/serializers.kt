@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.client
 
+import dev.ja.marketplace.services.Currency
 import kotlinx.datetime.Instant
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
@@ -55,7 +56,19 @@ object AmountSerializer : KSerializer<Amount> {
         encoder.encodeString(value.toPlainString())
     }
 
-    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("BigDecimal", PrimitiveKind.STRING)
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("Amount", PrimitiveKind.STRING)
+}
+
+object CurrencySerializer : KSerializer<Currency> {
+    override fun deserialize(decoder: Decoder): Currency {
+        return MarketplaceCurrencies.of(decoder.decodeString())
+    }
+
+    override fun serialize(encoder: Encoder, value: Currency) {
+        encoder.encodeString(value.isoCode)
+    }
+
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("Currency", PrimitiveKind.STRING)
 }
 
 object CDateSerializer : KSerializer<Instant> {

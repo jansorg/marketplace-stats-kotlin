@@ -51,7 +51,7 @@ class DaySummaryTable(
                     SimpleDateTableRow(
                         columnCustomerType to type,
                         columnSubscriptionType to licensePeriod,
-                        columnAmount to sales.sumOf { it.amountUSD }.withCurrency(Currency.USD),
+                        columnAmount to sales.sumOf { it.amountUSD }.withCurrency(MarketplaceCurrencies.USD),
                     )
                 }
             }.sortedByDescending { it.values[columnAmount] as? AmountWithCurrency }
@@ -62,7 +62,7 @@ class DaySummaryTable(
             .flatMap { (_, countryTrials) ->
                 countryTrials.map { (country, trials) ->
                     SimpleDateTableRow(
-                        columnTrialCountry to (country.takeIf(Country::isNotEmpty) ?: NoValue),
+                        columnTrialCountry to (country.takeIf(String::isNotEmpty) ?: NoValue),
                         columnTrialCount to trials.size.toBigInteger()
                     )
                 }
@@ -73,7 +73,8 @@ class DaySummaryTable(
             SimpleTableSection(
                 rows = salesTable,
                 columns = listOf(columnSubscriptionType, columnCustomerType, columnAmount),
-                footer = SimpleRowGroup(SimpleDateTableRow(columnAmount to sales.sumOf { it.amountUSD }.withCurrency(Currency.USD)))
+                footer = SimpleRowGroup(SimpleDateTableRow(columnAmount to sales.sumOf { it.amountUSD }
+                    .withCurrency(MarketplaceCurrencies.USD)))
             ),
             SimpleTableSection(
                 title = "",
