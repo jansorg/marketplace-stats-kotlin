@@ -18,7 +18,7 @@ abstract class RecurringRevenueTracker(
     protected val dateRange: YearMonthDayRange,
     protected val pluginInfo: MarketplacePluginInfo
 ) {
-    protected val latestSales = TreeMap<LicenseId, LicenseInfo>()
+    private val latestSales = TreeMap<LicenseId, LicenseInfo>()
     protected val continuityTracker = ContinuityDiscountTracker()
 
     protected abstract fun dateRangeSubscriptionPrice(license: LicenseInfo): Amount
@@ -51,11 +51,10 @@ abstract class RecurringRevenueTracker(
         var result = Amount(0)
 
         for ((_, license) in latestSales) {
-            val currentContinuity = license.saleLineItem.discountDescriptions.firstOrNull { it.isContinuityDiscount }
-
             val rangeBasePrice = dateRangeSubscriptionPrice(license)
             val continuityFactor = nextContinuityDiscountFactor(license)
             val discounts = otherDiscountsFactor(license) * continuityFactor
+
             result += Marketplace.paidAmount(license.validity.end, rangeBasePrice * discounts.toBigDecimal())
         }
 
@@ -63,7 +62,9 @@ abstract class RecurringRevenueTracker(
     }
 
     private fun isValid(license: LicenseInfo): Boolean {
-        return dateRange.start in license.validity || dateRange.end in license.validity
+        // Only take licenses which are valid at the end of the date range, e.g. at the end of a month.
+        // Licenses only valid at the start but expiring in the middle of a month do not contribute to recurring revenue.
+        return dateRange.end in license.validity
     }
 
     private fun otherDiscountsFactor(licenseInfo: LicenseInfo): Double {
