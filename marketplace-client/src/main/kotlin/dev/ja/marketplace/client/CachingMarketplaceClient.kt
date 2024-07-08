@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.client
 
+import io.ktor.client.plugins.*
 import io.ktor.util.collections.*
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
@@ -160,8 +161,12 @@ class CachingMarketplaceClient(
             else -> {
                 val newCacheItem = try {
                     CacheItem(now, dataProvider(), null)
-                } catch (e: Throwable) {
-                    CacheItem(now, null, e)
+                } catch (e: ClientRequestException) {
+                    val status = e.response.status.value
+                    when {
+                        status < 500 -> CacheItem(now, null,e)
+                        else -> throw e
+                    }
                 }
 
                 genericDataCache[key] = newCacheItem
