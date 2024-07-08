@@ -8,6 +8,7 @@ package dev.ja.marketplace.data.licenses
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.LicenseId
+import dev.ja.marketplace.data.trackers.PaymentAmountTracker
 import dev.ja.marketplace.util.takeNullable
 
 class LicenseTable(
