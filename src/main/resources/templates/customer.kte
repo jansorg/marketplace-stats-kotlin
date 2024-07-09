@@ -1,5 +1,5 @@
 @import dev.ja.marketplace.client.CustomerInfo
-@import dev.ja.marketplace.data.DataTable
+@import dev.ja.marketplace.data.RenderedDataTable
 @import dev.ja.marketplace.data.LicenseInfo
 @import dev.ja.marketplace.client.PluginInfo
 @import dev.ja.marketplace.client.PluginTrial
@@ -7,10 +7,10 @@
 @param cssClass: String?
 @param plugin: PluginInfo
 @param customer: CustomerInfo
-@param licenseTableMonthly: DataTable
-@param licenseTableAnnual: DataTable
+@param licenseTableMonthly: RenderedDataTable
+@param licenseTableAnnual: RenderedDataTable
 @param trials: List<PluginTrial>
-@param trialTable: DataTable
+@param trialTable: RenderedDataTable
 
 <html lang="en">
 <head>

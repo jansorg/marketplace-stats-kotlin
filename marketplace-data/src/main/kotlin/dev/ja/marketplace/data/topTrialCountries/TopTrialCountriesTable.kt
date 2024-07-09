@@ -50,6 +50,8 @@ class TopTrialCountriesTable(
     )
 
     override suspend fun init(data: PluginData) {
+        super.init(data)
+
         data.trials?.forEach { trial ->
             allTrialsTracker.registerTrial(trial)
 
@@ -65,7 +67,7 @@ class TopTrialCountriesTable(
         }
     }
 
-    override fun process(sale: PluginSale) {
+    override suspend fun process(sale: PluginSale) {
         allTrialsTracker.processSale(sale)
 
         val country = when {
@@ -78,11 +80,11 @@ class TopTrialCountriesTable(
         }
     }
 
-    override fun process(licenseInfo: LicenseInfo) {
+    override suspend fun process(licenseInfo: LicenseInfo) {
         // empty
     }
 
-    override fun createSections(): List<DataTableSection> {
+    override suspend fun createSections(): List<DataTableSection> {
         val totalTrialCount = data.values.sumOf { it }
         val rows = data.entries
             .sortedByDescending(Map.Entry<String, Int>::value)

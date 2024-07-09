@@ -7,9 +7,9 @@ package dev.ja.marketplace
 
 import dev.ja.marketplace.churn.MarketplaceChurnProcessor
 import dev.ja.marketplace.client.*
+import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.LicenseInfo
-import dev.ja.marketplace.data.MarketplaceDataSink
-import dev.ja.marketplace.data.MarketplaceDataSinkFactory
+import dev.ja.marketplace.data.MarketplaceDataTableFactory
 import dev.ja.marketplace.data.customerType.CustomerTypeFactory
 import dev.ja.marketplace.data.customers.ActiveCustomerTableFactory
 import dev.ja.marketplace.data.customers.ChurnedCustomerTableFactory
@@ -22,13 +22,16 @@ import dev.ja.marketplace.data.licenses.LicenseTableFactory
 import dev.ja.marketplace.data.overview.OverviewTableFactory
 import dev.ja.marketplace.data.privingOverview.PricingOverviewTableFactory
 import dev.ja.marketplace.data.resellers.ResellerTableFactory
+import dev.ja.marketplace.data.timeSpanSummary.TimeSpanSummaryFactory
 import dev.ja.marketplace.data.topCountries.TopCountriesFactory
 import dev.ja.marketplace.data.topTrialCountries.TopTrialCountriesFactory
 import dev.ja.marketplace.data.trials.TrialsTable
 import dev.ja.marketplace.data.trials.TrialsTableFactory
-import dev.ja.marketplace.data.timeSpanSummary.TimeSpanSummaryFactory
 import dev.ja.marketplace.data.yearSummary.YearlySummaryFactory
-import dev.ja.marketplace.services.JetBrainsServices
+import dev.ja.marketplace.exchangeRate.ExchangeRateProvider
+import dev.ja.marketplace.exchangeRate.ExchangeRates
+import dev.ja.marketplace.services.Countries
+import dev.ja.marketplace.services.KtorJetBrainsServiceClient
 import gg.jte.ContentType
 import gg.jte.TemplateEngine
 import io.ktor.http.*
@@ -43,26 +46,21 @@ import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.*
 import io.ktor.util.pipeline.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 
 class MarketplaceStatsServer(
     private val client: MarketplaceClient,
-    private val servicesClient: JetBrainsServices,
+    private val servicesClient: KtorJetBrainsServiceClient,
+    private val exchangeRateProvider: ExchangeRateProvider,
     private val host: String = "0.0.0.0",
-    private val port: Int = 8080
+    private val port: Int = 8080,
+    private val serverConfiguration: ServerConfiguration,
 ) {
     private lateinit var allPlugins: List<PluginInfoSummary>
-
-    private fun getDataLoader(plugin: PluginInfoSummary): PluginDataLoader {
-        return PluginDataLoader(plugin, client, servicesClient)
-    }
-
-    private fun PipelineContext<Unit, ApplicationCall>.getDataLoader(): PluginDataLoader? {
-        val pluginId = context.request.queryParameters["pluginId"]?.toInt()
-            ?: return null
-        val pluginSummary = allPlugins.firstOrNull { it.id == pluginId }
-            ?: throw IllegalStateException("Unable to locate plugin data loader for $pluginId")
-        return getDataLoader(pluginSummary)
-    }
+    private lateinit var countries: Countries
+    private lateinit var exchangeRates: ExchangeRates
 
     private val indexPageData: PluginPageDefinition = DefaultPluginPageDefinition(
         client,
@@ -206,7 +204,7 @@ class MarketplaceStatsServer(
 
             get("/") {
                 val loader = getDataLoader()
-                    ?: allPlugins.singleOrNull()?.let { getDataLoader(it) }
+                    ?: allPlugins.singleOrNull()?.let(::getDataLoader)
 
                 if (loader != null) {
                     val pageData = when {
@@ -310,12 +308,33 @@ class MarketplaceStatsServer(
         }
     }
 
-    suspend fun start() {
-        val userInfo = client.userInfo()
-        this.allPlugins = client.plugins(userInfo.id).sortedBy { it.name }
+    suspend fun start() = coroutineScope {
+        val countriesAsync = async(Dispatchers.IO) { servicesClient.countries() }
+        val allPluginsAsync = async(Dispatchers.IO) { client.plugins(client.userInfo().id).sortedBy(PluginInfoSummary::name) }
+
+        countries = countriesAsync.await()
+        allPlugins = allPluginsAsync.await()
+        exchangeRates = ExchangeRates(
+            exchangeRateProvider,
+            Marketplace.Birthday,
+            serverConfiguration.userDisplayCurrencyCode,
+            MarketplaceCurrencies
+        )
 
         println("Launching web server: http://$host:$port/")
         httpServer.start(true)
+    }
+
+    private fun getDataLoader(plugin: PluginInfoSummary): PluginDataLoader {
+        return PluginDataLoader(plugin, countries, client, exchangeRates)
+    }
+
+    private fun PipelineContext<Unit, ApplicationCall>.getDataLoader(): PluginDataLoader? {
+        val pluginId = context.request.queryParameters["pluginId"]?.toInt()
+            ?: return null
+        val pluginSummary = allPlugins.firstOrNull { it.id == pluginId }
+            ?: throw IllegalStateException("Unable to locate plugin data loader for $pluginId")
+        return getDataLoader(pluginSummary)
     }
 
     private suspend fun PipelineContext<Unit, ApplicationCall>.renderCustomerPage(loader: PluginDataLoader, customerId: CustomerId) {
@@ -341,10 +360,14 @@ class MarketplaceStatsServer(
 
         val trialsTable = TrialsTable(showDetails = false) { trial -> trial.customer.code == customerId }
 
-        listOf(licenseTableMonthly, licenseTableAnnual, trialsTable).forEach { table ->
+        for (table in listOf(licenseTableMonthly, licenseTableAnnual, trialsTable)) {
             table.init(data)
-            sales.forEach(table::process)
-            licenses.forEach(table::process)
+            for (sale in sales) {
+                table.process(sale)
+            }
+            for (license in licenses) {
+                table.process(license)
+            }
         }
 
         call.respond(
@@ -353,10 +376,10 @@ class MarketplaceStatsServer(
                     "cssClass" to null,
                     "plugin" to data.pluginInfo,
                     "customer" to customerInfo,
-                    "licenseTableMonthly" to licenseTableMonthly,
-                    "licenseTableAnnual" to licenseTableAnnual,
+                    "licenseTableMonthly" to licenseTableMonthly.renderTable(),
+                    "licenseTableAnnual" to licenseTableAnnual.renderTable(),
                     "trials" to trials,
-                    "trialTable" to trialsTable,
+                    "trialTable" to trialsTable.renderTable(),
                 )
             )
         )
@@ -368,10 +391,14 @@ class MarketplaceStatsServer(
         val licenses = data.licenses ?: emptyList()
 
         val licenseTable = LicenseTable(showLicenseColumn = false, showFooter = true, showReseller = true) { it.id == licenseId }
-        listOf(licenseTable).forEach { table ->
+        for (table in listOf(licenseTable)) {
             table.init(data)
-            sales.forEach(table::process)
-            licenses.forEach(table::process)
+            for (sale in sales) {
+                table.process(sale)
+            }
+            for (license in licenses) {
+                table.process(license)
+            }
         }
 
         call.respond(
@@ -380,7 +407,7 @@ class MarketplaceStatsServer(
                     "cssClass" to null,
                     "plugin" to data.pluginInfo,
                     "licenseId" to licenseId,
-                    "licenseTable" to licenseTable,
+                    "licenseTable" to licenseTable.renderTable(),
                 )
             )
         )
@@ -411,8 +438,8 @@ class MarketplaceStatsServer(
 
         val pageData = DefaultPluginPageDefinition(
             client,
-            listOf(object : MarketplaceDataSinkFactory {
-                override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
+            listOf(object : MarketplaceDataTableFactory {
+                override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable {
                     return LicenseTable(
                         showFooter = true,
                         showPurchaseColumn = false,

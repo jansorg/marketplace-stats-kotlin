@@ -1,10 +1,11 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 package dev.ja.marketplace.client
 
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class YearMonthDayRangeTest {
@@ -54,5 +55,10 @@ class YearMonthDayRangeTest {
 
         assert(start in start..end)
         assert(end in start..end)
+    }
+
+    @Test
+    fun daysSequence() {
+        assertTrue(YearMonthDay(2020, 2, 29) in YearMonthDayRange(YearMonthDay(2020, 1, 1), YearMonthDay(2021, 1, 1)))
     }
 }

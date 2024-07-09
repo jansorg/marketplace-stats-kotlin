@@ -94,6 +94,10 @@ data class YearMonthDay(
             }
         }
 
+        fun lastOfMonth(year: Int, month: Int, timezone: TimeZone = MarketplaceTimeZone): YearMonthDay {
+            return of(YearMonth.of(year, month).atEndOfMonth(), timezone)
+        }
+
         private val instantCache = ConcurrentHashMap<Instant, YearMonthDay>()
     }
 }
@@ -137,6 +141,15 @@ data class YearMonthDayRange(
         return generateSequence(start) {
             when {
                 it < end -> it.add(0, 0, 1)
+                else -> null
+            }
+        }
+    }
+
+    fun months(): Sequence<YearMonthDay> {
+        return generateSequence(start) {
+            when {
+                it < end -> it.add(0, 1, 0)
                 else -> null
             }
         }
@@ -198,6 +211,10 @@ data class YearMonthDayRange(
             val first = YearMonthDay(year, month, 1)
             val last = YearMonth.of(year, month).atEndOfMonth()
             return YearMonthDayRange(first, YearMonthDay(year, month, last.dayOfMonth))
+        }
+
+        fun of(date: YearMonthDay): YearMonthDayRange {
+            return YearMonthDayRange(date, date)
         }
 
         val MAX: YearMonthDayRange = YearMonthDayRange(YearMonthDay.MIN, YearMonthDay.MAX)

@@ -7,11 +7,15 @@ package dev.ja.marketplace.data
 
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.data.trackers.ContinuityDiscountTracker
+import dev.ja.marketplace.exchangeRate.ExchangeRates
 import dev.ja.marketplace.services.Countries
 
 data class PluginData(
     // JetBrains Services
     val countries: Countries,
+
+    // Exchange rates
+    val exchangeRates: ExchangeRates,
 
     // marketplace data
     val pluginId: PluginId,

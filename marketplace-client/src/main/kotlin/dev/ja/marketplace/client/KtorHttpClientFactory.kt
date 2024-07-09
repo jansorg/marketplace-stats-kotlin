@@ -20,7 +20,9 @@ import kotlinx.serialization.json.Json
 object KtorHttpClientFactory {
     fun createHttpClient(
         apiHost: String,
-        bearerAuthKey: String?,
+        bearerAuthKey: String? = null,
+        apiProtocol: URLProtocol = URLProtocol.HTTPS,
+        apiPort: Int = apiProtocol.defaultPort,
         logLevel: ClientLogLevel = ClientLogLevel.Normal
     ): HttpClient {
         return HttpClient(Java) {
@@ -40,8 +42,9 @@ object KtorHttpClientFactory {
 
             install(DefaultRequest) {
                 url {
-                    protocol = URLProtocol.HTTPS
+                    protocol = apiProtocol
                     host = apiHost
+                    port = apiPort
                 }
 
                 header("Content-Type", "application/json")

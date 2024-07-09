@@ -30,6 +30,8 @@ class TimeSpanSummaryTable(maxDays: Int, title: String) : SimpleDataTable(title,
     override val columns: List<DataTableColumn> = listOf(columnDay, columnSales, columnDownloads, columnTrials)
 
     override suspend fun init(data: PluginData) {
+        super.init(data)
+
         dateRange.days().forEach { day ->
             val downloads = data.downloadsDaily.firstOrNull { it.day == day }?.downloads ?: 0
             val trials = data.trials?.filter { it.date == day }?.size ?: 0
@@ -37,7 +39,7 @@ class TimeSpanSummaryTable(maxDays: Int, title: String) : SimpleDataTable(title,
         }
     }
 
-    override fun process(licenseInfo: LicenseInfo) {
+    override suspend fun process(licenseInfo: LicenseInfo) {
         if (licenseInfo.sale.date in dateRange) {
             data.compute(licenseInfo.sale.date) { _, current ->
                 current!!.also {
@@ -47,13 +49,13 @@ class TimeSpanSummaryTable(maxDays: Int, title: String) : SimpleDataTable(title,
         }
     }
 
-    override fun createSections(): List<DataTableSection> {
+    override suspend fun createSections(): List<DataTableSection> {
         val now = YearMonthDay.now()
         val rows = data.entries.map { (date, weekData) ->
             SimpleDateTableRow(
                 mapOf(
                     columnDay to date,
-                    columnSales to weekData.sales.withCurrency(MarketplaceCurrencies.USD),
+                    columnSales to weekData.sales.render(date, MarketplaceCurrencies.USD),
                     columnDownloads to if (date < now) weekData.downloads.toBigInteger() else NoValue,
                     columnTrials to if (date <= now) weekData.trials.toBigInteger() else NoValue,
                 ),
@@ -69,9 +71,11 @@ class TimeSpanSummaryTable(maxDays: Int, title: String) : SimpleDataTable(title,
             SimpleTableSection(
                 rows, footer = SimpleTableSection(
                     SimpleDateTableRow(
-                        columnSales to data.values.sumOf { it.sales }.withCurrency(MarketplaceCurrencies.USD),
-                        columnDownloads to data.values.sumOf { it.downloads },
-                        columnTrials to data.values.sumOf { it.trials },
+                        columnSales to rows
+                            .sumOf { (it.values[columnSales] as AmountWithCurrency).amount }
+                            .withCurrency(exchangeRates.targetCurrencyCode),
+                        columnDownloads to data.values.sumOf { it.downloads }.toBigInteger(),
+                        columnTrials to data.values.sumOf { it.trials }.toBigInteger(),
                     )
                 )
             )

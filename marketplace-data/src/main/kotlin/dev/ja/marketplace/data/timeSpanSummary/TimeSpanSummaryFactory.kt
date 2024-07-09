@@ -6,11 +6,11 @@
 package dev.ja.marketplace.data.timeSpanSummary
 
 import dev.ja.marketplace.client.MarketplaceClient
-import dev.ja.marketplace.data.MarketplaceDataSink
-import dev.ja.marketplace.data.MarketplaceDataSinkFactory
+import dev.ja.marketplace.data.DataTable
+import dev.ja.marketplace.data.MarketplaceDataTableFactory
 
-class TimeSpanSummaryFactory(private val maxDays: Int, private val title: String) : MarketplaceDataSinkFactory {
-    override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
+class TimeSpanSummaryFactory(private val maxDays: Int, private val title: String) : MarketplaceDataTableFactory {
+    override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable {
         return TimeSpanSummaryTable(maxDays, title)
     }
 }

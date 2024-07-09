@@ -7,30 +7,38 @@ package dev.ja.marketplace.data.trackers
 
 import dev.ja.marketplace.client.Amount
 import dev.ja.marketplace.client.AmountWithCurrency
-import dev.ja.marketplace.services.Currency
-import java.util.TreeMap
+import dev.ja.marketplace.client.YearMonthDay
+import dev.ja.marketplace.exchangeRate.ExchangeRates
+import java.util.*
 
 /**
  * Tracks amounts with currency.
  */
-class AmountWithCurrencyTracker {
+class AmountWithCurrencyTracker(private val exchangeRates: ExchangeRates) {
     // currency code to amount
     private val amounts = TreeMap<String, Amount>()
 
     fun getValues(): List<AmountWithCurrency> {
-        return amounts.entries.map { AmountWithCurrency(it.value, it.key) }
+        return when {
+            amounts.isEmpty() -> emptyList()
+            else -> amounts.entries.map { AmountWithCurrency(it.value, it.key) }
+        }
     }
 
-    fun getAmount(currency: Currency): Amount {
-        return amounts[currency.isoCode] ?: Amount.ZERO
+    suspend fun getConvertedResult(date: YearMonthDay): AmountWithCurrency {
+        var convertedResult = AmountWithCurrency(Amount.ZERO, exchangeRates.targetCurrencyCode)
+        for ((currency, amount) in amounts) {
+            convertedResult += exchangeRates.convert(date, amount, currency)
+        }
+        return convertedResult
     }
 
     fun add(amount: AmountWithCurrency) {
-        add(amount.amount, amount.currency)
+        add(amount.amount, amount.currencyCode)
     }
 
-    fun add(amount: Amount, currency: Currency) {
-        amounts.merge(currency.isoCode, amount) { sum, new -> sum + new }
+    fun add(amount: Amount, currencyCode: String) {
+        amounts.merge(currencyCode, amount) { sum, new -> sum + new }
     }
 
     operator fun plusAssign(paidAmount: AmountWithCurrency) {

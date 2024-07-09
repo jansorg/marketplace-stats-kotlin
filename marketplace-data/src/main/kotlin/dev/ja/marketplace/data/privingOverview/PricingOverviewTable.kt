@@ -33,15 +33,17 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
     override val alwaysShowMainColumns: Boolean = true
 
     override suspend fun init(data: PluginData) {
+        super.init(data)
+
         this.countries = data.countries
         this.pluginPricing = data.pluginPricing!!
     }
 
-    override fun process(licenseInfo: LicenseInfo) {
+    override suspend fun process(licenseInfo: LicenseInfo) {
         // ignored
     }
 
-    override fun createSections(): List<DataTableSection> {
+    override suspend fun createSections(): List<DataTableSection> {
         val subColumns = listOf(
             columnCountry,
             columnFirstYearPersonal,

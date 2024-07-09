@@ -3,7 +3,7 @@
 @import dev.ja.marketplace.client.PluginRating
 @import dev.ja.marketplace.client.PluginSale
 @import dev.ja.marketplace.client.YearMonthDay
-@import dev.ja.marketplace.data.DataTable
+@import dev.ja.marketplace.data.RenderedDataTable
 @import dev.ja.marketplace.data.LicenseInfo
 @import dev.ja.marketplace.client.MarketplaceUrlSupport
 
@@ -12,7 +12,7 @@
 @param today: YearMonthDay
 @param plugin: PluginInfo
 @param rating: PluginRating
-@param tables: List<DataTable>
+@param tables: List<RenderedDataTable>
 @param cssClass: String?
 @param urls: MarketplaceUrlSupport
 

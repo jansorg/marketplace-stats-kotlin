@@ -18,7 +18,7 @@
         @template.render(i.get())@if(!i.isLast)<br>@endif
     @endfor
 @elseif(value is AmountWithCurrency)
-    @template.render(value.amount) @template.render(value.currency.isoCode)
+    @template.render(value.amount) @template.render(value.currencyCode)
 @elseif(value is PercentageValue)
     @if(value == PercentageValue.ZERO)
         —

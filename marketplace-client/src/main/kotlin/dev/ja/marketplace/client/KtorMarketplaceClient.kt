@@ -5,29 +5,19 @@
 
 package dev.ja.marketplace.client
 
-import io.ktor.client.*
 import io.ktor.client.call.*
-import io.ktor.client.engine.java.*
-import io.ktor.client.plugins.*
-import io.ktor.client.plugins.cache.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.client.plugins.logging.*
-import io.ktor.client.plugins.resources.*
 import io.ktor.client.request.*
-import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
-import kotlinx.serialization.json.Json
 
 class KtorMarketplaceClient(
-    private val apiKey: String,
+    apiKey: String,
     private val apiHost: String = "plugins.jetbrains.com",
     private val apiPath: String = "api",
-    private val logLevel: ClientLogLevel = ClientLogLevel.None,
+    logLevel: ClientLogLevel = ClientLogLevel.None,
 ) : MarketplaceClient {
-    private val httpClient = KtorHttpClientFactory.createHttpClient(apiHost, apiKey, logLevel)
+    private val httpClient = KtorHttpClientFactory.createHttpClient(apiHost, apiKey, logLevel = logLevel)
 
     override fun assetUrl(path: String): String {
         return "https://$apiHost/${path.removePrefix("/")}"

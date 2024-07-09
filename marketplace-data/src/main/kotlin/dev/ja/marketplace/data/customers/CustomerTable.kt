@@ -5,18 +5,21 @@
 
 package dev.ja.marketplace.data.customers
 
-import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.CustomerId
+import dev.ja.marketplace.client.CustomerInfo
 import dev.ja.marketplace.client.LicenseId
+import dev.ja.marketplace.client.PluginId
+import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.trackers.AmountTargetCurrencyTracker
 
 data class CustomerTableRowData(
     val customer: CustomerInfo,
+    var totalSales: AmountTargetCurrencyTracker,
     var earliestLicenseStart: YearMonthDay? = null,
     var latestLicenseEnd: YearMonthDay? = null,
     val totalLicenses: MutableSet<LicenseId> = mutableSetOf(),
-    val activeLicenses: MutableSet<LicenseId> = mutableSetOf(),
-    var lastSaleUSD: Amount = Amount.ZERO,
-    var totalSalesUSD: Amount = Amount.ZERO,
+    val activeLicenses: MutableSet<LicenseId> = mutableSetOf()
 )
 
 class CustomerTable(
@@ -36,6 +39,7 @@ class CustomerTable(
     private val columnId = DataTableColumn("customer-id", "Cust. ID", "num")
 
     private val customerMap = mutableMapOf<CustomerId, CustomerTableRowData>()
+    private lateinit var totalSales: AmountTargetCurrencyTracker
 
     private var pluginId: PluginId? = null
 
@@ -52,12 +56,19 @@ class CustomerTable(
     )
 
     override suspend fun init(data: PluginData) {
+        super.init(data)
+
         this.pluginId = data.pluginId
+        this.totalSales = AmountTargetCurrencyTracker(exchangeRates)
     }
 
-    override fun process(licenseInfo: LicenseInfo) {
+    override suspend fun process(licenseInfo: LicenseInfo) {
+        totalSales.add(licenseInfo.sale.date, licenseInfo.amountUSD, licenseInfo.amount, licenseInfo.currency)
+
         val customer = licenseInfo.sale.customer
-        val data = customerMap.computeIfAbsent(customer.code) { CustomerTableRowData(customer) }
+        val data = customerMap.computeIfAbsent(customer.code) {
+            CustomerTableRowData(customer, AmountTargetCurrencyTracker(exchangeRates))
+        }
 
         val licenseStart = licenseInfo.validity.start
         data.earliestLicenseStart = minOf(licenseStart, data.earliestLicenseStart ?: licenseStart)
@@ -70,15 +81,14 @@ class CustomerTable(
         if (licenseInfo.validity.end >= nowDate) {
             data.activeLicenses += licenseInfo.id
         }
-        data.totalSalesUSD += licenseInfo.amountUSD
-        data.lastSaleUSD += licenseInfo.amountUSD
+        data.totalSales.add(licenseInfo.sale.date, licenseInfo.amountUSD, licenseInfo.amount, licenseInfo.currency)
     }
 
-    override fun createSections(): List<DataTableSection> {
+    override suspend fun createSections(): List<DataTableSection> {
         var prevValidUntil: YearMonthDay? = null
         val displayedCustomers = customerMap.values
             .filter(customerFilter)
-            .sortedByDescending { it.totalSalesUSD.sortValue() }
+            .sortedByDescending { it.totalSales.getTotalAmount().amount.sortValue() }
             .sortedByDescending { it.latestLicenseEnd!! }
 
         val rows = displayedCustomers
@@ -108,13 +118,13 @@ class CustomerTable(
                         columnType to customer.type,
                         columnTotalLicenses to customerData.totalLicenses.size,
                         columnActiveLicenses to customerData.activeLicenses.size,
-                        columnSales to customerData.totalSalesUSD.withCurrency(MarketplaceCurrencies.USD),
+                        columnSales to customerData.totalSales.getTotalAmount(),
                     ),
                     cssClass = cssClass,
                     sortValues = mapOf(
                         columnValidUntil to validUntil.sortValue,
                         columnValidSince to validSince.sortValue,
-                        columnSales to customerData.totalSalesUSD.sortValue(),
+                        columnSales to customerData.totalSales.getTotalAmount().amount.sortValue(),
                     ),
                 )
             }
@@ -122,9 +132,9 @@ class CustomerTable(
         val footer = SimpleRowGroup(
             SimpleDateTableRow(
                 columnName to "${displayedCustomers.size} customers",
-                columnTotalLicenses to displayedCustomers.sumOf { it.totalLicenses.size },
-                columnActiveLicenses to displayedCustomers.sumOf { it.activeLicenses.size },
-                columnSales to displayedCustomers.sumOf { it.totalSalesUSD }.withCurrency(MarketplaceCurrencies.USD),
+                columnTotalLicenses to displayedCustomers.sumOf { it.totalLicenses.size }.toBigInteger(),
+                columnActiveLicenses to displayedCustomers.sumOf { it.activeLicenses.size }.toBigInteger(),
+                columnSales to totalSales.getTotalAmount(),
             )
         )
 

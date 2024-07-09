@@ -11,11 +11,11 @@ import dev.ja.marketplace.data.trackers.AnnualRecurringRevenueTracker
 import dev.ja.marketplace.data.trackers.PaymentAmountTracker
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.TrialTracker
-import dev.ja.marketplace.util.isZero
 import java.util.*
 
-class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"), MarketplaceDataSink {
+class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide") {
     private lateinit var downloads: List<MonthlyDownload>
+
     private val allTrialsTracker: TrialTracker = SimpleTrialTracker()
     private val data = TreeMap<Int, YearSummary>(Comparator.reverseOrder())
 
@@ -26,17 +26,19 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
     )
 
     override suspend fun init(data: PluginData) {
+        super.init(data)
+
         this.downloads = data.downloadsMonthly
 
         val now = YearMonthDay.now()
         for (year in Marketplace.Birthday.year..now.year) {
             val yearRange = YearMonthDayRange.ofYear(year)
             this.data[year] = YearSummary(
-                PaymentAmountTracker(yearRange),
+                PaymentAmountTracker(yearRange, exchangeRates),
                 SimpleTrialTracker { it.date in yearRange },
-                AnnualRecurringRevenueTracker(yearRange, data.continuityDiscountTracker!!, data.pluginPricing!!)
+                AnnualRecurringRevenueTracker(yearRange, data.continuityDiscountTracker!!, data.pluginPricing!!, data.exchangeRates)
             )
-       }
+        }
 
         if (data.trials != null) {
             for (trial in data.trials) {
@@ -46,15 +48,15 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
         }
     }
 
-    override fun process(sale: PluginSale) {
+    override suspend fun process(sale: PluginSale) {
         allTrialsTracker.processSale(sale)
 
         val yearData = data[sale.date.year]!!
-        yearData.sales.add(sale.date, sale.amountUSD)
+        yearData.sales.add(sale.date, sale.amountUSD, sale.amount, sale.currency)
         yearData.trials.processSale(sale)
     }
 
-    override fun process(licenseInfo: LicenseInfo) {
+    override suspend fun process(licenseInfo: LicenseInfo) {
         // a license has to be processes by every year's arr tracker because of the continuity discount
         data.values.forEach { yearData ->
             yearData.annualRevenue.processLicenseSale(licenseInfo)
@@ -81,24 +83,26 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
         columnTrialsConverted,
     )
 
-    override fun createSections(): List<DataTableSection> {
+    override suspend fun createSections(): List<DataTableSection> {
         val now = YearMonthDay.now()
         val allTrialsResult = allTrialsTracker.getResult()
 
         val rows = data.entries.toList()
-            .dropLastWhile { it.value.sales.totalAmountUSD.isZero() }
+            .dropLastWhile { it.value.sales.isZero }
             .map { (year, yearData) ->
+                val lastOfYear = YearMonthDay(year, 12, 31)
                 val trialResult = yearData.trials.getResult()
+                val arrResult = when {
+                    year == now.year -> null
+                    else -> yearData.annualRevenue.getResult()
+                }
                 SimpleDateTableRow(
                     values = mapOf(
                         columnYear to year,
-                        columnSalesTotal to yearData.sales.totalAmountUSD.withCurrency(MarketplaceCurrencies.USD),
-                        columnSalesFees to yearData.sales.feesAmountUSD.withCurrency(MarketplaceCurrencies.USD),
-                        columnSalesPaid to yearData.sales.paidAmountUSD.withCurrency(MarketplaceCurrencies.USD),
-                        columnARR to (when {
-                            year != now.year -> yearData.annualRevenue.getResult().amounts.getValues()
-                            else -> NoValue
-                        }),
+                        columnSalesTotal to yearData.sales.totalAmount,
+                        columnSalesFees to yearData.sales.feesAmount,
+                        columnSalesPaid to yearData.sales.paidAmount,
+                        columnARR to (arrResult?.amounts?.getConvertedResult(lastOfYear) ?: NoValue),
                         columnDownloads to downloads
                             .filter { it.firstOfMonth.year == year }
                             .sumOf(MonthlyDownload::downloads)
@@ -108,6 +112,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                     ),
                     tooltips = mapOf(
                         columnTrialsConverted to trialResult.tooltipConverted,
+                        columnARR to arrResult?.renderTooltip(),
                     ),
                     cssClass = when {
                         year == now.year -> "today"
@@ -121,9 +126,12 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                 rows = rows,
                 footer = SimpleTableSection(
                     SimpleDateTableRow(
-                        columnSalesTotal to data.values.sumOf { it.sales.totalAmountUSD }.withCurrency(MarketplaceCurrencies.USD),
-                        columnSalesFees to data.values.sumOf { it.sales.feesAmountUSD }.withCurrency(MarketplaceCurrencies.USD),
-                        columnSalesPaid to data.values.sumOf { it.sales.paidAmountUSD }.withCurrency(MarketplaceCurrencies.USD),
+                        columnSalesTotal to rows.sumOf { (it.values[columnSalesTotal] as AmountWithCurrency).amount }
+                            .withCurrency(exchangeRates.targetCurrencyCode),
+                        columnSalesFees to rows.sumOf { (it.values[columnSalesFees] as AmountWithCurrency).amount }
+                            .withCurrency(exchangeRates.targetCurrencyCode),
+                        columnSalesPaid to rows.sumOf { (it.values[columnSalesPaid] as AmountWithCurrency).amount }
+                            .withCurrency(exchangeRates.targetCurrencyCode),
                         columnDownloads to downloads.sumOf { it.downloads.toBigInteger() },
                         columnTrials to allTrialsResult.totalTrials.toBigInteger(),
                         columnTrialsConverted to allTrialsResult.convertedTrialsPercentage,

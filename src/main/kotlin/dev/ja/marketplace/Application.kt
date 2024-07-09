@@ -23,7 +23,8 @@ import com.github.ajalt.clikt.parameters.types.path
 import dev.ja.marketplace.client.CachingMarketplaceClient
 import dev.ja.marketplace.client.ClientLogLevel
 import dev.ja.marketplace.client.KtorMarketplaceClient
-import dev.ja.marketplace.services.JetBrainsServices
+import dev.ja.marketplace.exchangeRate.FrankfurterExchangeRateProvider
+import dev.ja.marketplace.services.KtorJetBrainsServiceClient
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import java.nio.file.Files
@@ -56,6 +57,9 @@ class Application(version: String) : CliktCommand(
         .default(8080)
         .help("Port used by the integrated webserver.")
 
+    private val displayCurrency: String? by option("-c", "--currency", envvar = "MARKETPLACE_DISPLAY_CURRENCY")
+        .help("Currency for the displayed monetary amounts.")
+
     private val logging: ClientLogLevel by option("-d", "--debug").enum<ClientLogLevel>(key = { it.name.lowercase() })
         .default(ClientLogLevel.None)
         .help("The log level used for the server and the API requests to the marketplace")
@@ -65,10 +69,23 @@ class Application(version: String) : CliktCommand(
             ?: applicationConfig?.marketplaceApiKey
             ?: throw BadParameterValue("No API key provided. Please refer to --help how to provide it.")
 
+        val displayCurrencyCode = this.displayCurrency
+            ?: applicationConfig?.displayedCurrency
+            ?: "USD"
+
         runBlocking {
+            val exchangeRateProvider = FrankfurterExchangeRateProvider("api.frankfurter.app", logLevel = logging)
+            val servicesClient = KtorJetBrainsServiceClient(logLevel = logging)
             val marketplaceClient = CachingMarketplaceClient(KtorMarketplaceClient(apiKey = apiKey, logLevel = logging))
-            val servicesClient = JetBrainsServices()
-            val server = MarketplaceStatsServer(marketplaceClient, servicesClient, serverHostname, serverPort)
+            val serverConfiguration = ServerConfiguration(displayCurrencyCode)
+            val server = MarketplaceStatsServer(
+                marketplaceClient,
+                servicesClient,
+                exchangeRateProvider,
+                serverHostname,
+                serverPort,
+                serverConfiguration
+            )
             server.start()
         }
     }
