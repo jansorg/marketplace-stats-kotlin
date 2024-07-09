@@ -6,11 +6,11 @@
 package dev.ja.marketplace.data.funnel
 
 import dev.ja.marketplace.client.MarketplaceClient
-import dev.ja.marketplace.data.MarketplaceDataSink
-import dev.ja.marketplace.data.MarketplaceDataSinkFactory
+import dev.ja.marketplace.data.DataTable
+import dev.ja.marketplace.data.MarketplaceDataTableFactory
 
-class FunnelTableFactory :MarketplaceDataSinkFactory {
-    override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
+class FunnelTableFactory :MarketplaceDataTableFactory {
+    override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable {
         return FunnelTable()
     }
 }

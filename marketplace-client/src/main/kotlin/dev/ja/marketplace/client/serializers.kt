@@ -18,6 +18,7 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.*
+import java.math.BigDecimal
 
 @OptIn(ExperimentalSerializationApi::class)
 object YearMonthDateSerializer : KSerializer<YearMonthDay> {

@@ -5,33 +5,47 @@
 
 package dev.ja.marketplace.data.customerType
 
-import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.CustomerType
+import dev.ja.marketplace.client.PluginSale
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.trackers.AmountTargetCurrencyTracker
 import java.util.*
 
 class CustomerTypeTable : SimpleDataTable("Customer Type", "customer-type"), MarketplaceDataSink {
     private val columnType = DataTableColumn("customer-type", null)
     private val columnAmount = DataTableColumn("amount", null, "num")
     private val columnPercentage = DataTableColumn("percentage", "% of Sales", "num num-percentage")
+
+    private lateinit var totalAmount: AmountTargetCurrencyTracker
+    private val customerTypes = TreeMap<CustomerType, AmountTargetCurrencyTracker>()
+
     override val columns: List<DataTableColumn> = listOf(columnType, columnAmount, columnPercentage)
 
-    private val data = TreeMap<CustomerType, Amount>()
+    override suspend fun init(data: PluginData) {
+        super.init(data)
 
-    override fun process(sale: PluginSale) {
-        data.merge(sale.customer.type, sale.amountUSD, Amount::plus)
+        totalAmount = AmountTargetCurrencyTracker(data.exchangeRates)
     }
 
-    override fun process(licenseInfo: LicenseInfo) {
+    override suspend fun process(sale: PluginSale) {
+        totalAmount.add(sale.date, sale.amountUSD, sale.amount, sale.currency)
+
+        val tracker = customerTypes.computeIfAbsent(sale.customer.type) { AmountTargetCurrencyTracker(exchangeRates) }
+        tracker.add(sale.date, sale.amountUSD, sale.amount, sale.currency)
+    }
+
+    override suspend fun process(licenseInfo: LicenseInfo) {
         // ignored
     }
 
-    override fun createSections(): List<DataTableSection> {
-        val totalAmount = data.values.sumOf { it }
-        val rows = data.entries.map { (customerType, amount) ->
+    override suspend fun createSections(): List<DataTableSection> {
+        val totalAmount = this.totalAmount.getTotalAmount()
+
+        val rows = customerTypes.entries.map { (customerType, amount) ->
             SimpleDateTableRow(
                 columnType to customerType,
-                columnAmount to amount.withCurrency(MarketplaceCurrencies.USD),
-                columnPercentage to PercentageValue.of(amount, totalAmount)
+                columnAmount to amount.getTotalAmount(),
+                columnPercentage to PercentageValue.of(amount.getTotalAmount().amount, totalAmount.amount)
             )
         }
 
@@ -40,7 +54,7 @@ class CustomerTypeTable : SimpleDataTable("Customer Type", "customer-type"), Mar
                 rows,
                 footer = SimpleTableSection(
                     SimpleDateTableRow(
-                        columnAmount to totalAmount.withCurrency(MarketplaceCurrencies.USD),
+                        columnAmount to totalAmount,
                         columnPercentage to PercentageValue.ONE_HUNDRED,
                     )
                 )

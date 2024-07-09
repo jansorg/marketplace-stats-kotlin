@@ -1,11 +1,11 @@
-@import dev.ja.marketplace.data.DataTable
+@import dev.ja.marketplace.data.RenderedDataTable
 @import dev.ja.marketplace.data.DataTableColumn
 @import dev.ja.marketplace.data.DataTableSection
 @import dev.ja.marketplace.data.DataTableRow
 @import dev.ja.marketplace.client.PluginInfo
 
 @param plugin: PluginInfo
-@param table: DataTable
+@param table: RenderedDataTable
 
 !{val renderTableHeader = table.sections.size == 1}
 <table class="small table-striped ${table.cssClass}">

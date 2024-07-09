@@ -10,14 +10,14 @@ import dev.ja.marketplace.client.KtorHttpClientFactory
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 
-class JetBrainsServices(
+class KtorJetBrainsServiceClient(
+    logLevel: ClientLogLevel,
     apiHost: String = "account.jetbrains.com",
-    logLevel: ClientLogLevel = ClientLogLevel.None,
-) {
+) : JetBrainsServiceClient {
     private val apiPath: String = "/services"
-    private val httpClient = KtorHttpClientFactory.createHttpClient(apiHost, null, logLevel)
+    private val httpClient = KtorHttpClientFactory.createHttpClient(apiHost, null, logLevel = logLevel)
 
-    suspend fun countries(): Countries {
+    override suspend fun countries(): Countries {
         val countries = httpClient.get("${apiPath}/countries.json").body<List<CountryWithCurrency>>()
         return Countries(countries)
     }

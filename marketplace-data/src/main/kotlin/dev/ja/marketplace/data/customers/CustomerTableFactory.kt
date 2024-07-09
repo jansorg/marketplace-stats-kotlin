@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -7,23 +7,23 @@ package dev.ja.marketplace.data.customers
 
 import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.client.YearMonthDay
-import dev.ja.marketplace.data.MarketplaceDataSink
-import dev.ja.marketplace.data.MarketplaceDataSinkFactory
+import dev.ja.marketplace.data.DataTable
+import dev.ja.marketplace.data.MarketplaceDataTableFactory
 
-class CustomerTableFactory : MarketplaceDataSinkFactory {
-    override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
+class CustomerTableFactory : MarketplaceDataTableFactory {
+    override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable {
         return CustomerTable()
     }
 }
 
-class ActiveCustomerTableFactory : MarketplaceDataSinkFactory {
-    override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
+class ActiveCustomerTableFactory : MarketplaceDataTableFactory {
+    override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable {
         return CustomerTable({ it.activeLicenses.isNotEmpty() })
     }
 }
 
-class ChurnedCustomerTableFactory : MarketplaceDataSinkFactory {
-    override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
+class ChurnedCustomerTableFactory : MarketplaceDataTableFactory {
+    override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable {
         return CustomerTable({ YearMonthDay.now() > it.latestLicenseEnd!! }, true)
     }
 }

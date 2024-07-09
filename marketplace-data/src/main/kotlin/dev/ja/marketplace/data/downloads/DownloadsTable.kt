@@ -16,7 +16,13 @@ class DownloadsTable : SimpleDataTable("", "downloads"), MarketplaceDataSink {
 
     override val columns: List<DataTableColumn> = listOf(columnMonth, columnDownloads)
 
-    override fun createSections(): List<DataTableSection> {
+    override suspend fun init(data: PluginData) {
+        super.init(data)
+
+        this.data = data.downloadsMonthly
+    }
+
+    override suspend fun createSections(): List<DataTableSection> {
         return listOf(
             SimpleTableSection(
                 rows = data.map {
@@ -32,11 +38,7 @@ class DownloadsTable : SimpleDataTable("", "downloads"), MarketplaceDataSink {
         )
     }
 
-    override suspend fun init(data: PluginData) {
-        this.data = data.downloadsMonthly
-    }
-
-    override fun process(licenseInfo: LicenseInfo) {
+    override suspend fun process(licenseInfo: LicenseInfo) {
         // ignored
     }
 }

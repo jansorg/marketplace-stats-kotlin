@@ -26,23 +26,25 @@ class DaySummaryTable(
     override val columns: List<DataTableColumn> = listOf(columnSubscriptionType, columnCustomerType, columnAmount)
 
     override suspend fun init(data: PluginData) {
+        super.init(data)
+
         trials = data.trials
             ?.filter { it.date == date }
             ?.sortedBy { it.customer.country }
             ?: emptyList()
     }
 
-    override fun process(sale: PluginSale) {
+    override suspend fun process(sale: PluginSale) {
         if (sale.date == date) {
             sales += sale
         }
     }
 
-    override fun process(licenseInfo: LicenseInfo) {
+    override suspend fun process(licenseInfo: LicenseInfo) {
         // ignored
     }
 
-    override fun createSections(): List<DataTableSection> {
+    override suspend fun createSections(): List<DataTableSection> {
         val salesTable = sales
             .groupBy { it.customer.type }
             .mapValues { it.value.groupBy { sale -> sale.licensePeriod } }
@@ -51,7 +53,7 @@ class DaySummaryTable(
                     SimpleDateTableRow(
                         columnCustomerType to type,
                         columnSubscriptionType to licensePeriod,
-                        columnAmount to sales.sumOf { it.amountUSD }.withCurrency(MarketplaceCurrencies.USD),
+                        columnAmount to sales.sumOf { it.amountUSD }.render(date, MarketplaceCurrencies.USD),
                     )
                 }
             }.sortedByDescending { it.values[columnAmount] as? AmountWithCurrency }
@@ -74,13 +76,13 @@ class DaySummaryTable(
                 rows = salesTable,
                 columns = listOf(columnSubscriptionType, columnCustomerType, columnAmount),
                 footer = SimpleRowGroup(SimpleDateTableRow(columnAmount to sales.sumOf { it.amountUSD }
-                    .withCurrency(MarketplaceCurrencies.USD)))
+                    .render(date, MarketplaceCurrencies.USD)))
             ),
             SimpleTableSection(
                 title = "",
                 rows = trialRows,
                 columns = listOf(columnTrialCountry, columnTrialCount),
-                footer = SimpleRowGroup(SimpleDateTableRow(columnTrialCount to trials.size))
+                footer = SimpleRowGroup(SimpleDateTableRow(columnTrialCount to trials.size.toBigInteger()))
             )
         )
     }

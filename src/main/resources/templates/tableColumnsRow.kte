@@ -1,7 +1,7 @@
-@import dev.ja.marketplace.data.DataTable
+@import dev.ja.marketplace.data.RenderedDataTable
 @import dev.ja.marketplace.data.DataTableColumn
 
-@param table: DataTable
+@param table: RenderedDataTable
 @param columns: List<DataTableColumn>
 @param title: String?
 @param cssClass: String?

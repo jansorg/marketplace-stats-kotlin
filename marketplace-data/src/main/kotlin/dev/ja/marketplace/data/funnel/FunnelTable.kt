@@ -24,21 +24,24 @@ class FunnelTable : SimpleDataTable("Trial Funnel", "funnel", "table-centered so
     override val columns: List<DataTableColumn> = listOf(trialDateColumn, licensedDateColumn, testDurationColumn, customerColumn)
 
     override suspend fun init(data: PluginData) {
+        super.init(data)
+
         this.pluginId = data.pluginId
+
         if (data.trials != null) {
             data.trials.forEach(trialTracker::registerTrial)
         }
     }
 
-    override fun process(sale: PluginSale) {
+    override suspend fun process(sale: PluginSale) {
         trialTracker.processSale(sale)
     }
 
-    override fun process(licenseInfo: LicenseInfo) {
+    override suspend fun process(licenseInfo: LicenseInfo) {
         // empty
     }
 
-    override fun createSections(): List<DataTableSection> {
+    override suspend fun createSections(): List<DataTableSection> {
         val trialResult = trialTracker.getResult()
         val convertedTrials = trialResult.convertedTrials
         val rows = convertedTrials.entries

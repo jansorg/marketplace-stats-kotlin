@@ -8,9 +8,9 @@ package dev.ja.marketplace.data
 import dev.ja.marketplace.client.PluginSale
 
 interface MarketplaceDataSink {
-    suspend fun init(data: PluginData) {}
+    suspend fun init(data: PluginData)
 
-    fun process(sale: PluginSale) {}
+    suspend fun process(sale: PluginSale) {}
 
-    fun process(licenseInfo: LicenseInfo)
+    suspend fun process(licenseInfo: LicenseInfo)
 }

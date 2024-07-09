@@ -24,4 +24,8 @@ data class Currency(
     override fun toString(): String {
         return isoCode
     }
+
+    fun hasCode(currencyCode: String): Boolean {
+        return this.isoCode == currencyCode
+    }
 }

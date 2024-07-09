@@ -33,6 +33,8 @@ class TrialsTable(
         }
 
     override suspend fun init(data: PluginData) {
+        super.init(data)
+
         this.pluginId = data.pluginId
         data.trials?.forEach {
             if (trialFilter(it)) {
@@ -41,7 +43,7 @@ class TrialsTable(
         }
     }
 
-    override fun process(licenseInfo: LicenseInfo) {
+    override suspend fun process(licenseInfo: LicenseInfo) {
         // empty
     }
 
@@ -53,7 +55,7 @@ class TrialsTable(
         columnRefId
     )
 
-    override fun createSections(): List<DataTableSection> {
+    override suspend fun createSections(): List<DataTableSection> {
         val today = YearMonthDay.now()
 
         val rows = mutableListOf<SimpleDateTableRow>()

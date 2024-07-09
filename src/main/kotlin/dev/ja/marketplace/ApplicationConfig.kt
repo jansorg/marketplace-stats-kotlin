@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -11,5 +11,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ApplicationConfig(
     @SerialName("apiKey")
-    val marketplaceApiKey: String
+    val marketplaceApiKey: String,
+    @SerialName("displayedCurrency")
+    val displayedCurrency: String? = null,
 )

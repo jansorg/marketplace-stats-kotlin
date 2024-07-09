@@ -12,12 +12,9 @@ import dev.ja.marketplace.client.LicenseId
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.overview.OverviewTable.CustomerSegment.*
 import dev.ja.marketplace.data.trackers.*
-import dev.ja.marketplace.util.isZero
 import java.util.*
 
-class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tables-row"),
-    MarketplaceDataSink {
-
+class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tables-row") {
     private enum class CustomerSegment {
         AnnualFree,
         AnnualPaying,
@@ -59,7 +56,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     ) {
         val isEmpty: Boolean
             get() {
-                return amounts.totalAmountUSD.isZero()
+                return amounts.isZero
             }
     }
 
@@ -86,9 +83,9 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     private val years = TreeMap<Int, YearData>(Comparator.reverseOrder())
 
     private val columnYearMonth = DataTableColumn("month", null, "month")
-    private val columnAmountTotalUSD = DataTableColumn("sales", "Total Sales", "num")
-    private val columnAmountFeesUSD = DataTableColumn("sales", "Fees", "num")
-    private val columnAmountPaidUSD = DataTableColumn("sales", "Invoice", "num")
+    private val columnAmountTotal = DataTableColumn("sales", "Total Sales", "num")
+    private val columnAmountFees = DataTableColumn("sales", "Fees", "num")
+    private val columnAmountPaid = DataTableColumn("sales", "Invoice", "num")
     private val columnActiveCustomers = DataTableColumn(
         "customer-count", "Cust.", "num", tooltip = "Customers at the end of month"
     )
@@ -133,9 +130,9 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
 
     override val columns: List<DataTableColumn> = listOfNotNull(
         columnYearMonth,
-        columnAmountTotalUSD,
+        columnAmountTotal,
         //columnAmountFeesUSD,
-        columnAmountPaidUSD,
+        columnAmountPaid,
         //columnActiveCustomers,
         //columnActiveCustomersPaying,
         columnActiveLicenses,
@@ -152,6 +149,8 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     )
 
     override suspend fun init(data: PluginData) {
+        super.init(data)
+
         this.pluginId = data.pluginId
 
         val now = YearMonthDay.now()
@@ -176,7 +175,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                     month,
                     CustomerTracker(activeCustomerRange),
                     LicenseTracker(activeCustomerRange),
-                    PaymentAmountTracker(currentMonth),
+                    PaymentAmountTracker(currentMonth, exchangeRates),
                     createCustomerChurnProcessor(currentMonth),
                     createLicenseChurnProcessor(currentMonth),
                     createCustomerChurnProcessor(currentMonth),
@@ -215,23 +214,33 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     }
 
     private fun createMonthlyRecurringRevenueTracker(month: YearMonthDayRange, pluginData: PluginData): RecurringRevenueTracker {
-        return MonthlyRecurringRevenueTracker(month, pluginData.continuityDiscountTracker!!, pluginData.pluginPricing!!)
+        return MonthlyRecurringRevenueTracker(
+            month,
+            pluginData.continuityDiscountTracker!!,
+            pluginData.pluginPricing!!,
+            pluginData.exchangeRates
+        )
     }
 
     private fun createAnnualRecurringRevenueTracker(month: YearMonthDayRange, pluginData: PluginData): RecurringRevenueTracker {
-        return AnnualRecurringRevenueTracker(month, pluginData.continuityDiscountTracker!!, pluginData.pluginPricing!!)
+        return AnnualRecurringRevenueTracker(
+            month,
+            pluginData.continuityDiscountTracker!!,
+            pluginData.pluginPricing!!,
+            pluginData.exchangeRates
+        )
     }
 
-    override fun process(sale: PluginSale) {
+    override suspend fun process(sale: PluginSale) {
         val yearData = years[sale.date.year]!!
         yearData.trials.processSale(sale)
 
         val monthData = yearData.months[sale.date.month]!!
-        monthData.amounts.add(sale.date, sale.amountUSD)
+        monthData.amounts.add(sale.date, sale.amountUSD, sale.amount, sale.currency)
         monthData.trials.processSale(sale)
     }
 
-    override fun process(licenseInfo: LicenseInfo) {
+    override suspend fun process(licenseInfo: LicenseInfo) {
         val customer = licenseInfo.sale.customer
         val licensePeriod = licenseInfo.sale.licensePeriod
         val isPaidLicense = licenseInfo.isPaidLicense
@@ -309,7 +318,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         }
     }
 
-    override fun createSections(): List<DataTableSection> {
+    override suspend fun createSections(): List<DataTableSection> {
         val now = YearMonthDay.now()
         val pluginId = pluginId!!
         return years.entries
@@ -317,10 +326,21 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
             .dropLastWhile { it.value.isEmpty } // don't show empty years
             .map { (year, yearData) ->
                 val rows = yearData.months.entries.map { (month, monthData) ->
+                    val lastOfMonth = YearMonthDay.lastOfMonth(year, month)
                     val isCurrentMonth = now.year == year && now.month == month
 
-                    val mrrValue = monthData.mrrTracker.getResult().amounts.getValues().takeUnless { isCurrentMonth }
-                    val arrValue = monthData.arrTracker.getResult().amounts.getValues().takeUnless { isCurrentMonth }
+                    val mrrResult = when {
+                        isCurrentMonth -> null
+                        else -> monthData.mrrTracker.getResult()
+                    }
+
+                    val arrResult = when {
+                        isCurrentMonth -> null
+                        else -> monthData.arrTracker.getResult()
+                    }
+
+                    val mrrValue = mrrResult?.amounts?.getConvertedResult(lastOfMonth)
+                    val arrValue = arrResult?.amounts?.getConvertedResult(lastOfMonth)
 
                     val annualLicenseChurn = monthData.churnLicensesAnnual.getResult(LicensePeriod.Annual).takeUnless { isCurrentMonth }
                     val annualLicenseChurnRate = annualLicenseChurn?.getRenderedChurnRate(pluginId)
@@ -388,9 +408,9 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                             columnActiveLicensesPaying to totalLicensesPaying.toBigInteger(),
                             columnMonthlyRecurringRevenue to (mrrValue ?: NoValue),
                             columnAnnualRecurringRevenue to (arrValue ?: NoValue),
-                            columnAmountTotalUSD to monthData.amounts.totalAmountUSD.withCurrency(MarketplaceCurrencies.USD),
-                            columnAmountFeesUSD to monthData.amounts.feesAmountUSD.withCurrency(MarketplaceCurrencies.USD),
-                            columnAmountPaidUSD to monthData.amounts.paidAmountUSD.withCurrency(MarketplaceCurrencies.USD),
+                            columnAmountTotal to monthData.amounts.totalAmount,
+                            columnAmountFees to monthData.amounts.feesAmount,
+                            columnAmountPaid to monthData.amounts.paidAmount,
                             columnLicenseChurnAnnual to (annualLicenseChurnRate ?: NoValue),
                             columnLicenseChurnMonthly to (monthlyLicenseChurnRate ?: NoValue),
                             columnDownloads to (downloadCount.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
@@ -402,6 +422,8 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                                     "\n$annualLicensesFree annual (free)" +
                                     "\n$monthlyLicensesPaying monthly (paying)",
                             columnActiveLicensesPaying to paidLicensesTooltip,
+                            columnMonthlyRecurringRevenue to mrrResult?.renderTooltip(),
+                            columnAnnualRecurringRevenue to arrResult?.renderTooltip(),
                             columnLicenseChurnAnnual to annualLicenseChurn?.churnRateTooltip,
                             columnLicenseChurnMonthly to monthlyLicenseChurn?.churnRateTooltip,
                             columnTrialsConverted to trialsMonth.tooltipConverted,

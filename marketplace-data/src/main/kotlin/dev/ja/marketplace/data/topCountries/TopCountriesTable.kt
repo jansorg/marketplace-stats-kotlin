@@ -5,15 +5,16 @@
 
 package dev.ja.marketplace.data.topCountries
 
-import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.PluginSale
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.trackers.AmountTargetCurrencyTracker
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.TrialTracker
 import java.util.*
 
 private data class CountryData(
+    var totalSales: AmountTargetCurrencyTracker,
     var salesCount: Int = 0,
-    var totalSales: Amount = Amount(0),
     var trials: TrialTracker = SimpleTrialTracker(),
 )
 
@@ -45,8 +46,9 @@ class TopCountriesTable(
         tooltip = "Percentage of trials which turned into a subscription after the trial started"
     )
 
-    private val data = TreeMap<String, CountryData>()
+    private val countries = TreeMap<String, CountryData>()
     private val allTrialsTracker: TrialTracker = SimpleTrialTracker()
+    private lateinit var allSalesTracker: AmountTargetCurrencyTracker
 
     override val columns: List<DataTableColumn> = listOfNotNull(
         columnCountry,
@@ -58,55 +60,66 @@ class TopCountriesTable(
     )
 
     override suspend fun init(data: PluginData) {
-        data.trials ?: return
-        for (trial in data.trials) {
-            allTrialsTracker.registerTrial(trial)
+        super.init(data)
 
-            val countryData = this.data.getOrPut(trial.customer.country.orEmptyCountry(), ::CountryData)
-            countryData.trials.registerTrial(trial)
+        allSalesTracker = AmountTargetCurrencyTracker(data.exchangeRates)
+
+        if (data.trials != null) {
+            for (trial in data.trials) {
+                allTrialsTracker.registerTrial(trial)
+
+                val countryData = countries.computeIfAbsent(trial.customer.country.orEmptyCountry()) {
+                    CountryData(AmountTargetCurrencyTracker(data.exchangeRates))
+                }
+                countryData.trials.registerTrial(trial)
+            }
         }
     }
 
-    override fun process(sale: PluginSale) {
+    override suspend fun process(sale: PluginSale) {
         allTrialsTracker.processSale(sale)
-
-        data[sale.customer.country.orEmptyCountry()]?.trials?.processSale(sale)
+        countries[sale.customer.country.orEmptyCountry()]?.trials?.processSale(sale)
     }
 
-    override fun process(licenseInfo: LicenseInfo) {
-        val countryData = data.getOrPut(licenseInfo.sale.customer.country.orEmptyCountry(), ::CountryData)
+    override suspend fun process(licenseInfo: LicenseInfo) {
+        allSalesTracker.add(licenseInfo.sale.date, licenseInfo.amountUSD, licenseInfo.amount, licenseInfo.currency)
+
+        val countryData = countries.getOrPut(licenseInfo.sale.customer.country.orEmptyCountry()) {
+            CountryData(AmountTargetCurrencyTracker(exchangeRates))
+        }
         countryData.salesCount += 1
-        countryData.totalSales += licenseInfo.amountUSD
+        countryData.totalSales.add(licenseInfo.sale.date, licenseInfo.amountUSD, licenseInfo.amount, licenseInfo.currency)
     }
 
-    override fun createSections(): List<DataTableSection> {
-        val totalSalesAmount = data.values.sumOf(CountryData::totalSales)
+    override suspend fun createSections(): List<DataTableSection> {
+        val totalSalesAmount = allSalesTracker.getTotalAmount()
 
         val allTrialsResult = allTrialsTracker.getResult()
         val totalTrialCount = allTrialsResult.totalTrials
 
-        val rows = data.entries
-            .sortedByDescending { it.value.totalSales }
+        val rows = countries.entries
+            .sortedByDescending { it.value.totalSales.getTotalAmount().amount }
             .take(maxItems ?: Int.MAX_VALUE)
             .map { (country, countryData) ->
                 val totalSales = countryData.totalSales.takeIf { countryData.salesCount > 0 }
-                val salesPercentage = PercentageValue.of(countryData.totalSales, totalSalesAmount)
+                val salesPercentage = PercentageValue.of(countryData.totalSales.getTotalAmount().amount, totalSalesAmount.amount)
 
                 val trialsResult = countryData.trials.getResult()
                 val trialPercentage = PercentageValue.of(trialsResult.totalTrials, totalTrialCount)
                 val trialConversion = trialsResult.convertedTrialsPercentage
 
+                val totalAmount = totalSales?.getTotalAmount()
                 SimpleDateTableRow(
                     values = mapOf(
                         columnCountry to country,
-                        columnSales to (totalSales?.withCurrency(MarketplaceCurrencies.USD) ?: NoValue),
+                        columnSales to (totalAmount ?: NoValue),
                         columnSalesPercentage to salesPercentage,
                         columnTrialCount to (trialsResult.totalTrials.takeUnless { it == 0 }?.toBigInteger() ?: NoValue),
                         columnTrialsPercentage to trialPercentage,
                         columnTrialConvertedPercentage to trialConversion,
                     ),
                     sortValues = mapOf(
-                        columnSales to (totalSales?.toLong() ?: -1L),
+                        columnSales to (totalAmount?.amount?.toLong() ?: -1L),
                         columnSalesPercentage to salesPercentage.value.toLong(),
                         columnTrialCount to trialsResult.totalTrials.toLong(),
                         columnTrialsPercentage to trialPercentage.value.toLong(),
@@ -115,8 +128,8 @@ class TopCountriesTable(
                 )
             }
 
-        val countriesWithSales = this.data.values.count { it.salesCount > 0 }
-        val countriesWithTrials = this.data.values.count { it.trials.getResult().totalTrials > 0 }
+        val countriesWithSales = this.countries.values.count { it.salesCount > 0 }
+        val countriesWithTrials = this.countries.values.count { it.trials.getResult().totalTrials > 0 }
         return listOf(
             SimpleTableSection(
                 rows,
@@ -125,11 +138,11 @@ class TopCountriesTable(
                     else -> SimpleTableSection(
                         SimpleDateTableRow(
                             columnCountry to listOf(
-                                "${data.size} countries",
+                                "${countries.size} countries",
                                 "$countriesWithSales with sales",
                                 "$countriesWithTrials with trials",
                             ),
-                            columnSales to totalSalesAmount.withCurrency(MarketplaceCurrencies.USD),
+                            columnSales to totalSalesAmount,
                             columnTrialCount to totalTrialCount.toBigInteger(),
                             columnTrialConvertedPercentage to allTrialsResult.convertedTrialsPercentage,
                         )

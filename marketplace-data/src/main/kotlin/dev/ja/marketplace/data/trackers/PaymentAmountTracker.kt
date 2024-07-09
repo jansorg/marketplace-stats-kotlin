@@ -5,38 +5,45 @@
 
 package dev.ja.marketplace.data.trackers
 
-import dev.ja.marketplace.client.Amount
-import dev.ja.marketplace.client.Marketplace
-import dev.ja.marketplace.client.YearMonthDay
-import dev.ja.marketplace.client.YearMonthDayRange
-import java.math.BigDecimal
+import dev.ja.marketplace.client.*
+import dev.ja.marketplace.exchangeRate.ExchangeRates
+import dev.ja.marketplace.services.Currency
+import dev.ja.marketplace.util.isZero
 
 /**
  * Tracks the payment within a given range of dates.
  */
-data class PaymentAmountTracker(val filterDateRange: YearMonthDayRange) {
-    private var _totalAmountUSD: Amount = BigDecimal.ZERO
-    private var _feesUSD: Amount = BigDecimal.ZERO
+data class PaymentAmountTracker(
+    val filterDateRange: YearMonthDayRange,
+    private val exchangeRates: ExchangeRates
+) {
+    private val total = AmountTargetCurrencyTracker(exchangeRates)
+    private val fees = AmountTargetCurrencyTracker(exchangeRates)
 
-    val totalAmountUSD: Amount
-        get() {
-            return _totalAmountUSD
-        }
+    val isZero: Boolean get() = total.getTotalAmountUSD().isZero()
 
-    val feesAmountUSD: Amount
-        get() {
-            return _feesUSD
-        }
+    val totalAmountUSD: Amount get() = total.getTotalAmountUSD()
+
+    val totalAmount: AmountWithCurrency get() = total.getTotalAmount()
+
+    val feesAmountUSD: Amount get() = fees.getTotalAmountUSD()
+
+    val feesAmount: AmountWithCurrency get() = fees.getTotalAmount()
 
     val paidAmountUSD: Amount
         get() {
-            return _totalAmountUSD - _feesUSD
+            return totalAmountUSD - feesAmountUSD
         }
 
-    fun add(paymentDate: YearMonthDay, amountUSD: Amount) {
+    val paidAmount: AmountWithCurrency
+        get() {
+            return totalAmount - feesAmount
+        }
+
+    suspend fun add(paymentDate: YearMonthDay, amountUSD: Amount, amount: Amount, currency: Currency) {
         if (paymentDate in filterDateRange) {
-            _totalAmountUSD += amountUSD
-            _feesUSD += Marketplace.feeAmount(paymentDate, amountUSD)
+            total.add(paymentDate, amountUSD, amount, currency)
+            fees.add(paymentDate, Marketplace.feeAmount(paymentDate, amountUSD), Marketplace.feeAmount(paymentDate, amount), currency)
         }
     }
 }

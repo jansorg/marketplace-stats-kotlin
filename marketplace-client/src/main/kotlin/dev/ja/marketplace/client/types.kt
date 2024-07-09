@@ -27,31 +27,40 @@ typealias PluginModuleName = String
 
 typealias Amount = BigDecimal
 
-data class AmountWithCurrency(val amount: Amount, val currency: Currency) : Comparable<AmountWithCurrency> {
-    constructor(amount: Amount, currencyIsoId: String) : this(amount, MarketplaceCurrencies.of(currencyIsoId))
+data class AmountWithCurrency(val amount: Amount, val currencyCode: String) : Comparable<AmountWithCurrency> {
+    constructor(amount: Amount, currency: Currency) : this(amount, currency.isoCode)
 
     override fun compareTo(other: AmountWithCurrency): Int {
-        return when (this.currency) {
-            other.currency -> this.amount.compareTo(other.amount)
-            else -> this.currency.compareTo(other.currency)
+        return when (this.currencyCode) {
+            other.currencyCode -> this.amount.compareTo(other.amount)
+            else -> this.currencyCode.compareTo(other.currencyCode)
         }
     }
 
     operator fun times(other: BigDecimal): AmountWithCurrency {
-        return AmountWithCurrency(amount.times(other), currency)
+        return AmountWithCurrency(amount.times(other), currencyCode)
     }
 
     operator fun minus(other: BigDecimal): AmountWithCurrency {
-        return AmountWithCurrency(amount.minus(other), currency)
+        return AmountWithCurrency(amount.minus(other), currencyCode)
     }
 
     operator fun plus(other: BigDecimal): AmountWithCurrency {
-        return AmountWithCurrency(amount.plus(other), currency)
+        return AmountWithCurrency(amount.plus(other), currencyCode)
+    }
+
+    operator fun minus(other: AmountWithCurrency): AmountWithCurrency {
+        assert(this.currencyCode == other.currencyCode)
+        return AmountWithCurrency(amount.minus(other.amount), currencyCode)
     }
 }
 
-fun Amount.withCurrency(currency: Currency): AmountWithCurrency {
+fun Amount.withCurrency(currency: String): AmountWithCurrency {
     return AmountWithCurrency(this, currency)
+}
+
+fun Amount.withCurrency(currency: Currency): AmountWithCurrency {
+    return AmountWithCurrency(this, currency.isoCode)
 }
 
 interface WithAmounts {

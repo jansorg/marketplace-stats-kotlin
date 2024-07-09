@@ -1,8 +1,8 @@
 @import dev.ja.marketplace.data.DataRowGroup
 @import dev.ja.marketplace.data.DataTableColumn
-@import dev.ja.marketplace.data.DataTable
+@import dev.ja.marketplace.data.RenderedDataTable
 
-@param table: DataTable
+@param table: RenderedDataTable
 @param group: DataRowGroup
 @param columns: List<DataTableColumn>
 @param cssClass: String?

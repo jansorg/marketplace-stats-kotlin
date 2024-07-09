@@ -10,7 +10,9 @@ import dev.ja.marketplace.data.ContinuityDiscount
 import dev.ja.marketplace.data.LicenseId
 import dev.ja.marketplace.data.LicenseInfo
 import dev.ja.marketplace.data.PluginPricing
+import dev.ja.marketplace.exchangeRate.ExchangeRates
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.util.*
 
 /**
@@ -20,6 +22,7 @@ abstract class RecurringRevenueTracker(
     private val dateRange: YearMonthDayRange,
     private val continuityTracker: ContinuityDiscountTracker,
     private val pluginPricing: PluginPricing,
+    private val exchangeRates: ExchangeRates,
 ) {
     private val latestSales = TreeMap<LicenseId, LicenseInfo>()
 
@@ -44,7 +47,7 @@ abstract class RecurringRevenueTracker(
     }
 
     fun getResult(): RecurringRevenue {
-        val resultAmounts = AmountWithCurrencyTracker()
+        val resultAmounts = AmountWithCurrencyTracker(exchangeRates)
 
         for ((_, license) in latestSales) {
             val basePrice = pluginPricing.getBasePrice(
@@ -58,7 +61,10 @@ abstract class RecurringRevenueTracker(
             }
 
             val basePriceFactor = basePriceFactor(license.sale.licensePeriod)
-            resultAmounts += Marketplace.paidAmount(license.validity.end, basePrice!! * otherDiscountsFactor(license).toBigDecimal())
+            val otherDiscountsFactor = otherDiscountsFactor(license)
+            val factors = basePriceFactor * otherDiscountsFactor.toBigDecimal()
+
+            resultAmounts += Marketplace.paidAmount(license.validity.end, basePrice!! * factors)
         }
 
         return RecurringRevenue(dateRange, resultAmounts)
@@ -94,8 +100,9 @@ class MonthlyRecurringRevenueTracker(
     timeRange: YearMonthDayRange,
     continuityTracker: ContinuityDiscountTracker,
     pluginPricing: PluginPricing,
-) : RecurringRevenueTracker(timeRange, continuityTracker, pluginPricing) {
-    private val annualToMonthly = BigDecimal.ONE / BigDecimal.valueOf(12)
+    exchangeRates: ExchangeRates,
+) : RecurringRevenueTracker(timeRange, continuityTracker, pluginPricing, exchangeRates) {
+    private val annualToMonthly = BigDecimal.ONE.divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP)
 
     override fun nextContinuityCheckDate(date: YearMonthDay): YearMonthDay {
         return date.add(0, 1, 0)
@@ -113,7 +120,8 @@ class AnnualRecurringRevenueTracker(
     timeRange: YearMonthDayRange,
     continuityTracker: ContinuityDiscountTracker,
     pluginPricing: PluginPricing,
-) : RecurringRevenueTracker(timeRange, continuityTracker, pluginPricing) {
+    exchangeRates: ExchangeRates,
+) : RecurringRevenueTracker(timeRange, continuityTracker, pluginPricing, exchangeRates) {
     private val monthlyToAnnual = BigDecimal.valueOf(12)
 
     override fun basePriceFactor(licensePeriod: LicensePeriod): BigDecimal {
@@ -131,4 +139,15 @@ class AnnualRecurringRevenueTracker(
 data class RecurringRevenue(
     val dateRange: YearMonthDayRange,
     val amounts: AmountWithCurrencyTracker
-)
+) {
+    fun renderTooltip(): String {
+        return buildString {
+            for (value in amounts.getValues()) {
+                append(value.amount.setScale(2, RoundingMode.HALF_UP))
+                append(" ")
+                append(value.currencyCode)
+                append("\n")
+            }
+        }
+    }
+}

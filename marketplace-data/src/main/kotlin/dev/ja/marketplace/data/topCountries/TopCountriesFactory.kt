@@ -6,15 +6,15 @@
 package dev.ja.marketplace.data.topCountries
 
 import dev.ja.marketplace.client.MarketplaceClient
-import dev.ja.marketplace.data.MarketplaceDataSink
-import dev.ja.marketplace.data.MarketplaceDataSinkFactory
+import dev.ja.marketplace.data.DataTable
+import dev.ja.marketplace.data.MarketplaceDataTableFactory
 
 class TopCountriesFactory(
     private val smallSpace: Boolean = true,
     private val maxCountries: Int? = 10,
     private val showTrials: Boolean = false
-) : MarketplaceDataSinkFactory {
-    override fun createTableSink(client: MarketplaceClient, maxTableRows: Int?): MarketplaceDataSink {
+) : MarketplaceDataTableFactory {
+    override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable {
         return TopCountriesTable(smallSpace, maxCountries, showTrials)
     }
 }
