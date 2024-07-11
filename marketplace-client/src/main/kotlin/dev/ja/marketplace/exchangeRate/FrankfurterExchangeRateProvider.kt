@@ -11,26 +11,18 @@ import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 import io.ktor.client.call.*
 import io.ktor.client.request.*
-import io.ktor.http.*
 import it.unimi.dsi.fastutil.objects.Object2DoubleArrayMap
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlin.collections.component1
+import kotlin.collections.component2
+import kotlin.collections.set
 
 /**
  * Implementation using open-source project https://github.com/hakanensari/frankfurter.
  */
-class FrankfurterExchangeRateProvider(
-    apiHost: String,
-    apiURLProtocol: URLProtocol = URLProtocol.HTTPS,
-    apiPort: Int = apiURLProtocol.defaultPort,
-    logLevel: ClientLogLevel
-) : ExchangeRateProvider {
-    private val httpClient = KtorHttpClientFactory.createHttpClient(
-        apiHost = apiHost,
-        apiProtocol = apiURLProtocol,
-        apiPort = apiPort,
-        logLevel = logLevel
-    )
+class FrankfurterExchangeRateProvider(apiUrl: String, logLevel: ClientLogLevel) : ExchangeRateProvider {
+    private val httpClient = KtorHttpClientFactory.createHttpClientByUrl(apiUrl, logLevel = logLevel)
 
     override suspend fun fetchExchangeRates(
         dates: YearMonthDayRange,

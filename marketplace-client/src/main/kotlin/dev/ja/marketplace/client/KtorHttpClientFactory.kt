@@ -25,6 +25,19 @@ object KtorHttpClientFactory {
         apiPort: Int = apiProtocol.defaultPort,
         logLevel: ClientLogLevel = ClientLogLevel.Normal
     ): HttpClient {
+        val url = URLBuilder()
+        url.protocol = apiProtocol
+        url.host = apiHost
+        url.port = apiPort
+
+        return createHttpClientByUrl(url.buildString(), bearerAuthKey, logLevel)
+    }
+
+    fun createHttpClientByUrl(
+        apiUrl: String,
+        bearerAuthKey: String? = null,
+        logLevel: ClientLogLevel = ClientLogLevel.Normal
+    ): HttpClient {
         return HttpClient(Java) {
             install(Logging) {
                 level = logLevel.ktorLogLevel
@@ -41,11 +54,7 @@ object KtorHttpClientFactory {
             }
 
             install(DefaultRequest) {
-                url {
-                    protocol = apiProtocol
-                    host = apiHost
-                    port = apiPort
-                }
+                url(apiUrl)
 
                 header("Content-Type", "application/json")
 

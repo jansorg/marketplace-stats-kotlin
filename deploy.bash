@@ -9,7 +9,8 @@ set -e -x
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 VERSION="$(cat "$DIR/VERSION.txt")"
-echo "Building Version $VERSION ..."
+DOCKER_TAG="${1:=latest}"
+echo "Building Version $VERSION with Docker tag $DOCKER_TAG"
 
 ./gradlew clean build
 git tag --force "v$VERSION"
@@ -21,7 +22,7 @@ echo "Publishing Docker containers..."
 docker buildx create --use
 docker buildx build --platform linux/amd64,linux/arm64 -f Dockerfile \
   -t "jansorg/jetbrains-marketplace-stats:$VERSION" \
-  -t "jansorg/jetbrains-marketplace-stats:latest" \
+  -t "jansorg/jetbrains-marketplace-stats:$DOCKER_TAG" \
   --push \
   .
 

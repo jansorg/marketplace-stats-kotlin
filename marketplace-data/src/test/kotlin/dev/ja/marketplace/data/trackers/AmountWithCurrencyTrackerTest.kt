@@ -16,16 +16,16 @@ class AmountWithCurrencyTrackerTest {
     @Test
     fun tracking() {
         val amounts = AmountWithCurrencyTracker(EmptyExchangeRates)
-        amounts.add(Amount(10), MarketplaceCurrencies.EUR)
-        amounts.add(Amount(100), MarketplaceCurrencies.USD)
-        amounts.add(Amount(1000), MarketplaceCurrencies.JPY)
+        amounts.add(Amount(10), MarketplaceCurrencies.EUR.isoCode)
+        amounts.add(Amount(100), MarketplaceCurrencies.USD.isoCode)
+        amounts.add(Amount(1000), MarketplaceCurrencies.JPY.isoCode)
 
         Assertions.assertEquals(
-            listOf(
+            setOf(
                 AmountWithCurrency(Amount(10), MarketplaceCurrencies.EUR),
                 AmountWithCurrency(Amount(100), MarketplaceCurrencies.USD),
                 AmountWithCurrency(Amount(1000), MarketplaceCurrencies.JPY),
-            ), amounts.getValues()
+            ), amounts.getValues().toSet()
         )
     }
 }
