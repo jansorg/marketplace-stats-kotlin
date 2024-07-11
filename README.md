@@ -82,6 +82,8 @@ Instead of options, you can use the following environment variables:
 --port:              MARKETPLACE_SERVER_PORT
 --host:              MARKETPLACE_SERVER_HOSTNAME
 --exchange-rate-api: MARKETPLACE_EXCHANGE_RATE_API
+--display-currency:  MARKETPLACE_DISPLAY_CURRENCY
+--debug:             MARKETPLACE_LOG_LEVEL
 ```
 
 For example:

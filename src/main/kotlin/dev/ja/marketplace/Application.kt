@@ -64,7 +64,7 @@ class Application(version: String) : CliktCommand(
     private val displayCurrency: String? by option("-c", "--currency", envvar = "MARKETPLACE_DISPLAY_CURRENCY")
         .help("Currency for the displayed monetary amounts.")
 
-    private val logging: ClientLogLevel by option("-d", "--debug").enum<ClientLogLevel>(key = { it.name.lowercase() })
+    private val logging: ClientLogLevel by option("-d", "--debug", envvar = "MARKETPLACE_LOG_LEVEL").enum<ClientLogLevel>(key = { it.name.lowercase() })
         .default(ClientLogLevel.None)
         .help("The log level used for the server and the API requests to the marketplace")
 
