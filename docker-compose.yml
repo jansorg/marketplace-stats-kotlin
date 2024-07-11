@@ -1,21 +1,61 @@
 services:
   jetbrains-marketplace-stats:
     container_name: jetbrains-marketplace-stats
-    image: jansorg/jetbrains-marketplace-stats:latest
-    restart: unless-stopped
+    image: jansorg/jetbrains-marketplace-stats:display-currency
+    restart: always
+    networks:
+      - jetbrains-marketplace
     ports:
-      - "8080:8080"
+      - "8080:8081"
     environment:
-      # You have to add your own JetBrains Marketplace API key here
+        # Required: You have to add your own JetBrains Marketplace API key here
       - MARKETPLACE_API_KEY=your-api-key
+        # Defines which currency is used to display monetary amounts
+      - MARKETPLACE_DISPLAY_CURRENCY=USD
+      - MARKETPLACE_SERVER_PORT=8081
+      - MARKETPLACE_EXCHANGE_RATE_API=http://frankfurter:8080
+        # none, normal or verbose
+      - MARKETPLACE_LOG_LEVEL=none
 
   frankfurter:
-    image: postgres
+    container_name: jetbrains-marketplace-frankfurter
+    image: hakanensari/frankfurter:latest
     restart: always
+    networks:
+      - jetbrains-marketplace
+    links:
+      - "db:database"
+    expose:
+      - 8080
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
-      POSTGRES_PASSWORD: example
+      DATABASE_URL: postgres://postgres:very_secure@db:5432/jetbrains_marketplace
+
+  db:
+    container_name: jetbrains-marketplace-postgres
+    image: postgres:12
+    restart: always
+    user: postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready" ]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+    networks:
+      - jetbrains-marketplace
+    expose:
+      - 5432
     volumes:
       - frankfurter-cache:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: very_secure
+      POSTGRES_DB: jetbrains_marketplace
+
+networks:
+  jetbrains-marketplace:
+    driver: bridge
 
 volumes:
   frankfurter-cache:
