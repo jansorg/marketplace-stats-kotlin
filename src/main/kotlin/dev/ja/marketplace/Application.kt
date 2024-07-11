@@ -57,6 +57,10 @@ class Application(version: String) : CliktCommand(
         .default(8080)
         .help("Port used by the integrated webserver.")
 
+    private val frankfurterApiUrl: String by option("--exchange-rate-api", envvar = "MARKETPLACE_EXCHANGE_RATE_API")
+        .default("https://api.frankfurter.app")
+        .help("URL of the Frankfurter.app exchange rate API.")
+
     private val displayCurrency: String? by option("-c", "--currency", envvar = "MARKETPLACE_DISPLAY_CURRENCY")
         .help("Currency for the displayed monetary amounts.")
 
@@ -74,18 +78,15 @@ class Application(version: String) : CliktCommand(
             ?: "USD"
 
         runBlocking {
-            val exchangeRateProvider = FrankfurterExchangeRateProvider("api.frankfurter.app", logLevel = logging)
-            val servicesClient = KtorJetBrainsServiceClient(logLevel = logging)
-            val marketplaceClient = CachingMarketplaceClient(KtorMarketplaceClient(apiKey = apiKey, logLevel = logging))
-            val serverConfiguration = ServerConfiguration(displayCurrencyCode)
             val server = MarketplaceStatsServer(
-                marketplaceClient,
-                servicesClient,
-                exchangeRateProvider,
+                CachingMarketplaceClient(KtorMarketplaceClient(apiKey = apiKey, logLevel = logging)),
+                KtorJetBrainsServiceClient(logLevel = logging),
+                FrankfurterExchangeRateProvider(frankfurterApiUrl, logLevel = logging),
                 serverHostname,
                 serverPort,
-                serverConfiguration
+                ServerConfiguration(displayCurrencyCode)
             )
+
             server.start()
         }
     }

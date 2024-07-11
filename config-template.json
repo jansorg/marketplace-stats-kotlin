@@ -1,3 +1,4 @@
 {
-  "apiKey": "marketplace-api-key"
+  "apiKey": "marketplace-api-key",
+  "displayedCurrency": "USD"
 }

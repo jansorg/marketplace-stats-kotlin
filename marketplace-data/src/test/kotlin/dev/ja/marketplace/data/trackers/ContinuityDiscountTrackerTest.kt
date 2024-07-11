@@ -18,7 +18,7 @@ class ContinuityDiscountTrackerTest {
     @Test
     fun basics() {
         val tracker = ContinuityDiscountTracker()
-        assertEquals(1.0, tracker.nextContinuity("any", YearMonthDay.now()))
+        assertEquals(ContinuityDiscount.FirstYear, tracker.nextContinuity("any", YearMonthDay.now()))
 
         val validity = YearMonthDayRange(YearMonthDay(2024, 6, 1), YearMonthDay(2024, 6, 30))
 

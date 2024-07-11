@@ -1,5 +1,3 @@
-version: "3"
-
 services:
   jetbrains-marketplace-stats:
     container_name: jetbrains-marketplace-stats
@@ -10,3 +8,14 @@ services:
     environment:
       # You have to add your own JetBrains Marketplace API key here
       - MARKETPLACE_API_KEY=your-api-key
+
+  frankfurter:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: example
+    volumes:
+      - frankfurter-cache:/var/lib/postgresql/data
+
+volumes:
+  frankfurter-cache:
