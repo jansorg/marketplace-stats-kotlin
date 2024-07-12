@@ -15,7 +15,7 @@ echo "Building Version $VERSION with Docker tag $DOCKER_TAG"
 ./gradlew clean build
 git tag --force "v$VERSION"
 git push
-git push --tags
+git push --tags --force
 
 if [[ -z $1 ]]; then
   gh release create "v$VERSION" --generate-notes ./build/libs/marketplace-*.jar
