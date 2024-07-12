@@ -12,11 +12,14 @@ VERSION="$(cat "$DIR/VERSION.txt")"
 DOCKER_TAG="${1:=latest}"
 echo "Building Version $VERSION with Docker tag $DOCKER_TAG"
 
+ghReleaseArgs=""
+if [[ -n $1 ]]; then ghReleaseArgs="-d"; fi
+
 ./gradlew clean build
 git tag --force "v$VERSION"
 git push
 git push --tags
-gh release create "v$VERSION" --generate-notes ./build/libs/marketplace-*.jar
+gh release create $ghReleaseArgs "v$VERSION" --generate-notes ./build/libs/marketplace-*.jar
 
 echo "Publishing Docker containers..."
 docker buildx create --use
