@@ -5,24 +5,25 @@
 
 package dev.ja.marketplace.client
 
-import kotlinx.datetime.*
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toJavaZoneId
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import java.time.LocalDate
 import java.time.YearMonth
+import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import java.time.temporal.WeekFields
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 @Serializable(with = YearMonthDateSerializer::class)
-data class YearMonthDay(
-    val year: Int,
-    val month: Int,
-    val day: Int,
-    val timezone: TimeZone = MarketplaceTimeZone
-) : Comparable<YearMonthDay> {
-    private val instant = LocalDate(year, month, day).atStartOfDayIn(timezone)
+data class YearMonthDay private constructor(private val instant: LocalDate) : Comparable<YearMonthDay> {
+    constructor(year: Int, month: Int, day: Int) : this(LocalDate.of(year, month, day))
+
+    val year: Int = instant.year
+    val month: Int = instant.monthValue
+    val day: Int = instant.dayOfMonth
 
     val asIsoString: String by lazy {
         String.format("%04d-%02d-%02d", year, month, day)
@@ -32,17 +33,13 @@ data class YearMonthDay(
         return YearMonthDayRange(this, end)
     }
 
-    fun rangeTo(end: Instant): YearMonthDayRange {
-        return YearMonthDayRange(this, of(end, timezone))
-    }
-
     override fun toString(): String {
         return asIsoString
     }
 
     val sortValue: Long
         get() {
-            return instant.epochSeconds
+            return instant.toEpochDay()
         }
 
     fun add(years: Int, months: Int, days: Int): YearMonthDay {
@@ -50,23 +47,23 @@ data class YearMonthDay(
             return this
         }
 
-        return of(
-            instant.plus(years, DateTimeUnit.YEAR, timezone)
-                .plus(months, DateTimeUnit.MONTH, timezone)
-                .plus(days, DateTimeUnit.DAY, timezone)
-        )
+        return of(instant.plusYears(years.toLong()).plusMonths(months.toLong()).plusDays(days.toLong()))
     }
 
     override operator fun compareTo(other: YearMonthDay): Int {
         return instant.compareTo(other.instant)
     }
 
-    fun daysUntil(date: YearMonthDay): Int {
-        return instant.daysUntil(date.instant, timezone)
+    fun daysUntil(date: YearMonthDay): Long {
+        return instant.until(date.instant, ChronoUnit.DAYS)
     }
 
-    fun monthsUntil(date: YearMonthDay): Int {
-        return instant.monthsUntil(date.instant, timezone)
+    fun monthsUntil(date: YearMonthDay): Long {
+        return instant.until(date.instant, ChronoUnit.MONTHS)
+    }
+
+    fun toLocalDate(): LocalDate {
+        return instant
     }
 
     companion object {
@@ -79,26 +76,20 @@ data class YearMonthDay(
         }
 
         fun now(): YearMonthDay {
-            return of(Clock.System.now())
+            return of(LocalDate.now())
         }
 
-        fun of(date: java.time.LocalDate, timezone: TimeZone = MarketplaceTimeZone): YearMonthDay {
-            val timezoneDate = date.atStartOfDay(timezone.toJavaZoneId())
-            return YearMonthDay(timezoneDate.year, timezoneDate.monthValue, timezoneDate.dayOfMonth)
-        }
-
-        fun of(date: Instant, timezone: TimeZone = MarketplaceTimeZone): YearMonthDay {
+        fun of(date: LocalDate): YearMonthDay {
             return instantCache.computeIfAbsent(date) {
-                val timezoneDate = date.toLocalDateTime(timezone)
-                YearMonthDay(timezoneDate.year, timezoneDate.monthNumber, timezoneDate.dayOfMonth)
+                YearMonthDay(it)
             }
         }
 
-        fun lastOfMonth(year: Int, month: Int, timezone: TimeZone = MarketplaceTimeZone): YearMonthDay {
-            return of(YearMonth.of(year, month).atEndOfMonth(), timezone)
+        fun lastOfMonth(year: Int, month: Int): YearMonthDay {
+            return of(YearMonth.of(year, month).atEndOfMonth())
         }
 
-        private val instantCache = ConcurrentHashMap<Instant, YearMonthDay>()
+        private val instantCache = ConcurrentHashMap<LocalDate, YearMonthDay>()
     }
 }
 
@@ -187,10 +178,6 @@ data class YearMonthDayRange(
         return YearMonthDayRange(start, end.add(years, months, days))
     }
 
-    fun countDays(): Int {
-        return start.daysUntil(end) + 1
-    }
-
     private fun asIsoStringRange(): String {
         return "${start.asIsoString} - ${end.asIsoString}"
     }
@@ -198,7 +185,7 @@ data class YearMonthDayRange(
     companion object {
         fun currentWeek(timezone: TimeZone = MarketplaceTimeZone): YearMonthDayRange {
             val firstDayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek
-            val firstOfWeek = java.time.LocalDate.now(timezone.toJavaZoneId()).with(TemporalAdjusters.previousOrSame(firstDayOfWeek))
+            val firstOfWeek = LocalDate.now(timezone.toJavaZoneId()).with(TemporalAdjusters.previousOrSame(firstDayOfWeek))
             val lastOfWeek = firstOfWeek.plusDays(6)
             return YearMonthDayRange(YearMonthDay.of(firstOfWeek), YearMonthDay.of(lastOfWeek))
         }

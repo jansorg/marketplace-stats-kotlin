@@ -5,7 +5,10 @@
 
 package dev.ja.marketplace.data.trackers
 
-import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.LicensePeriod
+import dev.ja.marketplace.client.YearMonthDay
+import dev.ja.marketplace.client.YearMonthDayRange
+import dev.ja.marketplace.client.times
 import dev.ja.marketplace.data.ContinuityDiscount
 import dev.ja.marketplace.data.LicenseId
 import dev.ja.marketplace.data.LicenseInfo
@@ -47,11 +50,10 @@ abstract class RecurringRevenueTracker(
     }
 
     fun getResult(): RecurringRevenue {
-        val resultAmounts = AmountWithCurrencyTracker(exchangeRates)
+        val resultAmounts = MonetaryAmountTracker(exchangeRates)
 
         for ((_, license) in latestSales) {
             val basePrice = pluginPricing.getBasePrice(
-                dateRange.end,
                 license.sale.customer,
                 license.sale.licensePeriod,
                 nextContinuityDiscount(license)
@@ -60,11 +62,9 @@ abstract class RecurringRevenueTracker(
                 "Unable to find base price for country ${license.sale.customer.country}"
             }
 
-            val basePriceFactor = basePriceFactor(license.sale.licensePeriod)
-            val otherDiscountsFactor = otherDiscountsFactor(license)
-            val factors = basePriceFactor * otherDiscountsFactor.toBigDecimal()
+            val factors = basePriceFactor(license.sale.licensePeriod) * otherDiscountsFactor(license).toBigDecimal()
 
-            resultAmounts += Marketplace.paidAmount(license.validity.end, basePrice!! * factors)
+            resultAmounts.add(license.validity.end, license.amountUSD * factors, license.amount * factors)
         }
 
         return RecurringRevenue(dateRange, resultAmounts)
@@ -84,13 +84,19 @@ abstract class RecurringRevenueTracker(
     }
 
     private fun otherDiscountsFactor(licenseInfo: LicenseInfo): Double {
-        val otherPercent = licenseInfo.saleLineItem.discountDescriptions
-            .filterNot(PluginSaleItemDiscount::isContinuityDiscount)
-            .mapNotNull { it.percent }
+        val discounts = licenseInfo.saleLineItem.discountDescriptions
+        if (discounts.isEmpty()) {
+            return 0.0
+        }
 
         var factor = 1.0
-        for (percent in otherPercent) {
-            factor *= 1.0 - percent / 100.0
+        for (discount in discounts) {
+            if (!discount.isContinuityDiscount) {
+                val percent = discount.percent
+                if (percent != null) {
+                    factor *= 1.0 - percent / 100.0
+                }
+            }
         }
         return factor
     }
@@ -138,16 +144,16 @@ class AnnualRecurringRevenueTracker(
 
 data class RecurringRevenue(
     val dateRange: YearMonthDayRange,
-    val amounts: AmountWithCurrencyTracker
+    val amounts: MonetaryAmountTracker
 ) {
     fun renderTooltip(): String {
         return buildString {
-            for (value in amounts.getValues()) {
+            /*for (value in amounts.getValues()) {
                 append(value.amount.setScale(2, RoundingMode.HALF_UP))
                 append(" ")
                 append(value.currencyCode)
                 append("\n")
-            }
+            }*/
         }
     }
 }

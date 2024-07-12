@@ -1,11 +1,12 @@
 @import gg.jte.support.ForSupport
 @import java.math.BigDecimal
 @import java.math.BigInteger
-@import dev.ja.marketplace.client.AmountWithCurrency
 @import dev.ja.marketplace.data.LinkedChurnRate
 @import dev.ja.marketplace.data.LinkedCustomer
 @import dev.ja.marketplace.data.LinkedLicense
 @import dev.ja.marketplace.data.PercentageValue
+@import dev.ja.marketplace.data.format.Formatters
+@import javax.money.MonetaryAmount
 
 @param value: Any?
 
@@ -17,8 +18,8 @@
     @for(i in ForSupport.of(value))
         @template.render(i.get())@if(!i.isLast)<br>@endif
     @endfor
-@elseif(value is AmountWithCurrency)
-    @template.render(value.amount) @template.render(value.currencyCode)
+@elseif(value is MonetaryAmount)
+    ${Formatters.MonetaryAmount.format(value)}
 @elseif(value is PercentageValue)
     @if(value == PercentageValue.ZERO)
         —

@@ -5,11 +5,18 @@
 
 package dev.ja.marketplace.data.privingOverview
 
-import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.MarketplaceCurrencies
+import dev.ja.marketplace.client.PluginPriceInfo
+import dev.ja.marketplace.client.PriceInfoTypeData
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.services.Countries
 import dev.ja.marketplace.services.CountryWithCurrency
+import dev.ja.marketplace.services.Currency
+import dev.ja.marketplace.util.sortValue
+import org.javamoney.moneta.Money
+import java.math.BigDecimal
 import java.text.Collator
+import javax.money.MonetaryAmount
 
 class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column-wide"),
     MarketplaceDataSink {
@@ -60,7 +67,7 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
         )
 
         val currencyToPricing = MarketplaceCurrencies.associate { currency ->
-            currency.isoCode to countries.byCurrencyIsoCode(currency.isoCode)!!.mapNotNull { countryWithCurrency ->
+            currency to countries.byCurrencyIsoCode(currency.currencyCode)!!.mapNotNull { countryWithCurrency ->
                 val pricing = pluginPricing.getCountryPricing(countryWithCurrency.country.isoCode) ?: return@mapNotNull null
                 countryWithCurrency to pricing
             }
@@ -94,23 +101,23 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
                                 columnThirdYearCommercial to listOfNotNull(commercialC, commercialTaxedC),
                             ),
                             sortValues = mapOf(
-                                columnFirstYearPersonal to personalA.amount.sortValue(),
-                                columnSecondYearPersonal to personalB.amount.sortValue(),
-                                columnThirdYearPersonal to personalC.amount.sortValue(),
-                                columnFirstYearCommercial to commercialA.amount.sortValue(),
-                                columnSecondYearCommercial to commercialB.amount.sortValue(),
-                                columnThirdYearCommercial to commercialC.amount.sortValue(),
+                                columnFirstYearPersonal to personalA.sortValue(),
+                                columnSecondYearPersonal to personalB.sortValue(),
+                                columnThirdYearPersonal to personalC.sortValue(),
+                                columnFirstYearCommercial to commercialA.sortValue(),
+                                columnSecondYearCommercial to commercialB.sortValue(),
+                                columnThirdYearCommercial to commercialC.sortValue(),
                             )
                         )
                     }
 
-                SimpleTableSection(rows = subTableRows, columns = subColumns, title = currencyCode)
+                SimpleTableSection(rows = subTableRows, columns = subColumns, title = currencyCode.currencyCode)
             }
 
         return currencySections
     }
 
-    private fun PriceInfoTypeData.mapYears(currency: dev.ja.marketplace.services.Currency): Triple<AmountWithCurrency, AmountWithCurrency, AmountWithCurrency> {
+    private fun PriceInfoTypeData.mapYears(currency: Currency): Triple<MonetaryAmount, MonetaryAmount, MonetaryAmount> {
         return Triple(
             firstYear.price.withCurrency(currency),
             secondYear.price.withCurrency(currency),
@@ -118,11 +125,15 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
         )
     }
 
-    private fun PriceInfoTypeData.mapYearsTaxed(currency: dev.ja.marketplace.services.Currency): Triple<AmountWithCurrency?, AmountWithCurrency?, AmountWithCurrency?> {
+    private fun PriceInfoTypeData.mapYearsTaxed(currency: Currency): Triple<MonetaryAmount?, MonetaryAmount?, MonetaryAmount?> {
         return Triple(
             firstYear.priceTaxed?.withCurrency(currency),
             secondYear.priceTaxed?.withCurrency(currency),
             thirdYear.priceTaxed?.withCurrency(currency),
         )
+    }
+
+    private fun BigDecimal.withCurrency(currency: Currency): MonetaryAmount {
+        return Money.of(this, currency.isoCode)
     }
 }

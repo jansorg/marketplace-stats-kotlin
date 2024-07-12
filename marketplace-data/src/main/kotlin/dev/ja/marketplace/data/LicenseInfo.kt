@@ -6,8 +6,7 @@
 package dev.ja.marketplace.data
 
 import dev.ja.marketplace.client.*
-import dev.ja.marketplace.services.Currency
-import java.math.BigInteger
+import javax.money.MonetaryAmount
 
 typealias LicenseId = dev.ja.marketplace.client.LicenseId
 
@@ -20,16 +19,17 @@ data class LicenseInfo(
     // dates, when this license is valid
     val validity: YearMonthDayRange,
     // amount of this particular license
-    override val amount: Amount,
-    // currency of Amount
-    override val currency: Currency,
+    override val amount: MonetaryAmount,
     // same as amount, but converted from "currency" to USD
-    override val amountUSD: Amount,
+    override val amountUSD: MonetaryAmount,
     // the sale of this particular license purchase, which also contains the saleLineItem
     val sale: PluginSale,
     // the sale line item of this particular license purchase
     val saleLineItem: PluginSaleItem,
 ) : WithDateRange, WithAmounts, Comparable<LicenseInfo> {
+    init {
+        require(amountUSD.currency.currencyCode == "USD")
+    }
 
     val isNewLicense: Boolean
         get() {
@@ -43,7 +43,7 @@ data class LicenseInfo(
 
     val isPaidLicense: Boolean
         get() {
-            return amountUSD != Amount.ZERO && !saleLineItem.isFreeLicense
+            return !amountUSD.isZero && !saleLineItem.isFreeLicense
         }
 
     override val dateRange: YearMonthDayRange
@@ -55,42 +55,23 @@ data class LicenseInfo(
 
     companion object {
         fun create(sales: List<PluginSale>): List<LicenseInfo> {
-            return sales.flatMap { sale ->
-                val licenses = mutableListOf<LicenseInfo>()
-
-                for (lineItem in sale.lineItems) {
-                    val fixedAmount = when (sale.amount.toDouble()) {
-                        0.0 -> Amount(BigInteger.ZERO)
-                        else -> lineItem.amount
-                    }
-                    val fixedAmountUSD = when (sale.amountUSD.toDouble()) {
-                        0.0 -> Amount(BigInteger.ZERO)
-                        else -> lineItem.amountUSD
-                    }
-
-                    SplitAmount.split(fixedAmount, fixedAmountUSD, lineItem.licenseIds) { amount, amountUSD, license ->
+            val licenses = mutableListOf<LicenseInfo>()
+            sales.forEach { sale ->
+                sale.lineItems.forEach { lineItem ->
+                    SplitAmount.split(lineItem.amount, lineItem.amountUSD, lineItem.licenseIds) { amount, amountUSD, license ->
                         licenses += LicenseInfo(
                             license,
                             lineItem.subscriptionDates,
                             amount,
-                            sale.currency,
                             amountUSD,
                             sale,
                             lineItem
                         )
                     }
                 }
-
-                /*if (licenses.sumOf { it.amountUSD }.toDouble() != sale.amountUSD.toDouble()) {
-                    println(
-                        "Sum does not match: $sale. item sum: ${
-                            licenses.sumOf { it.amountUSD }.toDouble()
-                        }, total: ${sale.amountUSD.toDouble()}"
-                    )
-                }*/
-
-                licenses.sorted()
             }
+            licenses.sort()
+            return licenses
         }
     }
 }

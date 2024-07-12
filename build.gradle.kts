@@ -53,7 +53,7 @@ allprojects {
         implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
 
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-coroutines-core
-        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
 
         // https://mvnrepository.com/artifact/it.unimi.dsi/fastutil-core
         implementation("it.unimi.dsi:fastutil-core:8.5.13")
@@ -63,6 +63,13 @@ allprojects {
 
         // https://github.com/ajalt/clikt
         implementation("com.github.ajalt.clikt:clikt:4.4.0")
+
+        // https://mvnrepository.com/artifact/org.javamoney.moneta/moneta-core
+        implementation("org.javamoney.moneta:moneta-core:1.4.4")
+        // https://mvnrepository.com/artifact/org.javamoney.moneta/moneta-convert
+        implementation("org.javamoney.moneta:moneta-convert:1.4.4")
+        // https://mvnrepository.com/artifact/org.javamoney.moneta/moneta-convert-ecb
+        implementation("org.javamoney.moneta:moneta-convert-ecb:1.4.4")
 
         // https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api
         testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.3")

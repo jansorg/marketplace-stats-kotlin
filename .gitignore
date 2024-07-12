@@ -6,3 +6,4 @@ jte-classes/
 .kotlin/sessions
 .env
 export-data/
+.resourceCache/

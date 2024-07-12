@@ -11,11 +11,12 @@ import dev.ja.marketplace.client.LicenseId
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.*
-import dev.ja.marketplace.data.trackers.AmountTargetCurrencyTracker
+import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
+import dev.ja.marketplace.util.sortValue
 
 data class CustomerTableRowData(
     val customer: CustomerInfo,
-    var totalSales: AmountTargetCurrencyTracker,
+    var totalSales: MonetaryAmountTracker,
     var earliestLicenseStart: YearMonthDay? = null,
     var latestLicenseEnd: YearMonthDay? = null,
     val totalLicenses: MutableSet<LicenseId> = mutableSetOf(),
@@ -39,7 +40,7 @@ class CustomerTable(
     private val columnId = DataTableColumn("customer-id", "Cust. ID", "num")
 
     private val customerMap = mutableMapOf<CustomerId, CustomerTableRowData>()
-    private lateinit var totalSales: AmountTargetCurrencyTracker
+    private lateinit var totalSales: MonetaryAmountTracker
 
     private var pluginId: PluginId? = null
 
@@ -59,15 +60,15 @@ class CustomerTable(
         super.init(data)
 
         this.pluginId = data.pluginId
-        this.totalSales = AmountTargetCurrencyTracker(exchangeRates)
+        this.totalSales = MonetaryAmountTracker(exchangeRates)
     }
 
     override suspend fun process(licenseInfo: LicenseInfo) {
-        totalSales.add(licenseInfo.sale.date, licenseInfo.amountUSD, licenseInfo.amount, licenseInfo.currency)
+        totalSales.add(licenseInfo.sale.date, licenseInfo.amountUSD, licenseInfo.amount)
 
         val customer = licenseInfo.sale.customer
         val data = customerMap.computeIfAbsent(customer.code) {
-            CustomerTableRowData(customer, AmountTargetCurrencyTracker(exchangeRates))
+            CustomerTableRowData(customer, MonetaryAmountTracker(exchangeRates))
         }
 
         val licenseStart = licenseInfo.validity.start
@@ -81,14 +82,14 @@ class CustomerTable(
         if (licenseInfo.validity.end >= nowDate) {
             data.activeLicenses += licenseInfo.id
         }
-        data.totalSales.add(licenseInfo.sale.date, licenseInfo.amountUSD, licenseInfo.amount, licenseInfo.currency)
+        data.totalSales.add(licenseInfo.sale.date, licenseInfo.amountUSD, licenseInfo.amount)
     }
 
     override suspend fun createSections(): List<DataTableSection> {
         var prevValidUntil: YearMonthDay? = null
         val displayedCustomers = customerMap.values
             .filter(customerFilter)
-            .sortedByDescending { it.totalSales.getTotalAmount().amount.sortValue() }
+            .sortedByDescending { it.totalSales.getTotalAmount().sortValue() }
             .sortedByDescending { it.latestLicenseEnd!! }
 
         val rows = displayedCustomers
@@ -124,7 +125,7 @@ class CustomerTable(
                     sortValues = mapOf(
                         columnValidUntil to validUntil.sortValue,
                         columnValidSince to validSince.sortValue,
-                        columnSales to customerData.totalSales.getTotalAmount().amount.sortValue(),
+                        columnSales to customerData.totalSales.getTotalAmount().sortValue(),
                     ),
                 )
             }

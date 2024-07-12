@@ -5,10 +5,13 @@
 
 package dev.ja.marketplace.data
 
-import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.Marketplace
+import dev.ja.marketplace.client.MarketplaceCurrencies
+import dev.ja.marketplace.client.WithAmounts
+import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.exchangeRate.ExchangeRates
-import dev.ja.marketplace.services.Currency
 import java.util.concurrent.atomic.AtomicReference
+import javax.money.MonetaryAmount
 
 enum class AriaSortOrder(val attributeValue: String) {
     Ascending("ascending"),
@@ -85,26 +88,19 @@ abstract class SimpleDataTable(
         return RenderedDataTable(this, cachedSections.get())
     }
 
-    protected suspend fun Amount.render(date: YearMonthDay, sourceCurrency: Currency): AmountWithCurrency {
-        return exchangeRates.convert(date, this, sourceCurrency.isoCode).withCurrency(exchangeRates.targetCurrencyCode)
-    }
-
-    protected suspend fun WithAmounts.renderAmount(date: YearMonthDay): AmountWithCurrency {
-        return when {
-            MarketplaceCurrencies.USD.hasCode(exchangeRates.targetCurrencyCode) -> amountUSD.withCurrency(MarketplaceCurrencies.USD)
-            currency.hasCode(exchangeRates.targetCurrencyCode) -> amount.withCurrency(currency)
-            else -> exchangeRates.convert(date, this.amount, this.currency.isoCode).withCurrency(exchangeRates.targetCurrencyCode)
+    protected fun WithAmounts.renderAmount(): MonetaryAmount {
+        return when (exchangeRates.targetCurrency) {
+            MarketplaceCurrencies.USD -> amountUSD
+            else -> this.amount
         }
     }
 
-    protected suspend fun WithAmounts.renderFeeAmount(date: YearMonthDay): AmountWithCurrency {
-        val total = this.renderAmount(date)
-        return Marketplace.feeAmount(date, total.amount).withCurrency(total.currencyCode)
+    protected fun WithAmounts.renderFeeAmount(date: YearMonthDay): MonetaryAmount {
+        return Marketplace.feeAmount(date, renderAmount())
     }
 
-    protected suspend fun WithAmounts.renderPaidAmount(date: YearMonthDay): AmountWithCurrency {
-        val total = this.renderAmount(date)
-        return Marketplace.paidAmount(date, total.amount).withCurrency(total.currencyCode)
+    protected fun WithAmounts.renderPaidAmount(date: YearMonthDay): MonetaryAmount {
+        return Marketplace.paidAmount(date, renderAmount())
     }
 }
 

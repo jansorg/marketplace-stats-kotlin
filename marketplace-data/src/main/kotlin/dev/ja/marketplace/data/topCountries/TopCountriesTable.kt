@@ -7,13 +7,14 @@ package dev.ja.marketplace.data.topCountries
 
 import dev.ja.marketplace.client.PluginSale
 import dev.ja.marketplace.data.*
-import dev.ja.marketplace.data.trackers.AmountTargetCurrencyTracker
+import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.TrialTracker
+import dev.ja.marketplace.util.sortValue
 import java.util.*
 
 private data class CountryData(
-    var totalSales: AmountTargetCurrencyTracker,
+    var totalSales: MonetaryAmountTracker,
     var salesCount: Int = 0,
     var trials: TrialTracker = SimpleTrialTracker(),
 )
@@ -48,7 +49,7 @@ class TopCountriesTable(
 
     private val countries = TreeMap<String, CountryData>()
     private val allTrialsTracker: TrialTracker = SimpleTrialTracker()
-    private lateinit var allSalesTracker: AmountTargetCurrencyTracker
+    private lateinit var allSalesTracker: MonetaryAmountTracker
 
     override val columns: List<DataTableColumn> = listOfNotNull(
         columnCountry,
@@ -62,14 +63,14 @@ class TopCountriesTable(
     override suspend fun init(data: PluginData) {
         super.init(data)
 
-        allSalesTracker = AmountTargetCurrencyTracker(data.exchangeRates)
+        allSalesTracker = MonetaryAmountTracker(data.exchangeRates)
 
         if (data.trials != null) {
             for (trial in data.trials) {
                 allTrialsTracker.registerTrial(trial)
 
                 val countryData = countries.computeIfAbsent(trial.customer.country.orEmptyCountry()) {
-                    CountryData(AmountTargetCurrencyTracker(data.exchangeRates))
+                    CountryData(MonetaryAmountTracker(data.exchangeRates))
                 }
                 countryData.trials.registerTrial(trial)
             }
@@ -82,13 +83,13 @@ class TopCountriesTable(
     }
 
     override suspend fun process(licenseInfo: LicenseInfo) {
-        allSalesTracker.add(licenseInfo.sale.date, licenseInfo.amountUSD, licenseInfo.amount, licenseInfo.currency)
+        allSalesTracker.add(licenseInfo.sale.date, licenseInfo.amountUSD, licenseInfo.amount)
 
         val countryData = countries.getOrPut(licenseInfo.sale.customer.country.orEmptyCountry()) {
-            CountryData(AmountTargetCurrencyTracker(exchangeRates))
+            CountryData(MonetaryAmountTracker(exchangeRates))
         }
         countryData.salesCount += 1
-        countryData.totalSales.add(licenseInfo.sale.date, licenseInfo.amountUSD, licenseInfo.amount, licenseInfo.currency)
+        countryData.totalSales.add(licenseInfo.sale.date, licenseInfo.amountUSD, licenseInfo.amount)
     }
 
     override suspend fun createSections(): List<DataTableSection> {
@@ -98,11 +99,11 @@ class TopCountriesTable(
         val totalTrialCount = allTrialsResult.totalTrials
 
         val rows = countries.entries
-            .sortedByDescending { it.value.totalSales.getTotalAmount().amount }
+            .sortedByDescending { it.value.totalSales.getTotalAmount() }
             .take(maxItems ?: Int.MAX_VALUE)
             .map { (country, countryData) ->
                 val totalSales = countryData.totalSales.takeIf { countryData.salesCount > 0 }
-                val salesPercentage = PercentageValue.of(countryData.totalSales.getTotalAmount().amount, totalSalesAmount.amount)
+                val salesPercentage = PercentageValue.of(countryData.totalSales.getTotalAmount(), totalSalesAmount)
 
                 val trialsResult = countryData.trials.getResult()
                 val trialPercentage = PercentageValue.of(trialsResult.totalTrials, totalTrialCount)
@@ -119,7 +120,7 @@ class TopCountriesTable(
                         columnTrialConvertedPercentage to trialConversion,
                     ),
                     sortValues = mapOf(
-                        columnSales to (totalAmount?.amount?.toLong() ?: -1L),
+                        columnSales to (totalAmount?.sortValue() ?: -1L),
                         columnSalesPercentage to salesPercentage.value.toLong(),
                         columnTrialCount to trialsResult.totalTrials.toLong(),
                         columnTrialsPercentage to trialPercentage.value.toLong(),

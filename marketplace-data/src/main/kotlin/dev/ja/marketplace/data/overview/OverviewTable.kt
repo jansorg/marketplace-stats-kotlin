@@ -6,9 +6,9 @@
 package dev.ja.marketplace.data.overview
 
 import dev.ja.marketplace.churn.ChurnProcessor
-import dev.ja.marketplace.churn.MarketplaceChurnProcessor
+import dev.ja.marketplace.churn.CustomerChurnProcessor
+import dev.ja.marketplace.churn.LicenseChurnProcessor
 import dev.ja.marketplace.client.*
-import dev.ja.marketplace.client.LicenseId
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.overview.OverviewTable.CustomerSegment.*
 import dev.ja.marketplace.data.trackers.*
@@ -45,10 +45,10 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         val customers: CustomerTracker<CustomerSegment>,
         val licenses: LicenseTracker<CustomerSegment>,
         val amounts: PaymentAmountTracker,
-        val churnCustomersAnnual: ChurnProcessor<CustomerId, CustomerInfo>,
-        val churnLicensesAnnual: ChurnProcessor<LicenseId, LicenseInfo>,
-        val churnCustomersMonthly: ChurnProcessor<CustomerId, CustomerInfo>,
-        val churnLicensesMonthly: ChurnProcessor<LicenseId, LicenseInfo>,
+        val churnCustomersAnnual: ChurnProcessor<CustomerInfo>,
+        val churnLicensesAnnual: ChurnProcessor<LicenseInfo>,
+        val churnCustomersMonthly: ChurnProcessor<CustomerInfo>,
+        val churnLicensesMonthly: ChurnProcessor<LicenseInfo>,
         val mrrTracker: RecurringRevenueTracker,
         val arrTracker: RecurringRevenueTracker,
         val downloads: Long,
@@ -62,10 +62,10 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
 
     private data class YearData(
         val year: Int,
-        val churnCustomersAnnual: ChurnProcessor<CustomerId, CustomerInfo>,
-        val churnLicensesAnnual: ChurnProcessor<LicenseId, LicenseInfo>,
-        val churnCustomersMonthly: ChurnProcessor<CustomerId, CustomerInfo>,
-        val churnLicensesMonthly: ChurnProcessor<LicenseId, LicenseInfo>,
+        val churnCustomersAnnual: ChurnProcessor<CustomerInfo>,
+        val churnLicensesAnnual: ChurnProcessor<LicenseInfo>,
+        val churnCustomersMonthly: ChurnProcessor<CustomerInfo>,
+        val churnLicensesMonthly: ChurnProcessor<LicenseInfo>,
         val months: Map<Int, MonthData>,
         val trials: TrialTracker,
     ) {
@@ -86,12 +86,6 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     private val columnAmountTotal = DataTableColumn("sales", "Total Sales", "num")
     private val columnAmountFees = DataTableColumn("sales", "Fees", "num")
     private val columnAmountPaid = DataTableColumn("sales", "Invoice", "num")
-    private val columnActiveCustomers = DataTableColumn(
-        "customer-count", "Cust.", "num", tooltip = "Customers at the end of month"
-    )
-    private val columnActiveCustomersPaying = DataTableColumn(
-        "customer-count-paying", "Paying", "num", tooltip = "Paying customers at the end of month"
-    )
     private val columnActiveLicenses = DataTableColumn(
         "customer-licenses", "Licenses", "num", tooltip = "Licenses at the end of month"
     )
@@ -105,16 +99,10 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         "customer-mrr", "ARR", "num", tooltip = "Average annual recurring revenue (MRR)"
     )
 
-    //    private val columnCustomerChurnAnnual = DataTableColumn(
-//        "churn-annual-paid", "Cust. churn (annual)", "num num-percentage", tooltip = "Churn of customers with annual licenses"
-//    )
     private val columnLicenseChurnAnnual = DataTableColumn(
         "churn-annual-paid", "Churn (annual)", "num num-percentage", tooltip = "Churn of paid annual licenses"
     )
 
-    //    private val columnCustomerChurnMonthly = DataTableColumn(
-//        "churn-monthly-paid", "Cust. churn (monthly)", "num num-percentage", tooltip = "Churn of customers with paid monthly licenses"
-//    )
     private val columnLicenseChurnMonthly = DataTableColumn(
         "churn-monthly-paid", "Churn (monthly)", "num num-percentage", tooltip = "Churn of paid monthly licenses"
     )
@@ -131,18 +119,13 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     override val columns: List<DataTableColumn> = listOfNotNull(
         columnYearMonth,
         columnAmountTotal,
-        //columnAmountFeesUSD,
         columnAmountPaid,
-        //columnActiveCustomers,
-        //columnActiveCustomersPaying,
         columnActiveLicenses,
         columnActiveLicensesPaying,
         columnMonthlyRecurringRevenue,
         columnAnnualRecurringRevenue,
         columnLicenseChurnAnnual,
         columnLicenseChurnMonthly,
-//        columnCustomerChurnAnnual.takeIf { showCustomerChurn },
-//        columnCustomerChurnMonthly.takeIf { showCustomerChurn },
         columnDownloads,
         columnTrials,
         columnTrialsConverted,
@@ -236,7 +219,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         yearData.trials.processSale(sale)
 
         val monthData = yearData.months[sale.date.month]!!
-        monthData.amounts.add(sale.date, sale.amountUSD, sale.amount, sale.currency)
+        monthData.amounts.add(sale.date, sale.amountUSD, sale.amount)
         monthData.trials.processSale(sale)
     }
 
@@ -249,14 +232,12 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
 
         years.values.forEach { year ->
             year.churnCustomersAnnual.processValue(
-                customer.code,
                 customer,
                 licenseInfo.validity,
                 licensePeriod == LicensePeriod.Annual && isPaidLicense,
                 isRenewal
             )
             year.churnLicensesAnnual.processValue(
-                licenseInfo.id,
                 licenseInfo,
                 licenseInfo.validity,
                 licensePeriod == LicensePeriod.Annual && isPaidLicense,
@@ -264,14 +245,12 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
             )
 
             year.churnCustomersMonthly.processValue(
-                customer.code,
                 customer,
                 licenseInfo.validity,
                 licensePeriod == LicensePeriod.Monthly && isPaidLicense,
                 isRenewal
             )
             year.churnLicensesMonthly.processValue(
-                licenseInfo.id,
                 licenseInfo,
                 licenseInfo.validity,
                 licensePeriod == LicensePeriod.Monthly && isPaidLicense,
@@ -286,14 +265,12 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                 month.arrTracker.processLicenseSale(licenseInfo)
 
                 month.churnCustomersAnnual.processValue(
-                    customer.code,
                     customer,
                     licenseInfo.validity,
                     licensePeriod == LicensePeriod.Annual && isPaidLicense,
                     isRenewal
                 )
                 month.churnLicensesAnnual.processValue(
-                    licenseInfo.id,
                     licenseInfo,
                     licenseInfo.validity,
                     licensePeriod == LicensePeriod.Annual && isPaidLicense,
@@ -301,14 +278,12 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                 )
 
                 month.churnCustomersMonthly.processValue(
-                    customer.code,
                     customer,
                     licenseInfo.validity,
                     licensePeriod == LicensePeriod.Monthly && isPaidLicense,
                     isRenewal
                 )
                 month.churnLicensesMonthly.processValue(
-                    licenseInfo.id,
                     licenseInfo,
                     licenseInfo.validity,
                     licensePeriod == LicensePeriod.Monthly && isPaidLicense,
@@ -321,12 +296,12 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     override suspend fun createSections(): List<DataTableSection> {
         val now = YearMonthDay.now()
         val pluginId = pluginId!!
+
         return years.entries
             .toMutableList()
             .dropLastWhile { it.value.isEmpty } // don't show empty years
             .map { (year, yearData) ->
                 val rows = yearData.months.entries.map { (month, monthData) ->
-                    val lastOfMonth = YearMonthDay.lastOfMonth(year, month)
                     val isCurrentMonth = now.year == year && now.month == month
 
                     val mrrResult = when {
@@ -339,33 +314,26 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                         else -> monthData.arrTracker.getResult()
                     }
 
-                    val mrrValue = mrrResult?.amounts?.getConvertedResult(lastOfMonth)
-                    val arrValue = arrResult?.amounts?.getConvertedResult(lastOfMonth)
+                    val mrrValue = mrrResult?.amounts?.getTotalAmount()
+                    val arrValue = arrResult?.amounts?.getTotalAmount()
 
-                    val annualLicenseChurn = monthData.churnLicensesAnnual.getResult(LicensePeriod.Annual).takeUnless { isCurrentMonth }
+                    val annualLicenseChurn = when {
+                        isCurrentMonth -> null
+                        else -> monthData.churnLicensesAnnual.getResult(LicensePeriod.Annual)
+                    }
                     val annualLicenseChurnRate = annualLicenseChurn?.getRenderedChurnRate(pluginId)
 
-                    val monthlyLicenseChurn = monthData.churnLicensesMonthly.getResult(LicensePeriod.Monthly).takeUnless { isCurrentMonth }
+                    val monthlyLicenseChurn = when {
+                        isCurrentMonth -> null
+                        else -> monthData.churnLicensesMonthly.getResult(LicensePeriod.Monthly)
+                    }
                     val monthlyLicenseChurnRate = monthlyLicenseChurn?.getRenderedChurnRate(pluginId)
-
-                    val annualCustomerChurn = monthData.churnCustomersAnnual.getResult(LicensePeriod.Annual).takeUnless { isCurrentMonth }
-                    val annualCustomerChurnRate = annualCustomerChurn?.getRenderedChurnRate(pluginId)
-
-                    val monthlyCustomerChurn =
-                        monthData.churnCustomersMonthly.getResult(LicensePeriod.Monthly).takeUnless { isCurrentMonth }
-                    val monthlyCustomerChurnRate = monthlyCustomerChurn?.getRenderedChurnRate(pluginId)
 
                     val cssClass = when {
                         isCurrentMonth -> "today"
                         monthData.isEmpty -> "disabled"
                         else -> null
                     }
-
-                    val annualCustomersFree = monthData.customers.segmentCustomerCount(AnnualFree)
-                    val annualCustomersPaying = monthData.customers.segmentCustomerCount(AnnualPaying)
-                    val monthlyCustomersPaying = monthData.customers.segmentCustomerCount(MonthlyPaying)
-                    val totalCustomers = monthData.customers.totalCustomerCount
-                    val totalCustomersPaying = monthData.customers.payingCustomerCount
 
                     val annualLicensesFree = monthData.licenses.segmentCustomerCount(AnnualFree)
                     val annualLicensesPaying = monthData.licenses.segmentCustomerCount(AnnualPaying)
@@ -402,8 +370,6 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                     SimpleDateTableRow(
                         values = mapOf(
                             columnYearMonth to String.format("%02d-%02d", year, month),
-                            columnActiveCustomers to totalCustomers.toBigInteger(),
-                            columnActiveCustomersPaying to totalCustomersPaying.toBigInteger(),
                             columnActiveLicenses to totalLicenses.toBigInteger(),
                             columnActiveLicensesPaying to totalLicensesPaying.toBigInteger(),
                             columnMonthlyRecurringRevenue to (mrrValue ?: NoValue),
@@ -427,20 +393,12 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                             columnLicenseChurnAnnual to annualLicenseChurn?.churnRateTooltip,
                             columnLicenseChurnMonthly to monthlyLicenseChurn?.churnRateTooltip,
                             columnTrialsConverted to trialsMonth.tooltipConverted,
-                            // fixme drop
-                            columnActiveCustomers to "$annualCustomersPaying annual (paying)" +
-                                    "\n$annualCustomersFree annual (free)" +
-                                    "\n$monthlyCustomersPaying monthly (paying)",
-                            columnActiveCustomersPaying to "$annualCustomersPaying annual\n$monthlyCustomersPaying monthly",
                         ),
                         cssClass = cssClass
                     )
                 }
 
-                val yearCustomerChurnAnnual = yearData.churnCustomersAnnual.getResult(LicensePeriod.Annual)
                 val yearLicenseChurnAnnual = yearData.churnLicensesAnnual.getResult(LicensePeriod.Annual)
-
-                val yearCustomerChurnMonthly = yearData.churnCustomersMonthly.getResult(LicensePeriod.Monthly)
                 val yearLicenseChurnMonthly = yearData.churnLicensesMonthly.getResult(LicensePeriod.Monthly)
 
                 val trialsYear = yearData.trials.getResult()
@@ -478,18 +436,18 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         }
     }
 
-    private fun createCustomerChurnProcessor(timeRange: YearMonthDayRange): ChurnProcessor<CustomerId, CustomerInfo> {
+    private fun createCustomerChurnProcessor(timeRange: YearMonthDayRange): ChurnProcessor<CustomerInfo> {
         val churnDate = timeRange.end
         val activeDate = timeRange.start.add(0, 0, -1)
-        val processor = MarketplaceChurnProcessor<CustomerId, CustomerInfo>(activeDate, churnDate, ::HashSet)
+        val processor = CustomerChurnProcessor(activeDate, churnDate)
         processor.init()
         return processor
     }
 
-    private fun createLicenseChurnProcessor(timeRange: YearMonthDayRange): ChurnProcessor<LicenseId, LicenseInfo> {
+    private fun createLicenseChurnProcessor(timeRange: YearMonthDayRange): ChurnProcessor<LicenseInfo> {
         val churnDate = timeRange.end
         val activeDate = timeRange.start.add(0, 0, -1)
-        val processor = MarketplaceChurnProcessor<LicenseId, LicenseInfo>(activeDate, churnDate, ::HashSet)
+        val processor = LicenseChurnProcessor(activeDate, churnDate)
         processor.init()
         return processor
     }

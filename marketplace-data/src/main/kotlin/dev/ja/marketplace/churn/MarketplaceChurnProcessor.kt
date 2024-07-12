@@ -15,64 +15,65 @@ import dev.ja.marketplace.client.YearMonthDayRange
  * Churn processor, which uses the license type (new / renewal) to decide if a user churned or not.
  * Users with renewals even after the end of the range (e.g. after end of month) are considered as active and not as churned.
  * We're not using any kind of grace period because it's implicitly used if the license type is "renewal".
+ *
+ * This class is abstract top optimize performance. Subclasses define non-generic getId() methods to avoid boxing Int IDs to objects.
  */
-class MarketplaceChurnProcessor<ID, T>(
+abstract class MarketplaceChurnProcessor<T>(
     private val previouslyActiveMarkerDate: YearMonthDay,
     private val currentlyActiveMarkerDate: YearMonthDay,
-    private val hashSetFactory: () -> MutableCollection<ID>,
-) : ChurnProcessor<ID, T> {
+) : ChurnProcessor<T> {
     override fun init() {}
 
-    private val previousPeriodItems: MutableCollection<ID> = hashSetFactory()
-    private val activeItems: MutableCollection<ID> = hashSetFactory()
-    private val activeItemsUnaccepted: MutableCollection<ID> = hashSetFactory()
+    protected abstract fun previousPeriodItemCount(): Int
+
+    protected abstract fun activeItemsCount(): Int
+
+    protected abstract fun addPreviousPeriodItem(value: T)
+
+    protected abstract fun addActiveItem(value: T)
+
+    protected abstract fun addActiveUnacceptedItem(value: T)
+
+    protected abstract fun churnedItemsCount(): Int
 
     override fun processValue(
-        id: ID,
         value: T,
         validity: YearMonthDayRange,
         isAcceptedValue: Boolean,
         isExplicitRenewal: Boolean
     ) {
         if (isAcceptedValue && previouslyActiveMarkerDate in validity) {
-            previousPeriodItems.add(id)
+            addPreviousPeriodItem(value)
         }
 
         if (currentlyActiveMarkerDate in validity || isExplicitRenewal && validity.end > currentlyActiveMarkerDate) {
             when {
-                isAcceptedValue -> activeItems.add(id)
-                else -> activeItemsUnaccepted.add(id)
+                isAcceptedValue -> addActiveItem(value)
+                else -> addActiveUnacceptedItem(value)
             }
         }
     }
 
+
     override fun getResult(period: LicensePeriod): ChurnResult<T> {
-        val activeAtStart = previousPeriodItems.size
+        val activeAtStart = previousPeriodItemCount()
 
         // For example, users which were licensed end of last month, but no longer are licensed end of this month.
         // We're not counting users, which switched the license type, e.g. from "monthly" to "annual"
-        val churned = churnedIds()
+        val churnedCount = churnedItemsCount()
         val churnRate = when (activeAtStart) {
             0 -> 0.0
-            else -> churned.size.toDouble() / activeAtStart.toDouble()
+            else -> churnedCount.toDouble() / activeAtStart.toDouble()
         }
 
         return ChurnResult(
             churnRate,
             activeAtStart,
-            activeItems.size,
-            churned.size,
+            activeItemsCount(),
+            churnedCount,
             previouslyActiveMarkerDate,
             currentlyActiveMarkerDate,
             period
         )
-    }
-
-    fun churnedIds(): Set<ID> {
-        val churned = hashSetFactory().toMutableSet()
-        churned.addAll(previousPeriodItems)
-        churned.removeAll(activeItems)
-        churned.removeAll(activeItemsUnaccepted)
-        return churned
     }
 }

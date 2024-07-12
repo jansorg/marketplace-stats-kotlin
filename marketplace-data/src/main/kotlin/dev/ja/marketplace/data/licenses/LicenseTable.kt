@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.PaymentAmountTracker
+import dev.ja.marketplace.util.sortValue
 import dev.ja.marketplace.util.takeNullable
 
 class LicenseTable(
@@ -114,7 +115,7 @@ class LicenseTable(
                 val showPurchaseDate = previousPurchaseDate != purchaseDate
                 previousPurchaseDate = purchaseDate
 
-                amountTracker.add(license.sale.date, license.amountUSD, license.amount, license.currency)
+                amountTracker.add(license.sale.date, license.amountUSD, license.amount)
 
                 SimpleDateTableRow(
                     values = mapOf(
@@ -125,7 +126,7 @@ class LicenseTable(
                         columnValidityEnd to license.validity.end,
                         columnCustomerName to (license.sale.customer.name ?: NoValue),
                         columnCustomerId to LinkedCustomer(license.sale.customer.code, pluginId = pluginId!!),
-                        columnAmount to license.renderAmount(purchaseDate),
+                        columnAmount to license.renderAmount(),
                         columnAmountFee to license.renderFeeAmount(purchaseDate),
                         columnAmountPaid to license.renderPaidAmount(purchaseDate),
                         columnLicenseType to license.sale.licensePeriod,

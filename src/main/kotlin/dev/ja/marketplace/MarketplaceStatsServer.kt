@@ -5,10 +5,9 @@
 
 package dev.ja.marketplace
 
-import dev.ja.marketplace.churn.MarketplaceChurnProcessor
+import dev.ja.marketplace.churn.LicenseChurnProcessor
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.data.DataTable
-import dev.ja.marketplace.data.LicenseInfo
 import dev.ja.marketplace.data.MarketplaceDataTableFactory
 import dev.ja.marketplace.data.customerType.CustomerTypeFactory
 import dev.ja.marketplace.data.customers.ActiveCustomerTableFactory
@@ -28,7 +27,6 @@ import dev.ja.marketplace.data.topTrialCountries.TopTrialCountriesFactory
 import dev.ja.marketplace.data.trials.TrialsTable
 import dev.ja.marketplace.data.trials.TrialsTableFactory
 import dev.ja.marketplace.data.yearSummary.YearlySummaryFactory
-import dev.ja.marketplace.exchangeRate.ExchangeRateProvider
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import dev.ja.marketplace.services.Countries
 import dev.ja.marketplace.services.KtorJetBrainsServiceClient
@@ -53,7 +51,6 @@ import kotlinx.coroutines.coroutineScope
 class MarketplaceStatsServer(
     private val client: MarketplaceClient,
     private val servicesClient: KtorJetBrainsServiceClient,
-    private val exchangeRateProvider: ExchangeRateProvider,
     private val host: String = "0.0.0.0",
     private val port: Int = 8080,
     private val serverConfiguration: ServerConfiguration,
@@ -314,12 +311,7 @@ class MarketplaceStatsServer(
 
         countries = countriesAsync.await()
         allPlugins = allPluginsAsync.await()
-        exchangeRates = ExchangeRates(
-            exchangeRateProvider,
-            Marketplace.Birthday,
-            serverConfiguration.userDisplayCurrencyCode,
-            MarketplaceCurrencies
-        )
+        exchangeRates = ExchangeRates(serverConfiguration.userDisplayCurrencyCode)
 
         println("Launching web server: http://$host:$port/")
         httpServer.start(true)
@@ -421,12 +413,11 @@ class MarketplaceStatsServer(
     ) {
         val data = loader.load()
 
-        val churnProcessor = MarketplaceChurnProcessor<LicenseId, LicenseInfo>(lastActiveMarker, activeMarker, ::HashSet)
+        val churnProcessor = LicenseChurnProcessor(lastActiveMarker, activeMarker)
         churnProcessor.init()
 
         data.licenses!!.forEach {
             churnProcessor.processValue(
-                it.id,
                 it,
                 it.validity,
                 it.sale.licensePeriod == period && it.isPaidLicense,

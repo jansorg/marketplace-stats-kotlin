@@ -18,6 +18,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
 
     private val allTrialsTracker: TrialTracker = SimpleTrialTracker()
     private val data = TreeMap<Int, YearSummary>(Comparator.reverseOrder())
+    private lateinit var totalSales: PaymentAmountTracker
 
     private data class YearSummary(
         val sales: PaymentAmountTracker,
@@ -29,12 +30,13 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
         super.init(data)
 
         this.downloads = data.downloadsMonthly
+        this.totalSales = PaymentAmountTracker(YearMonthDayRange.MAX, data.exchangeRates)
 
         val now = YearMonthDay.now()
         for (year in Marketplace.Birthday.year..now.year) {
             val yearRange = YearMonthDayRange.ofYear(year)
             this.data[year] = YearSummary(
-                PaymentAmountTracker(yearRange, exchangeRates),
+                PaymentAmountTracker(yearRange, data.exchangeRates),
                 SimpleTrialTracker { it.date in yearRange },
                 AnnualRecurringRevenueTracker(yearRange, data.continuityDiscountTracker!!, data.pluginPricing!!, data.exchangeRates)
             )
@@ -51,8 +53,10 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
     override suspend fun process(sale: PluginSale) {
         allTrialsTracker.processSale(sale)
 
+        totalSales.add(sale.date, sale.amountUSD, sale.amount)
+
         val yearData = data[sale.date.year]!!
-        yearData.sales.add(sale.date, sale.amountUSD, sale.amount, sale.currency)
+        yearData.sales.add(sale.date, sale.amountUSD, sale.amount)
         yearData.trials.processSale(sale)
     }
 
@@ -102,7 +106,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                         columnSalesTotal to yearData.sales.totalAmount,
                         columnSalesFees to yearData.sales.feesAmount,
                         columnSalesPaid to yearData.sales.paidAmount,
-                        columnARR to (arrResult?.amounts?.getConvertedResult(lastOfYear) ?: NoValue),
+                        columnARR to (arrResult?.amounts?.getTotalAmount() ?: NoValue),
                         columnDownloads to downloads
                             .filter { it.firstOfMonth.year == year }
                             .sumOf(MonthlyDownload::downloads)
@@ -126,12 +130,9 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                 rows = rows,
                 footer = SimpleTableSection(
                     SimpleDateTableRow(
-                        columnSalesTotal to rows.sumOf { (it.values[columnSalesTotal] as AmountWithCurrency).amount }
-                            .withCurrency(exchangeRates.targetCurrencyCode),
-                        columnSalesFees to rows.sumOf { (it.values[columnSalesFees] as AmountWithCurrency).amount }
-                            .withCurrency(exchangeRates.targetCurrencyCode),
-                        columnSalesPaid to rows.sumOf { (it.values[columnSalesPaid] as AmountWithCurrency).amount }
-                            .withCurrency(exchangeRates.targetCurrencyCode),
+                        columnSalesTotal to totalSales.totalAmount,
+                        columnSalesFees to totalSales.feesAmount,
+                        columnSalesPaid to totalSales.paidAmount,
                         columnDownloads to downloads.sumOf { it.downloads.toBigInteger() },
                         columnTrials to allTrialsResult.totalTrials.toBigInteger(),
                         columnTrialsConverted to allTrialsResult.convertedTrialsPercentage,
