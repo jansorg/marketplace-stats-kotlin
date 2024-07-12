@@ -23,7 +23,6 @@ class LicenseTable(
     private val supportedChurnStyling: Boolean = true,
     private val showOnlyLatestLicenseInfo: Boolean = false,
     private val showReseller: Boolean = false,
-    private val showFees: Boolean = false,
     private val licenseFilter: (LicenseInfo) -> Boolean = { true },
 ) : SimpleDataTable("Licenses", "licenses", "table-column-wide"), MarketplaceDataSink {
     private val columnLicenseId = DataTableColumn("license-id", "License ID", "col-right")
@@ -33,9 +32,8 @@ class LicenseTable(
     private val columnValidityEnd = DataTableColumn("license-validity", "End", "date")
     private val columnCustomerName = DataTableColumn("customer", "Name", cssStyle = "width: 20%; max-width: 35%")
     private val columnCustomerId = DataTableColumn("customer-id", "Cust. ID", "num")
-    private val columnAmount = DataTableColumn("sale-amount-usd", "Amount", "num")
-    private val columnAmountFee = DataTableColumn("fee-amount-usd", "Fee", "num")
-    private val columnAmountPaid = DataTableColumn("paid-amount-usd", "Paid", "num")
+    private val columnAmount = DataTableColumn("sale-amount", "Amount", "num")
+    private val columnLocalAmount = DataTableColumn("sale-amount-local", null, "num")
     private val columnDiscount = DataTableColumn("license-discount", "Discount", "num")
     private val columnLicenseType = DataTableColumn("license-type", "Period")
     private val columnLicenseRenewalType = DataTableColumn("license-type", "Type")
@@ -58,8 +56,7 @@ class LicenseTable(
         columnCustomerName.takeIf { showDetails },
         columnCustomerId.takeIf { showDetails },
         columnAmount,
-        columnAmountFee.takeIf { showFees },
-        columnAmountPaid.takeIf { showFees },
+        columnLocalAmount.takeIf { showDetails },
         columnLicenseType.takeIf { showDetails },
         columnLicenseRenewalType,
         columnLicenseId.takeIf { showLicenseColumn },
@@ -126,9 +123,8 @@ class LicenseTable(
                         columnValidityEnd to license.validity.end,
                         columnCustomerName to (license.sale.customer.name ?: NoValue),
                         columnCustomerId to LinkedCustomer(license.sale.customer.code, pluginId = pluginId!!),
-                        columnAmount to license.renderAmount(),
-                        columnAmountFee to license.renderFeeAmount(purchaseDate),
-                        columnAmountPaid to license.renderPaidAmount(purchaseDate),
+                        columnLocalAmount to license.amount,
+                        columnAmount to license.renderAmount(license.sale.date),
                         columnLicenseType to license.sale.licensePeriod,
                         columnLicenseRenewalType to license.saleLineItem.type,
                         columnDiscount to license.saleLineItem.discountDescriptions
@@ -159,8 +155,6 @@ class LicenseTable(
                 SimpleDateTableRow(
                     values = mapOf(
                         columnAmount to amountTracker.totalAmount,
-                        columnAmountFee to amountTracker.feesAmount,
-                        columnAmountPaid to amountTracker.paidAmount,
                         columnLicenseId to (if (licenseCount == 0) NoValue else listOfNotNull(
                             "$activeLicenseCount active".takeIf { supportedChurnStyling },
                             "$licenseCount total"
