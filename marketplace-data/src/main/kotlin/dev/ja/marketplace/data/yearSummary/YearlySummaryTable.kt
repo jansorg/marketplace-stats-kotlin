@@ -94,7 +94,6 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
         val rows = data.entries.toList()
             .dropLastWhile { it.value.sales.isZero }
             .map { (year, yearData) ->
-                val lastOfYear = YearMonthDay(year, 12, 31)
                 val trialResult = yearData.trials.getResult()
                 val arrResult = when {
                     year == now.year -> null
@@ -116,7 +115,6 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                     ),
                     tooltips = mapOf(
                         columnTrialsConverted to trialResult.tooltipConverted,
-                        columnARR to arrResult?.renderTooltip(),
                     ),
                     cssClass = when {
                         year == now.year -> "today"

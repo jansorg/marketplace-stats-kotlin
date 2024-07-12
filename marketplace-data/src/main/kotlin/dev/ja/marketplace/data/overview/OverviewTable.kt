@@ -344,28 +344,11 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                     val trialsMonth = monthData.trials.getResult()
                     val downloadCount = monthData.downloads
 
-                    val paidAnnual = monthData.licenses.getSegment(AnnualPaying)
-                    val paidAnnualIndividuals = paidAnnual.filter { it.sale.customer.type == CustomerType.Personal }
-                    val paidAnnualOrgs = paidAnnual.filter { it.sale.customer.type == CustomerType.Organization }
-
-                    val paidMonthly = monthData.licenses.getSegment(MonthlyPaying)
-                    val paidMonthlyIndividuals = paidMonthly.filter { it.sale.customer.type == CustomerType.Personal }
-                    val paidMonthlyOrgs = paidMonthly.filter { it.sale.customer.type == CustomerType.Organization }
-
-                    val paidLicensesTooltip = """
+                    val paidLicensesTooltip =
+                        """
                         $annualLicensesPaying annual
                         $monthlyLicensesPaying monthly
-                        
-                        Annual / Individuals:
-                        ${paidAnnualIndividuals.continuityTooltip()}
-                        Annual / Organizations:
-                        ${paidAnnualOrgs.continuityTooltip()}
-
-                        Monthly / Individuals:
-                        ${paidMonthlyIndividuals.continuityTooltip()}
-                        Monthly / Organizations:
-                        ${paidMonthlyOrgs.continuityTooltip()}
-                    """.trimIndent()
+                        """.trimIndent()
 
                     SimpleDateTableRow(
                         values = mapOf(
@@ -388,8 +371,6 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                                     "\n$annualLicensesFree annual (free)" +
                                     "\n$monthlyLicensesPaying monthly (paying)",
                             columnActiveLicensesPaying to paidLicensesTooltip,
-                            columnMonthlyRecurringRevenue to mrrResult?.renderTooltip(),
-                            columnAnnualRecurringRevenue to arrResult?.renderTooltip(),
                             columnLicenseChurnAnnual to annualLicenseChurn?.churnRateTooltip,
                             columnLicenseChurnMonthly to monthlyLicenseChurn?.churnRateTooltip,
                             columnTrialsConverted to trialsMonth.tooltipConverted,
@@ -424,16 +405,6 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                     )
                 )
             }
-    }
-
-    private fun List<LicenseInfo>.continuityTooltip(): String {
-        val groups = this.groupBy { it.saleLineItem.discountDescriptions.firstOrNull { it.isContinuityDiscount }?.percent ?: 0.0 }
-        return buildString {
-            for ((percent, licenses) in groups) {
-                append("$percent: ${licenses.size}")
-                append("\n")
-            }
-        }
     }
 
     private fun createCustomerChurnProcessor(timeRange: YearMonthDayRange): ChurnProcessor<CustomerInfo> {

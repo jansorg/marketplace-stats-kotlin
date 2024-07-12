@@ -141,15 +141,4 @@ class AnnualRecurringRevenueTracker(
 data class RecurringRevenue(
     val dateRange: YearMonthDayRange,
     val amounts: MonetaryAmountTracker
-) {
-    fun renderTooltip(): String {
-        return buildString {
-            /*for (value in amounts.getValues()) {
-                append(value.amount.setScale(2, RoundingMode.HALF_UP))
-                append(" ")
-                append(value.currencyCode)
-                append("\n")
-            }*/
-        }
-    }
-}
+)
