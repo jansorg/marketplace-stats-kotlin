@@ -48,7 +48,6 @@ Options:
                                      generate a plugin report.
   -h, --host=<text>                  IP address or hostname the integrated webserver is bound to. (default: 0.0.0.0)
   -p, --port=<int>                   Port used by the integrated webserver. (default: 8080)
-  --exchange-rate-api=<text>         URL of the Frankfurter.app exchange rate API. (default: https://api.frankfurter.app)
   -c, --currency=<text>              Currency for the displayed monetary amounts.
   -d, --debug=(none|normal|verbose)  The log level used for the server and the API requests to the marketplace (default: None)
   --help                             Show this message and exit
@@ -81,7 +80,6 @@ Instead of options, you can use the following environment variables:
 --api-key:           MARKETPLACE_API_KEY
 --port:              MARKETPLACE_SERVER_PORT
 --host:              MARKETPLACE_SERVER_HOSTNAME
---exchange-rate-api: MARKETPLACE_EXCHANGE_RATE_API
 --display-currency:  MARKETPLACE_DISPLAY_CURRENCY
 --debug:             MARKETPLACE_LOG_LEVEL
 ```
