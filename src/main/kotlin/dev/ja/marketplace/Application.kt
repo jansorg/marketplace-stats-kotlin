@@ -56,10 +56,6 @@ class Application(version: String) : CliktCommand(
         .default(8080)
         .help("Port used by the integrated webserver.")
 
-    private val frankfurterApiUrl: String by option("--exchange-rate-api", envvar = "MARKETPLACE_EXCHANGE_RATE_API")
-        .default("https://api.frankfurter.app")
-        .help("URL of the Frankfurter.app exchange rate API.")
-
     private val displayCurrency: String? by option("-c", "--currency", envvar = "MARKETPLACE_DISPLAY_CURRENCY")
         .help("Currency for the displayed monetary amounts.")
 
