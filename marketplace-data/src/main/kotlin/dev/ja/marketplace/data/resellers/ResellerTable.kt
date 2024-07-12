@@ -27,9 +27,9 @@ class ResellerTable : SimpleDataTable("Resellers", cssClass = "table-column-wide
     private lateinit var totalSales: MonetaryAmountTracker
 
     private val columnName = DataTableColumn("reseller-name", "Name")
-    private val columnTotalSales = DataTableColumn("reseller-sales", "Total Sales", preSorted = AriaSortOrder.Descending)
-    private val columnCustomerCount = DataTableColumn("reseller-customers", "Customers")
-    private val columnLicenseCount = DataTableColumn("reseller-licenses", "Licenses Sold")
+    private val columnTotalSales = DataTableColumn("reseller-sales", "Total Sales", "num", preSorted = AriaSortOrder.Descending)
+    private val columnCustomerCount = DataTableColumn("reseller-customers", "Customers", "num")
+    private val columnLicenseCount = DataTableColumn("reseller-licenses", "Licenses Sold", "num")
     private val columnCountry = DataTableColumn("reseller-country", "Country")
     private val columnType = DataTableColumn("reseller-type", "Type")
     private val columnCode = DataTableColumn("reseller-code", "Code")

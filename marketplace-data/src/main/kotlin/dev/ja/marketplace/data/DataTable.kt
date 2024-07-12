@@ -88,19 +88,20 @@ abstract class SimpleDataTable(
         return RenderedDataTable(this, cachedSections.get())
     }
 
-    protected fun WithAmounts.renderAmount(): MonetaryAmount {
+    protected fun WithAmounts.renderAmount(date: YearMonthDay): MonetaryAmount {
         return when (exchangeRates.targetCurrency) {
             MarketplaceCurrencies.USD -> amountUSD
-            else -> this.amount
+            amount.currency -> amount
+            else -> exchangeRates.convert(date, this.amount)
         }
     }
 
     protected fun WithAmounts.renderFeeAmount(date: YearMonthDay): MonetaryAmount {
-        return Marketplace.feeAmount(date, renderAmount())
+        return Marketplace.feeAmount(date, renderAmount(date))
     }
 
     protected fun WithAmounts.renderPaidAmount(date: YearMonthDay): MonetaryAmount {
-        return Marketplace.paidAmount(date, renderAmount())
+        return Marketplace.paidAmount(date, renderAmount(date))
     }
 }
 
