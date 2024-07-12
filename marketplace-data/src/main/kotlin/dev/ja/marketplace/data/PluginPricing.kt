@@ -13,7 +13,8 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.money.MonetaryAmount
 
 private data class PricingCacheKey(
-    val customerInfo: CustomerInfo,
+    val country: String,
+    val customerType: CustomerType,
     val licensePeriod: LicensePeriod,
     val continuityDiscount: ContinuityDiscount,
 )
@@ -35,21 +36,24 @@ data class PluginPricing(
         licensePeriod: LicensePeriod,
         continuityDiscount: ContinuityDiscount,
     ): MonetaryAmount? {
-        return basePriceCache.computeIfAbsent(PricingCacheKey(customerInfo, licensePeriod, continuityDiscount)) {
-            getBasePriceInner(customerInfo, licensePeriod, continuityDiscount) ?: NoBasePriceValue
+        val country = customerInfo.country
+        val customerType = customerInfo.type
+        return basePriceCache.computeIfAbsent(PricingCacheKey(country, customerType, licensePeriod, continuityDiscount)) {
+            getBasePriceInner(country, customerType, licensePeriod, continuityDiscount) ?: NoBasePriceValue
         }.takeIf { it !== NoBasePriceValue }
     }
 
     private fun getBasePriceInner(
-        customerInfo: CustomerInfo,
+        customerCountry: String,
+        customerType: CustomerType,
         licensePeriod: LicensePeriod,
         continuityDiscount: ContinuityDiscount
     ): MonetaryAmount? {
-        val countryWithCurrency = countries.byCountryName(customerInfo.country)
-            ?: throw IllegalStateException("unable to find country for name ${customerInfo.country}")
+        val countryWithCurrency = countries.byCountryName(customerCountry)
+            ?: throw IllegalStateException("unable to find country for name $customerCountry")
         val priceInfo = countryCodeToPricing[countryWithCurrency.country.isoCode] ?: return null
 
-        val baseInfo = when (customerInfo.type) {
+        val baseInfo = when (customerType) {
             CustomerType.Personal -> priceInfo.prices.personal
             CustomerType.Organization -> priceInfo.prices.commercial
         }

@@ -34,12 +34,8 @@ abstract class RecurringRevenueTracker(
     protected abstract fun basePriceFactor(licensePeriod: LicensePeriod): BigDecimal
 
     fun processLicenseSale(licenseInfo: LicenseInfo) {
-        if (!licenseInfo.isPaidLicense) {
-            return
-        }
-
         // only keep the latest valid sale of a license
-        if (isValid(licenseInfo)) {
+        if (licenseInfo.isPaidLicense && isValid(licenseInfo)) {
             latestSales.merge(licenseInfo.id, licenseInfo) { old, new ->
                 when {
                     new.validity > old.validity -> new
@@ -86,7 +82,7 @@ abstract class RecurringRevenueTracker(
     private fun otherDiscountsFactor(licenseInfo: LicenseInfo): Double {
         val discounts = licenseInfo.saleLineItem.discountDescriptions
         if (discounts.isEmpty()) {
-            return 0.0
+            return 1.0
         }
 
         var factor = 1.0
