@@ -13,11 +13,29 @@ import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.util.isZero
 import java.math.BigDecimal
 import java.math.RoundingMode
+import javax.money.MonetaryAmount
 
 data class PercentageValue(val value: BigDecimal) {
     companion object {
-        val ONE_HUNDRED = PercentageValue(BigDecimal(100.0))
+        private val ONE_HUNDRED_DECIMAL = BigDecimal.valueOf(100)
+
+        val ONE_HUNDRED = PercentageValue(ONE_HUNDRED_DECIMAL)
+
+        // used by render.kte
+        @Suppress("MemberVisibilityCanBePrivate")
         val ZERO = PercentageValue(BigDecimal(0.0))
+
+        fun of(first: MonetaryAmount, second: MonetaryAmount): PercentageValue {
+            assert(first.currency == second.currency)
+
+            if (first.isZero || second.isZero) {
+                return ZERO
+            }
+
+            val firstValue = first.number.numberValue(BigDecimal::class.java)
+            val secondValue = second.number.numberValue(BigDecimal::class.java)
+            return PercentageValue(firstValue.divide(secondValue, 10, RoundingMode.HALF_UP) * ONE_HUNDRED_DECIMAL)
+        }
 
         fun of(first: BigDecimal, second: BigDecimal): PercentageValue {
             if (first.isZero() || second.isZero()) {

@@ -107,7 +107,6 @@ class CachingMarketplaceClient(
         return loadHistoricPluginData(plugin, "salesInfo", cachedSalesInfo, delegate::salesInfo)
     }
 
-
     override suspend fun compatibleProducts(plugin: PluginId): List<JetBrainsProductId> {
         return loadCached("compatibleProducts.$plugin") {
             delegate.compatibleProducts(plugin)

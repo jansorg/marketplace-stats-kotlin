@@ -1,1 +1,1 @@
-0.20.0-display-currency1
+0.20.0-display-currency3

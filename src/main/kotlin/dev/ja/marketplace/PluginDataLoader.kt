@@ -36,7 +36,7 @@ class PluginDataLoader(
                 plugin.isPaidOrFreemium -> async(Dispatchers.IO) { client.salesInfo(plugin.id) }
                 else -> null
             }
-            val licenseInfo = when {
+            val licenseInfos = when {
                 plugin.isPaidOrFreemium && sales != null -> async(Dispatchers.IO) { LicenseInfo.create(sales.await()) }
                 else -> null
             }
@@ -65,7 +65,7 @@ class PluginDataLoader(
                 downloadsDaily.await(),
                 downloadsProduct.await(),
                 sales?.await(),
-                licenseInfo?.await(),
+                licenseInfos?.await(),
                 trials?.await(),
                 marketplacePluginInfo?.await(),
                 pricingInfo?.await(),

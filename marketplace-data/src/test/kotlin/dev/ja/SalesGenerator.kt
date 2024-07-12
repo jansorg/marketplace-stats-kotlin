@@ -7,8 +7,10 @@ package dev.ja
 
 import dev.ja.marketplace.TestCustomers
 import dev.ja.marketplace.client.*
-import dev.ja.marketplace.services.Currency
+import org.javamoney.moneta.FastMoney
 import java.util.concurrent.atomic.AtomicInteger
+import javax.money.CurrencyUnit
+import javax.money.MonetaryAmount
 import kotlin.random.Random
 
 object SalesGenerator {
@@ -17,21 +19,20 @@ object SalesGenerator {
         saleDate: YearMonthDay? = null,
         validity: YearMonthDayRange? = null,
         customer: CustomerInfo? = null,
-        amount: Amount? = null,
-        currency: Currency = MarketplaceCurrencies.USD,
+        amount: MonetaryAmount? = null,
+        currency: CurrencyUnit = MarketplaceCurrencies.USD,
         saleType: PluginSaleItemType = PluginSaleItemType.New,
     ): PluginSale {
         val start = saleDate ?: nextDate()
         val usedValidity = validity
             ?: if (type == LicensePeriod.Annual) start.rangeTo(start.add(1, 0, -1)) else start.rangeTo(start.add(0, 1, -1))
 
-        val usedAmount = amount ?: randomAmount()
+        val usedAmount = amount ?: randomAmount(currency)
         return PluginSale(
             nextRef(),
             start,
             usedAmount,
             usedAmount,
-            currency,
             type,
             customer ?: TestCustomers.PersonDummy,
             null,
@@ -57,7 +58,7 @@ object SalesGenerator {
         return date
     }
 
-    private fun randomAmount(): Amount {
-        return Random.nextInt(50).toBigDecimal()
+    private fun randomAmount(currency: CurrencyUnit): MonetaryAmount {
+        return FastMoney.of(Random.nextInt(50).toBigDecimal(), currency)
     }
 }

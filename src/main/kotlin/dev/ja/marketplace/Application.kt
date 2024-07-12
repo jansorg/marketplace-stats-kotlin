@@ -23,7 +23,6 @@ import com.github.ajalt.clikt.parameters.types.path
 import dev.ja.marketplace.client.CachingMarketplaceClient
 import dev.ja.marketplace.client.ClientLogLevel
 import dev.ja.marketplace.client.KtorMarketplaceClient
-import dev.ja.marketplace.exchangeRate.FrankfurterExchangeRateProvider
 import dev.ja.marketplace.services.KtorJetBrainsServiceClient
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -64,7 +63,11 @@ class Application(version: String) : CliktCommand(
     private val displayCurrency: String? by option("-c", "--currency", envvar = "MARKETPLACE_DISPLAY_CURRENCY")
         .help("Currency for the displayed monetary amounts.")
 
-    private val logging: ClientLogLevel by option("-d", "--debug", envvar = "MARKETPLACE_LOG_LEVEL").enum<ClientLogLevel>(key = { it.name.lowercase() })
+    private val logging: ClientLogLevel by option(
+        "-d",
+        "--debug",
+        envvar = "MARKETPLACE_LOG_LEVEL"
+    ).enum<ClientLogLevel>(key = { it.name.lowercase() })
         .default(ClientLogLevel.None)
         .help("The log level used for the server and the API requests to the marketplace")
 
@@ -81,7 +84,6 @@ class Application(version: String) : CliktCommand(
             val server = MarketplaceStatsServer(
                 CachingMarketplaceClient(KtorMarketplaceClient(apiKey = apiKey, logLevel = logging)),
                 KtorJetBrainsServiceClient(logLevel = logging),
-                FrankfurterExchangeRateProvider(frankfurterApiUrl, logLevel = logging),
                 serverHostname,
                 serverPort,
                 ServerConfiguration(displayCurrencyCode)

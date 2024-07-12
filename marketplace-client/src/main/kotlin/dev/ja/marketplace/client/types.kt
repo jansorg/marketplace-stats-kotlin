@@ -6,11 +6,13 @@
 package dev.ja.marketplace.client
 
 import dev.ja.marketplace.services.Country
-import dev.ja.marketplace.services.Currency
 import kotlinx.datetime.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.math.BigDecimal
+import javax.money.CurrencyUnit
+import javax.money.Monetary
+import javax.money.MonetaryAmount
 
 typealias UserId = String
 typealias PluginId = Int
@@ -25,48 +27,9 @@ typealias LicenseId = String
 typealias JetBrainsProductId = String
 typealias PluginModuleName = String
 
-typealias Amount = BigDecimal
-
-data class AmountWithCurrency(val amount: Amount, val currencyCode: String) : Comparable<AmountWithCurrency> {
-    constructor(amount: Amount, currency: Currency) : this(amount, currency.isoCode)
-
-    override fun compareTo(other: AmountWithCurrency): Int {
-        return when (this.currencyCode) {
-            other.currencyCode -> this.amount.compareTo(other.amount)
-            else -> this.currencyCode.compareTo(other.currencyCode)
-        }
-    }
-
-    operator fun times(other: BigDecimal): AmountWithCurrency {
-        return AmountWithCurrency(amount.times(other), currencyCode)
-    }
-
-    operator fun minus(other: BigDecimal): AmountWithCurrency {
-        return AmountWithCurrency(amount.minus(other), currencyCode)
-    }
-
-    operator fun plus(other: BigDecimal): AmountWithCurrency {
-        return AmountWithCurrency(amount.plus(other), currencyCode)
-    }
-
-    operator fun minus(other: AmountWithCurrency): AmountWithCurrency {
-        assert(this.currencyCode == other.currencyCode)
-        return AmountWithCurrency(amount.minus(other.amount), currencyCode)
-    }
-}
-
-fun Amount.withCurrency(currency: String): AmountWithCurrency {
-    return AmountWithCurrency(this, currency)
-}
-
-fun Amount.withCurrency(currency: Currency): AmountWithCurrency {
-    return AmountWithCurrency(this, currency.isoCode)
-}
-
 interface WithAmounts {
-    val amount: Amount
-    val currency: Currency
-    val amountUSD: Amount
+    val amount: MonetaryAmount
+    val amountUSD: MonetaryAmount
 }
 
 @Serializable
@@ -354,51 +317,37 @@ data class PluginRating(
         }
 }
 
-@Serializable
+@Serializable(PluginSaleSerializer::class)
 data class PluginSale(
-    @SerialName("ref")
     val ref: String,
-    @SerialName("date")
     val date: YearMonthDay,
-    @SerialName("amount")
-    @Serializable(with = AmountSerializer::class)
-    override val amount: Amount,
-    @SerialName("amountUSD")
-    @Serializable(with = AmountSerializer::class)
-    override val amountUSD: Amount,
-    @SerialName("currency")
-    @Serializable(CurrencySerializer::class)
-    override val currency: Currency,
-    @SerialName("period")
+    override val amount: MonetaryAmount,
+    override val amountUSD: MonetaryAmount,
     val licensePeriod: LicensePeriod,
-    @SerialName("customer")
     val customer: CustomerInfo,
-    @SerialName("reseller")
     val reseller: ResellerInfo? = null,
-    @SerialName("lineItems")
     val lineItems: List<PluginSaleItem>
 ) : Comparable<PluginSale>, WithAmounts {
-
     override fun compareTo(other: PluginSale): Int {
         return date.compareTo(other.date)
     }
 }
 
-object MarketplaceCurrencies : Iterable<Currency> {
-    val USD = Currency("USD", "US $", true)
-    val EUR = Currency("EUR", "Є", true)
-    val JPY = Currency("JPY", "JPY", false)
-    val GBP = Currency("GBP", "£", true)
-    val CZK = Currency("CZK", "Kč", false)
-    val CNY = Currency("CNY", "CNY", false)
+object MarketplaceCurrencies : Iterable<CurrencyUnit> {
+    val USD = Monetary.getCurrency("USD")
+    val EUR = Monetary.getCurrency("EUR")
+    val JPY = Monetary.getCurrency("JPY")
+    val GBP = Monetary.getCurrency("GBP")
+    val CZK = Monetary.getCurrency("CZK")
+    val CNY = Monetary.getCurrency("CNY")
 
     private val allCurrencies = listOf(USD, EUR, JPY, GBP, CZK, CNY)
 
-    override fun iterator(): Iterator<Currency> {
+    override fun iterator(): Iterator<CurrencyUnit> {
         return allCurrencies.iterator()
     }
 
-    fun of(id: String): Currency {
+    fun of(id: String): CurrencyUnit {
         return when (id) {
             "USD" -> USD
             "EUR" -> EUR
@@ -474,7 +423,7 @@ enum class ResellerType(val displayString: String) {
 }
 
 @Serializable
-data class PluginSaleItem(
+internal data class JsonPluginSaleItem(
     @SerialName("type")
     val type: PluginSaleItemType,
     @SerialName("licenseIds")
@@ -482,12 +431,19 @@ data class PluginSaleItem(
     @SerialName("subscriptionDates")
     val subscriptionDates: YearMonthDayRange,
     @SerialName("amount")
-    @Serializable(with = AmountSerializer::class)
-    val amount: Amount,
+    val amount: Double,
     @SerialName("amountUsd")
-    @Serializable(with = AmountSerializer::class)
-    val amountUSD: Amount,
+    val amountUSD: Double,
     @SerialName("discountDescriptions")
+    val discountDescriptions: List<PluginSaleItemDiscount>
+)
+
+data class PluginSaleItem(
+    val type: PluginSaleItemType,
+    val licenseIds: List<LicenseId>,
+    val subscriptionDates: YearMonthDayRange,
+    val amount: MonetaryAmount,
+    val amountUSD: MonetaryAmount,
     val discountDescriptions: List<PluginSaleItemDiscount>
 ) {
     val isFreeLicense: Boolean = discountDescriptions.any { it.percent == 100.0 }
@@ -554,11 +510,11 @@ data class MarketplacePluginInfo(
     @SerialName("periods")
     val licensePeriod: List<LicensePeriod>,
     @SerialName("individualPrice")
-    @Serializable(with = AmountSerializer::class)
-    val individualPrice: Amount,
+    @Serializable(with = MonetaryAmountUsdSerializer::class)
+    val individualPrice: MonetaryAmount,
     @SerialName("businessPrice")
-    @Serializable(with = AmountSerializer::class)
-    val businessPrice: Amount,
+    @Serializable(with = MonetaryAmountUsdSerializer::class)
+    val businessPrice: MonetaryAmount,
     @SerialName("licensing")
     val licensingType: LicensingType,
     @SerialName("status")
@@ -574,19 +530,7 @@ data class MarketplacePluginInfo(
     // only available with fullInfo=true
     @SerialName("versions")
     val majorVersions: List<PluginMajorVersion>? = null,
-) {
-    fun subscriptionPrice(customerType: CustomerType, subscriptionType: LicensePeriod): Amount {
-        val basePrice = when (customerType) {
-            CustomerType.Organization -> this.businessPrice
-            CustomerType.Personal -> this.individualPrice
-        }
-        val factor = when (subscriptionType) {
-            LicensePeriod.Annual -> 10.0
-            LicensePeriod.Monthly -> 1.0
-        }
-        return basePrice * factor.toBigDecimal()
-    }
-}
+)
 
 enum class DownloadCountType(val requestPathSegment: String) {
     Downloads("downloads-count"),
@@ -950,11 +894,11 @@ data class PriceInfoTypeData(
 @Serializable
 data class PriceInfoData(
     @SerialName("price")
-    @Serializable(AmountSerializer::class)
-    val price: Amount,
+    @Serializable(BigDecimalSerializer::class)
+    val price: BigDecimal,
     @SerialName("priceTaxed")
-    @Serializable(AmountSerializer::class)
-    val priceTaxed: Amount? = null,
+    @Serializable(BigDecimalSerializer::class)
+    val priceTaxed: BigDecimal? = null,
     @SerialName("newShopCode")
     val newShopCode: String,
 )

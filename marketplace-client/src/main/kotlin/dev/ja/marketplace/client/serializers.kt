@@ -5,20 +5,23 @@
 
 package dev.ja.marketplace.client
 
-import dev.ja.marketplace.services.Currency
 import kotlinx.datetime.Instant
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.IntArraySerializer
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.nullable
 import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.descriptors.PrimitiveKind
-import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
-import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.*
+import kotlinx.serialization.encoding.CompositeDecoder
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.encoding.decodeStructure
 import kotlinx.serialization.json.*
+import org.javamoney.moneta.FastMoney
+import org.javamoney.moneta.Money
 import java.math.BigDecimal
+import javax.money.MonetaryAmount
 
 @OptIn(ExperimentalSerializationApi::class)
 object YearMonthDateSerializer : KSerializer<YearMonthDay> {
@@ -48,28 +51,28 @@ object YearMonthDateSerializer : KSerializer<YearMonthDay> {
     )
 }
 
-object AmountSerializer : KSerializer<Amount> {
-    override fun deserialize(decoder: Decoder): Amount {
-        return decoder.decodeString().toBigDecimal()
+object BigDecimalSerializer : KSerializer<BigDecimal> {
+    override fun deserialize(decoder: Decoder): BigDecimal {
+        return decoder.decodeDouble().toBigDecimal()
     }
 
-    override fun serialize(encoder: Encoder, value: Amount) {
-        encoder.encodeString(value.toPlainString())
+    override fun serialize(encoder: Encoder, value: BigDecimal) {
+        encoder.encodeDouble(value.toDouble())
     }
 
-    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("Amount", PrimitiveKind.STRING)
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("amount", PrimitiveKind.DOUBLE)
 }
 
-object CurrencySerializer : KSerializer<Currency> {
-    override fun deserialize(decoder: Decoder): Currency {
-        return MarketplaceCurrencies.of(decoder.decodeString())
+object MonetaryAmountUsdSerializer : KSerializer<MonetaryAmount> {
+    override fun deserialize(decoder: Decoder): MonetaryAmount {
+        return FastMoney.of(decoder.decodeDouble(), "USD")
     }
 
-    override fun serialize(encoder: Encoder, value: Currency) {
-        encoder.encodeString(value.isoCode)
+    override fun serialize(encoder: Encoder, value: MonetaryAmount) {
+        encoder.encodeDouble(value.number.doubleValueExact())
     }
 
-    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("Currency", PrimitiveKind.STRING)
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("amount", PrimitiveKind.DOUBLE)
 }
 
 object CDateSerializer : KSerializer<Instant> {
@@ -94,5 +97,77 @@ class NullableStringSerializer : KSerializer<String?> {
 
     override fun serialize(encoder: Encoder, value: String?) {
         return String.serializer().nullable.serialize(encoder, value)
+    }
+}
+
+
+object PluginSaleSerializer : KSerializer<PluginSale> {
+    override val descriptor: SerialDescriptor = buildClassSerialDescriptor("pluginSale") {
+        element<String>("ref")
+        element<YearMonthDay>("date")
+        element<Double>("amount")
+        element<String>("currency")
+        element<Double>("amountUSD")
+        element<LicensePeriod>("period")
+        element<CustomerInfo>("customer")
+        element<ResellerInfo?>("reseller")
+        element<List<JsonPluginSaleItem>>("lineItems")
+    }
+
+    @OptIn(ExperimentalSerializationApi::class)
+    override fun deserialize(decoder: Decoder): PluginSale {
+        return decoder.decodeStructure(descriptor) {
+            var ref: String? = null
+            var date: YearMonthDay? = null
+            var amountValue: Double? = null
+            var currency: String? = null
+            var amountValueUSD: Double? = null
+            var period: LicensePeriod? = null
+            var customer: CustomerInfo? = null
+            var reseller: ResellerInfo? = null
+            var lineItems: List<JsonPluginSaleItem>? = null
+
+            while (true) {
+                when (val index = decodeElementIndex(descriptor)) {
+                    0 -> ref = decodeStringElement(descriptor, index)
+                    1 -> date = decodeSerializableElement(descriptor, index, YearMonthDay.serializer())
+                    2 -> amountValue = decodeDoubleElement(descriptor, index)
+                    3 -> currency = decodeStringElement(descriptor, index)
+                    4 -> amountValueUSD = decodeDoubleElement(descriptor, index)
+                    5 -> period = decodeSerializableElement(descriptor, index, LicensePeriod.serializer())
+                    6 -> customer = decodeNullableSerializableElement(descriptor, index, CustomerInfo.serializer())
+                    7 -> reseller = decodeNullableSerializableElement(descriptor, index, ResellerInfo.serializer())
+                    8 -> lineItems = decodeNullableSerializableElement(descriptor, index, ListSerializer(JsonPluginSaleItem.serializer()))
+                    CompositeDecoder.DECODE_DONE -> break
+                    else -> error("Unexpected index: $index")
+                }
+            }
+            require(ref != null && date != null && amountValue != null && amountValueUSD != null && period != null && customer != null)
+            require(lineItems != null)
+
+            PluginSale(
+                ref,
+                date,
+                FastMoney.of(amountValue, currency),
+                FastMoney.of(amountValueUSD, "USD"),
+                period,
+                customer,
+                reseller,
+                lineItems.map {
+                    PluginSaleItem(
+                        it.type,
+                        it.licenseIds,
+                        it.subscriptionDates,
+                        FastMoney.of(it.amount, currency),
+                        FastMoney.of(it.amountUSD, "USD"),
+                        it.discountDescriptions
+                    )
+                }
+            )
+        }
+    }
+
+    override fun serialize(encoder: Encoder, value: PluginSale) {
+        TODO("not yet implemented")
     }
 }

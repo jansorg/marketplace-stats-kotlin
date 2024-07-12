@@ -5,97 +5,71 @@
 
 package dev.ja.marketplace.exchangeRate
 
-import dev.ja.marketplace.client.Amount
 import dev.ja.marketplace.client.YearMonthDay
-import dev.ja.marketplace.client.YearMonthDayRange
-import dev.ja.marketplace.services.Currency
-import it.unimi.dsi.fastutil.objects.Object2DoubleMap
+import org.javamoney.moneta.FastMoney
+import org.javamoney.moneta.convert.ecb.ECBCurrentRateProvider
+import org.javamoney.moneta.convert.ecb.ECBHistoricRateProvider
+import org.javamoney.moneta.spi.CompoundRateProvider
 import java.math.BigDecimal
-import java.util.concurrent.ConcurrentSkipListMap
-import java.util.concurrent.atomic.AtomicReference
-
-val EmptyExchangeRates = ExchangeRates(IdentityExchangeRateProvider, YearMonthDay.now(), "USD", emptyList())
+import java.math.MathContext
+import java.math.RoundingMode
+import java.time.LocalDate
+import java.util.*
+import javax.money.CurrencyUnit
+import javax.money.Monetary
+import javax.money.MonetaryAmount
+import javax.money.convert.*
 
 /**
  * Prefetched exchange rates.
  */
-class ExchangeRates(
-    private val exchangeRateProvider: ExchangeRateProvider,
-    private val firstValidDate: YearMonthDay,
-    val targetCurrencyCode: String,
-    supportedSourceCurrencies: Iterable<Currency>,
-) {
-    private val sourceCurrencyCodes = supportedSourceCurrencies.map(Currency::isoCode) - targetCurrencyCode
-    private val latestFetchedDate = AtomicReference(YearMonthDay.MIN)
-    private val exchangeRateInverter: DoubleTransformer = { 1.0 / it }
+class ExchangeRates(targetCurrencyCode: String) {
+    val targetCurrency: CurrencyUnit = Monetary.getCurrency(targetCurrencyCode)
 
-    // key must only be the date, because the map uses compareTo for equality
-    private val cachedRates = ConcurrentSkipListMap<YearMonthDay, Object2DoubleMap<String>>()
-    private val latestExchangeRate = AtomicReference<ExchangeRateSet>(null)
+    private val historicRateProvider: ExchangeRateProvider = ECBHistoricRateProvider()
+    private val currentRateProvider: ExchangeRateProvider = ECBCurrentRateProvider()
+    private val composedRateProvider = CompoundRateProvider(listOf(historicRateProvider, currentRateProvider))
 
-    suspend fun convert(date: YearMonthDay, amount: Amount, sourceCurrency: String): Amount {
-        return when {
-            sourceCurrency == targetCurrencyCode -> amount
-            else -> amount * BigDecimal.valueOf(getCurrencyConversionFactor(date, sourceCurrency))
-        }
+    fun convert(date: YearMonthDay, amount: MonetaryAmount): MonetaryAmount {
+        val now = YearMonthDay.now()
+        val fixedDate = if (date > now) now else date
+        val query = ConversionQueryBuilder
+            .of()
+            .setTermCurrency(targetCurrency)
+            .set(Array<LocalDate>::class.java, createLookupDates(fixedDate))
+            .build()
+        val conversion = composedRateProvider.getCurrencyConversion(query)
+        return conversion.applyConversion(amount, targetCurrency)
     }
 
-    private suspend fun getCurrencyConversionFactor(date: YearMonthDay, sourceCurrency: String): Double {
-        if (sourceCurrency == targetCurrencyCode) {
-            return 1.0
+    // fixed apply method to make it work with FastMoney
+    private fun CurrencyConversion.applyConversion(amount: MonetaryAmount, termCurrency: CurrencyUnit): MonetaryAmount {
+        if (termCurrency == amount.currency) {
+            return amount
         }
 
-        val currentStableRateDate = YearMonthDay.now().add(0, 0, -1)
+        val rate: ExchangeRate = getExchangeRate(amount)
+        if (Objects.isNull(rate) || amount.currency != rate.baseCurrency) {
+            throw CurrencyConversionException(
+                amount.currency,
+                termCurrency, null
+            )
 
-        // handling of latest, unstable rate
-        if (date > currentStableRateDate) {
-            var cachedLatest = latestExchangeRate.get()
-            if (cachedLatest == null || cachedLatest.date != date) {
-                // fetch and cache the latest exchange rate
-                val latestExchangeRates = exchangeRateProvider.fetchLatestExchangeRates(
-                    targetCurrencyCode,
-                    sourceCurrencyCodes,
-                    exchangeRateInverter
-                )
-
-                cachedLatest = latestExchangeRates.copy(date = date)
-                this.latestExchangeRate.set(cachedLatest)
-            }
-
-            val value = cachedLatest.exchangeRates.getOrDefault(sourceCurrency as Any, -1.0)
-            return when {
-                value >= 0.0 -> value
-                else -> throw IllegalStateException("Latest exchange rate unavailable for $date, $sourceCurrency")
-            }
         }
-
-        // handling of stable rates
-        if (date > latestFetchedDate.get()) {
-            cacheAll(firstValidDate.rangeTo(currentStableRateDate))
-            latestFetchedDate.set(currentStableRateDate)
-        }
-
-        // day's rate. For missing dates (e.g. weekend) try the previous rate and then the next available date as fallback
-        val bestEntry = cachedRates.floorEntry(date) ?: cachedRates.ceilingEntry(date)
-        val value = bestEntry?.value?.getOrDefault(sourceCurrency as Any, -1.0)
-        return when {
-            value != null && value >= 0.0 -> value
-            else -> throw IllegalStateException("No cached exchange rate available for $date")
-        }
+        val multiplied = rate.factor.numberValue(BigDecimal::class.java)
+            .multiply(amount.number.numberValue(BigDecimal::class.java))
+            .setScale(5, RoundingMode.HALF_UP)
+        return FastMoney.of(multiplied, rate.currency)
+//        return FastMoney.of(MoneyUtils.getBigDecimal(multiplied), rate.currency)//.with(MonetaryOperators.rounding(5))
+//        return amount.factory.setCurrency(rate.currency).setNumber(multiplied).create().with(MonetaryOperators.rounding(5))
     }
 
-    // Because we have multiple source currencies and only a single target currency we're requesting the reverse exchange rate.
-    // The API only supports one base currency and [1,n] target currencies.
-    private suspend fun cacheAll(dateRange: YearMonthDayRange) {
-        val exchangeRates = exchangeRateProvider.fetchExchangeRates(
-            dateRange,
-            targetCurrencyCode,
-            sourceCurrencyCodes,
-            exchangeRateInverter
-        )
-
-        for (result in exchangeRates) {
-            cachedRates[result.date] = result.exchangeRates
-        }
-    }
+    // requested date with several fallback to make up to weekends
+    private fun createLookupDates(date: YearMonthDay) = arrayOf(
+        date.toLocalDate(),
+        date.add(0, 0, -1).toLocalDate(),
+        date.add(0, 0, -2).toLocalDate(),
+        date.add(0, 0, 1).toLocalDate(),
+        date.add(0, 0, 2).toLocalDate(),
+    )
 }

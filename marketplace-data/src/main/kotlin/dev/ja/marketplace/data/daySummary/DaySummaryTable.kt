@@ -7,13 +7,17 @@ package dev.ja.marketplace.data.daySummary
 
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
+import dev.ja.marketplace.util.sortValue
 import java.math.BigInteger
+import javax.money.MonetaryAmount
 
 class DaySummaryTable(
     val date: YearMonthDay,
     title: String
 ) : SimpleDataTable(title, cssClass = "small table-striped"), MarketplaceDataSink {
-    private val sales = mutableListOf<PluginSale>()
+    private lateinit var totalSales: MonetaryAmountTracker
+    private val sales = mutableMapOf<Pair<CustomerType, LicensePeriod>, MonetaryAmountTracker>()
     private lateinit var trials: List<PluginTrial>
 
     private val columnSubscriptionType = DataTableColumn("sales-subscription", null, "col-right")
@@ -28,6 +32,14 @@ class DaySummaryTable(
     override suspend fun init(data: PluginData) {
         super.init(data)
 
+        this.totalSales = MonetaryAmountTracker(data.exchangeRates)
+
+        for (type in CustomerType.entries) {
+            for (period in LicensePeriod.entries) {
+                sales[type to period] = MonetaryAmountTracker(exchangeRates)
+            }
+        }
+
         trials = data.trials
             ?.filter { it.date == date }
             ?.sortedBy { it.customer.country }
@@ -36,7 +48,11 @@ class DaySummaryTable(
 
     override suspend fun process(sale: PluginSale) {
         if (sale.date == date) {
-            sales += sale
+            totalSales.add(sale.date, sale.amountUSD, sale.amount)
+
+            val tracker = sales[sale.customer.type to sale.licensePeriod]
+                ?: throw IllegalStateException("Unable to find sales for $sale")
+            tracker.add(sale.date, sale.amountUSD, sale.amount)
         }
     }
 
@@ -45,18 +61,15 @@ class DaySummaryTable(
     }
 
     override suspend fun createSections(): List<DataTableSection> {
-        val salesTable = sales
-            .groupBy { it.customer.type }
-            .mapValues { it.value.groupBy { sale -> sale.licensePeriod } }
-            .flatMap { (type, licensePeriodWithSales) ->
-                licensePeriodWithSales.map { (licensePeriod, sales) ->
-                    SimpleDateTableRow(
-                        columnCustomerType to type,
-                        columnSubscriptionType to licensePeriod,
-                        columnAmount to sales.sumOf { it.amountUSD }.render(date, MarketplaceCurrencies.USD),
-                    )
-                }
-            }.sortedByDescending { it.values[columnAmount] as? AmountWithCurrency }
+        val salesTable = sales.map {
+            SimpleDateTableRow(
+                columnCustomerType to it.key.first,
+                columnSubscriptionType to it.key.second,
+                columnAmount to it.value.getTotalAmount()
+            )
+        }.sortedByDescending {
+            (it.values[columnAmount] as MonetaryAmount).sortValue()
+        }
 
         val trialRows = trials
             .groupBy { it.customer.type }
@@ -75,8 +88,7 @@ class DaySummaryTable(
             SimpleTableSection(
                 rows = salesTable,
                 columns = listOf(columnSubscriptionType, columnCustomerType, columnAmount),
-                footer = SimpleRowGroup(SimpleDateTableRow(columnAmount to sales.sumOf { it.amountUSD }
-                    .render(date, MarketplaceCurrencies.USD)))
+                footer = SimpleRowGroup(SimpleDateTableRow(columnAmount to totalSales.getTotalAmount()))
             ),
             SimpleTableSection(
                 title = "",

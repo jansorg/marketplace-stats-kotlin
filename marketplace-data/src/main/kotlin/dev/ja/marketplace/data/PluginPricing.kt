@@ -7,21 +7,44 @@ package dev.ja.marketplace.data
 
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.services.Countries
+import org.javamoney.moneta.FastMoney
+import org.javamoney.moneta.Money
+import java.util.concurrent.ConcurrentHashMap
+import javax.money.MonetaryAmount
+
+private data class PricingCacheKey(
+    val customerInfo: CustomerInfo,
+    val licensePeriod: LicensePeriod,
+    val continuityDiscount: ContinuityDiscount,
+)
+
+private val NoBasePriceValue = Money.of(-1111.11, MarketplaceCurrencies.USD)
 
 data class PluginPricing(
     private val countries: Countries,
     private val countryCodeToPricing: Map<String, PluginPriceInfo>
 ) {
+    private val basePriceCache = ConcurrentHashMap<PricingCacheKey, MonetaryAmount>()
+
     fun getCountryPricing(countryIsoCode: String): PluginPriceInfo? {
         return countryCodeToPricing[countryIsoCode]
     }
 
     fun getBasePrice(
-        date: YearMonthDay,
         customerInfo: CustomerInfo,
         licensePeriod: LicensePeriod,
         continuityDiscount: ContinuityDiscount,
-    ): AmountWithCurrency? {
+    ): MonetaryAmount? {
+        return basePriceCache.computeIfAbsent(PricingCacheKey(customerInfo, licensePeriod, continuityDiscount)) {
+            getBasePriceInner(customerInfo, licensePeriod, continuityDiscount) ?: NoBasePriceValue
+        }.takeIf { it !== NoBasePriceValue }
+    }
+
+    private fun getBasePriceInner(
+        customerInfo: CustomerInfo,
+        licensePeriod: LicensePeriod,
+        continuityDiscount: ContinuityDiscount
+    ): MonetaryAmount? {
         val countryWithCurrency = countries.byCountryName(customerInfo.country)
             ?: throw IllegalStateException("unable to find country for name ${customerInfo.country}")
         val priceInfo = countryCodeToPricing[countryWithCurrency.country.isoCode] ?: return null
@@ -40,7 +63,7 @@ data class PluginPricing(
             ContinuityDiscount.ThirdYear -> pricing.thirdYear
         }
 
-        return AmountWithCurrency(withDiscount.price, countryWithCurrency.currency)
+        return FastMoney.of(withDiscount.price, countryWithCurrency.currency.isoCode)
     }
 
     companion object {
