@@ -16,6 +16,10 @@ import java.math.RoundingMode
 import javax.money.MonetaryAmount
 
 data class PercentageValue(val value: BigDecimal) {
+    override fun toString(): String {
+        return String.format("%,.2f %%", value)
+    }
+
     companion object {
         private val ONE_HUNDRED_DECIMAL = BigDecimal.valueOf(100)
 

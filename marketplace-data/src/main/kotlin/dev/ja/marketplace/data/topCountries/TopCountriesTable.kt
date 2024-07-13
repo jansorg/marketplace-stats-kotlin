@@ -5,11 +5,14 @@
 
 package dev.ja.marketplace.data.topCountries
 
+import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.PluginSale
+import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.TrialTracker
+import dev.ja.marketplace.data.trackers.getResultByTrialDuration
 import dev.ja.marketplace.util.sortValue
 import java.util.*
 
@@ -30,6 +33,8 @@ class TopCountriesTable(
 ), MarketplaceDataSink {
     private fun String.orEmptyCountry(): String = ifEmpty { NoValue }
 
+    private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
+
     private val columnCountry = DataTableColumn("country", if (smallSpace) null else "Country", "col-right")
     private val columnSales = DataTableColumn("sales", if (smallSpace) null else "Total Sales", "num", preSorted = AriaSortOrder.Descending)
     private val columnSalesPercentage = DataTableColumn("sales", "% of Sales", "num num-percentage")
@@ -40,7 +45,7 @@ class TopCountriesTable(
         "num num-percentage",
         tooltip = "Percentage of the total trials"
     )
-    private val columnTrialConvertedPercentage = DataTableColumn(
+    private val columnTrialConversion = DataTableColumn(
         "trials-converted",
         "Converted Trials",
         cssClass = "num num-percentage",
@@ -57,22 +62,20 @@ class TopCountriesTable(
         columnSalesPercentage,
         columnTrialsPercentage.takeIf { showTrials },
         columnTrialCount.takeIf { showTrials },
-        columnTrialConvertedPercentage.takeIf { showTrials },
+        columnTrialConversion.takeIf { showTrials },
     )
 
     override suspend fun init(data: PluginData) {
         super.init(data)
 
         allSalesTracker = MonetaryAmountTracker(data.exchangeRates)
+        maxTrialDays = data.pluginInfo.purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
 
+        allTrialsTracker.init(data.trials ?: emptyList())
         if (data.trials != null) {
-            for (trial in data.trials) {
-                allTrialsTracker.registerTrial(trial)
-
-                val countryData = countries.computeIfAbsent(trial.customer.country.orEmptyCountry()) {
-                    CountryData(MonetaryAmountTracker(data.exchangeRates))
-                }
-                countryData.trials.registerTrial(trial)
+            for ((country, trials) in data.trials.groupBy { it.customer.country.orEmptyCountry() }) {
+                val countryData = countries.computeIfAbsent(country) { CountryData(MonetaryAmountTracker(data.exchangeRates)) }
+                countryData.trials.init(trials)
             }
         }
     }
@@ -95,8 +98,8 @@ class TopCountriesTable(
     override suspend fun createSections(): List<DataTableSection> {
         val totalSalesAmount = allSalesTracker.getTotalAmount()
 
-        val allTrialsResult = allTrialsTracker.getResult()
-        val totalTrialCount = allTrialsResult.totalTrials
+        val trialsAnyDuration = allTrialsTracker.getResult(YearMonthDayRange.MAX)
+        val trialsTrialDuration = allTrialsTracker.getResultByTrialDuration(YearMonthDayRange.MAX, maxTrialDays)
 
         val rows = countries.entries
             .sortedByDescending { it.value.totalSales.getTotalAmount() }
@@ -105,9 +108,10 @@ class TopCountriesTable(
                 val totalSales = countryData.totalSales.takeIf { countryData.salesCount > 0 }
                 val salesPercentage = PercentageValue.of(countryData.totalSales.getTotalAmount(), totalSalesAmount)
 
-                val trialsResult = countryData.trials.getResult()
-                val trialPercentage = PercentageValue.of(trialsResult.totalTrials, totalTrialCount)
-                val trialConversion = trialsResult.convertedTrialsPercentage
+                val countryTrialsAnyDuration = countryData.trials.getResult(YearMonthDayRange.MAX)
+                val countryTrialsTrialDuration = countryData.trials.getResultByTrialDuration(YearMonthDayRange.MAX, maxTrialDays)
+                val trialPercentage = PercentageValue.of(countryTrialsAnyDuration.totalTrials, trialsAnyDuration.totalTrials)
+                val trialConversionRate = countryTrialsAnyDuration.convertedTrialsPercentage
 
                 val totalAmount = totalSales?.getTotalAmount()
                 SimpleDateTableRow(
@@ -115,22 +119,30 @@ class TopCountriesTable(
                         columnCountry to country,
                         columnSales to (totalAmount ?: NoValue),
                         columnSalesPercentage to salesPercentage,
-                        columnTrialCount to (trialsResult.totalTrials.takeUnless { it == 0 }?.toBigInteger() ?: NoValue),
+                        columnTrialCount to (countryTrialsAnyDuration.totalTrials.takeUnless { it == 0 }?.toBigInteger() ?: NoValue),
                         columnTrialsPercentage to trialPercentage,
-                        columnTrialConvertedPercentage to trialConversion,
+                        columnTrialConversion to trialConversionRate,
                     ),
                     sortValues = mapOf(
                         columnSales to (totalAmount?.sortValue() ?: -1L),
                         columnSalesPercentage to salesPercentage.value.toLong(),
-                        columnTrialCount to trialsResult.totalTrials.toLong(),
+                        columnTrialCount to countryTrialsAnyDuration.totalTrials.toLong(),
                         columnTrialsPercentage to trialPercentage.value.toLong(),
-                        columnTrialConvertedPercentage to trialConversion.value.toLong(),
+                        columnTrialConversion to trialConversionRate.value.toLong(),
                     ),
+                    tooltips = mapOf(
+                        columnTrialConversion to countryTrialsAnyDuration.getTooltipConverted() +
+                                "\n" +
+                                countryTrialsTrialDuration.getTooltipConverted(maxTrialDays)
+                    )
                 )
             }
 
         val countriesWithSales = this.countries.values.count { it.salesCount > 0 }
-        val countriesWithTrials = this.countries.values.count { it.trials.getResult().totalTrials > 0 }
+        val countriesWithTrials = this.countries.values.count {
+            it.trials.getResultByTrialDuration(YearMonthDayRange.MAX, maxTrialDays).totalTrials > 0
+        }
+
         return listOf(
             SimpleTableSection(
                 rows,
@@ -138,14 +150,21 @@ class TopCountriesTable(
                     maxItems != null -> null
                     else -> SimpleTableSection(
                         SimpleDateTableRow(
-                            columnCountry to listOf(
-                                "${countries.size} countries",
-                                "$countriesWithSales with sales",
-                                "$countriesWithTrials with trials",
+                            values = mapOf(
+                                columnCountry to listOf(
+                                    "${countries.size} countries",
+                                    "$countriesWithSales with sales",
+                                    "$countriesWithTrials with trials",
+                                ),
+                                columnSales to totalSalesAmount,
+                                columnTrialCount to trialsAnyDuration.totalTrials.toBigInteger(),
+                                columnTrialConversion to trialsAnyDuration.convertedTrialsPercentage,
                             ),
-                            columnSales to totalSalesAmount,
-                            columnTrialCount to totalTrialCount.toBigInteger(),
-                            columnTrialConvertedPercentage to allTrialsResult.convertedTrialsPercentage,
+                            tooltips = mapOf(
+                                columnTrialConversion to trialsAnyDuration.getTooltipConverted() +
+                                        "\n" +
+                                        trialsTrialDuration.getTooltipConverted(maxTrialDays)
+                            )
                         )
                     )
                 }
