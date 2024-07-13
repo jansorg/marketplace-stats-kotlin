@@ -135,11 +135,11 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         super.init(data)
 
         this.pluginId = data.pluginId
-        this.pluginMaxTrialDays = data.pluginInfo.purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
+        this.pluginMaxTrialDays = data.getPluginInfo().purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
 
         val now = YearMonthDay.now()
-        this.downloadsMonthly = data.downloadsMonthly
-        this.downloadsTotal = data.totalDownloads
+        this.downloadsMonthly = data.getDownloadsMonthly()
+        this.downloadsTotal = data.getTotalDownloads()
 
         for (year in Marketplace.Birthday.year..now.year) {
             val monthRange = when (year) {
@@ -185,7 +185,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
             )
         }
 
-        trialTracker.init(data.trials ?: emptyList())
+        trialTracker.init(data.getTrials() ?: emptyList())
     }
 
     private fun createMonthlyRecurringRevenueTracker(month: YearMonthDayRange, pluginData: PluginData): RecurringRevenueTracker {

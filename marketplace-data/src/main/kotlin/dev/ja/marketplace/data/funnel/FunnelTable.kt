@@ -28,9 +28,9 @@ class FunnelTable : SimpleDataTable("Trial Funnel", "funnel", "table-centered so
         super.init(data)
 
         this.pluginId = data.pluginId
-        this.maxTrialDays = data.pluginInfo.purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
+        this.maxTrialDays = data.getPluginInfo().purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
 
-        trialTracker.init(data.trials ?: emptyList())
+        trialTracker.init(data.getTrials() ?: emptyList())
     }
 
     override suspend fun process(sale: PluginSale) {

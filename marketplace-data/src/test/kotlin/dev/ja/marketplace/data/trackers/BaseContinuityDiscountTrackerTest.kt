@@ -14,10 +14,10 @@ import dev.ja.marketplace.client.LicenseInfo
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-class ContinuityDiscountTrackerTest {
+class BaseContinuityDiscountTrackerTest {
     @Test
     fun basics() {
-        val tracker = ContinuityDiscountTracker()
+        val tracker = BaseContinuityDiscountTracker()
         assertEquals(ContinuityDiscount.FirstYear, tracker.nextContinuity("any", YearMonthDay.now()))
 
         val validity = YearMonthDayRange(YearMonthDay(2024, 6, 1), YearMonthDay(2024, 6, 30))

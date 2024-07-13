@@ -58,11 +58,13 @@ class TopTrialCountriesTable(
     override suspend fun init(data: PluginData) {
         super.init(data)
 
-        maxTrialsDays = data.pluginInfo.purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
-        allTrialsTracker.init(data.trials ?: emptyList())
+        maxTrialsDays = data.getPluginInfo().purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
 
-        if (data.trials != null) {
-            for ((country, trials) in data.trials.groupBy { it.customer.country }) {
+        val pluginTrials = data.getTrials() ?: emptyList()
+        allTrialsTracker.init(pluginTrials)
+
+        if (pluginTrials.isNotEmpty()) {
+            for ((country, trials) in pluginTrials.groupBy { it.customer.country }) {
                 if (country.isNotEmpty() || showEmptyCountry) {
                     countryToTrialCount.addTo(country, trials.size)
                     countryToTrialTracker.getOrPut(country.orEmptyCountry(), ::SimpleTrialTracker).init(trials)

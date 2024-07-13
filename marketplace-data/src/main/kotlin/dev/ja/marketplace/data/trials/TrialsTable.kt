@@ -37,7 +37,7 @@ class TrialsTable(
         super.init(data)
 
         this.pluginId = data.pluginId
-        data.trials?.forEach {
+        data.getTrials()?.forEach {
             if (trialFilter(it)) {
                 trialData.merge(it.date, listOf(it)) { a, b -> a + b }
             }

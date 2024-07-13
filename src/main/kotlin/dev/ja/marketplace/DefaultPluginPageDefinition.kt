@@ -34,14 +34,14 @@ class DefaultPluginPageDefinition(
             .onEach { table ->
                 table.init(data)
 
-                val sales = data.sales
+                val sales = data.getSales()
                 if (sales != null) {
                     for (sale in sales) {
                         table.process(sale)
                     }
                 }
 
-                val licenses = data.licenses
+                val licenses = data.getLicenses()
                 if (licenses != null) {
                     for (license in licenses) {
                         table.process(license)
@@ -55,8 +55,8 @@ class DefaultPluginPageDefinition(
             "pageTitle" to pageTitle,
             "pageDescription" to pageDescription,
             "today" to YearMonthDay.now(),
-            "plugin" to data.pluginInfo,
-            "rating" to data.pluginRating,
+            "plugin" to data.getPluginInfo(),
+            "rating" to data.getPluginRating(),
             "tables" to dataSinks,
             "cssClass" to pageCssClasses,
             "urls" to dataLoader.client as MarketplaceUrlSupport,

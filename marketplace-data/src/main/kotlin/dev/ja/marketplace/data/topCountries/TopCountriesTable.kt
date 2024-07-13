@@ -70,11 +70,12 @@ class TopCountriesTable(
         super.init(data)
 
         allSalesTracker = MonetaryAmountTracker(data.exchangeRates)
-        maxTrialDays = data.pluginInfo.purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
+        maxTrialDays = data.getPluginInfo().purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
 
-        allTrialsTracker.init(data.trials ?: emptyList())
-        if (data.trials != null) {
-            for ((country, trials) in data.trials.groupBy { it.customer.country.orEmptyCountry() }) {
+        val pluginTrials = data.getTrials() ?: emptyList()
+        allTrialsTracker.init(pluginTrials)
+        if (pluginTrials.isNotEmpty()) {
+            for ((country, trials) in pluginTrials.groupBy { it.customer.country.orEmptyCountry() }) {
                 val countryData = countries.computeIfAbsent(country) { CountryData(MonetaryAmountTracker(data.exchangeRates)) }
                 countryData.trials.init(trials)
             }
