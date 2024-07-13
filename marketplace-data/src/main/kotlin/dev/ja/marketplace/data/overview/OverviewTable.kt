@@ -188,19 +188,19 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         trialTracker.init(data.getTrials() ?: emptyList())
     }
 
-    private fun createMonthlyRecurringRevenueTracker(month: YearMonthDayRange, pluginData: PluginData): RecurringRevenueTracker {
+    private suspend fun createMonthlyRecurringRevenueTracker(month: YearMonthDayRange, pluginData: PluginData): RecurringRevenueTracker {
         return MonthlyRecurringRevenueTracker(
             month,
-            pluginData.continuityDiscountTracker!!,
+            pluginData.getContinuityDiscountTracker()!!,
             pluginData.pluginPricing!!,
             pluginData.exchangeRates
         )
     }
 
-    private fun createAnnualRecurringRevenueTracker(month: YearMonthDayRange, pluginData: PluginData): RecurringRevenueTracker {
+    private suspend fun createAnnualRecurringRevenueTracker(month: YearMonthDayRange, pluginData: PluginData): RecurringRevenueTracker {
         return AnnualRecurringRevenueTracker(
             month,
-            pluginData.continuityDiscountTracker!!,
+            pluginData.getContinuityDiscountTracker()!!,
             pluginData.pluginPricing!!,
             pluginData.exchangeRates
         )

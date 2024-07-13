@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.client.PluginInfoSummary
 import dev.ja.marketplace.data.PluginData
 import dev.ja.marketplace.data.PluginPricing
+import dev.ja.marketplace.data.trackers.BaseContinuityDiscountTracker
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import dev.ja.marketplace.services.Countries
 import kotlinx.coroutines.Deferred
@@ -30,12 +31,19 @@ class PluginDataLoader(
             val downloadsTotal = async(Dispatchers.IO) { client.downloadsTotal(plugin.id) }
             val downloadsMonthly = async(Dispatchers.IO) { client.downloadsMonthly(plugin.id, Downloads) }
             val downloadsDaily = async(Dispatchers.IO) { client.downloadsDaily(plugin.id, Downloads) }
-            val downloadsProduct = async(Dispatchers.IO) { client.downloadsByProduct(plugin.id, Downloads) }
 
             val salesAndLicenses = loadAsyncIfPaid { client.licenseInfo(plugin.id) }
             val trials = loadAsyncIfPaid { client.trialsInfo(plugin.id) }
-            val marketplacePluginInfo = loadAsyncIfPaid { client.marketplacePluginInfo(plugin.id) }
             val pricingInfo = PluginPricing.create(client, plugin.id, countries)
+
+            val continuityDiscountTracker = when (salesAndLicenses) {
+                null -> null
+                else -> async(Dispatchers.IO) {
+                    val tracker = BaseContinuityDiscountTracker()
+                    salesAndLicenses.await().licenses.forEach(tracker::process)
+                    tracker
+                }
+            }
 
             val data = PluginData(
                 countries,
@@ -46,13 +54,12 @@ class PluginDataLoader(
                 downloadsTotal,
                 downloadsMonthly,
                 downloadsDaily,
-                downloadsProduct,
                 pricingInfo,
                 salesAndLicenses,
                 trials,
-                marketplacePluginInfo,
+                continuityDiscountTracker,
             )
-            data.init()
+
             data
         }
     }
