@@ -318,7 +318,7 @@ class MarketplaceStatsServer(
     }
 
     private fun getDataLoader(plugin: PluginInfoSummary): PluginDataLoader {
-        return PluginDataLoader(plugin, countries, client, exchangeRates)
+        return PluginDataLoader(client, plugin, countries, exchangeRates)
     }
 
     private fun PipelineContext<Unit, ApplicationCall>.getDataLoader(): PluginDataLoader? {

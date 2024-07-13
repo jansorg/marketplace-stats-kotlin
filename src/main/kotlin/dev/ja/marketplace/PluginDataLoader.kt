@@ -18,9 +18,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 
 class PluginDataLoader(
+    val client: MarketplaceClient,
     val plugin: PluginInfoSummary,
     val countries: Countries,
-    val client: MarketplaceClient,
     val exchangeRates: ExchangeRates,
 ) {
     suspend fun load(): PluginData {
@@ -49,7 +49,7 @@ class PluginDataLoader(
                 else -> null
             }
             val pricingInfo = when {
-                plugin.isPaidOrFreemium -> async(Dispatchers.IO) { PluginPricing.create(countries, plugin.id, client) }
+                plugin.isPaidOrFreemium -> async(Dispatchers.IO) { PluginPricing.create(client, plugin.id, countries) }
                 else -> null
             }
 

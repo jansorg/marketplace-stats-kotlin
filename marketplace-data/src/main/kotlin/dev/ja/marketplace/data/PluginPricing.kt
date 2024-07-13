@@ -7,6 +7,7 @@ package dev.ja.marketplace.data
 
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.services.Countries
+import dev.ja.marketplace.services.CountryIsoCode
 import org.javamoney.moneta.FastMoney
 import org.javamoney.moneta.Money
 import java.util.concurrent.ConcurrentHashMap
@@ -22,28 +23,38 @@ private data class PricingCacheKey(
 private val NoBasePriceValue = Money.of(-1111.11, MarketplaceCurrencies.USD)
 
 data class PluginPricing(
+    private val client: MarketplaceClient,
+    private val pluginId: PluginId,
     private val countries: Countries,
-    private val countryCodeToPricing: Map<String, PluginPriceInfo>
 ) {
+    private val pluginPriceCache = ConcurrentHashMap<CountryIsoCode, PluginPriceInfo>()
     private val basePriceCache = ConcurrentHashMap<PricingCacheKey, MonetaryAmount>()
 
-    fun getCountryPricing(countryIsoCode: String): PluginPriceInfo? {
-        return countryCodeToPricing[countryIsoCode]
+    suspend fun getCountryPricing(countryIsoCode: CountryIsoCode): PluginPriceInfo? {
+        if (countries.byCountryIsoCode(countryIsoCode) == null) {
+            return null
+        }
+
+        return pluginPriceCache.getOrPut(countryIsoCode) {
+            val info = client.priceInfo(pluginId, countryIsoCode)
+            pluginPriceCache[countryIsoCode] = info
+            info
+        }
     }
 
-    fun getBasePrice(
+    suspend fun getBasePrice(
         customerInfo: CustomerInfo,
         licensePeriod: LicensePeriod,
         continuityDiscount: ContinuityDiscount,
     ): MonetaryAmount? {
         val country = customerInfo.country
         val customerType = customerInfo.type
-        return basePriceCache.computeIfAbsent(PricingCacheKey(country, customerType, licensePeriod, continuityDiscount)) {
+        return basePriceCache.getOrPut(PricingCacheKey(country, customerType, licensePeriod, continuityDiscount)) {
             getBasePriceInner(country, customerType, licensePeriod, continuityDiscount) ?: NoBasePriceValue
         }.takeIf { it !== NoBasePriceValue }
     }
 
-    private fun getBasePriceInner(
+    private suspend fun getBasePriceInner(
         customerCountry: String,
         customerType: CustomerType,
         licensePeriod: LicensePeriod,
@@ -51,8 +62,7 @@ data class PluginPricing(
     ): MonetaryAmount? {
         val countryWithCurrency = countries.byCountryName(customerCountry)
             ?: throw IllegalStateException("unable to find country for name $customerCountry")
-        val priceInfo = countryCodeToPricing[countryWithCurrency.country.isoCode] ?: return null
-
+        val priceInfo = getCountryPricing(countryWithCurrency.country.isoCode) ?: return null
         val baseInfo = when (customerType) {
             CustomerType.Personal -> priceInfo.prices.personal
             CustomerType.Organization -> priceInfo.prices.commercial
@@ -71,20 +81,8 @@ data class PluginPricing(
     }
 
     companion object {
-        suspend fun create(countries: Countries, pluginId: PluginId, client: MarketplaceClient): PluginPricing {
-            val currentPricing = mutableMapOf<String, PluginPriceInfo>()
-
-            for (countryWithCurrency in countries) {
-                val isoCode = countryWithCurrency.country.isoCode
-                try {
-                    val pricing = client.priceInfo(pluginId, isoCode)
-                    currentPricing[isoCode] = pricing
-                } catch (e: Exception) {
-                    // ignore
-                }
-            }
-
-            return PluginPricing(countries, currentPricing)
+        fun create(client: MarketplaceClient, pluginId: PluginId, countries: Countries): PluginPricing {
+            return PluginPricing(client, pluginId, countries)
         }
     }
 }
