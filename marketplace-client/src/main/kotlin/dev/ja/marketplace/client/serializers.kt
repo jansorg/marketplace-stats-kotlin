@@ -19,7 +19,6 @@ import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.encoding.decodeStructure
 import kotlinx.serialization.json.*
 import org.javamoney.moneta.FastMoney
-import org.javamoney.moneta.Money
 import java.math.BigDecimal
 import javax.money.MonetaryAmount
 
@@ -142,14 +141,21 @@ object PluginSaleSerializer : KSerializer<PluginSale> {
                     else -> error("Unexpected index: $index")
                 }
             }
-            require(ref != null && date != null && amountValue != null && amountValueUSD != null && period != null && customer != null)
+            require(ref != null && date != null && amountValue != null && currency != null && amountValueUSD != null && period != null && customer != null)
             require(lineItems != null)
+
+            val amountCurrencyUnit = MarketplaceCurrencies.of(currency)
+            val amountUSD = FastMoney.of(amountValueUSD, MarketplaceCurrencies.USD)
+            val amount = when {
+                currency == "USD" -> amountUSD
+                else -> FastMoney.of(amountValue, amountCurrencyUnit)
+            }
 
             PluginSale(
                 ref,
                 date,
-                FastMoney.of(amountValue, currency),
-                FastMoney.of(amountValueUSD, "USD"),
+                amount,
+                amountUSD,
                 period,
                 customer,
                 reseller,
@@ -158,8 +164,8 @@ object PluginSaleSerializer : KSerializer<PluginSale> {
                         it.type,
                         it.licenseIds,
                         it.subscriptionDates,
-                        FastMoney.of(it.amount, currency),
-                        FastMoney.of(it.amountUSD, "USD"),
+                        FastMoney.of(it.amount, amountCurrencyUnit),
+                        FastMoney.of(it.amountUSD, MarketplaceCurrencies.USD),
                         it.discountDescriptions
                     )
                 }
