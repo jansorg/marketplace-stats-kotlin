@@ -5,15 +5,19 @@
 
 package dev.ja.marketplace.data.funnel
 
+import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.PluginSale
+import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.TrialTracker
+import dev.ja.marketplace.data.trackers.getResultByTrialDuration
 import kotlin.math.absoluteValue
 
 class FunnelTable : SimpleDataTable("Trial Funnel", "funnel", "table-centered sortable"), MarketplaceDataSink {
     private var pluginId: PluginId? = null
+    private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
     private val trialTracker: TrialTracker = SimpleTrialTracker()
 
     private val trialDateColumn = DataTableColumn("funnel-trial", "Trial Start Date", "date", preSorted = AriaSortOrder.Descending)
@@ -27,10 +31,9 @@ class FunnelTable : SimpleDataTable("Trial Funnel", "funnel", "table-centered so
         super.init(data)
 
         this.pluginId = data.pluginId
+        this.maxTrialDays = data.pluginInfo.purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
 
-        if (data.trials != null) {
-            data.trials.forEach(trialTracker::registerTrial)
-        }
+        trialTracker.init(data.trials ?: emptyList())
     }
 
     override suspend fun process(sale: PluginSale) {
@@ -42,9 +45,9 @@ class FunnelTable : SimpleDataTable("Trial Funnel", "funnel", "table-centered so
     }
 
     override suspend fun createSections(): List<DataTableSection> {
-        val trialResult = trialTracker.getResult()
-        val convertedTrials = trialResult.convertedTrials
-        val rows = convertedTrials.entries
+        val trialResult = trialTracker.getResultByTrialDuration(YearMonthDayRange.MAX, maxTrialDays)
+
+        val rows = trialResult.convertedTrials.entries
             .sortedByDescending { it.key.date }
             .map { (pluginTrial, pluginSale) ->
                 val testDuration = pluginTrial.date.daysUntil(pluginSale.date).absoluteValue

@@ -71,6 +71,9 @@ allprojects {
         // https://mvnrepository.com/artifact/org.javamoney.moneta/moneta-convert-ecb
         implementation("org.javamoney.moneta:moneta-convert-ecb:1.4.4")
 
+        // https://mvnrepository.com/artifact/com.google.guava/guava
+        implementation("com.google.guava:guava:33.2.1-jre")
+
         // https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api
         testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.3")
         testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.3")

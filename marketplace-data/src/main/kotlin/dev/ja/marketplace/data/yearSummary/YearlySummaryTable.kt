@@ -7,28 +7,26 @@ package dev.ja.marketplace.data.yearSummary
 
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.data.*
-import dev.ja.marketplace.data.trackers.AnnualRecurringRevenueTracker
-import dev.ja.marketplace.data.trackers.PaymentAmountTracker
-import dev.ja.marketplace.data.trackers.SimpleTrialTracker
-import dev.ja.marketplace.data.trackers.TrialTracker
+import dev.ja.marketplace.data.trackers.*
 import java.util.*
 
 class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide") {
+    private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
     private lateinit var downloads: List<MonthlyDownload>
 
-    private val allTrialsTracker: TrialTracker = SimpleTrialTracker()
+    private val trialsTracker: TrialTracker = SimpleTrialTracker()
     private val data = TreeMap<Int, YearSummary>(Comparator.reverseOrder())
     private lateinit var totalSales: PaymentAmountTracker
 
     private data class YearSummary(
         val sales: PaymentAmountTracker,
-        val trials: TrialTracker,
         val annualRevenue: AnnualRecurringRevenueTracker,
     )
 
     override suspend fun init(data: PluginData) {
         super.init(data)
 
+        this.maxTrialDays = data.pluginInfo.purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
         this.downloads = data.downloadsMonthly
         this.totalSales = PaymentAmountTracker(YearMonthDayRange.MAX, data.exchangeRates)
 
@@ -37,27 +35,20 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
             val yearRange = YearMonthDayRange.ofYear(year)
             this.data[year] = YearSummary(
                 PaymentAmountTracker(yearRange, data.exchangeRates),
-                SimpleTrialTracker { it.date in yearRange },
                 AnnualRecurringRevenueTracker(yearRange, data.continuityDiscountTracker!!, data.pluginPricing!!, data.exchangeRates)
             )
         }
 
-        if (data.trials != null) {
-            for (trial in data.trials) {
-                allTrialsTracker.registerTrial(trial)
-                this.data[trial.date.year]?.trials?.registerTrial(trial)
-            }
-        }
+        trialsTracker.init(data.trials ?: emptyList())
     }
 
     override suspend fun process(sale: PluginSale) {
-        allTrialsTracker.processSale(sale)
+        trialsTracker.processSale(sale)
 
         totalSales.add(sale.date, sale.amountUSD, sale.amount)
 
         val yearData = data[sale.date.year]!!
         yearData.sales.add(sale.date, sale.amountUSD, sale.amount)
-        yearData.trials.processSale(sale)
     }
 
     override suspend fun process(licenseInfo: LicenseInfo) {
@@ -89,12 +80,15 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
 
     override suspend fun createSections(): List<DataTableSection> {
         val now = YearMonthDay.now()
-        val allTrialsResult = allTrialsTracker.getResult()
+        val allTrialsAnyDuration = trialsTracker.getResult(YearMonthDayRange.MAX)
+        val allTrialsTrialDuration = trialsTracker.getResultByTrialDuration(YearMonthDayRange.MAX, maxTrialDays)
 
         val rows = data.entries.toList()
             .dropLastWhile { it.value.sales.isZero }
             .map { (year, yearData) ->
-                val trialResult = yearData.trials.getResult()
+                val yearDateRange = YearMonthDayRange.ofYear(year)
+                val trialResultAnyDuration = trialsTracker.getResult(yearDateRange)
+                val trialResultTrialDuration = trialsTracker.getResultByTrialDuration(yearDateRange, maxTrialDays)
                 val arrResult = when {
                     year == now.year -> null
                     else -> yearData.annualRevenue.getResult()
@@ -110,11 +104,13 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                             .filter { it.firstOfMonth.year == year }
                             .sumOf(MonthlyDownload::downloads)
                             .toBigInteger(),
-                        columnTrials to trialResult.totalTrials.toBigInteger(),
-                        columnTrialsConverted to trialResult.convertedTrialsPercentage,
+                        columnTrials to trialResultAnyDuration.totalTrials.toBigInteger(),
+                        columnTrialsConverted to trialResultAnyDuration.convertedTrialsPercentage,
                     ),
                     tooltips = mapOf(
-                        columnTrialsConverted to trialResult.tooltipConverted,
+                        columnTrialsConverted to trialResultAnyDuration.getTooltipConverted() +
+                                "\n" +
+                                trialResultTrialDuration.getTooltipConverted(maxTrialDays)
                     ),
                     cssClass = when {
                         year == now.year -> "today"
@@ -128,12 +124,19 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                 rows = rows,
                 footer = SimpleTableSection(
                     SimpleDateTableRow(
-                        columnSalesTotal to totalSales.totalAmount,
-                        columnSalesFees to totalSales.feesAmount,
-                        columnSalesPaid to totalSales.paidAmount,
-                        columnDownloads to downloads.sumOf { it.downloads.toBigInteger() },
-                        columnTrials to allTrialsResult.totalTrials.toBigInteger(),
-                        columnTrialsConverted to allTrialsResult.convertedTrialsPercentage,
+                        values = mapOf(
+                            columnSalesTotal to totalSales.totalAmount,
+                            columnSalesFees to totalSales.feesAmount,
+                            columnSalesPaid to totalSales.paidAmount,
+                            columnDownloads to downloads.sumOf { it.downloads.toBigInteger() },
+                            columnTrials to allTrialsAnyDuration.totalTrials.toBigInteger(),
+                            columnTrialsConverted to allTrialsAnyDuration.convertedTrialsPercentage,
+                        ),
+                        tooltips = mapOf(
+                            columnTrialsConverted to allTrialsAnyDuration.getTooltipConverted() +
+                                    "\n" +
+                                    allTrialsTrialDuration.getTooltipConverted(maxTrialDays),
+                        )
                     )
                 )
             )

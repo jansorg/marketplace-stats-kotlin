@@ -17,6 +17,7 @@ object Marketplace {
     private val regularFeeFactor = BigDecimal("0.15")
 
     val Birthday = YearMonthDay(2019, 6, 25)
+    const val MAX_TRIAL_DAYS_DEFAULT: Int = 30
 
     fun feeAmount(date: YearMonthDay, amount: MonetaryAmount): MonetaryAmount {
         return when {

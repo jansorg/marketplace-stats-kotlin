@@ -5,12 +5,15 @@
 
 package dev.ja.marketplace.data.topTrialCountries
 
+import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.PluginSale
+import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.TrialTracker
+import dev.ja.marketplace.data.trackers.getResultByTrialDuration
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import java.math.BigDecimal
-import java.util.*
 
 class TopTrialCountriesTable(
     private val maxItems: Int?,
@@ -23,6 +26,8 @@ class TopTrialCountriesTable(
         if (smallSpaceFormat) "table-centered" else "table-centered sortable"
     ), MarketplaceDataSink {
 
+    private var maxTrialsDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
+
     private val columnCountry = DataTableColumn("country", null, "col-right")
     private val columnTrialCount = DataTableColumn("trials", "Trials".takeUnless { smallSpaceFormat }, "num")
     private val columnTrialsPercentage = DataTableColumn(
@@ -31,38 +36,36 @@ class TopTrialCountriesTable(
         "num num-percentage",
         tooltip = "Percentage of the total trials"
     )
-    private val columnTrialConvertedPercentage = DataTableColumn(
+    private val columnTrialConversionRate = DataTableColumn(
         "trials-converted",
         "Converted Trials",
         cssClass = "num num-percentage",
         tooltip = "Percentage of trials which turned into a subscription after the trial started"
     )
 
-    private val data = TreeMap<String, Int>()
-    private val countryTrialConversion = TreeMap<String, TrialTracker>()
+    private val countryToTrialCount = Object2IntOpenHashMap<String>()
+    private val countryToTrialTracker = mutableMapOf<String, TrialTracker>()
     private val allTrialsTracker: TrialTracker = SimpleTrialTracker()
 
     override val columns: List<DataTableColumn> = listOfNotNull(
         columnCountry,
         columnTrialCount,
         columnTrialsPercentage,
-        columnTrialConvertedPercentage.takeUnless { smallSpaceFormat }
+        columnTrialConversionRate.takeUnless { smallSpaceFormat }
     )
 
     override suspend fun init(data: PluginData) {
         super.init(data)
 
-        data.trials?.forEach { trial ->
-            allTrialsTracker.registerTrial(trial)
+        maxTrialsDays = data.pluginInfo.purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
+        allTrialsTracker.init(data.trials ?: emptyList())
 
-            val country = when {
-                showEmptyCountry -> trial.customer.country.orEmptyCountry()
-                else -> trial.customer.country
-            }
-
-            if (country.isNotEmpty()) {
-                this.data.merge(country, 1, Int::plus)
-                this.countryTrialConversion.getOrPut(country, ::SimpleTrialTracker).registerTrial(trial)
+        if (data.trials != null) {
+            for ((country, trials) in data.trials.groupBy { it.customer.country }) {
+                if (country.isNotEmpty() || showEmptyCountry) {
+                    countryToTrialCount.addTo(country, trials.size)
+                    countryToTrialTracker.getOrPut(country.orEmptyCountry(), ::SimpleTrialTracker).init(trials)
+                }
             }
         }
     }
@@ -70,13 +73,9 @@ class TopTrialCountriesTable(
     override suspend fun process(sale: PluginSale) {
         allTrialsTracker.processSale(sale)
 
-        val country = when {
-            showEmptyCountry -> sale.customer.country.orEmptyCountry()
-            else -> sale.customer.country
-        }
-
-        if (country.isNotEmpty()) {
-            countryTrialConversion[country]?.processSale(sale)
+        val country = sale.customer.country
+        if (showEmptyCountry || country.isNotEmpty()) {
+            countryToTrialTracker[country.orEmptyCountry()]?.processSale(sale)
         }
     }
 
@@ -85,37 +84,49 @@ class TopTrialCountriesTable(
     }
 
     override suspend fun createSections(): List<DataTableSection> {
-        val totalTrialCount = data.values.sumOf { it }
-        val rows = data.entries
-            .sortedByDescending(Map.Entry<String, Int>::value)
+        val totalTrialCount = countryToTrialCount.values.sumOf { it }
+        val rows = countryToTrialCount.object2IntEntrySet()
+            .sortedByDescending { it.intValue }
             .take(maxItems ?: Int.MAX_VALUE)
             .map { (country, trialCount) ->
                 val trialPercentage = PercentageValue.of(trialCount, totalTrialCount)
-                val trialConversion = countryTrialConversion[country]!!.getResult().convertedTrialsPercentage
+                val trialConversion = countryToTrialTracker[country]!!.getResultByTrialDuration(
+                    YearMonthDayRange.MAX,
+                    maxTrialsDays
+                ).convertedTrialsPercentage
                 SimpleDateTableRow(
                     values = mapOf(
                         columnCountry to country,
                         columnTrialCount to trialCount.toBigInteger(),
                         columnTrialsPercentage to trialPercentage,
-                        columnTrialConvertedPercentage to trialConversion,
+                        columnTrialConversionRate to trialConversion,
                     ),
                     sortValues = mapOf(
                         columnTrialCount to trialCount.toLong(),
                         columnTrialsPercentage to trialPercentage.value.toLong(),
-                        columnTrialConvertedPercentage to trialConversion.value.toLong(),
+                        columnTrialConversionRate to trialConversion.value.toLong(),
                     ),
                 )
             }
 
+        val trialsAnyDuration = allTrialsTracker.getResult(YearMonthDayRange.MAX)
+        val trialsTrialDuration = allTrialsTracker.getResultByTrialDuration(YearMonthDayRange.MAX, totalTrialCount)
         return listOf(
             SimpleTableSection(
                 rows,
                 footer = SimpleTableSection(
                     SimpleDateTableRow(
-                        columnCountry to "${data.size} countries",
-                        columnTrialCount to data.values.sum(),
-                        columnTrialsPercentage to PercentageValue(BigDecimal(100.0)),
-                        columnTrialConvertedPercentage to allTrialsTracker.getResult().convertedTrialsPercentage,
+                        values = mapOf(
+                            columnCountry to "${countryToTrialCount.size} countries",
+                            columnTrialCount to countryToTrialCount.values.sum().toBigInteger(),
+                            columnTrialsPercentage to PercentageValue(BigDecimal(100.0)),
+                            columnTrialConversionRate to trialsAnyDuration.convertedTrialsPercentage,
+                        ),
+                        tooltips = mapOf(
+                            columnTrialConversionRate to trialsAnyDuration.getTooltipConverted() +
+                                    "\n" +
+                                    trialsTrialDuration.getTooltipConverted(maxTrialsDays)
+                        )
                     )
                 )
             )

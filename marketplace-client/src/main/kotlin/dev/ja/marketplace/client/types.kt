@@ -27,6 +27,8 @@ typealias LicenseId = String
 typealias JetBrainsProductId = String
 typealias PluginModuleName = String
 
+typealias TrialId = String
+
 interface WithAmounts {
     val amount: MonetaryAmount
     val amountUSD: MonetaryAmount
@@ -474,7 +476,7 @@ data class PluginSaleItemDiscount(
 @Serializable
 data class PluginTrial(
     @SerialName("ref")
-    val referenceId: String,
+    val referenceId: TrialId,
     @SerialName("date")
     val date: YearMonthDay,
     @SerialName("customer")
