@@ -5,11 +5,8 @@
 
 package dev.ja.marketplace.data.customers
 
-import dev.ja.marketplace.client.CustomerId
-import dev.ja.marketplace.client.CustomerInfo
+import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.LicenseId
-import dev.ja.marketplace.client.PluginId
-import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.util.sortValue

@@ -5,9 +5,9 @@
 
 package dev.ja.marketplace.data.trackers
 
+import dev.ja.marketplace.client.LicenseId
+import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.YearMonthDayRange
-import dev.ja.marketplace.data.LicenseId
-import dev.ja.marketplace.data.LicenseInfo
 
 class LicenseTracker<T>(private val dateRange: YearMonthDayRange) {
     private val segmentedLicenses = mutableMapOf<T, MutableList<LicenseInfo>>()

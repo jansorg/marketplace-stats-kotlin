@@ -4,7 +4,7 @@
 @import dev.ja.marketplace.client.PluginSale
 @import dev.ja.marketplace.client.YearMonthDay
 @import dev.ja.marketplace.data.RenderedDataTable
-@import dev.ja.marketplace.data.LicenseInfo
+@import dev.ja.marketplace.client.LicenseInfo
 @import dev.ja.marketplace.client.MarketplaceUrlSupport
 
 @param pageTitle: String?

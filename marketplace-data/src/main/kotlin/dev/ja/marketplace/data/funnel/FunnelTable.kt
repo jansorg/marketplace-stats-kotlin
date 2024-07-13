@@ -5,10 +5,7 @@
 
 package dev.ja.marketplace.data.funnel
 
-import dev.ja.marketplace.client.Marketplace
-import dev.ja.marketplace.client.PluginId
-import dev.ja.marketplace.client.PluginSale
-import dev.ja.marketplace.client.YearMonthDayRange
+import dev.ja.marketplace.client.*
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.TrialTracker

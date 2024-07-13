@@ -6,7 +6,7 @@
 package dev.ja.marketplace.churn
 
 import dev.ja.marketplace.client.YearMonthDay
-import dev.ja.marketplace.data.LicenseInfo
+import dev.ja.marketplace.client.LicenseInfo
 
 class LicenseChurnProcessor(
     previouslyActiveMarkerDate: YearMonthDay,

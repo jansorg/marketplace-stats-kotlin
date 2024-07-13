@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.data.timeSpanSummary
 
+import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.data.*

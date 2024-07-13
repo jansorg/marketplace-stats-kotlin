@@ -1,6 +1,6 @@
 @import dev.ja.marketplace.client.CustomerInfo
 @import dev.ja.marketplace.data.RenderedDataTable
-@import dev.ja.marketplace.data.LicenseInfo
+@import dev.ja.marketplace.client.LicenseInfo
 @import dev.ja.marketplace.client.PluginInfo
 @import dev.ja.marketplace.client.PluginTrial
 

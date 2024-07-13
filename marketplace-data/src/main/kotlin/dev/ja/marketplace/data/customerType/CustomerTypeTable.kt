@@ -6,6 +6,7 @@
 package dev.ja.marketplace.data.customerType
 
 import dev.ja.marketplace.client.CustomerType
+import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.PluginSale
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker

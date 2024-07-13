@@ -7,7 +7,7 @@ package dev.ja.marketplace.data.trackers
 
 import dev.ja.marketplace.client.CustomerInfo
 import dev.ja.marketplace.client.YearMonthDayRange
-import dev.ja.marketplace.data.LicenseInfo
+import dev.ja.marketplace.client.LicenseInfo
 
 class CustomerTracker<T>(private val dateRange: YearMonthDayRange) {
     private val segmentedCustomers = mutableMapOf<T, MutableSet<CustomerInfo>>()

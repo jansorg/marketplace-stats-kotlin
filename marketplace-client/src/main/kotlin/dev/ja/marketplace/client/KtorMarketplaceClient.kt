@@ -49,6 +49,11 @@ class KtorMarketplaceClient(
         return salesInfo(plugin, Marketplace.Birthday.rangeTo(YearMonthDay.now()))
     }
 
+    override suspend fun licenseInfo(plugin: PluginId): SalesWithLicensesInfo {
+        val sales = salesInfo(plugin)
+        return SalesWithLicensesInfo(sales, LicenseInfo.createFrom(sales))
+    }
+
     override suspend fun salesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
         // fetch the sales info year-by-year, because the API only allows a year or less as range
         return range.stepSequence(years = 1)

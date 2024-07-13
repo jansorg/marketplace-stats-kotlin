@@ -107,6 +107,13 @@ class CachingMarketplaceClient(
         return loadHistoricPluginData(plugin, "salesInfo", cachedSalesInfo, delegate::salesInfo)
     }
 
+    override suspend fun licenseInfo(plugin: PluginId): SalesWithLicensesInfo {
+        return loadCached("licenseInfo") {
+            val sales = salesInfo(plugin) // cached sales, not using delegate.licenseInfo because it would fetch sales again
+            SalesWithLicensesInfo(sales, LicenseInfo.createFrom(sales))
+        }
+    }
+
     override suspend fun compatibleProducts(plugin: PluginId): List<JetBrainsProductId> {
         return loadCached("compatibleProducts.$plugin") {
             delegate.compatibleProducts(plugin)
@@ -163,7 +170,7 @@ class CachingMarketplaceClient(
                 } catch (e: ClientRequestException) {
                     val status = e.response.status.value
                     when {
-                        status < 500 -> CacheItem(now, null,e)
+                        status < 500 -> CacheItem(now, null, e)
                         else -> throw e
                     }
                 }

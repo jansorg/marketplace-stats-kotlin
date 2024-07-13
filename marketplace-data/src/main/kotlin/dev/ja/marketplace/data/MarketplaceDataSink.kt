@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.data
 
+import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.PluginSale
 
 interface MarketplaceDataSink {
