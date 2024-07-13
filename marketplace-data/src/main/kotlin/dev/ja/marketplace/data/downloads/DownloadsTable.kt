@@ -20,7 +20,7 @@ class DownloadsTable : SimpleDataTable("", "downloads"), MarketplaceDataSink {
     override suspend fun init(data: PluginData) {
         super.init(data)
 
-        this.data = data.downloadsMonthly
+        this.data = data.getDownloadsMonthly()
     }
 
     override suspend fun createSections(): List<DataTableSection> {

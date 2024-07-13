@@ -38,8 +38,8 @@ class TimeSpanSummaryTable(maxDays: Int, title: String) : SimpleDataTable(title,
         this.totalSales = MonetaryAmountTracker(exchangeRates)
 
         dateRange.days().forEach { day ->
-            val downloads = data.downloadsDaily.firstOrNull { it.day == day }?.downloads ?: 0
-            val trials = data.trials?.filter { it.date == day }?.size ?: 0
+            val downloads = data.getDownloadsDaily().firstOrNull { it.day == day }?.downloads ?: 0
+            val trials = data.getTrials()?.filter { it.date == day }?.size ?: 0
             this.daySummaries[day] = DaySummary(MonetaryAmountTracker(data.exchangeRates), downloads, trials)
         }
     }

@@ -35,25 +35,25 @@ class PluginDataLoader(
             val salesAndLicenses = loadAsyncIfPaid { client.licenseInfo(plugin.id) }
             val trials = loadAsyncIfPaid { client.trialsInfo(plugin.id) }
             val marketplacePluginInfo = loadAsyncIfPaid { client.marketplacePluginInfo(plugin.id) }
-            val pricingInfo = loadAsyncIfPaid { PluginPricing.create(client, plugin.id, countries) }
+            val pricingInfo = PluginPricing.create(client, plugin.id, countries)
 
-            PluginData(
+            val data = PluginData(
                 countries,
                 exchangeRates,
-                plugin.id,
                 plugin,
-                pluginInfo.await(),
-                pluginRating.await(),
-                downloadsTotal.await(),
-                downloadsMonthly.await(),
-                downloadsDaily.await(),
-                downloadsProduct.await(),
-                salesAndLicenses?.await()?.sales,
-                salesAndLicenses?.await()?.licenses,
-                trials?.await(),
-                marketplacePluginInfo?.await(),
-                pricingInfo?.await(),
+                pluginInfo,
+                pluginRating,
+                downloadsTotal,
+                downloadsMonthly,
+                downloadsDaily,
+                downloadsProduct,
+                pricingInfo,
+                salesAndLicenses,
+                trials,
+                marketplacePluginInfo,
             )
+            data.init()
+            data
         }
     }
 

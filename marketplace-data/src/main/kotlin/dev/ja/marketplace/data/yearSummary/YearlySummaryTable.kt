@@ -26,8 +26,8 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
     override suspend fun init(data: PluginData) {
         super.init(data)
 
-        this.maxTrialDays = data.pluginInfo.purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
-        this.downloads = data.downloadsMonthly
+        this.maxTrialDays = data.getPluginInfo().purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
+        this.downloads = data.getDownloadsMonthly()
         this.totalSales = PaymentAmountTracker(YearMonthDayRange.MAX, data.exchangeRates)
 
         val now = YearMonthDay.now()
@@ -39,7 +39,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
             )
         }
 
-        trialsTracker.init(data.trials ?: emptyList())
+        trialsTracker.init(data.getTrials() ?: emptyList())
     }
 
     override suspend fun process(sale: PluginSale) {

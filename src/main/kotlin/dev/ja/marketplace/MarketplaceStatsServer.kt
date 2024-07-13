@@ -332,15 +332,15 @@ class MarketplaceStatsServer(
     private suspend fun PipelineContext<Unit, ApplicationCall>.renderCustomerPage(loader: PluginDataLoader, customerId: CustomerId) {
         val data = loader.load()
 
-        val customerInfo = data.sales?.firstOrNull { it.customer.code == customerId }?.customer
-            ?: data.trials?.firstOrNull { it.customer.code == customerId }?.customer
+        val customerInfo = data.getSales()?.firstOrNull { it.customer.code == customerId }?.customer
+            ?: data.getTrials()?.firstOrNull { it.customer.code == customerId }?.customer
             ?: throw IllegalStateException("Customer with id $customerId not found")
 
-        val sales = data.sales?.filter { it.customer.code == customerId } ?: emptyList()
+        val sales = data.getSales()?.filter { it.customer.code == customerId } ?: emptyList()
         // we're not filtering licenses by customer ID here because the same license can be assigned to different customer
         // with new sales, e.g., when moved to an organization
-        val licenses = data.licenses ?: emptyList()
-        val trials = data.trials?.filter { it.customer.code == customerId } ?: emptyList()
+        val licenses = data.getLicenses() ?: emptyList()
+        val trials = data.getTrials()?.filter { it.customer.code == customerId } ?: emptyList()
 
         val licenseTableMonthly = LicenseTable(showDetails = false, showReseller = true, showFooter = true) {
             it.sale.licensePeriod == LicensePeriod.Monthly && it.sale.customer.code == customerId
@@ -366,7 +366,7 @@ class MarketplaceStatsServer(
             JteContent(
                 "customer.kte", mapOf(
                     "cssClass" to null,
-                    "plugin" to data.pluginInfo,
+                    "plugin" to data.getPluginInfo(),
                     "customer" to customerInfo,
                     "licenseTableMonthly" to licenseTableMonthly.renderTable(),
                     "licenseTableAnnual" to licenseTableAnnual.renderTable(),
@@ -379,8 +379,8 @@ class MarketplaceStatsServer(
 
     private suspend fun PipelineContext<Unit, ApplicationCall>.renderLicensePage(loader: PluginDataLoader, licenseId: LicenseId) {
         val data = loader.load()
-        val sales = data.sales ?: emptyList()
-        val licenses = data.licenses ?: emptyList()
+        val sales = data.getSales() ?: emptyList()
+        val licenses = data.getLicenses() ?: emptyList()
 
         val licenseTable = LicenseTable(showLicenseColumn = false, showFooter = true, showReseller = true) { it.id == licenseId }
         for (table in listOf(licenseTable)) {
@@ -397,7 +397,7 @@ class MarketplaceStatsServer(
             JteContent(
                 "license.kte", mapOf(
                     "cssClass" to null,
-                    "plugin" to data.pluginInfo,
+                    "plugin" to data.getPluginInfo(),
                     "licenseId" to licenseId,
                     "licenseTable" to licenseTable.renderTable(),
                 )
@@ -416,7 +416,7 @@ class MarketplaceStatsServer(
         val churnProcessor = LicenseChurnProcessor(lastActiveMarker, activeMarker)
         churnProcessor.init()
 
-        data.licenses!!.forEach {
+        data.getLicenses()!!.forEach {
             churnProcessor.processValue(
                 it,
                 it.validity,

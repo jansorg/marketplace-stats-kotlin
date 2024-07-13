@@ -40,7 +40,7 @@ class DaySummaryTable(
             }
         }
 
-        trials = data.trials
+        trials = data.getTrials()
             ?.filter { it.date == date }
             ?.sortedBy { it.customer.country }
             ?: emptyList()
