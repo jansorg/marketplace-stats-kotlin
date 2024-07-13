@@ -23,27 +23,28 @@ object KtorHttpClientFactory {
         bearerAuthKey: String? = null,
         apiProtocol: URLProtocol = URLProtocol.HTTPS,
         apiPort: Int = apiProtocol.defaultPort,
-        logLevel: ClientLogLevel = ClientLogLevel.Normal
+        logLevel: ClientLogLevel = ClientLogLevel.Normal,
+        enableHttpCaching: Boolean = true,
     ): HttpClient {
         val url = URLBuilder()
         url.protocol = apiProtocol
         url.host = apiHost
         url.port = apiPort
 
-        return createHttpClientByUrl(url.buildString(), bearerAuthKey, logLevel)
+        return createHttpClientByUrl(url.buildString(), bearerAuthKey, logLevel, enableHttpCaching)
     }
 
     fun createHttpClientByUrl(
         apiUrl: String,
-        bearerAuthKey: String? = null,
-        logLevel: ClientLogLevel = ClientLogLevel.Normal
+        bearerAuthKey: String?,
+        logLevel: ClientLogLevel,
+        enableHttpCaching: Boolean,
     ): HttpClient {
         return HttpClient(Java) {
             install(Logging) {
                 level = logLevel.ktorLogLevel
             }
             install(Resources)
-            install(HttpCache)
             install(ContentNegotiation) {
                 json(Json {
                     prettyPrint = true
@@ -51,6 +52,10 @@ object KtorHttpClientFactory {
                     // to support parsing `Amount` floats as BigDecimal
                     isLenient = true
                 })
+            }
+
+            if (enableHttpCaching) {
+                install(HttpCache)
             }
 
             install(DefaultRequest) {
