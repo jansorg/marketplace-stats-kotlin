@@ -15,7 +15,6 @@ import java.math.RoundingMode
 import java.time.LocalDate
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentMap
 import javax.money.CurrencyUnit
 import javax.money.Monetary
 import javax.money.MonetaryAmount
@@ -25,8 +24,6 @@ import javax.money.convert.*
  * Prefetched exchange rates.
  */
 class ExchangeRates(targetCurrencyCode: String) {
-    val targetCurrency: CurrencyUnit = Monetary.getCurrency(targetCurrencyCode)
-
     private val composedRateProvider = CompoundRateProvider(
         listOf<ExchangeRateProvider>(
             ECBHistoricRateProvider(),
@@ -34,30 +31,43 @@ class ExchangeRates(targetCurrencyCode: String) {
         )
     )
 
+    private data class CacheKey(val date: YearMonthDay, val baseCurrency: CurrencyUnit)
+
+    private val cachedExchangeRates = ConcurrentHashMap<CacheKey, ExchangeRate>()
+
+    val targetCurrency: CurrencyUnit = Monetary.getCurrency(targetCurrencyCode)
+
     fun convert(date: YearMonthDay, amount: MonetaryAmount): MonetaryAmount {
         if (amount.currency == targetCurrency) {
             return amount
         }
 
         val now = YearMonthDay.now()
-        val fixedDate = if (date > now) now else date
+        val exchangeRate = when {
+            date >= now -> getExchangeRateUncached(now, amount)
+            else -> cachedExchangeRates.getOrPut(CacheKey(now, amount.currency)) {
+                getExchangeRateUncached(now, amount)
+            }
+        }
+
+        return applyConversion(exchangeRate, amount, targetCurrency)
+    }
+
+    private fun getExchangeRateUncached(
+        fixedDate: YearMonthDay,
+        amount: MonetaryAmount
+    ): ExchangeRate? {
         val query = ConversionQueryBuilder
             .of()
             .setTermCurrency(targetCurrency)
             .set(Array<LocalDate>::class.java, createLookupDates(fixedDate))
             .build()
-        return composedRateProvider.getCurrencyConversion(query).applyConversion(amount, targetCurrency)
+        return composedRateProvider.getCurrencyConversion(query).getExchangeRate(amount)
     }
 
-    private val cachedExchangeRates = ConcurrentHashMap<CurrencyUnit, ExchangeRate>()
-
     // fixed apply method to make it work with FastMoney
-    private fun CurrencyConversion.applyConversion(amount: MonetaryAmount, termCurrency: CurrencyUnit): MonetaryAmount {
+    private fun applyConversion(rate: ExchangeRate?, amount: MonetaryAmount, termCurrency: CurrencyUnit): MonetaryAmount {
         val baseCurrency = amount.currency
-        val rate = cachedExchangeRates.getOrPut(baseCurrency) {
-            getExchangeRate(amount)
-        }
-
         if (rate == null || baseCurrency != rate.baseCurrency) {
             throw CurrencyConversionException(baseCurrency, termCurrency, null)
         }
