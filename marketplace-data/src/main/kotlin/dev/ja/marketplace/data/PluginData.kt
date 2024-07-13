@@ -6,9 +6,7 @@
 package dev.ja.marketplace.data
 
 import dev.ja.marketplace.client.*
-import dev.ja.marketplace.data.trackers.BaseContinuityDiscountTracker
 import dev.ja.marketplace.data.trackers.ContinuityDiscountTracker
-import dev.ja.marketplace.data.trackers.NoOpContinuityTracker
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import dev.ja.marketplace.services.Countries
 import kotlinx.coroutines.Deferred
@@ -27,18 +25,14 @@ data class PluginData(
     private val totalDownloadsDeferred: Deferred<Long>,
     private val downloadsMonthlyDeferred: Deferred<List<MonthlyDownload>>,
     private val downloadsDailyDeferred: Deferred<List<DailyDownload>>,
-    private val downloadsProductDeferred: Deferred<List<ProductDownload>>,
 
     // info for paid or freemium plugin/s
     val pluginPricing: PluginPricing?,
     private val salesWithLicensesDeferred: Deferred<SalesWithLicensesInfo>?,
     private val trialsDeferred: Deferred<List<PluginTrial>>?,
-    private val marketplacePluginInfoDeferred: Deferred<MarketplacePluginInfo>?,
+    private val continuityDiscountTrackerDeferred: Deferred<ContinuityDiscountTracker>?,
 ) {
     val pluginId: PluginId = pluginSummary.id
-
-    lateinit var continuityDiscountTracker: ContinuityDiscountTracker
-        private set
 
     suspend fun getPluginInfo(): PluginInfo {
         return pluginInfoDeferred.await()
@@ -60,10 +54,6 @@ data class PluginData(
         return downloadsDailyDeferred.await()
     }
 
-    suspend fun getDownloadsProduct(): List<ProductDownload> {
-        return downloadsProductDeferred.await()
-    }
-
     suspend fun getSales(): List<PluginSale>? {
         return salesWithLicensesDeferred?.await()?.sales
     }
@@ -76,20 +66,7 @@ data class PluginData(
         return trialsDeferred?.await()
     }
 
-    suspend fun getMarketplacePluginInfo(): MarketplacePluginInfo? {
-        return marketplacePluginInfoDeferred?.await()
-    }
-
-    suspend fun init() {
-        when (val licenses = getLicenses()) {
-            null -> {
-                continuityDiscountTracker = NoOpContinuityTracker
-            }
-
-            else -> {
-                continuityDiscountTracker = BaseContinuityDiscountTracker()
-                licenses.forEach(continuityDiscountTracker::process)
-            }
-        }
+    suspend fun getContinuityDiscountTracker(): ContinuityDiscountTracker? {
+        return continuityDiscountTrackerDeferred?.await()
     }
 }

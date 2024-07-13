@@ -39,11 +39,3 @@ class BaseContinuityDiscountTracker : ContinuityDiscountTracker {
         }
     }
 }
-
-object NoOpContinuityTracker : ContinuityDiscountTracker {
-    override fun process(license: LicenseInfo) {}
-
-    override fun nextContinuity(licenseId: LicenseId, atDate: YearMonthDay): ContinuityDiscount {
-        throw IllegalStateException("must not be called")
-    }
-}
