@@ -5,10 +5,10 @@
 
 package dev.ja.marketplace.data.trackers
 
+import dev.ja.marketplace.client.LicenseId
+import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.ContinuityDiscount
-import dev.ja.marketplace.data.LicenseId
-import dev.ja.marketplace.data.LicenseInfo
 import java.util.*
 
 /**

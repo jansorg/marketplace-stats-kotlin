@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.data.topCountries
 
+import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.PluginSale
 import dev.ja.marketplace.client.YearMonthDayRange

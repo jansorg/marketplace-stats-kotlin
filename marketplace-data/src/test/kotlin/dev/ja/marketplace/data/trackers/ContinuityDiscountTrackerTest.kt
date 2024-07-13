@@ -10,7 +10,7 @@ import dev.ja.marketplace.client.LicensePeriod
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.data.ContinuityDiscount
-import dev.ja.marketplace.data.LicenseInfo
+import dev.ja.marketplace.client.LicenseInfo
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -23,7 +23,7 @@ class ContinuityDiscountTrackerTest {
         val validity = YearMonthDayRange(YearMonthDay(2024, 6, 1), YearMonthDay(2024, 6, 30))
 
         val sale = SalesGenerator.createSale(validity = validity, type = LicensePeriod.Monthly)
-        val license = LicenseInfo.create(listOf(sale)).first()
+        val license = LicenseInfo.createFrom(listOf(sale)).first()
         tracker.process(license)
 
         // 2nd and 3rd year

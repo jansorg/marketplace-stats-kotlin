@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-package dev.ja.marketplace.data
+package dev.ja.marketplace.client
 
 import org.javamoney.moneta.FastMoney
 import java.math.BigDecimal
@@ -13,7 +13,7 @@ import javax.money.MonetaryAmount
 /**
  * Split an amount into parts without errors by rounding.
  */
-object SplitAmount {
+internal object MonetaryAmountSplitter {
     fun <T> split(
         total: MonetaryAmount,
         totalUSD: MonetaryAmount,

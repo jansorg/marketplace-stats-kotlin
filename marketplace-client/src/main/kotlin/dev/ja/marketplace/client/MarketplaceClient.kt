@@ -20,6 +20,11 @@ interface MarketplaceClient : MarketplaceUrlSupport {
     suspend fun salesInfo(plugin: PluginId): List<PluginSale>
 
     /**
+     * @return All plugin sales returned by [salesInfo] split into the purchased licenses.
+     */
+    suspend fun licenseInfo(plugin:PluginId): SalesWithLicensesInfo
+
+    /**
      * @param range Date range of sales, inclusive
      * @return plugin sales during the given range
      */

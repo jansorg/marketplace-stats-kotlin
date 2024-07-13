@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.data.privingOverview
 
+import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.MarketplaceCurrencies
 import dev.ja.marketplace.client.PluginPriceInfo
 import dev.ja.marketplace.client.PriceInfoTypeData

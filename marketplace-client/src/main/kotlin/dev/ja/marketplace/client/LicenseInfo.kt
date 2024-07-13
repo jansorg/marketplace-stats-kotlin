@@ -1,14 +1,11 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-package dev.ja.marketplace.data
+package dev.ja.marketplace.client
 
-import dev.ja.marketplace.client.*
 import javax.money.MonetaryAmount
-
-typealias LicenseId = dev.ja.marketplace.client.LicenseId
 
 /**
  * Purchase of a single plugin license, identified by a unique ID.
@@ -54,11 +51,11 @@ data class LicenseInfo(
     }
 
     companion object {
-        fun create(sales: List<PluginSale>): List<LicenseInfo> {
+        fun createFrom(sales: List<PluginSale>): List<LicenseInfo> {
             val licenses = mutableListOf<LicenseInfo>()
             sales.forEach { sale ->
                 sale.lineItems.forEach { lineItem ->
-                    SplitAmount.split(lineItem.amount, lineItem.amountUSD, lineItem.licenseIds) { amount, amountUSD, license ->
+                    MonetaryAmountSplitter.split(lineItem.amount, lineItem.amountUSD, lineItem.licenseIds) { amount, amountUSD, license ->
                         licenses += LicenseInfo(
                             license,
                             lineItem.subscriptionDates,
