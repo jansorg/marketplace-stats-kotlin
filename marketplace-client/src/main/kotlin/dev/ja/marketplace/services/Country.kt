@@ -8,10 +8,12 @@ package dev.ja.marketplace.services
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+typealias CountryIsoCode = String
+
 @Serializable
 data class Country(
     @SerialName("iso")
-    val isoCode: String,
+    val isoCode: CountryIsoCode,
     @SerialName("printableName")
     val printableName: String,
     @SerialName("localName")

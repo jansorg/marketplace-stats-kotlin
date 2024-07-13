@@ -45,7 +45,7 @@ abstract class RecurringRevenueTracker(
         }
     }
 
-    fun getResult(): RecurringRevenue {
+    suspend fun getResult(): RecurringRevenue {
         val resultAmounts = MonetaryAmountTracker(exchangeRates)
 
         for ((_, license) in latestSales) {

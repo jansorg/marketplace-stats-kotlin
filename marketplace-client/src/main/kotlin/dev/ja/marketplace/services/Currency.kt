@@ -8,10 +8,12 @@ package dev.ja.marketplace.services
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+typealias CurrencyIsoCode = String
+
 @Serializable
 data class Currency(
     @SerialName("iso")
-    val isoCode: String,
+    val isoCode: CurrencyIsoCode,
     @SerialName("symbol")
     val symbol: String,
     @SerialName("prefixSymbol")
