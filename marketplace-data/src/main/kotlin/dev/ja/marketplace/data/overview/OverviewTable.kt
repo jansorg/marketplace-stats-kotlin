@@ -112,7 +112,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     private val columnTrials = DataTableColumn(
         "trials", "Trials", "num", tooltip = "Number of new trials at the end of the month"
     )
-    private val columnTrialsConvertedTrialLength = DataTableColumn(
+    private val columnTrialsConverted = DataTableColumn(
         "trials-converted-length", "Conv.", "num", tooltip = "Percentage of converted trials of the month"
     )
 
@@ -128,7 +128,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         columnLicenseChurnMonthly,
         columnDownloads,
         columnTrials,
-        columnTrialsConvertedTrialLength,
+        columnTrialsConverted,
     )
 
     override suspend fun init(data: PluginData) {
@@ -335,6 +335,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                     val totalLicensesPaying = monthData.licenses.paidLicensesCount
 
                     val trialsMonth = trialTracker.getResultBySaleDate(monthDateRange, monthDateRange)
+                    val trialsMonthAnyLength = trialTracker.getResult(monthDateRange)
                     val trialsMonthByLength = trialTracker.getResultByTrialDuration(monthDateRange, pluginMaxTrialDays)
                     val downloadCount = monthData.downloads
 
@@ -358,7 +359,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                             columnLicenseChurnMonthly to (monthlyLicenseChurnRate ?: NoValue),
                             columnDownloads to (downloadCount.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
                             columnTrials to (trialsMonth.totalTrials.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
-                            columnTrialsConvertedTrialLength to trialsMonthByLength.convertedTrialsPercentage,
+                            columnTrialsConverted to trialsMonthByLength.convertedTrialsPercentage,
                         ),
                         tooltips = mapOf(
                             columnActiveLicenses to "$annualLicensesPaying annual (paying)" +
@@ -367,7 +368,9 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                             columnActiveLicensesPaying to paidLicensesTooltip,
                             columnLicenseChurnAnnual to annualLicenseChurn?.churnRateTooltip,
                             columnLicenseChurnMonthly to monthlyLicenseChurn?.churnRateTooltip,
-                            columnTrialsConvertedTrialLength to trialsMonthByLength.getTooltipConverted(),
+                            columnTrialsConverted to trialsMonthAnyLength.getTooltipConverted() +
+                                    "\n" +
+                                    trialsMonthByLength.getTooltipConverted(pluginMaxTrialDays),
                         ),
                         cssClass = cssClass
                     )
@@ -391,12 +394,12 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                                 columnDownloads to (yearData.months.values.sumOf { it.downloads }.takeIf { it > 0 }?.toBigInteger()
                                     ?: NoValue),
                                 columnTrials to (trialsYear.totalTrials.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
-                                columnTrialsConvertedTrialLength to trialsYearAnyDuration.convertedTrialsPercentage,
+                                columnTrialsConverted to trialsYearAnyDuration.convertedTrialsPercentage,
                             ),
                             tooltips = mapOf(
                                 columnLicenseChurnAnnual to yearLicenseChurnAnnual.churnRateTooltip,
                                 columnLicenseChurnMonthly to yearLicenseChurnMonthly.churnRateTooltip,
-                                columnTrialsConvertedTrialLength to
+                                columnTrialsConverted to
                                         trialsYearAnyDuration.getTooltipConverted()
                                         + "\n"
                                         + trialsYearTrialLength.getTooltipConverted(pluginMaxTrialDays),
