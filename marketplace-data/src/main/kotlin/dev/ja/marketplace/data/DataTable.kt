@@ -5,7 +5,6 @@
 
 package dev.ja.marketplace.data
 
-import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.MarketplaceCurrencies
 import dev.ja.marketplace.client.WithAmounts
 import dev.ja.marketplace.client.YearMonthDay
@@ -94,14 +93,6 @@ abstract class SimpleDataTable(
             amount.currency -> amount
             else -> exchangeRates.convert(date, this.amount)
         }
-    }
-
-    protected fun WithAmounts.renderFeeAmount(date: YearMonthDay): MonetaryAmount {
-        return Marketplace.feeAmount(date, renderAmount(date))
-    }
-
-    protected fun WithAmounts.renderPaidAmount(date: YearMonthDay): MonetaryAmount {
-        return Marketplace.paidAmount(date, renderAmount(date))
     }
 }
 
