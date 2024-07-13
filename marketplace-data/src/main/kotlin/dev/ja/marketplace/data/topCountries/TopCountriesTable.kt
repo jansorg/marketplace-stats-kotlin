@@ -147,7 +147,12 @@ class TopCountriesTable(
             SimpleTableSection(
                 rows,
                 footer = when {
-                    maxItems != null -> null
+                    maxItems != null -> SimpleTableSection(
+                        SimpleDateTableRow(
+                            columnCountry to "${countries.size} countries",
+                        )
+                    )
+
                     else -> SimpleTableSection(
                         SimpleDateTableRow(
                             values = mapOf(
