@@ -16,8 +16,14 @@ class KtorMarketplaceClient(
     private val apiHost: String = "plugins.jetbrains.com",
     private val apiPath: String = "api",
     logLevel: ClientLogLevel = ClientLogLevel.None,
+    enableHttpCaching: Boolean = true,
 ) : MarketplaceClient {
-    private val httpClient = KtorHttpClientFactory.createHttpClient(apiHost, apiKey, logLevel = logLevel)
+    private val httpClient = KtorHttpClientFactory.createHttpClient(
+        apiHost,
+        apiKey,
+        logLevel = logLevel,
+        enableHttpCaching = enableHttpCaching
+    )
 
     override fun assetUrl(path: String): String {
         return "https://$apiHost/${path.removePrefix("/")}"
