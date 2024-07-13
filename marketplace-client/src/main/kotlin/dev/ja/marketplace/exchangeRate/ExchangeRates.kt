@@ -45,8 +45,8 @@ class ExchangeRates(targetCurrencyCode: String) {
         val now = YearMonthDay.now()
         val exchangeRate = when {
             date >= now -> getExchangeRateUncached(now, amount)
-            else -> cachedExchangeRates.getOrPut(CacheKey(now, amount.currency)) {
-                getExchangeRateUncached(now, amount)
+            else -> cachedExchangeRates.getOrPut(CacheKey(date, amount.currency)) {
+                getExchangeRateUncached(date, amount)
             }
         }
 

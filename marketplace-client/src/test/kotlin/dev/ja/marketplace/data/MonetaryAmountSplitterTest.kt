@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -7,7 +7,7 @@ package dev.ja.marketplace.data
 
 import dev.ja.marketplace.client.MonetaryAmountSplitter
 import org.javamoney.moneta.FastMoney
-import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
 class MonetaryAmountSplitterTest {
@@ -17,11 +17,11 @@ class MonetaryAmountSplitterTest {
         val amountUSD = FastMoney.of(1.0, "USD")
         MonetaryAmountSplitter.split(amountEUR, amountUSD, listOf("a", "b", "c")) { splitEur, splitUsd, item ->
             if (item == "c") {
-                assertEquals(FastMoney.of(0.38, "EUR"), splitEur)
-                assertEquals(FastMoney.of(0.34, "USD"), splitUsd)
+                Assertions.assertEquals(FastMoney.of(0.38, "EUR"), splitEur)
+                Assertions.assertEquals(FastMoney.of(0.34, "USD"), splitUsd)
             } else {
-                assertEquals(FastMoney.of(0.36, "EUR"), splitEur)
-                assertEquals(FastMoney.of(0.33, "USD"), splitUsd)
+                Assertions.assertEquals(FastMoney.of(0.36, "EUR"), splitEur)
+                Assertions.assertEquals(FastMoney.of(0.33, "USD"), splitUsd)
             }
         }
     }
@@ -32,11 +32,11 @@ class MonetaryAmountSplitterTest {
         val amountUSD = FastMoney.of(100, "USD")
         MonetaryAmountSplitter.split(amountEUR, amountUSD, listOf("a", "b", "c")) { splitEur, splitUsd, item ->
             if (item == "c") {
-                assertEquals(FastMoney.of(36.68, "EUR"), splitEur)
-                assertEquals(FastMoney.of(33.34, "USD"), splitUsd)
+                Assertions.assertEquals(FastMoney.of(36.68, "EUR"), splitEur)
+                Assertions.assertEquals(FastMoney.of(33.34, "USD"), splitUsd)
             } else {
-                assertEquals(FastMoney.of(36.66, "EUR"), splitEur)
-                assertEquals(FastMoney.of(33.33, "USD"), splitUsd)
+                Assertions.assertEquals(FastMoney.of(36.66, "EUR"), splitEur)
+                Assertions.assertEquals(FastMoney.of(33.33, "USD"), splitUsd)
             }
         }
     }
@@ -46,8 +46,8 @@ class MonetaryAmountSplitterTest {
         val amountEUR = FastMoney.of(210, "EUR")
         val amountUSD = FastMoney.of(150, "USD")
         MonetaryAmountSplitter.split(amountEUR, amountUSD, listOf("a", "b", "c")) { splitEur, splitUsd, _ ->
-            assertEquals(FastMoney.of(70, "EUR"), splitEur)
-            assertEquals(FastMoney.of(50, "USD"), splitUsd)
+            Assertions.assertEquals(FastMoney.of(70, "EUR"), splitEur)
+            Assertions.assertEquals(FastMoney.of(50, "USD"), splitUsd)
         }
     }
 }
