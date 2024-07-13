@@ -52,7 +52,9 @@ data class LicenseInfo(
 
     companion object {
         fun createFrom(sales: List<PluginSale>): List<LicenseInfo> {
-            val licenses = mutableListOf<LicenseInfo>()
+            val expectedSize = sales.sumOf { sale -> sale.lineItems.sumOf { lineItem -> lineItem.licenseIds.size } }
+            val licenses = ArrayList<LicenseInfo>(expectedSize)
+
             sales.forEach { sale ->
                 sale.lineItems.forEach { lineItem ->
                     MonetaryAmountSplitter.split(lineItem.amount, lineItem.amountUSD, lineItem.licenseIds) { amount, amountUSD, license ->
@@ -68,6 +70,7 @@ data class LicenseInfo(
                 }
             }
             licenses.sort()
+
             return licenses
         }
     }
