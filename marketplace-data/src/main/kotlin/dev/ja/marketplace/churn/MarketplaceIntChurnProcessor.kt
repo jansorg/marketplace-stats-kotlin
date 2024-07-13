@@ -27,15 +27,15 @@ abstract class MarketplaceIntChurnProcessor<T>(
     }
 
     override fun addPreviousPeriodItem(value: T) {
-        previousPeriodItems += getId(value)
+        previousPeriodItems.add(getId(value))
     }
 
     override fun addActiveItem(value: T) {
-        activeItems += getId(value)
+        activeItems.add(getId(value))
     }
 
     override fun addActiveUnacceptedItem(value: T) {
-        activeUnacceptedItems += getId(value)
+        activeUnacceptedItems.add(getId(value))
     }
 
     override fun churnedItemsCount(): Int {
