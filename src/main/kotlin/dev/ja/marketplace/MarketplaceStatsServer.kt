@@ -188,8 +188,11 @@ class MarketplaceStatsServer(
                     ?: refererUrl?.parameters?.get("pluginId")?.toInt()
 
                 val dropCachedData = context.request.queryParameters["reload"]?.toBooleanStrictOrNull() == true
-                if (dropCachedData && client is CacheAware) {
-                    client.invalidateCache()
+                if (dropCachedData) {
+                    exchangeRates.invalidateCache()
+                    if (client is CacheAware) {
+                        client.invalidateCache()
+                    }
                 }
 
                 val whitelistedParamsNames = setOf("rows")

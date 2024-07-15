@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.exchangeRate
 
+import dev.ja.marketplace.client.CacheAware
 import dev.ja.marketplace.client.YearMonthDay
 import org.javamoney.moneta.FastMoney
 import org.javamoney.moneta.convert.ecb.ECBCurrentRateProvider
@@ -23,7 +24,9 @@ import javax.money.convert.*
 /**
  * Prefetched exchange rates.
  */
-class ExchangeRates(targetCurrencyCode: String) {
+class ExchangeRates(targetCurrencyCode: String) : CacheAware {
+    private data class CacheKey(val date: YearMonthDay, val baseCurrency: CurrencyUnit)
+
     private val composedRateProvider = CompoundRateProvider(
         listOf<ExchangeRateProvider>(
             ECBHistoricRateProvider(),
@@ -31,11 +34,13 @@ class ExchangeRates(targetCurrencyCode: String) {
         )
     )
 
-    private data class CacheKey(val date: YearMonthDay, val baseCurrency: CurrencyUnit)
-
     private val cachedExchangeRates = ConcurrentHashMap<CacheKey, ExchangeRate>()
 
     val targetCurrency: CurrencyUnit = Monetary.getCurrency(targetCurrencyCode)
+
+    override fun invalidateCache() {
+        cachedExchangeRates.clear()
+    }
 
     fun convert(date: YearMonthDay, amount: MonetaryAmount): MonetaryAmount {
         if (amount.currency == targetCurrency) {
