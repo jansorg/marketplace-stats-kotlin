@@ -22,6 +22,10 @@ class CaffeineCacheMarketplaceClient(
     enableHttpCaching: Boolean = true,
     private val unstableHistoricDataDays: Int = 45
 ) : KtorMarketplaceClient(apiKey, apiHost, apiPath, logLevel, enableHttpCaching), CacheAware {
+    private val cache = Caffeine.newBuilder()
+        .expireAfter(CacheExpiry())
+        .maximumSize(1_000)
+        .buildCoroutine()
 
     override fun invalidateCache() {
         cache.synchronous().invalidateAll()
@@ -189,10 +193,6 @@ class CaffeineCacheMarketplaceClient(
 
         throw cachedValue.exception!!
     }
-
-    private val cache = Caffeine.newBuilder()
-        .expireAfter(CacheExpiry())
-        .buildCoroutine()
 }
 
 private data class CacheKey(val key: String, val expireAfterWrite: Duration)

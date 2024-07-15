@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.exchangeRate
 
+import com.github.benmanes.caffeine.cache.Caffeine
 import dev.ja.marketplace.client.CacheAware
 import dev.ja.marketplace.client.YearMonthDay
 import org.javamoney.moneta.FastMoney
@@ -15,7 +16,7 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import javax.money.CurrencyUnit
 import javax.money.Monetary
 import javax.money.MonetaryAmount
@@ -34,12 +35,16 @@ class ExchangeRates(targetCurrencyCode: String) : CacheAware {
         )
     )
 
-    private val cachedExchangeRates = ConcurrentHashMap<CacheKey, ExchangeRate>()
+    private val cachedExchangeRates = Caffeine.newBuilder()
+        .softValues()
+        .maximumSize(1_000)
+        .expireAfterWrite(7, TimeUnit.DAYS)
+        .build<CacheKey, ExchangeRate>()
 
     val targetCurrency: CurrencyUnit = Monetary.getCurrency(targetCurrencyCode)
 
     override fun invalidateCache() {
-        cachedExchangeRates.clear()
+        cachedExchangeRates.invalidateAll()
     }
 
     fun convert(date: YearMonthDay, amount: MonetaryAmount): MonetaryAmount {
@@ -50,7 +55,7 @@ class ExchangeRates(targetCurrencyCode: String) : CacheAware {
         val now = YearMonthDay.now()
         val exchangeRate = when {
             date >= now -> getExchangeRateUncached(now, amount)
-            else -> cachedExchangeRates.getOrPut(CacheKey(date, amount.currency)) {
+            else -> cachedExchangeRates.get(CacheKey(date, amount.currency)) {
                 getExchangeRateUncached(date, amount)
             }
         }
