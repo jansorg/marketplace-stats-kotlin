@@ -104,7 +104,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                             .filter { it.firstOfMonth.year == year }
                             .sumOf(MonthlyDownload::downloads)
                             .toBigInteger(),
-                        columnTrials to trialResultAnyDuration.totalTrials.toBigInteger(),
+                        columnTrials to (trialResultAnyDuration.totalTrials.takeIf { it >= 0 }?.toBigInteger() ?: NoValue),
                         columnTrialsConverted to trialResultAnyDuration.convertedTrialsPercentage,
                     ),
                     tooltips = mapOf(
