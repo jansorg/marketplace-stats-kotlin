@@ -64,7 +64,7 @@ data class PluginPricing(
             ?: throw IllegalStateException("unable to find country for name $customerCountry")
         val priceInfo = getCountryPricing(countryWithCurrency.country.isoCode) ?: return null
         val baseInfo = when (customerType) {
-            CustomerType.Personal -> priceInfo.prices.personal
+            CustomerType.Individual -> priceInfo.prices.personal
             CustomerType.Organization -> priceInfo.prices.commercial
         }
         val pricing = when (licensePeriod) {
