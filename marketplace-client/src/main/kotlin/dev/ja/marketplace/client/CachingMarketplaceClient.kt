@@ -108,7 +108,7 @@ class CachingMarketplaceClient(
     }
 
     override suspend fun licenseInfo(plugin: PluginId): SalesWithLicensesInfo {
-        return loadCached("licenseInfo") {
+        return loadCached("licenseInfo.$plugin") {
             val sales = salesInfo(plugin) // cached sales, not using delegate.licenseInfo because it would fetch sales again
             SalesWithLicensesInfo(sales, LicenseInfo.createFrom(sales))
         }
