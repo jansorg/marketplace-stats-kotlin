@@ -362,13 +362,14 @@ object MarketplaceCurrencies : Iterable<CurrencyUnit> {
     }
 }
 
+// the order of the enum values is used for sorting
 @Serializable
 enum class LicensePeriod(val linkSegmentName: String) {
-    @SerialName("Monthly")
-    Monthly("monthly"),
-
     @SerialName("Annual")
     Annual("annual"),
+
+    @SerialName("Monthly")
+    Monthly("monthly"),
 }
 
 @Serializable
