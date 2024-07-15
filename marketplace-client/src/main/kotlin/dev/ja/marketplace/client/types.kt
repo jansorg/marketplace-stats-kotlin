@@ -878,10 +878,10 @@ data class PluginPriceInfoByType(
 
 @Serializable
 data class PriceInfoByPeriod(
-    @SerialName("monthly")
-    val monthly: PriceInfoTypeData,
     @SerialName("annual")
     val annual: PriceInfoTypeData,
+    @SerialName("monthly")
+    val monthly: PriceInfoTypeData? = null,
 )
 
 @Serializable

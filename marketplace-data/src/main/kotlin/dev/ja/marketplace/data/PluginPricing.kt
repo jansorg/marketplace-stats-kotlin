@@ -62,15 +62,19 @@ data class PluginPricing(
     ): MonetaryAmount? {
         val countryWithCurrency = countries.byCountryName(customerCountry)
             ?: throw IllegalStateException("unable to find country for name $customerCountry")
+
         val priceInfo = getCountryPricing(countryWithCurrency.country.isoCode) ?: return null
+
         val baseInfo = when (customerType) {
             CustomerType.Individual -> priceInfo.prices.personal
             CustomerType.Organization -> priceInfo.prices.commercial
         }
+
         val pricing = when (licensePeriod) {
             LicensePeriod.Monthly -> baseInfo.monthly
             LicensePeriod.Annual -> baseInfo.annual
-        }
+        } ?: return null
+
         val withDiscount = when (continuityDiscount) {
             ContinuityDiscount.FirstYear -> pricing.firstYear
             ContinuityDiscount.SecondYear -> pricing.secondYear
