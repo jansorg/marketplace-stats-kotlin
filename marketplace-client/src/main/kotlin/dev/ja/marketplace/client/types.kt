@@ -395,7 +395,7 @@ enum class CustomerType {
     Organization,
 
     @SerialName("Personal")
-    Personal,
+    Individual,
 }
 
 @Serializable
