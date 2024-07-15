@@ -1,0 +1,25 @@
+@param exception: Exception
+
+<html lang="en">
+<head>
+    <title>Request Error</title>
+    <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
+    <link rel="stylesheet" type="text/css" media="print" href="/styles/main.css"/>
+</head>
+<body>
+<h1>Error</h1>
+
+<p class="desc margin-bottom">
+    An error occurred while preparing the page.
+    It could be a bug in marketplace-stats server itself or request to the JetBrains Marketplace.
+</p>
+
+<dl>
+    <dt>Stacktrace</dt>
+    <dd>
+        <pre>${exception.stackTraceToString()}</pre>
+    </dd>
+</dl>
+
+</body>
+</html>

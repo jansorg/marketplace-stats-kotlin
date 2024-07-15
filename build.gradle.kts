@@ -106,6 +106,7 @@ project(":") {
         implementation("io.ktor:ktor-server-netty:$ktorVersion")
         implementation("io.ktor:ktor-server-compression:$ktorVersion")
         implementation("io.ktor:ktor-server-jte:$ktorVersion")
+        implementation("io.ktor:ktor-server-status-pages:$ktorVersion")
 
         // https://mvnrepository.com/artifact/gg.jte/jte
         implementation("gg.jte:jte:3.1.10")
