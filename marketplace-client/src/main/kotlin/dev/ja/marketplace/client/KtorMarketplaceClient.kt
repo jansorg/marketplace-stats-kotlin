@@ -56,7 +56,7 @@ class KtorMarketplaceClient(
 
     override suspend fun salesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
         // fetch the sales info year-by-year, because the API only allows a year or less as range
-        return range.stepSequence(years = 1)
+        return range.stepSequence(months = 3)
             .asFlow()
             .map { getSalesInfo(plugin, it) }.toList()
             .flatten()
@@ -68,7 +68,8 @@ class KtorMarketplaceClient(
     }
 
     override suspend fun trialsInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginTrial> {
-        return range.stepSequence(years = 1)
+        // smaller chunk size because of gateway timeouts when a year was used
+        return range.stepSequence(months = 3)
             .asFlow()
             .map { getTrialsInfo(plugin, it) }.toList()
             .flatten()
