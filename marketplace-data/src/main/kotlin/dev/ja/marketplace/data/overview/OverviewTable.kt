@@ -74,7 +74,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     }
 
     private var pluginId: PluginId? = null
-    private var pluginMaxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
+    private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
 
     private lateinit var downloadsMonthly: List<MonthlyDownload>
     private var downloadsTotal: Long = 0
@@ -116,26 +116,28 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         "trials-converted-length", "Conv.", "num", tooltip = "Percentage of converted trials of the month"
     )
 
-    override val columns: List<DataTableColumn> = listOfNotNull(
-        columnYearMonth,
-        columnAmountTotal,
-        columnAmountPaid,
-        columnActiveLicenses,
-        columnActiveLicensesPaying,
-        columnMonthlyRecurringRevenue,
-        columnAnnualRecurringRevenue,
-        columnLicenseChurnAnnual,
-        columnLicenseChurnMonthly,
-        columnDownloads,
-        columnTrials,
-        columnTrialsConverted,
-    )
+    override val columns: List<DataTableColumn> by lazy {
+        listOfNotNull(
+            columnYearMonth,
+            columnAmountTotal,
+            columnAmountPaid,
+            columnActiveLicenses,
+            columnActiveLicensesPaying,
+            columnMonthlyRecurringRevenue,
+            columnAnnualRecurringRevenue,
+            columnLicenseChurnAnnual,
+            columnLicenseChurnMonthly,
+            columnDownloads,
+            columnTrials.takeIf { maxTrialDays > 0 },
+            columnTrialsConverted.takeIf { maxTrialDays > 0 },
+        )
+    }
 
     override suspend fun init(data: PluginData) {
         super.init(data)
 
         this.pluginId = data.pluginId
-        this.pluginMaxTrialDays = data.getPluginInfo().purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
+        this.maxTrialDays = data.getPluginInfo().purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
 
         val now = YearMonthDay.now()
         this.downloadsMonthly = data.getDownloadsMonthly()
@@ -336,7 +338,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
 
                     val trialsMonth = trialTracker.getResultBySaleDate(monthDateRange, monthDateRange)
                     val trialsMonthAnyLength = trialTracker.getResult(monthDateRange)
-                    val trialsMonthByLength = trialTracker.getResultByTrialDuration(monthDateRange, pluginMaxTrialDays)
+                    val trialsMonthByLength = trialTracker.getResultByTrialDuration(monthDateRange, maxTrialDays)
                     val downloadCount = monthData.downloads
 
                     val paidLicensesTooltip =
@@ -370,7 +372,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                             columnLicenseChurnMonthly to monthlyLicenseChurn?.churnRateTooltip,
                             columnTrialsConverted to trialsMonthAnyLength.getTooltipConverted() +
                                     "\n" +
-                                    trialsMonthByLength.getTooltipConverted(pluginMaxTrialDays),
+                                    trialsMonthByLength.getTooltipConverted(maxTrialDays),
                         ),
                         cssClass = cssClass
                     )
@@ -380,7 +382,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                 val yearLicenseChurnMonthly = yearData.churnLicensesMonthly.getResult(LicensePeriod.Monthly)
 
                 val trialsYear = trialTracker.getResultBySaleDate(yearDateRange, yearDateRange)
-                val trialsYearTrialLength = trialTracker.getResultByTrialDuration(yearDateRange, pluginMaxTrialDays)
+                val trialsYearTrialLength = trialTracker.getResultByTrialDuration(yearDateRange, maxTrialDays)
                 val trialsYearAnyDuration = trialTracker.getResult(yearDateRange)
 
                 SimpleTableSection(
@@ -402,7 +404,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                                 columnTrialsConverted to
                                         trialsYearAnyDuration.getTooltipConverted()
                                         + "\n"
-                                        + trialsYearTrialLength.getTooltipConverted(pluginMaxTrialDays),
+                                        + trialsYearTrialLength.getTooltipConverted(maxTrialDays),
                             )
                         )
                     )
