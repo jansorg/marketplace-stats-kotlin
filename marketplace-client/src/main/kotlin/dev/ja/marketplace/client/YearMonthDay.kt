@@ -146,7 +146,9 @@ data class YearMonthDayRange(
         }
     }
 
-    fun stepSequence(years: Int, months: Int = 0, days: Int = 0): Sequence<YearMonthDayRange> {
+    fun stepSequence(years: Int = 0, months: Int = 0, days: Int = 0): Sequence<YearMonthDayRange> {
+        require(years > 0 || months > 0 || days > 0)
+
         val items = mutableListOf<YearMonthDayRange>()
         var rangeStart = start
         while (rangeStart < end) {
