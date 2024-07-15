@@ -6,6 +6,7 @@
 package dev.ja.marketplace.data.timeSpanSummary
 
 import dev.ja.marketplace.client.LicenseInfo
+import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.data.*
@@ -26,16 +27,25 @@ class TimeSpanSummaryTable(maxDays: Int, title: String) : SimpleDataTable(title,
     private val columnDownloads = DataTableColumn("total", "↓", "num", tooltip = "Downloads")
     private val columnTrials = DataTableColumn("total", "Trials", "num")
 
+    private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
     private val dateRange = YearMonthDay.now().let { YearMonthDayRange(it.add(0, 0, -maxDays), it) }
     private val daySummaries = TreeMap<YearMonthDay, DaySummary>()
     private lateinit var totalSales: MonetaryAmountTracker
 
-    override val columns: List<DataTableColumn> = listOf(columnDay, columnSales, columnDownloads, columnTrials)
+    override val columns: List<DataTableColumn> by lazy {
+        listOfNotNull(
+            columnDay,
+            columnSales,
+            columnDownloads,
+            columnTrials.takeIf { maxTrialDays > 0 }
+        )
+    }
 
     override suspend fun init(data: PluginData) {
         super.init(data)
 
         this.totalSales = MonetaryAmountTracker(exchangeRates)
+        this.maxTrialDays = data.getPluginInfo().purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
 
         dateRange.days().forEach { day ->
             val downloads = data.getDownloadsDaily().firstOrNull { it.day == day }?.downloads ?: 0

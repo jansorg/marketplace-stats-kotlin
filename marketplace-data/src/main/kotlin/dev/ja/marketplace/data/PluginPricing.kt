@@ -5,12 +5,13 @@
 
 package dev.ja.marketplace.data
 
+import com.github.benmanes.caffeine.cache.Caffeine
+import dev.hsbrysk.caffeine.buildCoroutine
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.services.Countries
 import dev.ja.marketplace.services.CountryIsoCode
 import org.javamoney.moneta.FastMoney
 import org.javamoney.moneta.Money
-import java.util.concurrent.ConcurrentHashMap
 import javax.money.MonetaryAmount
 
 private data class PricingCacheKey(
@@ -27,18 +28,14 @@ data class PluginPricing(
     private val pluginId: PluginId,
     private val countries: Countries,
 ) {
-    private val pluginPriceCache = ConcurrentHashMap<CountryIsoCode, PluginPriceInfo>()
-    private val basePriceCache = ConcurrentHashMap<PricingCacheKey, MonetaryAmount>()
+    private val basePriceCache = Caffeine.newBuilder()
+        .maximumSize(500)
+        .buildCoroutine<PricingCacheKey, MonetaryAmount>()
 
     suspend fun getCountryPricing(countryIsoCode: CountryIsoCode): PluginPriceInfo? {
-        if (countries.byCountryIsoCode(countryIsoCode) == null) {
-            return null
-        }
-
-        return pluginPriceCache.getOrPut(countryIsoCode) {
-            val info = client.priceInfo(pluginId, countryIsoCode)
-            pluginPriceCache[countryIsoCode] = info
-            info
+        return when {
+            countries.byCountryIsoCode(countryIsoCode) == null -> null
+            else -> client.priceInfo(pluginId, countryIsoCode)
         }
     }
 
@@ -47,10 +44,8 @@ data class PluginPricing(
         licensePeriod: LicensePeriod,
         continuityDiscount: ContinuityDiscount,
     ): MonetaryAmount? {
-        val country = customerInfo.country
-        val customerType = customerInfo.type
-        return basePriceCache.getOrPut(PricingCacheKey(country, customerType, licensePeriod, continuityDiscount)) {
-            getBasePriceInner(country, customerType, licensePeriod, continuityDiscount) ?: NoBasePriceValue
+        return basePriceCache.get(PricingCacheKey(customerInfo.country, customerInfo.type, licensePeriod, continuityDiscount)) { key ->
+            getBasePriceInner(key.country, key.customerType, key.licensePeriod, key.continuityDiscount) ?: NoBasePriceValue
         }.takeIf { it !== NoBasePriceValue }
     }
 
