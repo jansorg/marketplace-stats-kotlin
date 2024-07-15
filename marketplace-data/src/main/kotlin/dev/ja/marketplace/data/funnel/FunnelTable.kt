@@ -9,7 +9,6 @@ import dev.ja.marketplace.client.*
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.TrialTracker
-import dev.ja.marketplace.data.trackers.getResultByTrialDuration
 import kotlin.math.absoluteValue
 
 class FunnelTable : SimpleDataTable("Trial Funnel", "funnel", "table-centered sortable"), MarketplaceDataSink {
@@ -42,7 +41,7 @@ class FunnelTable : SimpleDataTable("Trial Funnel", "funnel", "table-centered so
     }
 
     override suspend fun createSections(): List<DataTableSection> {
-        val trialResult = trialTracker.getResultByTrialDuration(YearMonthDayRange.MAX, maxTrialDays)
+        val trialResult = trialTracker.getResult(YearMonthDayRange.MAX)
 
         val rows = trialResult.convertedTrials.entries
             .sortedByDescending { it.key.date }
@@ -58,7 +57,7 @@ class FunnelTable : SimpleDataTable("Trial Funnel", "funnel", "table-centered so
                     sortValues = mapOf(
                         trialDateColumn to pluginTrial.date.sortValue,
                         licensedDateColumn to pluginSale.date.sortValue,
-                        testDurationColumn to testDuration.absoluteValue.toLong(),
+                        testDurationColumn to testDuration.absoluteValue,
                     )
                 )
             }
