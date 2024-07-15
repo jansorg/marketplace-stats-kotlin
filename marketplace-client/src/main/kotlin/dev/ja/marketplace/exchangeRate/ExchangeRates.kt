@@ -83,6 +83,7 @@ class ExchangeRates(targetCurrencyCode: String) {
         date.toLocalDate(),
         date.add(0, 0, -1).toLocalDate(),
         date.add(0, 0, -2).toLocalDate(),
+        date.add(0, 0, -3).toLocalDate(),
         date.add(0, 0, 1).toLocalDate(),
         date.add(0, 0, 2).toLocalDate(),
     )
