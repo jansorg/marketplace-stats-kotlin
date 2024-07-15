@@ -74,6 +74,11 @@ allprojects {
         // https://mvnrepository.com/artifact/com.google.guava/guava
         implementation("com.google.guava:guava:33.2.1-jre")
 
+        // https://mvnrepository.com/artifact/com.github.ben-manes.caffeine/caffeine
+        implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
+        // https://mvnrepository.com/artifact/dev.hsbrysk/caffeine-coroutines
+        implementation("dev.hsbrysk:caffeine-coroutines:1.1.0")
+
         // https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api
         testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.3")
         testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.3")

@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 
-class KtorMarketplaceClient(
+open class KtorMarketplaceClient(
     apiKey: String,
     private val apiHost: String = "plugins.jetbrains.com",
     private val apiPath: String = "api",
@@ -37,8 +37,8 @@ class KtorMarketplaceClient(
         return httpClient.get("${apiPath}/users/$userId/plugins").body()
     }
 
-    override suspend fun pluginInfo(id: PluginId): PluginInfo {
-        return httpClient.get("${apiPath}/plugins/$id").body()
+    override suspend fun pluginInfo(plugin: PluginId): PluginInfo {
+        return httpClient.get("${apiPath}/plugins/$plugin").body()
     }
 
     override suspend fun pluginRating(id: PluginId): PluginRating {
@@ -49,18 +49,19 @@ class KtorMarketplaceClient(
         return salesInfo(plugin, Marketplace.Birthday.rangeTo(YearMonthDay.now()))
     }
 
+    override suspend fun salesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
+        // fetch in smaller chunks to avoid gateway timeouts and high load on the JetBrains sales API
+        return range.stepSequence(months = 3)
+            .asFlow()
+            .map { loadSalesInfo(plugin, it) }
+            .toList()
+            .flatten()
+            .sorted()
+    }
+
     override suspend fun licenseInfo(plugin: PluginId): SalesWithLicensesInfo {
         val sales = salesInfo(plugin)
         return SalesWithLicensesInfo(sales, LicenseInfo.createFrom(sales))
-    }
-
-    override suspend fun salesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
-        // fetch the sales info year-by-year, because the API only allows a year or less as range
-        return range.stepSequence(months = 3)
-            .asFlow()
-            .map { getSalesInfo(plugin, it) }.toList()
-            .flatten()
-            .sorted()
     }
 
     override suspend fun trialsInfo(plugin: PluginId): List<PluginTrial> {
@@ -71,7 +72,7 @@ class KtorMarketplaceClient(
         // smaller chunk size because of gateway timeouts when a year was used
         return range.stepSequence(months = 3)
             .asFlow()
-            .map { getTrialsInfo(plugin, it) }.toList()
+            .map { loadTrialsInfo(plugin, it) }.toList()
             .flatten()
             .sorted()
     }
@@ -232,14 +233,14 @@ class KtorMarketplaceClient(
         }.body()
     }
 
-    private suspend fun getSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
+    protected open suspend fun loadSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
         return httpClient.get("$apiPath/marketplace/plugin/$plugin/sales-info") {
             parameter("beginDate", range.start.asIsoString)
             parameter("endDate", range.end.asIsoString)
         }.body()
     }
 
-    private suspend fun getTrialsInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginTrial> {
+    protected open suspend fun loadTrialsInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginTrial> {
         return httpClient.get("$apiPath/marketplace/plugin/$plugin/trials-info") {
             parameter("beginDate", range.start.asIsoString)
             parameter("endDate", range.end.asIsoString)

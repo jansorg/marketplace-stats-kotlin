@@ -10,7 +10,7 @@ interface MarketplaceClient : MarketplaceUrlSupport {
 
     suspend fun plugins(userId: UserId): List<PluginInfoSummary>
 
-    suspend fun pluginInfo(id: PluginId): PluginInfo
+    suspend fun pluginInfo(plugin: PluginId): PluginInfo
 
     suspend fun pluginRating(id: PluginId): PluginRating
 
@@ -22,7 +22,7 @@ interface MarketplaceClient : MarketplaceUrlSupport {
     /**
      * @return All plugin sales returned by [salesInfo] split into the purchased licenses.
      */
-    suspend fun licenseInfo(plugin:PluginId): SalesWithLicensesInfo
+    suspend fun licenseInfo(plugin: PluginId): SalesWithLicensesInfo
 
     /**
      * @param range Date range of sales, inclusive

@@ -20,9 +20,8 @@ import com.github.ajalt.clikt.parameters.options.versionOption
 import com.github.ajalt.clikt.parameters.types.enum
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
-import dev.ja.marketplace.client.CachingMarketplaceClient
+import dev.ja.marketplace.client.CaffeineCacheMarketplaceClient
 import dev.ja.marketplace.client.ClientLogLevel
-import dev.ja.marketplace.client.KtorMarketplaceClient
 import dev.ja.marketplace.services.KtorJetBrainsServiceClient
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -78,7 +77,7 @@ class Application(version: String) : CliktCommand(
 
         runBlocking {
             val server = MarketplaceStatsServer(
-                CachingMarketplaceClient(KtorMarketplaceClient(apiKey = apiKey, logLevel = logging, enableHttpCaching = false)),
+                CaffeineCacheMarketplaceClient(apiKey = apiKey, logLevel = logging, enableHttpCaching = false),
                 KtorJetBrainsServiceClient(logLevel = logging),
                 serverHostname,
                 serverPort,

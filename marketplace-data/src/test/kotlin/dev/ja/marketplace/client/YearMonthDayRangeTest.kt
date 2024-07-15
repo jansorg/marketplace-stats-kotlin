@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.client
 
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -60,5 +61,10 @@ class YearMonthDayRangeTest {
     @Test
     fun daysSequence() {
         assertTrue(YearMonthDay(2020, 2, 29) in YearMonthDayRange(YearMonthDay(2020, 1, 1), YearMonthDay(2021, 1, 1)))
+    }
+
+    @Test
+    fun monthsUntil() {
+        assertEquals(1, YearMonthDay(2020, 2, 10).monthsUntil(YearMonthDay(2020, 3, 20)))
     }
 }
