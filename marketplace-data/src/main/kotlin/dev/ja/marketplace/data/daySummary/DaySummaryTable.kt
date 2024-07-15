@@ -8,16 +8,14 @@ package dev.ja.marketplace.data.daySummary
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
-import dev.ja.marketplace.util.sortValue
 import java.math.BigInteger
-import javax.money.MonetaryAmount
 
 class DaySummaryTable(
     val date: YearMonthDay,
     title: String
 ) : SimpleDataTable(title, cssClass = "small table-striped"), MarketplaceDataSink {
     private lateinit var totalSales: MonetaryAmountTracker
-    private val sales = mutableMapOf<Pair<CustomerType, LicensePeriod>, MonetaryAmountTracker>()
+    private val sales = linkedMapOf<Pair<CustomerType, LicensePeriod>, MonetaryAmountTracker>()
     private lateinit var trials: List<PluginTrial>
 
     private val columnSubscriptionType = DataTableColumn("sales-subscription", null, "col-right")
@@ -34,8 +32,8 @@ class DaySummaryTable(
 
         this.totalSales = MonetaryAmountTracker(data.exchangeRates)
 
-        for (type in CustomerType.entries) {
-            for (period in LicensePeriod.entries) {
+        for (period in LicensePeriod.entries) {
+            for (type in CustomerType.entries) {
                 sales[type to period] = MonetaryAmountTracker(exchangeRates)
             }
         }
@@ -67,8 +65,6 @@ class DaySummaryTable(
                 columnSubscriptionType to it.key.second,
                 columnAmount to it.value.getTotalAmount()
             )
-        }.sortedByDescending {
-            (it.values[columnAmount] as MonetaryAmount).sortValue()
         }
 
         val trialRows = trials
