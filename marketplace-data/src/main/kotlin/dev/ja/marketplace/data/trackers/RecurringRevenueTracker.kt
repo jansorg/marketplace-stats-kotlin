@@ -33,7 +33,7 @@ abstract class RecurringRevenueTracker(
         if (licenseInfo.isPaidLicense && isValid(licenseInfo)) {
             latestSales.merge(licenseInfo.id, licenseInfo) { old, new ->
                 when {
-                    new.validity > old.validity -> new
+                    new.validity.end > old.validity.end -> new
                     else -> old
                 }
             }
