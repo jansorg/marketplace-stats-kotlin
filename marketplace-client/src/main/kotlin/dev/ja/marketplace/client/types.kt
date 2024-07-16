@@ -6,6 +6,7 @@
 package dev.ja.marketplace.client
 
 import dev.ja.marketplace.services.Country
+import io.ktor.http.*
 import kotlinx.datetime.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -16,9 +17,11 @@ import javax.money.MonetaryAmount
 
 typealias UserId = String
 typealias PluginId = Int
+typealias PluginXmlId = String
 typealias PluginProductCode = String
 typealias PluginUrl = String
 typealias PluginChannel = String
+typealias PluginReleaseId = Int
 
 typealias CustomerId = Int
 typealias ResellerId = Int
@@ -29,9 +32,80 @@ typealias PluginModuleName = String
 
 typealias TrialId = String
 
+object PluginChannels {
+    const val Stable = ""
+}
+
+/**
+ * API providing data about paid plugins.
+ * This requires an API key.
+ */
+@Target(AnnotationTarget.FUNCTION)
+annotation class PaidPluginAPI
+
 interface WithAmounts {
     val amount: MonetaryAmount
     val amountUSD: MonetaryAmount
+}
+
+@Serializable
+enum class MarketplaceProgram(@Transient val jsonId: String) {
+    @SerialName("students")
+    Students("students"),
+
+    @SerialName("former students")
+    FormerStudents("former students"),
+
+    @SerialName("classroom assistance")
+    ClassroomAssistance("classroom assistance"),
+
+    @SerialName("developer recognition")
+    DeveloperRecognition("developer recognition"),
+
+    @SerialName("non-profit organizations")
+    NonProfit("non-profit organizations"),
+
+    @SerialName("open source")
+    OpenSource("open source"),
+
+    @SerialName("edu organizations")
+    EduOrganizations("edu organizations"),
+
+    @SerialName("startups")
+    Startups("startups"),
+
+    @SerialName("bootcamps")
+    Bootcamps("bootcamps"),
+
+    @SerialName("user groups")
+    UserGroups("user groups")
+}
+
+@Serializable
+enum class ProductFamily(@Transient val jsonId: String) {
+    @SerialName("intellij")
+    IntelliJ("intellij"),
+
+    @SerialName("teamcity")
+    TeamCity("teamcity"),
+
+    @SerialName("hub")
+    Hub("hub"),
+
+    @SerialName("fleet")
+    Fleet("fleet"),
+
+    @SerialName("dotnet")
+    DotNet("dotnet"),
+
+    @SerialName("space")
+    Space("space"),
+
+    @SerialName("toolbox")
+    ToolBox("toolbox"),
+
+    @SerialName("edu")
+    Edu("edu"),
 }
 
 @Serializable
@@ -59,50 +133,24 @@ data class UserInfo(
     val name: String,
 )
 
-@Serializable
-data class ShortPluginInfo(
-    @SerialName("id")
-    val id: PluginId,
-    @SerialName("name")
-    val name: String,
-    @SerialName("link")
-    val link: String? = null,
-)
+/**
+ * Plugin data properties shared by the different types of plugin
+ * data JSON structures.
+ */
+interface PluginInfoBase {
+    val id: PluginId
+    val name: String
+    val link: String?
+}
 
-@Serializable
-data class PluginInfoSummary(
-    @SerialName("id")
-    val id: PluginId,
-    @SerialName("name")
-    val name: String,
-    @SerialName("link")
-    val link: String,
-    @SerialName("preview")
-    val previewText: String,
-    @SerialName("downloads")
-    val downloads: Int,
-    @SerialName("pricingModel")
-    val pricingModel: PluginPricingModel,
-    @SerialName("rating")
-    val rating: Double,
-    @SerialName("hasSource")
-    val hasSource: Boolean,
+interface PluginInfoExtended : PluginInfoBase {
+    val xmlId: PluginXmlId
+    val downloads: Int
+    val tagNames: List<PluginTagName>
+    val pricingModel: PluginPricingModel
+    val previewText: String?
+    val iconUrlPath: String?
 
-    @SerialName("tags")
-    val tags: List<String> = emptyList(),
-    @SerialName("target")
-    val target: String? = null,
-    @SerialName("icon")
-    val iconUrlPath: String? = null,
-    @SerialName("organization")
-    val organization: String? = null,
-    @SerialName("vendor")
-    val vendorName: String? = null,
-    @SerialName("cdate")
-    @Serializable(CDateSerializer::class)
-    val createdTimestamp: Instant? = null,
-    // fixme vendorName{name,isVerified}
-) {
     val isPaidOrFreemium: Boolean
         get() {
             return pricingModel == PluginPricingModel.Paid || pricingModel == PluginPricingModel.Freemium
@@ -110,23 +158,78 @@ data class PluginInfoSummary(
 }
 
 @Serializable
+data class PluginInfoShort(
+    /**
+     * Unique ID of the plugin.
+     */
+    @SerialName("id")
+    override val id: PluginId,
+    /**
+     * Display name of the plugin.
+     */
+    @SerialName("name")
+    override val name: String,
+    /**
+     * Absolute URL path to the plugin page on the Marketplace.
+     */
+    @SerialName("link")
+    override val link: String? = null,
+) : PluginInfoBase
+
+@Serializable
+data class PluginInfoSummary(
+    @SerialName("id")
+    override val id: PluginId,
+    @SerialName("xmlId")
+    override val xmlId: PluginXmlId,
+    @SerialName("name")
+    override val name: String,
+    @SerialName("link")
+    override val link: String,
+    @SerialName("preview")
+    override val previewText: String,
+    @SerialName("downloads")
+    override val downloads: Int,
+    @SerialName("pricingModel")
+    override val pricingModel: PluginPricingModel,
+    @SerialName("rating")
+    val rating: Double,
+    @SerialName("hasSource")
+    val hasSource: Boolean,
+    @SerialName("tags")
+    override val tagNames: List<PluginTagName> = emptyList(),
+    @SerialName("icon")
+    override val iconUrlPath: String? = null,
+    @SerialName("cdate")
+    @Serializable(CDateSerializer::class)
+    val createdTimestamp: Instant? = null,
+    @SerialName("vendor")
+    val vendorName: String? = null,
+    @SerialName("organization")
+    val organizationName: String? = null,
+    @SerialName("target")
+    val target: String? = null,
+) : PluginInfoExtended {
+}
+
+@Serializable
 data class PluginInfo(
     @SerialName("id")
-    val id: PluginId,
+    override val id: PluginId,
     @SerialName("name")
-    val name: String,
+    override val name: String,
     @SerialName("link")
-    val link: String,
+    override val link: String,
     @SerialName("approve")
     val approve: Boolean,
     @SerialName("xmlId")
-    val xmlID: String,
+    override val xmlId: String,
     @SerialName("description")
     val description: String,
     @SerialName("customIdeList")
     val customIdeList: Boolean,
     @SerialName("preview")
-    val previewText: String,
+    override val previewText: String? = null,
     @SerialName("docText")
     val docText: String? = null,
     @SerialName("email")
@@ -135,11 +238,11 @@ data class PluginInfo(
     @Serializable(CDateSerializer::class)
     val createdTimestamp: Instant? = null,
     @SerialName("family")
-    val family: String,
+    val family: ProductFamily,
     @SerialName("copyright")
     val copyright: String? = null,
     @SerialName("downloads")
-    val downloads: Int,
+    override val downloads: Int,
     @SerialName("purchaseInfo")
     val purchaseInfo: PluginPurchaseInfo? = null,
     @SerialName("vendor")
@@ -153,20 +256,18 @@ data class PluginInfo(
     @SerialName("hasUnapprovedUpdate")
     val hasUnapprovedUpdate: Boolean,
     @SerialName("pricingModel")
-    val pricingModel: PluginPricingModel,
+    override val pricingModel: PluginPricingModel,
     @SerialName("screens")
     val screens: List<PluginResourceUrl> = emptyList(),
     @SerialName("icon")
-    val iconUrlPath: String? = null,
+    override val iconUrlPath: String? = null,
     @SerialName("isHidden")
     val isHidden: Boolean,
     @SerialName("isMonetizationAvailable")
-    val isMonetizationAvailable: Boolean,
-) {
-    val isPaidOrFreemium: Boolean
-        get() {
-            return pricingModel == PluginPricingModel.Paid || pricingModel == PluginPricingModel.Freemium
-        }
+    val isMonetizationAvailable: Boolean? = null,
+) : PluginInfoExtended {
+    override val tagNames: List<PluginTagName>
+        get() = this.tags.map { it.name }
 }
 
 @Serializable
@@ -184,7 +285,7 @@ data class PluginPurchaseInfo(
 )
 
 interface PluginVendorInformation {
-    val name: String
+    val name: String?
     val isVerified: Boolean?
 }
 
@@ -201,7 +302,7 @@ data class PluginVendor(
     @SerialName("type")
     val type: String,
     @SerialName("name")
-    override val name: String,
+    override val name: String? = null,
     @SerialName("url")
     val url: PluginUrl? = null,
     @SerialName("totalPlugins")
@@ -337,11 +438,11 @@ data class PluginSale(
 
 object MarketplaceCurrencies : Iterable<CurrencyUnit> {
     val USD = Monetary.getCurrency("USD")
-    val EUR = Monetary.getCurrency("EUR")
-    val JPY = Monetary.getCurrency("JPY")
-    val GBP = Monetary.getCurrency("GBP")
-    val CZK = Monetary.getCurrency("CZK")
-    val CNY = Monetary.getCurrency("CNY")
+    private val EUR = Monetary.getCurrency("EUR")
+    private val JPY = Monetary.getCurrency("JPY")
+    private val GBP = Monetary.getCurrency("GBP")
+    private val CZK = Monetary.getCurrency("CZK")
+    private val CNY = Monetary.getCurrency("CNY")
 
     private val allCurrencies = listOf(USD, EUR, JPY, GBP, CZK, CNY)
 
@@ -514,22 +615,22 @@ data class MarketplacePluginInfo(
     val licensePeriod: List<LicensePeriod>,
     @SerialName("individualPrice")
     @Serializable(with = MonetaryAmountUsdSerializer::class)
-    val individualPrice: MonetaryAmount,
+    val individualPrice: MonetaryAmount? = null,
     @SerialName("businessPrice")
     @Serializable(with = MonetaryAmountUsdSerializer::class)
-    val businessPrice: MonetaryAmount,
+    val businessPrice: MonetaryAmount? = null,
     @SerialName("licensing")
-    val licensingType: LicensingType,
+    val licensingType: LicensingType? = null,
     @SerialName("status")
     val status: String? = null,
     @SerialName("allowResellers")
-    val allowResellers: Boolean,
+    val allowResellers: Boolean? = null,
     @SerialName("link")
-    val pluginPageLink: String,
+    val pluginPageLink: String? = null,
     @SerialName("trialPeriod")
-    val trialPeriod: Int,
+    val trialPeriod: Int? = null,
     @SerialName("hasContinuityDiscount")
-    val hasContinuityDiscount: Boolean,
+    val hasContinuityDiscount: Boolean? = null,
     // only available with fullInfo=true
     @SerialName("versions")
     val majorVersions: List<PluginMajorVersion>? = null,
@@ -697,8 +798,8 @@ data class MarketplacePluginSearchRequest(
     val queryFilter: String? = null,
     val orderBy: PluginSearchOrderBy? = PluginSearchOrderBy.Relevance,
     val products: List<PluginSearchProductId>? = null,
-    val requiredTags: List<String> = emptyList(),
-    val excludeTags: List<String> = listOf("theme"),
+    val requiredTags: List<PluginTagName> = emptyList(),
+    val excludeTags: List<PluginTagName> = listOf(MarketplaceTag.Theme),
     val pricingModels: List<PluginPricingModel>? = null,
     val shouldHaveSource: Boolean? = null,
     val isFeaturedSearch: Boolean? = null,
@@ -717,38 +818,38 @@ data class MarketplacePluginSearchResponse(
 @Serializable
 data class MarketplacePluginSearchResultItem(
     @SerialName("id")
-    val id: PluginId,
-    @SerialName("xmlId")
-    val xmlId: String,
-    @SerialName("link")
-    val link: String? = null,
+    override val id: PluginId,
     @SerialName("name")
-    val name: String,
+    override val name: String,
+    @SerialName("link")
+    override val link: String? = null,
+    @SerialName("xmlId")
+    override val xmlId: String,
     @SerialName("preview")
-    val preview: String? = null,
+    override val previewText: String? = null,
     @SerialName("downloads")
-    val downloads: Int,
+    override val downloads: Int,
     @SerialName("pricingModel")
-    val pricingModel: PluginPricingModel,
+    override val pricingModel: PluginPricingModel,
+    @SerialName("hasSource")
+    val hasSource: Boolean,
+    @SerialName("tags")
+    override val tagNames: List<PluginTagName> = emptyList(),
     @SerialName("organization")
-    val organization: String? = null,
+    val organizationName: String? = null,
     @SerialName("icon")
-    val iconUrlPath: String? = null,
+    override val iconUrlPath: String? = null,
     @SerialName("previewImage")
     val previewImageUrlPath: String? = null,
     @SerialName("cdate")
     @Serializable(CDateSerializer::class)
     val createdTimestamp: Instant? = null,
-    @SerialName("hasSource")
-    val hasSource: Boolean,
-    @SerialName("tags")
-    val tags: List<String> = emptyList(),
     @SerialName("vendorInfo")
     val vendorInfo: PluginVendorSearchResult? = null,
-)
+) : PluginInfoExtended
 
 @Serializable
-data class PluginComment(
+data class PluginReviewComment(
     @SerialName("id")
     val id: Long,
     @SerialName("cdate")
@@ -757,7 +858,7 @@ data class PluginComment(
     @SerialName("comment")
     val comment: String,
     @SerialName("plugin")
-    val plugin: ShortPluginInfo,
+    val plugin: PluginInfoShort,
     @SerialName("rating")
     val rating: Short,
     @SerialName("repliesCount")
@@ -770,6 +871,9 @@ data class PluginComment(
     val author: JetBrainsAccountInfo? = null,
     @SerialName("votes")
     val votes: PluginCommentVotes? = null,
+    // this property is only available for replies to other plugin comments
+    @SerialName("parentId")
+    val parentId: Int? = null,
 )
 
 @Serializable
@@ -802,11 +906,11 @@ data class PluginCommentVotes(
 @Serializable
 data class PluginReleaseInfo(
     @SerialName("id")
-    val id: Int,
+    val id: PluginReleaseId,
     @SerialName("pluginId")
     val pluginId: PluginId,
     @SerialName("link")
-    val linkUrlPath: String,
+    val updateInfoUrlPath: String,
     @SerialName("version")
     val version: String,
     @SerialName("approve")
@@ -837,14 +941,34 @@ data class PluginReleaseInfo(
     @SerialName("downloads")
     val downloads: Int,
     @SerialName("compatibleVersions")
-    val compatibleVersions: Map<JetBrainsProductId, String>,
+    val compatibleVersions: Map<JetBrainsProductId, String>? = null,
     @SerialName("author")
-    val author: JetBrainsAccountInfo,
-    @SerialName("releaseVersion")
-    val releaseVersion: String,
+    val author: JetBrainsAccountInfo? = null,
     @SerialName("modules")
-    val modules: List<PluginModuleName> = emptyList(),
-)
+    val modules: List<PluginModuleName>? = null,
+    /** Release version of a paid or freemium plugin */
+    @SerialName("releaseVersion")
+    val releaseVersion: String? = null,
+) {
+    val isPaidOrFreemiumUpdate: Boolean
+        get() {
+            return releaseVersion != null
+        }
+
+    fun getUpdateInfoPageUrl(frontendUrl: Url = Marketplace.MarketplaceFrontendUrl): Url {
+        return URLBuilder(frontendUrl).also {
+            it.encodedPath = this.updateInfoUrlPath
+        }.build()
+    }
+
+    fun getMarketplaceDownloadLink(frontendUrl: Url = Marketplace.MarketplaceFrontendUrl): Url {
+        return URLBuilder(frontendUrl).also {
+            it.encodedPath = "/plugin/download"
+            it.parameters["updateId"] = id.toString()
+            it.parameters["rel"] = "true"
+        }.build()
+    }
+}
 
 @Serializable
 data class PluginPriceInfo(
@@ -904,4 +1028,20 @@ data class PriceInfoData(
     val priceTaxed: BigDecimal? = null,
     @SerialName("newShopCode")
     val newShopCode: String,
+)
+
+@Serializable
+data class PluginDependency(
+    @SerialName("name")
+    val dependencyName: String,
+    @SerialName("plugin")
+    val plugin: PluginInfoShort? = null,
+)
+
+@Serializable
+data class PluginUnsupportedProduct(
+    @SerialName("name")
+    val productName: String,
+    @SerialName("dependencies")
+    val dependencies: List<String>,
 )

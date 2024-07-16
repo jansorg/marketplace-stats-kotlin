@@ -25,13 +25,14 @@ object KtorHttpClientFactory {
         apiPort: Int = apiProtocol.defaultPort,
         logLevel: ClientLogLevel = ClientLogLevel.Normal,
         enableHttpCaching: Boolean = true,
+        enableRequestRetry: Boolean = true,
     ): HttpClient {
         val url = URLBuilder()
         url.protocol = apiProtocol
         url.host = apiHost
         url.port = apiPort
 
-        return createHttpClientByUrl(url.buildString(), bearerAuthKey, logLevel, enableHttpCaching)
+        return createHttpClientByUrl(url.buildString(), bearerAuthKey, logLevel, enableHttpCaching, enableRequestRetry)
     }
 
     fun createHttpClientByUrl(
@@ -39,6 +40,7 @@ object KtorHttpClientFactory {
         bearerAuthKey: String?,
         logLevel: ClientLogLevel,
         enableHttpCaching: Boolean,
+        enableRequestRetry: Boolean,
     ): HttpClient {
         return HttpClient(Java) {
             install(Logging) {
@@ -56,6 +58,17 @@ object KtorHttpClientFactory {
 
             if (enableHttpCaching) {
                 install(HttpCache)
+            }
+
+            if (enableRequestRetry) {
+                install(HttpRequestRetry) {
+                    retryOnServerErrors(3)
+                    exponentialDelay()
+                }
+            }
+
+            install(UserAgent) {
+                agent = "marketplace-stats"
             }
 
             install(DefaultRequest) {

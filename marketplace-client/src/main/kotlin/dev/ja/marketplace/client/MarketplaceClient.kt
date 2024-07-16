@@ -5,34 +5,39 @@
 
 package dev.ja.marketplace.client
 
-interface MarketplaceClient : MarketplaceUrlSupport {
+interface MarketplaceClient : MarketplaceUrlSupport, MarketplaceClientPublic {
     suspend fun userInfo(): UserInfo
 
-    suspend fun plugins(userId: UserId): List<PluginInfoSummary>
-
-    suspend fun pluginInfo(plugin: PluginId): PluginInfo
-
-    suspend fun pluginRating(id: PluginId): PluginRating
+    suspend fun plugins(
+        userId: UserId,
+        family: List<ProductFamily>? = null,
+        page: Int = 1,
+        maxResults: Int? = null
+    ): List<PluginInfoSummary>
 
     /**
      * @return all plugin sales since the inception of the marketplace until the current date
      */
+    @PaidPluginAPI
     suspend fun salesInfo(plugin: PluginId): List<PluginSale>
 
     /**
      * @return All plugin sales returned by [salesInfo] split into the purchased licenses.
      */
+    @PaidPluginAPI
     suspend fun licenseInfo(plugin: PluginId): SalesWithLicensesInfo
 
     /**
      * @param range Date range of sales, inclusive
      * @return plugin sales during the given range
      */
+    @PaidPluginAPI
     suspend fun salesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale>
 
     /**
      * @return all plugin trials since the inception of the marketplace until the current date
      */
+    @PaidPluginAPI
     suspend fun trialsInfo(plugin: PluginId): List<PluginTrial>
 
     /**
@@ -40,6 +45,7 @@ interface MarketplaceClient : MarketplaceUrlSupport {
      * @param range  Date range of trials to fetch, inclusive
      * @return plugin trials in the given range
      */
+    @PaidPluginAPI
     suspend fun trialsInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginTrial>
 
     /**
@@ -79,50 +85,8 @@ interface MarketplaceClient : MarketplaceUrlSupport {
     suspend fun downloadsByProduct(plugin: PluginId, countType: DownloadCountType): List<ProductDownload>
 
     /**
-     * @return The list of JetBrains products, which are compatible with the given plugin.
-     */
-    suspend fun compatibleProducts(plugin: PluginId): List<JetBrainsProductId>
-
-    /**
      * @return The volume discounts defined for this plugin.
      */
+    @PaidPluginAPI
     suspend fun volumeDiscounts(plugin: PluginId): VolumeDiscountResponse
-
-    /**
-     * @return The public plugin information of the given plugin.
-     */
-    suspend fun marketplacePluginInfo(plugin: PluginId, fullInfo: Boolean = false): MarketplacePluginInfo
-
-    /**
-     * Search for plugins.
-     * This method automatically retrieves paged results and returns the combined result set.
-     */
-    suspend fun marketplaceSearchPlugins(request: MarketplacePluginSearchRequest): MarketplacePluginSearchResponse
-
-    /**
-     * Search for plugins.
-     * This method automatically retrieves paged results and returns the combined result set.
-     */
-    suspend fun marketplaceSearchPluginsPaging(
-        request: MarketplacePluginSearchRequest,
-        pageSize: Int = 100
-    ): List<MarketplacePluginSearchResultItem>
-
-    /**
-     * @return Review comments about a plugin
-     */
-    suspend fun comments(plugin: PluginId): List<PluginComment>
-
-    /**
-     * @return The release channels available for the given [plugin]. An empty value indicates the stable, default channel.
-     */
-    suspend fun channels(plugin: PluginId): List<PluginChannel>
-
-    /**
-     * @param page Page to fetch, `1` is the first page.
-     * @return Releases of the plugin, sorted by date in descending order.
-     */
-    suspend fun releases(plugin: PluginId, channel: PluginChannel, size: Int = 16, page: Int = 1): List<PluginReleaseInfo>
-
-    suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo
 }

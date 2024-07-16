@@ -9,19 +9,24 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Expiry
 import dev.hsbrysk.caffeine.buildCoroutine
 import io.ktor.client.plugins.*
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlin.math.abs
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class CaffeineCacheMarketplaceClient(
     apiKey: String,
     apiHost: String = "plugins.jetbrains.com",
     apiPath: String = "api",
     logLevel: ClientLogLevel = ClientLogLevel.None,
-    enableHttpCaching: Boolean = true,
+    enableHttpCaching: Boolean = false,
+    dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2),
     private val unstableHistoricDataDays: Int = 45
-) : KtorMarketplaceClient(apiKey, apiHost, apiPath, logLevel, enableHttpCaching), CacheAware {
+) : KtorMarketplaceClient(apiKey, apiHost, apiPath, logLevel, enableHttpCaching, dispatcher), CacheAware {
     private val frequentlyModifiedCacheDuration = 30.minutes
     private val rarelyModifiedCacheDuration = 1.days
     private val mostlyStaticCacheDuration = 7.days
@@ -41,9 +46,10 @@ class CaffeineCacheMarketplaceClient(
         }
     }
 
-    override suspend fun plugins(userId: UserId): List<PluginInfoSummary> {
-        return loadCached("plugins.$userId", rarelyModifiedCacheDuration) {
-            super.plugins(userId)
+    override suspend fun plugins(userId: UserId, family: List<ProductFamily>?, page: Int, maxResults: Int?): List<PluginInfoSummary> {
+        val families = family?.joinToString(",", transform = ProductFamily::jsonId) ?: ""
+        return loadCached("plugins.$userId.$families.$page.${maxResults ?: -1}", rarelyModifiedCacheDuration) {
+            super.plugins(userId, family, page, maxResults)
         }
     }
 
@@ -120,24 +126,30 @@ class CaffeineCacheMarketplaceClient(
         }
     }
 
-    override suspend fun marketplaceSearchPlugins(request: MarketplacePluginSearchRequest): MarketplacePluginSearchResponse {
-        return loadCached("marketplaceSearchPlugins.$request", frequentlyModifiedCacheDuration) {
-            super.marketplaceSearchPlugins(request)
+    override suspend fun marketplacePluginsSearchSinglePage(request: MarketplacePluginSearchRequest): MarketplacePluginSearchResponse {
+        return loadCached("marketplaceSearchPluginsPage.$request", frequentlyModifiedCacheDuration) {
+            super.marketplacePluginsSearchSinglePage(request)
         }
     }
 
-    override suspend fun marketplaceSearchPluginsPaging(
+    override suspend fun marketplacePluginsSearch(
         request: MarketplacePluginSearchRequest,
         pageSize: Int
     ): List<MarketplacePluginSearchResultItem> {
-        return loadCached("marketplaceSearchPluginsPaging.$request.$pageSize", frequentlyModifiedCacheDuration) {
-            super.marketplaceSearchPluginsPaging(request, pageSize)
+        return loadCached("marketplaceSearchPlugins.$request.$pageSize", frequentlyModifiedCacheDuration) {
+            super.marketplacePluginsSearch(request, pageSize)
         }
     }
 
-    override suspend fun comments(plugin: PluginId): List<PluginComment> {
-        return loadCached("comments.$plugin", frequentlyModifiedCacheDuration) {
-            super.comments(plugin)
+    override suspend fun reviewComments(plugin: PluginId): List<PluginReviewComment> {
+        return loadCached("reviewComments.$plugin", frequentlyModifiedCacheDuration) {
+            super.reviewComments(plugin)
+        }
+    }
+
+    override suspend fun reviewReplies(plugin: PluginId): List<PluginReviewComment> {
+        return loadCached("reviewReplies.$plugin", frequentlyModifiedCacheDuration) {
+            super.reviewReplies(plugin)
         }
     }
 
@@ -147,9 +159,9 @@ class CaffeineCacheMarketplaceClient(
         }
     }
 
-    override suspend fun releases(plugin: PluginId, channel: PluginChannel, size: Int, page: Int): List<PluginReleaseInfo> {
+    override suspend fun releasesSinglePage(plugin: PluginId, channel: PluginChannel, size: Int, page: Int): List<PluginReleaseInfo> {
         return loadCached("releases.$plugin.$channel.$size.$page", rarelyModifiedCacheDuration) {
-            super.releases(plugin, channel, size, page)
+            super.releasesSinglePage(plugin, channel, size, page)
         }
     }
 

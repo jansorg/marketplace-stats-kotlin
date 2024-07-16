@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.client
 
+import io.ktor.http.*
 import kotlinx.datetime.TimeZone
 import java.math.BigDecimal
 import javax.money.MonetaryAmount
@@ -18,6 +19,10 @@ object Marketplace {
 
     val Birthday = YearMonthDay(2019, 6, 25)
     const val MAX_TRIAL_DAYS_DEFAULT: Int = 30
+
+    val MaxSearchResultSize: Int = 10_000
+
+    val MarketplaceFrontendUrl: Url = Url("https://plugins.jetbrains.com")
 
     fun feeAmount(date: YearMonthDay, amount: MonetaryAmount): MonetaryAmount {
         return when {
