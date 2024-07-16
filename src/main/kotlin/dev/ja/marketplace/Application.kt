@@ -77,7 +77,7 @@ class Application(version: String) : CliktCommand(
 
         runBlocking {
             val server = MarketplaceStatsServer(
-                CaffeineCacheMarketplaceClient(apiKey = apiKey, logLevel = logging, enableHttpCaching = false),
+                CaffeineCacheMarketplaceClient(apiKey = apiKey, logLevel = logging, enableHttpCaching = false,),
                 KtorJetBrainsServiceClient(logLevel = logging),
                 serverHostname,
                 serverPort,
