@@ -51,7 +51,7 @@ open class KtorMarketplaceClient(
 
     override suspend fun salesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
         // fetch in smaller chunks to avoid gateway timeouts and high load on the JetBrains sales API
-        return range.stepSequence(months = 3)
+        return range.stepSequence(months = 1)
             .asFlow()
             .map { loadSalesInfo(plugin, it) }
             .toList()
@@ -70,7 +70,7 @@ open class KtorMarketplaceClient(
 
     override suspend fun trialsInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginTrial> {
         // smaller chunk size because of gateway timeouts when a year was used
-        return range.stepSequence(months = 3)
+        return range.stepSequence(months = 1)
             .asFlow()
             .map { loadTrialsInfo(plugin, it) }.toList()
             .flatten()
