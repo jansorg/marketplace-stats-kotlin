@@ -37,7 +37,7 @@
     <br>
     <br>
     <span>↓ @template.render(plugin.downloads.toBigInteger()) downloads</span><br>
-    <span title="${rating.votes.size} ratings">★ @template.render(rating.calculatedRatingValue)</span>
+    <span title="${rating.votesCount} ratings">★ @template.render(rating.calculatedRatingValue)</span>
 </div>
 
 @template.navbar(plugin = plugin)
