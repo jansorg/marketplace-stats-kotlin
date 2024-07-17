@@ -52,14 +52,14 @@ class LicenseTable(
         columnValidityStart,
         columnValidityEnd,
         columnCustomerName.takeIf { showDetails },
-        columnCustomerId.takeIf { showDetails },
         columnAmount,
         columnLocalAmount.takeIf { showDetails },
-        columnLicenseType.takeIf { showDetails },
         columnLicenseRenewalType,
-        columnLicenseId.takeIf { showLicenseColumn },
+        columnLicenseType.takeIf { showDetails },
         columnDiscount,
         columnReseller.takeIf { showReseller },
+        columnCustomerId.takeIf { showDetails },
+        columnLicenseId.takeIf { showLicenseColumn },
         columnRefNum,
     )
 
