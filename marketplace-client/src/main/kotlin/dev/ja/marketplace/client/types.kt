@@ -406,17 +406,17 @@ data class PluginRating(
 ) {
     val calculatedRatingValue: Double
         get() {
-            return (weightedVotesSum + 2.0 * meanRating) / (votesSum + 2.0)
+            return (weightedVotesSum + 2.0 * meanRating) / (votesCount + 2.0)
+        }
+
+    val votesCount: Int
+        get() {
+            return votes.values.sum()
         }
 
     private val weightedVotesSum: Int
         get() {
             return votes.entries.sumOf { (weight, value) -> weight * value }
-        }
-
-    private val votesSum: Int
-        get() {
-            return votes.values.sum()
         }
 }
 
