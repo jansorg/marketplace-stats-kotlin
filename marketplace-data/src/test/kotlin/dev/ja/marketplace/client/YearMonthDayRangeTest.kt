@@ -65,6 +65,6 @@ class YearMonthDayRangeTest {
 
     @Test
     fun monthsUntil() {
-        assertEquals(1, YearMonthDay(2020, 2, 10).monthsUntil(YearMonthDay(2020, 3, 20)))
+        assertEquals(1, YearMonthDay(2020, 2, 10) monthsUntil YearMonthDay(2020, 3, 20))
     }
 }
