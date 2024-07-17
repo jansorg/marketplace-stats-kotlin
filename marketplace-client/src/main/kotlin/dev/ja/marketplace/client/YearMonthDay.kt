@@ -54,11 +54,11 @@ data class YearMonthDay private constructor(private val instant: LocalDate) : Co
         return instant.compareTo(other.instant)
     }
 
-    fun daysUntil(date: YearMonthDay): Long {
+    infix fun daysUntil(date: YearMonthDay): Long {
         return instant.until(date.instant, ChronoUnit.DAYS)
     }
 
-    fun monthsUntil(date: YearMonthDay): Long {
+    infix fun monthsUntil(date: YearMonthDay): Long {
         return instant.until(date.instant, ChronoUnit.MONTHS)
     }
 

@@ -13,10 +13,7 @@ import dev.ja.marketplace.data.PluginPricing
 import dev.ja.marketplace.data.trackers.BaseContinuityDiscountTracker
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import dev.ja.marketplace.services.Countries
-import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.*
 
 class PluginDataLoader(
     val client: MarketplaceClient,
@@ -26,15 +23,14 @@ class PluginDataLoader(
 ) {
     suspend fun load(): PluginData {
         return coroutineScope {
-            val pluginInfo = async(Dispatchers.IO) { client.pluginInfo(plugin.id) }
-            val pluginRating = async(Dispatchers.IO) { client.pluginRating(plugin.id) }
-            val downloadsTotal = async(Dispatchers.IO) { client.downloadsTotal(plugin.id) }
-            val downloadsMonthly = async(Dispatchers.IO) { client.downloadsMonthly(plugin.id, Downloads) }
-            val downloadsDaily = async(Dispatchers.IO) { client.downloadsDaily(plugin.id, Downloads) }
+            val pluginInfo = async { client.pluginInfo(plugin.id) }
+            val pluginRating = async { client.pluginRating(plugin.id) }
+            val downloadsTotal = async { client.downloadsTotal(plugin.id) }
+            val downloadsMonthly = async { client.downloadsMonthly(plugin.id, Downloads) }
+            val downloadsDaily = async { client.downloadsDaily(plugin.id, Downloads) }
 
             val salesAndLicenses = loadAsyncIfPaid { client.licenseInfo(plugin.id) }
             val trials = loadAsyncIfPaid { client.trialsInfo(plugin.id) }
-            val pricingInfo = PluginPricing.create(client, plugin.id, countries)
 
             val continuityDiscountTracker = when (salesAndLicenses) {
                 null -> null
@@ -54,7 +50,7 @@ class PluginDataLoader(
                 downloadsTotal,
                 downloadsMonthly,
                 downloadsDaily,
-                pricingInfo,
+                PluginPricing.create(client, plugin.id, countries),
                 salesAndLicenses,
                 trials,
                 continuityDiscountTracker,
@@ -64,15 +60,13 @@ class PluginDataLoader(
         }
     }
 
-    private suspend fun <T> loadAsyncIfPaid(block: suspend () -> T): Deferred<T>? {
+    private fun <T> CoroutineScope.loadAsyncIfPaid(block: suspend () -> T): Deferred<T>? {
         if (!plugin.isPaidOrFreemium) {
             return null
         }
 
-        return coroutineScope {
-            async(Dispatchers.IO) {
-                block()
-            }
+        return async {
+            block()
         }
     }
 }
