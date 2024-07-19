@@ -204,7 +204,7 @@ data class PluginInfoSummary(
     @Serializable(CDateSerializer::class)
     val createdTimestamp: Instant? = null,
     @SerialName("vendor")
-    val vendorName: String? = null,
+    val vendor: PluginVendorShort? = null,
     @SerialName("organization")
     val organizationName: String? = null,
     @SerialName("target")
@@ -290,7 +290,7 @@ interface PluginVendorInformation {
 }
 
 @Serializable
-data class PluginVendorSearchResult(
+data class PluginVendorShort(
     @SerialName("name")
     override val name: String,
     @SerialName("isVerified")
@@ -845,7 +845,7 @@ data class MarketplacePluginSearchResultItem(
     @Serializable(CDateSerializer::class)
     val createdTimestamp: Instant? = null,
     @SerialName("vendorInfo")
-    val vendorInfo: PluginVendorSearchResult? = null,
+    val vendorInfo: PluginVendorShort? = null,
 ) : PluginInfoExtended
 
 @Serializable
