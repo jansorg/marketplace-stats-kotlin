@@ -29,7 +29,7 @@ data class YearMonthDay private constructor(private val instant: LocalDate) : Co
         String.format("%04d-%02d-%02d", year, month, day)
     }
 
-    fun rangeTo(end: YearMonthDay): YearMonthDayRange {
+    infix fun rangeTo(end: YearMonthDay): YearMonthDayRange {
         return YearMonthDayRange(this, end)
     }
 
@@ -95,6 +95,8 @@ data class YearMonthDay private constructor(private val instant: LocalDate) : Co
 
 /**
  * Range of year-month-day, as used by the Marketplace.
+ *
+ * [start] and [end] dates are inclusive, both dates are contained by this range.
  */
 @Serializable
 data class YearMonthDayRange(
@@ -149,17 +151,21 @@ data class YearMonthDayRange(
     fun stepSequence(years: Int = 0, months: Int = 0, days: Int = 0): Sequence<YearMonthDayRange> {
         require(years > 0 || months > 0 || days > 0)
 
-        val items = mutableListOf<YearMonthDayRange>()
-        var rangeStart = start
-        while (rangeStart < end) {
-            val rangeEnd = rangeStart.add(years, months, days)
-            items += when {
-                rangeEnd > end -> rangeStart.rangeTo(end)
-                else -> rangeStart.rangeTo(rangeEnd)
-            }
-            rangeStart = rangeEnd.add(0, 0, 1)
+        if (start == end) {
+            return sequenceOf(this)
         }
-        return items.asSequence()
+
+        return sequence {
+            var rangeStart = start
+            var rangeEnd = start
+            while (rangeStart <= end) {
+                rangeEnd = rangeEnd.add(years, months, days)
+
+                yield(rangeStart rangeTo minOf(end, rangeEnd.add(0, 0, -1)))
+
+                rangeStart = rangeStart.add(years, months, days)
+            }
+        }
     }
 
     fun shift(years: Int, months: Int, days: Int): YearMonthDayRange {

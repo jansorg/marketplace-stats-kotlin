@@ -67,4 +67,38 @@ class YearMonthDayRangeTest {
     fun monthsUntil() {
         assertEquals(1, YearMonthDay(2020, 2, 10) monthsUntil YearMonthDay(2020, 3, 20))
     }
+
+    @Test
+    fun singleDayStepSequence() {
+        val day = YearMonthDay(2021, 10, 9)
+        assertEquals(listOf(day rangeTo day), (day rangeTo day).stepSequence(0, 0, 1).toList())
+        assertEquals(listOf(day rangeTo day), (day rangeTo day).stepSequence(0, 0, 2).toList())
+    }
+
+    @Test
+    fun daysStepSequence() {
+        val range = YearMonthDay(2020, 12, 9) rangeTo YearMonthDay(2020, 12, 12)
+        assertEquals(
+            listOf(
+                YearMonthDay(2020, 12, 9) rangeTo YearMonthDay(2020, 12, 9),
+                YearMonthDay(2020, 12, 10) rangeTo YearMonthDay(2020, 12, 10),
+                YearMonthDay(2020, 12, 11) rangeTo YearMonthDay(2020, 12, 11),
+                YearMonthDay(2020, 12, 12) rangeTo YearMonthDay(2020, 12, 12),
+            ),
+            range.stepSequence(days = 1).toList()
+        )
+    }
+
+    @Test
+    fun monthsSequence() {
+        val range = YearMonthDay(2020, 12, 9) rangeTo YearMonthDay(2021, 2, 11)
+        assertEquals(
+            listOf(
+                YearMonthDay(2020, 12, 9) rangeTo YearMonthDay(2021, 1, 8),
+                YearMonthDay(2021, 1, 9) rangeTo YearMonthDay(2021, 2, 8),
+                YearMonthDay(2021, 2, 9) rangeTo YearMonthDay(2021, 2, 11),
+            ),
+            range.stepSequence(months = 1).toList()
+        )
+    }
 }

@@ -69,7 +69,7 @@ open class KtorMarketplaceClient(
     }
 
     override suspend fun salesInfo(plugin: PluginId): List<PluginSale> = withContext(dispatcher) {
-        salesInfo(plugin, Marketplace.Birthday.rangeTo(YearMonthDay.now()))
+        salesInfo(plugin, Marketplace.Birthday rangeTo YearMonthDay.now())
     }
 
     override suspend fun salesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> = withContext(dispatcher) {
