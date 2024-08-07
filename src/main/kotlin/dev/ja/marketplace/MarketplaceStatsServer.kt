@@ -329,7 +329,7 @@ class MarketplaceStatsServer(
         exchangeRates = ExchangeRates(serverConfiguration.userDisplayCurrencyCode)
 
         println("Launching web server: http://$host:$port/")
-        httpServer.start(true)
+        httpServer.start(false)
     }
 
     private fun getDataLoader(plugin: PluginInfoSummary): PluginDataLoader {
