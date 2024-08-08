@@ -879,7 +879,7 @@ data class PluginReviewComment(
 @Serializable
 data class JetBrainsAccountInfo(
     @SerialName("id")
-    val id: String,
+    val id: UserId,
     @SerialName("name")
     val name: String? = null,
     @SerialName("link")
@@ -890,10 +890,19 @@ data class JetBrainsAccountInfo(
     val iconUrl: String? = null,
     @SerialName("showMarketoCheckbox")
     val showMarketoCheckbox: Boolean? = null,
-    // used in release info data
+    @SerialName("isJetBrains")
+    val isJetBrains: Boolean = false,
+    // used in release info data and for the developers request
     @SerialName("personalVendorId")
     val personalVendorId: Int? = null,
-)
+) {
+    fun getLinkUrl(frontendUrl: Url = Marketplace.MarketplaceFrontendUrl): Url? {
+        this.link ?: return null
+        return URLBuilder(frontendUrl).also {
+            it.encodedPath = this.link
+        }.build()
+    }
+}
 
 @Serializable
 data class PluginCommentVotes(

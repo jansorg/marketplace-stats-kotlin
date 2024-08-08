@@ -288,6 +288,10 @@ open class KtorMarketplaceClient(
         httpClient.get("$apiPath/products-dependencies/updates/$pluginUpdate/unsupported").body()
     }
 
+    override suspend fun pluginDevelopers(plugin: PluginId): List<JetBrainsAccountInfo> = withContext(dispatcher) {
+        httpClient.get("$apiPath/plugins/$plugin/developers").body()
+    }
+
     override suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo = withContext(dispatcher) {
         httpClient.get("${apiPath}/marketplace/plugin/${plugin}/prices") {
             parameter("countryCode", isoCountryCode)
