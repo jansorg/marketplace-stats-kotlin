@@ -14,6 +14,7 @@ import com.github.ajalt.clikt.parameters.arguments.convert
 import com.github.ajalt.clikt.parameters.arguments.help
 import com.github.ajalt.clikt.parameters.arguments.optional
 import com.github.ajalt.clikt.parameters.options.default
+import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.help
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.versionOption
@@ -25,6 +26,8 @@ import dev.ja.marketplace.client.ClientLogLevel
 import dev.ja.marketplace.services.KtorJetBrainsServiceClient
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import java.awt.Desktop
+import java.net.URI
 import java.nio.file.Files
 
 class Application(version: String) : CliktCommand(
@@ -66,6 +69,9 @@ class Application(version: String) : CliktCommand(
         .default(ClientLogLevel.None)
         .help("The log level used for the server and the API requests to the marketplace")
 
+    private val skipOpenBrowser: Boolean by option("--skip-open-browser", envvar = "MARKETPLACE_SKIP_OPEN_BROWSER").flag()
+        .help("Do not open the default web browser after the server has started")
+
     override fun run() {
         val apiKey = this.apiKey
             ?: applicationConfig?.marketplaceApiKey
@@ -86,6 +92,11 @@ class Application(version: String) : CliktCommand(
 
             server.start()
         }
+        if (!skipOpenBrowser && Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+            val actualHostName = serverHostname.takeIf { it != "0.0.0.0" } ?: "localhost"
+            Desktop.getDesktop().browse(URI("http://$actualHostName:$serverPort"))
+        }
+        Thread.currentThread().join()
     }
 }
 

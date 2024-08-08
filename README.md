@@ -12,7 +12,7 @@ It can be launched with `java -jar`:
 
 ```bash
 java -jar /path/to/marketplace-stats-all.jar \
-  --api-key="Your JetBrains API key" ]
+  --api-key="Your JetBrains API key" 
 ```
 
 ## Requirements
@@ -30,7 +30,7 @@ If you don't want to use the release assets, you can build it yourself:
 
 ## Usage
 
-The application launches an integrated HTTP server to provide the reports.
+The application launches an integrated HTTP server to provide the reports and open the default web browser to display the reports.
 The default is port `8080`: [http://localhost:8080](http://localhost:8080).
 
 An API key for the JetBrains Marketplace is required.
@@ -50,6 +50,7 @@ Options:
   -p, --port=<int>                   Port used by the integrated webserver. (default: 8080)
   -c, --currency=<text>              Currency for the displayed monetary amounts.
   -d, --debug=(none|normal|verbose)  The log level used for the server and the API requests to the marketplace (default: None)
+  --skip-open-browser                Do not open the default web browser after the server has started 
   --help                             Show this message and exit
 
 Arguments:
@@ -81,6 +82,7 @@ Instead of options, you can use the following environment variables:
 --port:              MARKETPLACE_SERVER_PORT
 --host:              MARKETPLACE_SERVER_HOSTNAME
 --display-currency:  MARKETPLACE_DISPLAY_CURRENCY
+--skip-open-browser: MARKETPLACE_SKIP_OPEN_BROWSER
 --debug:             MARKETPLACE_LOG_LEVEL
 ```
 
@@ -105,7 +107,6 @@ java -jar ./build/libs/marketplace-stats-all.jar
     ```bash
     java -jar ./build/libs/marketplace-stats-all.jar /path/to/config.json
     ```
-3. Open http://localhost:8080 in your browser to use the application.
 
 ## Deployment
 
