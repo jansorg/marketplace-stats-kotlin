@@ -267,7 +267,20 @@ data class PluginInfo(
     val isMonetizationAvailable: Boolean? = null,
 ) : PluginInfoExtended {
     override val tagNames: List<PluginTagName>
-        get() = this.tags.map { it.name }
+        get() = tags.map(PluginTag::name)
+
+    fun getLinkUrl(frontendUrl: Url = Marketplace.MarketplaceFrontendUrl): Url {
+        return URLBuilder(frontendUrl).also {
+            it.encodedPath = this.link
+        }.build()
+    }
+
+    fun getIconUrl(frontendUrl: Url = Marketplace.MarketplaceFrontendUrl): Url? {
+        this.iconUrlPath ?: return null
+        return URLBuilder(frontendUrl).also {
+            it.encodedPath = this.iconUrlPath
+        }.build()
+    }
 }
 
 @Serializable
