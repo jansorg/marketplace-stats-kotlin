@@ -19,9 +19,9 @@ import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.withContext
-import java.nio.channels.WritableByteChannel
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import kotlin.math.min
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -312,30 +312,24 @@ open class KtorMarketplaceClient(
         httpClient.get("$apiPath/plugins/$plugin/developers").body()
     }
 
-    override suspend fun downloadRelease(target: Path, update: PluginReleaseInfo): Unit = withContext(dispatcher) {
-        Files.newByteChannel(target).use {
-            it.streamingDownload(update.getMarketplaceDownloadLink())
-        }
+    override suspend fun downloadRelease(target: Path, update: PluginReleaseInfo) {
+        target.streamingDownload(update.getMarketplaceDownloadLink())
     }
 
-    override suspend fun downloadRelease(target: Path, update: PluginReleaseId) = withContext(dispatcher) {
-        Files.newByteChannel(target).use {
-            it.streamingDownload(URLBuilder(assetUrl("/plugin/download")).apply {
-                parameters.append("updateId", update.toString())
-            }.build())
-        }
+    override suspend fun downloadRelease(target: Path, update: PluginReleaseId) {
+        target.streamingDownload(URLBuilder(assetUrl("/plugin/download")).apply {
+            parameters.append("updateId", update.toString())
+        }.build())
     }
 
-    override suspend fun downloadRelease(target: Path, plugin: PluginId, version: String, channel: String?) = withContext(dispatcher) {
-        Files.newByteChannel(target).use {
-            it.streamingDownload(URLBuilder(assetUrl("/plugin/download")).apply {
-                parameters.append("pluginId", plugin.toString())
-                parameters.append("version", version)
-                if (channel != null) {
-                    parameters.append("channel", channel)
-                }
-            }.build())
-        }
+    override suspend fun downloadRelease(target: Path, plugin: PluginId, version: String, channel: String?) {
+        target.streamingDownload(URLBuilder(assetUrl("/plugin/download")).apply {
+            parameters.append("pluginId", plugin.toString())
+            parameters.append("version", version)
+            if (channel != null) {
+                parameters.append("channel", channel)
+            }
+        }.build())
     }
 
     override suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo = withContext(dispatcher) {
@@ -348,9 +342,11 @@ open class KtorMarketplaceClient(
         httpClient.get("$apiPath/marketplace/plugin/$plugin/programs").body()
     }
 
-    private suspend fun WritableByteChannel.streamingDownload(url: Url) {
-        httpClient.prepareGet(url).execute { httpResponse ->
-            httpResponse.body<ByteReadChannel>().copyTo(this@streamingDownload)
+    private suspend fun Path.streamingDownload(url: Url): Unit = withContext(dispatcher) {
+        Files.newByteChannel(this@streamingDownload, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE).use { outputChannel ->
+            httpClient.prepareGet(url).execute { httpResponse ->
+                httpResponse.body<ByteReadChannel>().copyTo(outputChannel)
+            }
         }
     }
 
