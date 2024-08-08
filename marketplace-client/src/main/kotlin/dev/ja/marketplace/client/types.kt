@@ -931,6 +931,7 @@ data class PluginReleaseInfo(
     val id: PluginReleaseId,
     @SerialName("pluginId")
     val pluginId: PluginId,
+    /* URL path of the HTML displaying the update details */
     @SerialName("link")
     val updateInfoUrlPath: String,
     @SerialName("version")
@@ -990,6 +991,14 @@ data class PluginReleaseInfo(
             it.parameters["rel"] = "true"
         }.build()
     }
+
+    /**
+     * The base filename of the uploaded file.
+     */
+    val updateFilename: String
+        get() {
+            return fileUrlPath.substring(fileUrlPath.lastIndexOf('/') + 1)
+        }
 }
 
 @Serializable
