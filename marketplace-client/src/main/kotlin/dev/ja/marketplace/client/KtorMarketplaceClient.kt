@@ -8,6 +8,10 @@ package dev.ja.marketplace.client
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.http.*
+import io.ktor.utils.io.*
+import io.ktor.utils.io.core.*
+import io.ktor.utils.io.jvm.nio.*
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -15,6 +19,9 @@ import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.withContext
+import java.nio.channels.WritableByteChannel
+import java.nio.file.Files
+import java.nio.file.Path
 import kotlin.math.min
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -230,10 +237,12 @@ open class KtorMarketplaceClient(
             var pendingResultSize = request.maxResults ?: Int.MAX_VALUE
             var offset = request.offset
             while (pendingResultSize > 0) {
-                val resultPage = marketplacePluginsSearchSinglePage(request.copy(
-                    offset = offset,
-                    maxResults = min(pageSize, pendingResultSize)
-                ))
+                val resultPage = marketplacePluginsSearchSinglePage(
+                    request.copy(
+                        offset = offset,
+                        maxResults = min(pageSize, pendingResultSize)
+                    )
+                )
                 if (resultPage.searchResult.isEmpty()) {
                     break
                 }
@@ -294,12 +303,39 @@ open class KtorMarketplaceClient(
         httpClient.get("$apiPath/updates/$pluginReleaseId/dependencies").body()
     }
 
-    override suspend fun unsupportedReleaseProducts(pluginReleaseId: PluginReleaseId): List<PluginUnsupportedProduct> = withContext(dispatcher) {
-        httpClient.get("$apiPath/products-dependencies/updates/$pluginReleaseId/unsupported").body()
-    }
+    override suspend fun unsupportedReleaseProducts(pluginReleaseId: PluginReleaseId): List<PluginUnsupportedProduct> =
+        withContext(dispatcher) {
+            httpClient.get("$apiPath/products-dependencies/updates/$pluginReleaseId/unsupported").body()
+        }
 
     override suspend fun pluginDevelopers(plugin: PluginId): List<JetBrainsAccountInfo> = withContext(dispatcher) {
         httpClient.get("$apiPath/plugins/$plugin/developers").body()
+    }
+
+    override suspend fun downloadRelease(target: Path, update: PluginReleaseInfo): Unit = withContext(dispatcher) {
+        Files.newByteChannel(target).use {
+            it.streamingDownload(update.getMarketplaceDownloadLink())
+        }
+    }
+
+    override suspend fun downloadRelease(target: Path, update: PluginReleaseId) = withContext(dispatcher) {
+        Files.newByteChannel(target).use {
+            it.streamingDownload(URLBuilder(assetUrl("/plugin/download")).apply {
+                parameters.append("updateId", update.toString())
+            }.build())
+        }
+    }
+
+    override suspend fun downloadRelease(target: Path, plugin: PluginId, version: String, channel: String?) = withContext(dispatcher) {
+        Files.newByteChannel(target).use {
+            it.streamingDownload(URLBuilder(assetUrl("/plugin/download")).apply {
+                parameters.append("pluginId", plugin.toString())
+                parameters.append("version", version)
+                if (channel != null) {
+                    parameters.append("channel", channel)
+                }
+            }.build())
+        }
     }
 
     override suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo = withContext(dispatcher) {
@@ -310,6 +346,12 @@ open class KtorMarketplaceClient(
 
     override suspend fun marketplacePrograms(plugin: PluginId): List<MarketplaceProgram> = withContext(dispatcher) {
         httpClient.get("$apiPath/marketplace/plugin/$plugin/programs").body()
+    }
+
+    private suspend fun WritableByteChannel.streamingDownload(url: Url) {
+        httpClient.prepareGet(url).execute { httpResponse ->
+            httpResponse.body<ByteReadChannel>().copyTo(this@streamingDownload)
+        }
     }
 
     protected open suspend fun loadSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> = withContext(dispatcher) {
