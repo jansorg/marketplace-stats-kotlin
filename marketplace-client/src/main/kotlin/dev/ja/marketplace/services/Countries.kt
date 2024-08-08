@@ -5,7 +5,7 @@
 
 package dev.ja.marketplace.services
 
-class Countries(private val countries: List<CountryWithCurrency>) : Iterable<CountryWithCurrency> {
+class Countries(val countries: List<CountryWithCurrency>) : Iterable<CountryWithCurrency> {
     private val countryNameMapping: Map<String, CountryWithCurrency> by lazy {
         countries.associateBy { it.country.printableName }
     }

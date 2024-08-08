@@ -20,9 +20,12 @@ object Marketplace {
     val Birthday = YearMonthDay(2019, 6, 25)
     const val MAX_TRIAL_DAYS_DEFAULT: Int = 30
 
-    val MaxSearchResultSize: Int = 10_000
+    const val MAX_SEARCH_RESULT_SIZE: Int = 10_000
 
     val MarketplaceFrontendUrl: Url = Url("https://plugins.jetbrains.com")
+
+    const val HOSTNAME = "plugins.jetbrains.com"
+    const val API_PATH = "api"
 
     fun feeAmount(date: YearMonthDay, amount: MonetaryAmount): MonetaryAmount {
         return when {

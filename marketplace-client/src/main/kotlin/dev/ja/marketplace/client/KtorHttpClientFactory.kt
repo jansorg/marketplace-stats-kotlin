@@ -6,6 +6,7 @@
 package dev.ja.marketplace.client
 
 import io.ktor.client.*
+import io.ktor.client.engine.*
 import io.ktor.client.engine.java.*
 import io.ktor.client.plugins.*
 import io.ktor.client.plugins.cache.*
@@ -16,36 +17,42 @@ import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
+import java.net.http.HttpClient.Version
 
 object KtorHttpClientFactory {
     fun createHttpClient(
-        apiHost: String,
+        apiHost: String? = null,
         bearerAuthKey: String? = null,
         apiProtocol: URLProtocol = URLProtocol.HTTPS,
         apiPort: Int = apiProtocol.defaultPort,
         logLevel: ClientLogLevel = ClientLogLevel.Normal,
-        enableHttpCaching: Boolean = true,
+        enableHttpCaching: Boolean = false,
         enableRequestRetry: Boolean = true,
+        configureClient: HttpClientConfig<out HttpClientEngineConfig>.() -> Unit = {},
     ): HttpClient {
         val url = URLBuilder()
         url.protocol = apiProtocol
-        url.host = apiHost
-        url.port = apiPort
+        if (apiHost != null) {
+            url.host = apiHost
+            url.port = apiPort
+        }
 
-        return createHttpClientByUrl(url.buildString(), bearerAuthKey, logLevel, enableHttpCaching, enableRequestRetry)
+        return createHttpClientByUrl(url.buildString(), bearerAuthKey, logLevel, enableHttpCaching, enableRequestRetry, configureClient)
     }
 
-    fun createHttpClientByUrl(
+    private fun createHttpClientByUrl(
         apiUrl: String,
         bearerAuthKey: String?,
         logLevel: ClientLogLevel,
         enableHttpCaching: Boolean,
         enableRequestRetry: Boolean,
+        configureClient: HttpClientConfig<out HttpClientEngineConfig>.() -> Unit,
     ): HttpClient {
         return HttpClient(Java) {
             install(Logging) {
                 level = logLevel.ktorLogLevel
             }
+
             install(Resources)
             install(ContentNegotiation) {
                 json(Json {
@@ -62,7 +69,7 @@ object KtorHttpClientFactory {
 
             if (enableRequestRetry) {
                 install(HttpRequestRetry) {
-                    retryOnServerErrors(3)
+                    retryOnExceptionOrServerErrors(4)
                     exponentialDelay()
                 }
             }
@@ -84,8 +91,10 @@ object KtorHttpClientFactory {
             expectSuccess = true
             engine {
                 pipelining = true
+                protocolVersion = Version.HTTP_2
             }
-        }
 
+            this.configureClient()
+        }
     }
 }

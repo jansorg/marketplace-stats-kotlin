@@ -8,6 +8,7 @@ package dev.ja.marketplace.client
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Expiry
 import dev.hsbrysk.caffeine.buildCoroutine
+import io.ktor.client.*
 import io.ktor.client.plugins.*
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -19,21 +20,33 @@ import kotlin.time.Duration.Companion.minutes
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CaffeineCacheMarketplaceClient(
-    apiKey: String,
-    apiHost: String = "plugins.jetbrains.com",
-    apiPath: String = "api",
-    logLevel: ClientLogLevel = ClientLogLevel.None,
-    enableHttpCaching: Boolean = false,
+    apiHost: String = Marketplace.HOSTNAME,
+    apiPath: String = Marketplace.API_PATH,
     dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2),
-    private val unstableHistoricDataDays: Int = 45
-) : KtorMarketplaceClient(apiKey, apiHost, apiPath, logLevel, enableHttpCaching, dispatcher), CacheAware {
+    httpClient: HttpClient,
+    private val unstableHistoricDataDays: Int = 45,
+) : KtorMarketplaceClient(apiHost, apiPath, dispatcher, httpClient), CacheAware {
+    constructor(
+        apiKey: String,
+        apiHost: String = Marketplace.HOSTNAME,
+        apiPath: String = Marketplace.API_PATH,
+        logLevel: ClientLogLevel = ClientLogLevel.None,
+        enableHttpCaching: Boolean = false,
+        dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2),
+    ) : this(
+        apiHost,
+        apiPath,
+        dispatcher,
+        KtorHttpClientFactory.createHttpClient(apiHost, apiKey, logLevel = logLevel, enableHttpCaching = enableHttpCaching)
+    )
+
     private val frequentlyModifiedCacheDuration = 30.minutes
     private val rarelyModifiedCacheDuration = 1.days
     private val mostlyStaticCacheDuration = 7.days
 
     private val cache = Caffeine.newBuilder()
         .expireAfter(CacheExpiry())
-        .maximumSize(1_000)
+        .maximumSize(10_000)
         .buildCoroutine()
 
     override fun invalidateCache() {

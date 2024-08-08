@@ -32,7 +32,7 @@ typealias PluginModuleName = String
 
 typealias TrialId = String
 
-object PluginChannels {
+object PluginChannelNames {
     const val Stable = ""
 }
 
@@ -50,35 +50,35 @@ interface WithAmounts {
 
 @Serializable
 enum class MarketplaceProgram(@Transient val jsonId: String) {
-    @SerialName("students")
-    Students("students"),
+    @SerialName("STUDENT")
+    Student("STUDENT"),
 
-    @SerialName("former students")
-    FormerStudents("former students"),
+    @SerialName("GRADUATION")
+    FormerStudents("GRADUATION"),
 
-    @SerialName("classroom assistance")
-    ClassroomAssistance("classroom assistance"),
+    @SerialName("CLASSROOM")
+    ClassroomAssistance("CLASSROOM"),
 
-    @SerialName("developer recognition")
-    DeveloperRecognition("developer recognition"),
+    @SerialName("DEVELOPER_RECOGNITION")
+    DeveloperRecognition("DEVELOPER_RECOGNITION"),
 
-    @SerialName("non-profit organizations")
-    NonProfit("non-profit organizations"),
+    @SerialName("NON_PROFIT")
+    NonProfit("NON_PROFIT"),
 
-    @SerialName("open source")
-    OpenSource("open source"),
+    @SerialName("OPEN_SOURCE")
+    OpenSource("OPEN_SOURCE"),
 
-    @SerialName("edu organizations")
-    EduOrganizations("edu organizations"),
+    @SerialName("EDUCATIONAL_ORGANIZATION")
+    EduOrganizations("EDUCATIONAL_ORGANIZATION"),
 
-    @SerialName("startups")
-    Startups("startups"),
+    @SerialName("START_UP")
+    Startups("START_UP"),
 
-    @SerialName("bootcamps")
-    Bootcamps("bootcamps"),
+    @SerialName("TRAINING")
+    Bootcamps("TRAINING"),
 
-    @SerialName("user groups")
-    UserGroups("user groups")
+    @SerialName("USER_GROUP")
+    UserGroups("USER_GROUP")
 }
 
 @Serializable

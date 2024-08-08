@@ -28,7 +28,7 @@ interface MarketplaceClientPublic {
      */
     suspend fun releases(
         plugin: PluginId,
-        channel: PluginChannel = PluginChannels.Stable,
+        channel: PluginChannel = PluginChannelNames.Stable,
         pageSize: Int = 16,
     ): List<PluginReleaseInfo>
 
@@ -38,7 +38,7 @@ interface MarketplaceClientPublic {
      */
     suspend fun releasesSinglePage(
         plugin: PluginId,
-        channel: PluginChannel = PluginChannels.Stable,
+        channel: PluginChannel = PluginChannelNames.Stable,
         size: Int = 16,
         page: Int = 1
     ): List<PluginReleaseInfo>
@@ -68,9 +68,9 @@ interface MarketplaceClientPublic {
         pageSize: Int = 100
     ): List<MarketplacePluginSearchResultItem>
 
-    suspend fun pluginDependencies(plugin: PluginReleaseId): List<PluginDependency>
+    suspend fun pluginReleaseDependencies(pluginReleaseId: PluginReleaseId): List<PluginDependency>
 
-    suspend fun unsupportedProducts(pluginUpdate: PluginReleaseId): List<PluginUnsupportedProduct>
+    suspend fun unsupportedReleaseProducts(pluginReleaseId: PluginReleaseId): List<PluginUnsupportedProduct>
 
     /**
      * @return List of developers associated with the plugin.

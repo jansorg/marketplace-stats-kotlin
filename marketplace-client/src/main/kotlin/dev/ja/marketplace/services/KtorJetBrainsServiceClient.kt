@@ -7,18 +7,35 @@ package dev.ja.marketplace.services
 
 import dev.ja.marketplace.client.ClientLogLevel
 import dev.ja.marketplace.client.KtorHttpClientFactory
+import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.http.*
 
 class KtorJetBrainsServiceClient(
-    logLevel: ClientLogLevel,
-    apiHost: String = "account.jetbrains.com",
+    private val accountServicesUrl: String = "https://account.jetbrains.com",
+    private val dataServicesUrl: String = "https://data.services.jetbrains.com",
+    private val httpClient: HttpClient
 ) : JetBrainsServiceClient {
-    private val apiPath: String = "/services"
-    private val httpClient = KtorHttpClientFactory.createHttpClient(apiHost, null, logLevel = logLevel)
+    constructor(
+        accountServicesUrl: String = "https://account.jetbrains.com",
+        dataServicesUrl: String = "https://data.services.jetbrains.com",
+        logLevel: ClientLogLevel = ClientLogLevel.Normal,
+    ) : this(accountServicesUrl, dataServicesUrl, KtorHttpClientFactory.createHttpClient(logLevel = logLevel))
 
     override suspend fun countries(): Countries {
-        val countries = httpClient.get("${apiPath}/countries.json").body<List<CountryWithCurrency>>()
+        val url = URLBuilder(accountServicesUrl).also {
+            it.encodedPath = "/services/countries.json"
+        }
+        val countries = httpClient.get(url.build()).body<List<CountryWithCurrency>>()
         return Countries(countries)
+    }
+
+    override suspend fun products(): Products {
+        val url = URLBuilder(dataServicesUrl).also {
+            it.encodedPath = "/products"
+        }
+        val productsData = httpClient.get(url.build()).body<List<ProductWithReleases>>()
+        return Products(productsData)
     }
 }
