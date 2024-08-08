@@ -36,6 +36,7 @@ allprojects {
         jvmToolchain(21)
         compilerOptions {
             jvmTarget = JvmTarget.JVM_21
+            freeCompilerArgs.add("-Xdebug")
         }
     }
 
@@ -87,12 +88,12 @@ allprojects {
 
 project("marketplace-client") {
     dependencies {
-        implementation("io.ktor:ktor-client-core:$ktorVersion")
-        implementation("io.ktor:ktor-client-java:$ktorVersion")
-        implementation("io.ktor:ktor-client-logging:$ktorVersion")
-        implementation("io.ktor:ktor-client-resources:$ktorVersion")
-        implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
-        implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
+        api("io.ktor:ktor-client-core:$ktorVersion")
+        api("io.ktor:ktor-client-java:$ktorVersion")
+        api("io.ktor:ktor-client-logging:$ktorVersion")
+        api("io.ktor:ktor-client-resources:$ktorVersion")
+        api("io.ktor:ktor-client-content-negotiation:$ktorVersion")
+        api("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
     }
 }
 

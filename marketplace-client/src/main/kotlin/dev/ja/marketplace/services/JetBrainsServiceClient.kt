@@ -7,4 +7,6 @@ package dev.ja.marketplace.services
 
 interface JetBrainsServiceClient {
     suspend fun countries(): Countries
+
+    suspend fun products(): Products
 }

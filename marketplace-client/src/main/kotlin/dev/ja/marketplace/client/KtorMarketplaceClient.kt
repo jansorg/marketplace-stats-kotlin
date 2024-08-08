@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.client
 
+import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import kotlinx.coroutines.CoroutineDispatcher
@@ -14,21 +15,27 @@ import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.withContext
+import kotlin.math.min
 
 @OptIn(ExperimentalCoroutinesApi::class)
 open class KtorMarketplaceClient(
-    apiKey: String,
-    private val apiHost: String = "plugins.jetbrains.com",
-    private val apiPath: String = "api",
-    logLevel: ClientLogLevel = ClientLogLevel.None,
-    enableHttpCaching: Boolean = true,
-    private val dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2)
+    private val apiHost: String = Marketplace.HOSTNAME,
+    private val apiPath: String = Marketplace.API_PATH,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2),
+    private val httpClient: HttpClient,
 ) : MarketplaceClient {
-    private val httpClient = KtorHttpClientFactory.createHttpClient(
+    constructor(
+        apiKey: String,
+        apiHost: String = Marketplace.HOSTNAME,
+        apiPath: String = Marketplace.API_PATH,
+        logLevel: ClientLogLevel = ClientLogLevel.None,
+        enableHttpCaching: Boolean = false,
+        dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2),
+    ) : this(
         apiHost,
-        apiKey,
-        logLevel = logLevel,
-        enableHttpCaching = enableHttpCaching
+        apiPath,
+        dispatcher,
+        KtorHttpClientFactory.createHttpClient(apiHost, apiKey, logLevel = logLevel, enableHttpCaching = enableHttpCaching)
     )
 
     override fun assetUrl(path: String): String {
@@ -173,7 +180,7 @@ open class KtorMarketplaceClient(
     override suspend fun marketplacePluginsSearchSinglePage(request: MarketplacePluginSearchRequest): MarketplacePluginSearchResponse {
         return withContext(dispatcher) {
             httpClient.get("${apiPath}/searchPlugins") {
-                parameter("max", request.maxResults ?: Marketplace.MaxSearchResultSize)
+                parameter("max", request.maxResults ?: Marketplace.MAX_SEARCH_RESULT_SIZE)
                 parameter("offset", request.offset)
 
                 if (!request.queryFilter.isNullOrEmpty()) {
@@ -223,7 +230,10 @@ open class KtorMarketplaceClient(
             var pendingResultSize = request.maxResults ?: Int.MAX_VALUE
             var offset = request.offset
             while (pendingResultSize > 0) {
-                val resultPage = marketplacePluginsSearchSinglePage(request.copy(offset = offset, maxResults = pageSize))
+                val resultPage = marketplacePluginsSearchSinglePage(request.copy(
+                    offset = offset,
+                    maxResults = min(pageSize, pendingResultSize)
+                ))
                 if (resultPage.searchResult.isEmpty()) {
                     break
                 }
@@ -280,12 +290,12 @@ open class KtorMarketplaceClient(
         }
     }
 
-    override suspend fun pluginDependencies(plugin: PluginReleaseId): List<PluginDependency> = withContext(dispatcher) {
-        httpClient.get("$apiPath/updates/$plugin/dependencies").body()
+    override suspend fun pluginReleaseDependencies(pluginReleaseId: PluginReleaseId): List<PluginDependency> = withContext(dispatcher) {
+        httpClient.get("$apiPath/updates/$pluginReleaseId/dependencies").body()
     }
 
-    override suspend fun unsupportedProducts(pluginUpdate: PluginReleaseId): List<PluginUnsupportedProduct> = withContext(dispatcher) {
-        httpClient.get("$apiPath/products-dependencies/updates/$pluginUpdate/unsupported").body()
+    override suspend fun unsupportedReleaseProducts(pluginReleaseId: PluginReleaseId): List<PluginUnsupportedProduct> = withContext(dispatcher) {
+        httpClient.get("$apiPath/products-dependencies/updates/$pluginReleaseId/unsupported").body()
     }
 
     override suspend fun pluginDevelopers(plugin: PluginId): List<JetBrainsAccountInfo> = withContext(dispatcher) {
