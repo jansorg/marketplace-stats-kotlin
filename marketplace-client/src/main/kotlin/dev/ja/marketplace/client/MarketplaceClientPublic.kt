@@ -73,6 +73,11 @@ interface MarketplaceClientPublic {
     suspend fun unsupportedProducts(pluginUpdate: PluginReleaseId): List<PluginUnsupportedProduct>
 
     /**
+     * @return List of developers associated with the plugin.
+     */
+    suspend fun pluginDevelopers(plugin: PluginId): List<JetBrainsAccountInfo>
+
+    /**
      * @param plugin ID of a paid plugin
      * @param fullInfo If `true`, then the result will contain the major release versions. This parameter can only be used for paid plugins of the API key's user.
      * @return The public plugin information of the given plugin.
