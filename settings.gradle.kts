@@ -3,8 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-rootProject.name = "marketplace-analyzer"
+rootProject.name = "marketplace-stats-kotlin"
 
 include("marketplace-client")
 include("marketplace-data")
-
