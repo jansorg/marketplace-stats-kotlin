@@ -5,6 +5,8 @@
 
 package dev.ja.marketplace.client
 
+import java.nio.file.Path
+
 /**
  * API available without an API key.
  */
@@ -76,6 +78,12 @@ interface MarketplaceClientPublic {
      * @return List of developers associated with the plugin.
      */
     suspend fun pluginDevelopers(plugin: PluginId): List<JetBrainsAccountInfo>
+
+    suspend fun downloadRelease(target: Path, update: PluginReleaseInfo)
+
+    suspend fun downloadRelease(target: Path, update: PluginReleaseId)
+
+    suspend fun downloadRelease(target: Path, plugin: PluginId, version: String, channel: String?)
 
     /**
      * @param plugin ID of a paid plugin
