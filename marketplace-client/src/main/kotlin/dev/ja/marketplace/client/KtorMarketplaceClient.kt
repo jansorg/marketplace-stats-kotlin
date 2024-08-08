@@ -343,6 +343,10 @@ open class KtorMarketplaceClient(
     }
 
     private suspend fun Path.streamingDownload(url: Url): Unit = withContext(dispatcher) {
+        if (Files.exists(this@streamingDownload)) {
+            throw IllegalArgumentException("File ${this@streamingDownload} already exists, unable to download $url.")
+        }
+
         Files.newByteChannel(this@streamingDownload, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE).use { outputChannel ->
             httpClient.prepareGet(url).execute { httpResponse ->
                 httpResponse.body<ByteReadChannel>().copyTo(outputChannel)
