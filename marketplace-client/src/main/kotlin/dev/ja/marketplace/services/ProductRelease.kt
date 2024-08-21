@@ -32,9 +32,9 @@ data class ProductRelease(
     @SerialName("patches")
     val patches: Map<ProductPatchType, List<ProductPatchRelease>>,
     @SerialName("downloads")
-    val downloads: Map<ProductDownloadType, ProductReleaseDownload>? = null,
+    val downloads: Map<ProductDownloadType, ProductReleaseDownload> = emptyMap(),
     @SerialName("uninstallFeedbackLinks")
-    val uninstallFeedbackLinks: Map<String, String>? = null,
+    val uninstallFeedbackLinks: Map<String, String> = emptyMap(),
     @SerialName("isSecurityCritical")
     val isSecurityCritical: Boolean = false,
 )

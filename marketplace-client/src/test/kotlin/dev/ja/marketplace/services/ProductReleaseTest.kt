@@ -16,7 +16,7 @@ class ProductReleaseTest {
         val products = client.products()
         val types = mutableSetOf<ProductDownloadType>()
         for (product in products.productsWithReleases) {
-            product.releases.flatMapTo(types) { it.downloads?.keys ?: emptyList() }
+            product.releases.flatMapTo(types) { it.downloads.keys }
         }
 
         Assertions.assertFalse(types.isEmpty())
