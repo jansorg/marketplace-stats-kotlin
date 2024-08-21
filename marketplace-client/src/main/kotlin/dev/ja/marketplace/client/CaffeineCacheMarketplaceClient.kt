@@ -154,9 +154,15 @@ class CaffeineCacheMarketplaceClient(
         }
     }
 
-    override suspend fun reviewComments(plugin: PluginId): List<PluginReviewComment> {
+    override suspend fun reviewComments(plugin: PluginId, pageSize: Int): List<PluginReviewComment> {
         return loadCached("reviewComments.$plugin", frequentlyModifiedCacheDuration) {
-            super.reviewComments(plugin)
+            super.reviewComments(plugin, pageSize)
+        }
+    }
+
+    override suspend fun reviewCommentsSinglePage(plugin: PluginId, size: Int, page: Int): List<PluginReviewComment> {
+        return loadCached("reviewComments.$plugin.$size.$page", frequentlyModifiedCacheDuration) {
+            super.reviewCommentsSinglePage(plugin, size, page)
         }
     }
 

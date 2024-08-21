@@ -16,9 +16,18 @@ interface MarketplaceClientPublic {
     suspend fun pluginRating(id: PluginId): PluginRating
 
     /**
+     * Fetches all available comments by executing several paged requests
+     * @param pageSize Page size for a request for comments
      * @return Review comments about a plugin
      */
-    suspend fun reviewComments(plugin: PluginId): List<PluginReviewComment>
+    suspend fun reviewComments(plugin: PluginId, pageSize: Int = 20): List<PluginReviewComment>
+
+    /**
+     * @param size Maximum number of comments to retrieve
+     * @param page The page number to retrieve, `1` is the first page
+     * @return Review comments about a plugin
+     */
+    suspend fun reviewCommentsSinglePage(plugin: PluginId, size: Int = 20, page: Int = 1): List<PluginReviewComment>
 
     /**
      * @return Review comments about a plugin

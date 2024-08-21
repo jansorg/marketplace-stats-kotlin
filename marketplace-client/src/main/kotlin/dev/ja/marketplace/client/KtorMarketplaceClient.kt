@@ -256,8 +256,29 @@ open class KtorMarketplaceClient(
         }
     }
 
-    override suspend fun reviewComments(plugin: PluginId): List<PluginReviewComment> = withContext(dispatcher) {
-        httpClient.get("${apiPath}/plugins/${plugin}/comments").body()
+    override suspend fun reviewComments(plugin: PluginId, pageSize: Int): List<PluginReviewComment> = withContext(dispatcher) {
+        val completeResult = mutableListOf<PluginReviewComment>()
+        var page = 1
+        do {
+            val lastPageResult = reviewCommentsSinglePage(plugin, size = pageSize, page = page++)
+            completeResult += lastPageResult
+
+            if (lastPageResult.isEmpty() || lastPageResult.size < pageSize) {
+                break
+            }
+        } while (true)
+
+        completeResult
+    }
+
+    override suspend fun reviewCommentsSinglePage(plugin: PluginId, size: Int, page: Int): List<PluginReviewComment> = withContext(dispatcher) {
+        assert(size >= 1)
+        assert(page >= 1)
+
+        httpClient.get("${apiPath}/plugins/${plugin}/comments"){
+            parameter("size", size)
+            parameter("page", page)
+        }.body()
     }
 
     override suspend fun reviewReplies(plugin: PluginId): List<PluginReviewComment> = withContext(dispatcher) {
