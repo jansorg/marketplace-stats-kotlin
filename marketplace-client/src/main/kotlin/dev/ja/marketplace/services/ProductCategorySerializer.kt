@@ -12,14 +12,14 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
-object BuildNumberSerializer : KSerializer<BuildNumber> {
-    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("buildNumber", PrimitiveKind.STRING)
+object ProductCategorySerializer : KSerializer<ProductCategory> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("productCategory", PrimitiveKind.STRING)
 
-    override fun deserialize(decoder: Decoder): BuildNumber {
-        return BuildNumber.of(decoder.decodeString())
+    override fun deserialize(decoder: Decoder): ProductCategory {
+        return ProductCategory.fingById(decoder.decodeString())
     }
 
-    override fun serialize(encoder: Encoder, value: BuildNumber) {
-        encoder.encodeString(value.toBuilderNumberString())
+    override fun serialize(encoder: Encoder, value: ProductCategory) {
+        encoder.encodeString(value.id)
     }
 }
