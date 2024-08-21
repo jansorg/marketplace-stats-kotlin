@@ -20,9 +20,9 @@ sealed interface ProductDownloadType {
             LinuxArm64DownloadType,
             MacIntelDownloadType,
             MacM1DownloadType,
-            Windows,
-            WindowsArm64,
-            WindowsZip,
+            WindowsDownloadType,
+            WindowsArm64DownloadType,
+            WindowsZipDownloadType,
             ThirdPartyLibrariesJson,
         )
 
@@ -69,17 +69,17 @@ data object MacM1DownloadType : ProductDownloadType {
     override val displayName: String = "Mac Apple Silicon"
 }
 
-data object Windows : ProductDownloadType {
+data object WindowsDownloadType : ProductDownloadType {
     override val id: String = "windows"
     override val displayName: String = "Windows (exe)"
 }
 
-data object WindowsArm64 : ProductDownloadType {
+data object WindowsArm64DownloadType : ProductDownloadType {
     override val id: String = "windowsARM64"
     override val displayName: String = "Windows ARM64 (exe)"
 }
 
-data object WindowsZip : ProductDownloadType {
+data object WindowsZipDownloadType : ProductDownloadType {
     override val id: String = "windowsZip"
     override val displayName: String = "Windows (ZIP)"
 }
