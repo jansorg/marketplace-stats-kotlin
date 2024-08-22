@@ -33,9 +33,13 @@ data class PluginInfo(
     val docText: String? = null,
     @SerialName("email")
     val email: String? = null,
+    /**
+     * This date is not the timestamp when the plugin was published, but (probably) the timestamp when the
+     * last update of the plugin data was made, e.g. by uploading a new release to update the description.
+     */
     @SerialName("cdate")
     @Serializable(CDateSerializer::class)
-    val createdTimestamp: Instant? = null,
+    val lastUpdatedTimestamp: Instant? = null,
     @SerialName("family")
     val family: ProductFamily,
     @SerialName("copyright")
