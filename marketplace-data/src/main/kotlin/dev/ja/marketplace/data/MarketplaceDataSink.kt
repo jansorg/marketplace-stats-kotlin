@@ -6,7 +6,7 @@
 package dev.ja.marketplace.data
 
 import dev.ja.marketplace.client.LicenseInfo
-import dev.ja.marketplace.client.PluginSale
+import dev.ja.marketplace.client.model.PluginSale
 
 interface MarketplaceDataSink {
     suspend fun init(data: PluginData)

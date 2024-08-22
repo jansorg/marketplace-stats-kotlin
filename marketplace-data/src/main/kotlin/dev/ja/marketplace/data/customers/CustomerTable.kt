@@ -7,6 +7,7 @@ package dev.ja.marketplace.data.customers
 
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.LicenseId
+import dev.ja.marketplace.client.model.CustomerInfo
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.util.sortValue

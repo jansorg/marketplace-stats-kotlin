@@ -5,12 +5,11 @@
 
 package dev.ja.marketplace.data.trackers
 
-import dev.ja.marketplace.client.MarketplaceCurrencies
+import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.plus
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.javamoney.moneta.FastMoney
-import org.javamoney.moneta.Money
 import javax.money.MonetaryAmount
 
 /**

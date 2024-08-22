@@ -6,9 +6,9 @@
 package dev.ja.marketplace.data.privingOverview
 
 import dev.ja.marketplace.client.LicenseInfo
-import dev.ja.marketplace.client.MarketplaceCurrencies
-import dev.ja.marketplace.client.PluginPriceInfo
-import dev.ja.marketplace.client.PriceInfoTypeData
+import dev.ja.marketplace.client.currency.MarketplaceCurrencies
+import dev.ja.marketplace.client.model.PluginPriceInfo
+import dev.ja.marketplace.client.model.PriceInfoTypeData
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.services.Countries
 import dev.ja.marketplace.services.CountryWithCurrency

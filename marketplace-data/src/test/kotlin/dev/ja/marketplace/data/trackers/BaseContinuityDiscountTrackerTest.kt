@@ -6,7 +6,7 @@
 package dev.ja.marketplace.data.trackers
 
 import dev.ja.SalesGenerator
-import dev.ja.marketplace.client.LicensePeriod
+import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.data.ContinuityDiscount

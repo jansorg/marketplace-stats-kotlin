@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.client
 
+import dev.ja.marketplace.client.model.*
 import java.nio.file.Path
 
 /**

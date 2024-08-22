@@ -7,7 +7,7 @@ package dev.ja.marketplace.data.trials
 
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.PluginId
-import dev.ja.marketplace.client.PluginTrial
+import dev.ja.marketplace.client.model.PluginTrial
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.util.takeNullable

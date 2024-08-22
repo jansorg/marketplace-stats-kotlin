@@ -5,7 +5,7 @@
 
 package dev.ja.marketplace.data.format
 
-import dev.ja.marketplace.client.MarketplaceCurrencies
+import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import org.javamoney.moneta.Money
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

@@ -7,6 +7,8 @@ package dev.ja
 
 import dev.ja.marketplace.TestCustomers
 import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.model.*
+import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import org.javamoney.moneta.FastMoney
 import java.util.concurrent.atomic.AtomicInteger
 import javax.money.CurrencyUnit

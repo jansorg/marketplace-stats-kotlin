@@ -2,7 +2,7 @@
 @import dev.ja.marketplace.data.DataTableColumn
 @import dev.ja.marketplace.data.DataTableSection
 @import dev.ja.marketplace.data.DataTableRow
-@import dev.ja.marketplace.client.PluginInfo
+@import dev.ja.marketplace.client.model.PluginInfo
 
 @param plugin: PluginInfo
 @param table: RenderedDataTable

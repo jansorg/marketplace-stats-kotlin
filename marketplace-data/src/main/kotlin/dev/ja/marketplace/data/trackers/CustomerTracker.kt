@@ -5,7 +5,7 @@
 
 package dev.ja.marketplace.data.trackers
 
-import dev.ja.marketplace.client.CustomerInfo
+import dev.ja.marketplace.client.model.CustomerInfo
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.LicenseInfo
 

@@ -6,7 +6,7 @@
 package dev.ja.marketplace.data.downloads
 
 import dev.ja.marketplace.client.LicenseInfo
-import dev.ja.marketplace.client.MonthlyDownload
+import dev.ja.marketplace.client.model.MonthlyDownload
 import dev.ja.marketplace.data.*
 
 class DownloadsTable : SimpleDataTable("", "downloads"), MarketplaceDataSink {

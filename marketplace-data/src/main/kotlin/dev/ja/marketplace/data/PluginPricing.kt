@@ -8,6 +8,11 @@ package dev.ja.marketplace.data
 import com.github.benmanes.caffeine.cache.Caffeine
 import dev.hsbrysk.caffeine.buildCoroutine
 import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.model.CustomerInfo
+import dev.ja.marketplace.client.model.CustomerType
+import dev.ja.marketplace.client.model.LicensePeriod
+import dev.ja.marketplace.client.model.PluginPriceInfo
+import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.services.Countries
 import dev.ja.marketplace.services.CountryIsoCode
 import org.javamoney.moneta.FastMoney

@@ -6,6 +6,7 @@
 package dev.ja.marketplace.data
 
 import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.model.*
 import dev.ja.marketplace.data.trackers.ContinuityDiscountTracker
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import dev.ja.marketplace.services.Countries

@@ -7,6 +7,8 @@ package dev.ja.marketplace
 
 import dev.ja.marketplace.churn.LicenseChurnProcessor
 import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.model.LicensePeriod
+import dev.ja.marketplace.client.model.PluginInfoSummary
 import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.MarketplaceDataTableFactory
 import dev.ja.marketplace.data.customerType.CustomerTypeFactory

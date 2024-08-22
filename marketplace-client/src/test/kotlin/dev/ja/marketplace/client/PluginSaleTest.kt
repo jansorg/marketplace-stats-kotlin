@@ -5,11 +5,10 @@
 
 package dev.ja.marketplace.client
 
+import dev.ja.marketplace.client.model.PluginSale
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import javax.money.Monetary
 
 class PluginSaleTest {
     @Test

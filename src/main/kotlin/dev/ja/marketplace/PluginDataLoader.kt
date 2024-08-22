@@ -5,9 +5,9 @@
 
 package dev.ja.marketplace
 
-import dev.ja.marketplace.client.DownloadCountType.Downloads
+import dev.ja.marketplace.client.model.DownloadCountType.Downloads
 import dev.ja.marketplace.client.MarketplaceClient
-import dev.ja.marketplace.client.PluginInfoSummary
+import dev.ja.marketplace.client.model.PluginInfoSummary
 import dev.ja.marketplace.data.PluginData
 import dev.ja.marketplace.data.PluginPricing
 import dev.ja.marketplace.data.trackers.BaseContinuityDiscountTracker

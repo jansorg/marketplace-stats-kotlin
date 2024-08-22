@@ -1,5 +1,5 @@
-@import dev.ja.marketplace.client.PluginInfoSummary
-@import dev.ja.marketplace.client.PluginPricingModel
+@import dev.ja.marketplace.client.model.PluginInfoSummary
+@import dev.ja.marketplace.client.model.PluginPricingModel
 @import dev.ja.marketplace.client.MarketplaceUrlSupport
 
 @param plugins: List<PluginInfoSummary>

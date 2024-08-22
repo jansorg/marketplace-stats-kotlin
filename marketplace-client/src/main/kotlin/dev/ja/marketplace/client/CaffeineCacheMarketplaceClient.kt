@@ -8,6 +8,7 @@ package dev.ja.marketplace.client
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Expiry
 import dev.hsbrysk.caffeine.buildCoroutine
+import dev.ja.marketplace.client.model.*
 import dev.ja.marketplace.services.JetBrainsProductCode
 import io.ktor.client.*
 import io.ktor.client.plugins.*

@@ -5,6 +5,9 @@
 
 package dev.ja.marketplace.client
 
+import dev.ja.marketplace.client.model.*
+import dev.ja.marketplace.client.model.JsonPluginSaleItem
+import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import kotlinx.datetime.Instant
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer

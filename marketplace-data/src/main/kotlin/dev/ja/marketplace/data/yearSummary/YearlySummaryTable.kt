@@ -6,6 +6,8 @@
 package dev.ja.marketplace.data.yearSummary
 
 import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.model.MonthlyDownload
+import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.*
 import java.util.*
