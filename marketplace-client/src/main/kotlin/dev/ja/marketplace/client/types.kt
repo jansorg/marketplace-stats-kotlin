@@ -6,6 +6,7 @@
 package dev.ja.marketplace.client
 
 import dev.ja.marketplace.services.Country
+import dev.ja.marketplace.services.JetBrainsProductCode
 import io.ktor.http.*
 import kotlinx.datetime.Instant
 import kotlinx.serialization.SerialName
@@ -22,6 +23,8 @@ typealias PluginProductCode = String
 typealias PluginUrl = String
 typealias PluginChannel = String
 typealias PluginReleaseId = Int
+
+typealias PluginReviewId = Long
 
 typealias CustomerId = Int
 typealias ResellerId = Int
@@ -654,7 +657,7 @@ enum class DownloadCountType(val requestPathSegment: String) {
     DownloadsUnique("downloads-unique"),
 }
 
-enum class DownloadDimensionRequest(val requestPathSegment: String) {
+enum class DownloadRequestDimension(val requestPathSegment: String) {
     // downloads grouped by product code, e.g. IC for IntelliJ IDEA Community
     ProductCode("product_code"),
 
@@ -734,7 +737,7 @@ enum class DownloadFilterType(val requestParameterName: String) {
     Country("country"),
 
     @SerialName("productCode")
-    ProductCode("product-code"),
+    ProductCode("productCode"),
 
     @SerialName("versionMajor")
     MajorVersion("versionMajor"),
@@ -756,8 +759,8 @@ data class DownloadFilter(
             return DownloadFilter(DownloadFilterType.Country, country.printableName)
         }
 
-        fun productCode(productCode: String): DownloadFilter {
-            return DownloadFilter(DownloadFilterType.ProductCode, productCode)
+        fun productCode(productCode: JetBrainsProductCode): DownloadFilter {
+            return DownloadFilter(DownloadFilterType.ProductCode, productCode.code)
         }
 
         fun majorVersion(majorVersion: String): DownloadFilter {
@@ -770,7 +773,7 @@ data class MonthlyDownload(val firstOfMonth: YearMonthDay, val downloads: Long)
 
 data class DailyDownload(val day: YearMonthDay, val downloads: Long)
 
-data class ProductDownload(val productCode: String, val productName: String?, val downloads: Long)
+data class ProductDownload(val productCode: JetBrainsProductCode, val productName: String?, val downloads: Long)
 
 @Serializable
 enum class PluginSearchProductId(val parameterValue: String) {
@@ -864,7 +867,7 @@ data class MarketplacePluginSearchResultItem(
 @Serializable
 data class PluginReviewComment(
     @SerialName("id")
-    val id: Long,
+    val id: PluginReviewId,
     @SerialName("cdate")
     @Serializable(CDateSerializer::class)
     val createdTimestamp: Instant? = null,

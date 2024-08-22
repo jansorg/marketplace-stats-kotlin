@@ -231,4 +231,13 @@ enum class JetBrainsProductCode(val code: String, val displayName: String? = nul
 
     @SerialName("YTWE")
     YoutrackWorkflowEditor("YTWE"),
+
+    @SerialName("unknown")
+    UnknownProduct("unknown");
+
+    companion object {
+        fun byProductCode(code: String): JetBrainsProductCode? {
+            return entries.firstOrNull { it.code == code }
+        }
+    }
 }

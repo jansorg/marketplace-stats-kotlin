@@ -5,6 +5,8 @@
 
 package dev.ja.marketplace.client
 
+import dev.ja.marketplace.services.JetBrainsProductCode
+
 interface MarketplaceClient : MarketplaceUrlSupport, MarketplaceClientPublic {
     suspend fun userInfo(): UserInfo
 
@@ -64,20 +66,31 @@ interface MarketplaceClient : MarketplaceUrlSupport, MarketplaceClientPublic {
      */
     suspend fun downloads(
         plugin: PluginId,
-        groupType: DownloadDimensionRequest,
+        groupType: DownloadRequestDimension,
         countType: DownloadCountType,
+        startDate: YearMonthDay? = null,
         vararg filters: DownloadFilter,
     ): DownloadResponse
 
     /**
      * Helper method to retrieve downloads grouped by month.
      */
-    suspend fun downloadsMonthly(plugin: PluginId, countType: DownloadCountType): List<MonthlyDownload>
+    suspend fun downloadsMonthly(
+        plugin: PluginId,
+        countType: DownloadCountType,
+        startDate: YearMonthDay? = null,
+        productCode: JetBrainsProductCode? = null
+    ): List<MonthlyDownload>
 
     /**
      * Helper method to retrieve downloads grouped by day.
      */
-    suspend fun downloadsDaily(plugin: PluginId, countType: DownloadCountType): List<DailyDownload>
+    suspend fun downloadsDaily(
+        plugin: PluginId,
+        countType: DownloadCountType,
+        startDate: YearMonthDay? = null,
+        productCode: JetBrainsProductCode? = null
+    ): List<DailyDownload>
 
     /**
      * Helper method to retrieve downloads grouped by product.

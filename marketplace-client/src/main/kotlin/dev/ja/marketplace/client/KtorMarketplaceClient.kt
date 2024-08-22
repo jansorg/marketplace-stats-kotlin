@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.client
 
+import dev.ja.marketplace.services.JetBrainsProductCode
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
@@ -128,18 +129,32 @@ open class KtorMarketplaceClient(
 
     override suspend fun downloads(
         plugin: PluginId,
-        groupType: DownloadDimensionRequest,
+        groupType: DownloadRequestDimension,
         countType: DownloadCountType,
+        startDate: YearMonthDay?,
         vararg filters: DownloadFilter
     ): DownloadResponse = withContext(dispatcher) {
         httpClient.get("/statistic/${countType.requestPathSegment}/${groupType.requestPathSegment}") {
             parameter("plugin", plugin)
+            if (startDate != null) {
+                parameter("startDate", startDate.asIsoString)
+            }
             addDownloadFilters(filters)
         }.body<DownloadResponse>()
     }
 
-    override suspend fun downloadsMonthly(plugin: PluginId, countType: DownloadCountType): List<MonthlyDownload> = withContext(dispatcher) {
-        val response = downloads(plugin, DownloadDimensionRequest.Month, countType)
+    override suspend fun downloadsMonthly(
+        plugin: PluginId,
+        countType: DownloadCountType,
+        startDate: YearMonthDay?,
+        productCode: JetBrainsProductCode?
+    ): List<MonthlyDownload> = withContext(dispatcher) {
+        val filters = when {
+            productCode != null -> arrayOf(DownloadFilter.productCode(productCode))
+            else -> emptyArray()
+        }
+
+        val response = downloads(plugin, DownloadRequestDimension.Month, countType, startDate, *filters)
         assert(response.dimension == DownloadDimension.Month)
         assert(response.data.dimension == DownloadDimension.Month)
 
@@ -148,8 +163,18 @@ open class KtorMarketplaceClient(
             .sortedBy { it.firstOfMonth }
     }
 
-    override suspend fun downloadsDaily(plugin: PluginId, countType: DownloadCountType): List<DailyDownload> = withContext(dispatcher) {
-        val response = downloads(plugin, DownloadDimensionRequest.Day, countType)
+    override suspend fun downloadsDaily(
+        plugin: PluginId,
+        countType: DownloadCountType,
+        startDate: YearMonthDay?,
+        productCode: JetBrainsProductCode?
+    ): List<DailyDownload> = withContext(dispatcher) {
+        val filters = when {
+            productCode != null -> arrayOf(DownloadFilter.productCode(productCode))
+            else -> emptyArray()
+        }
+
+        val response = downloads(plugin, DownloadRequestDimension.Day, countType, startDate, *filters)
         assert(response.dimension == DownloadDimension.Day)
         assert(response.data.dimension == DownloadDimension.Day)
 
@@ -160,13 +185,17 @@ open class KtorMarketplaceClient(
 
     override suspend fun downloadsByProduct(plugin: PluginId, countType: DownloadCountType): List<ProductDownload> {
         return withContext(dispatcher) {
-            val response = downloads(plugin, DownloadDimensionRequest.ProductCode, countType)
+            val response = downloads(plugin, DownloadRequestDimension.ProductCode, countType)
             assert(response.dimension == DownloadDimension.ProductCode)
             assert(response.data.dimension == DownloadDimension.ProductCode)
 
-            response.data.serie
-                .map { ProductDownload(it.name, it.comment, it.value) }
-                .sortedBy { it.productName }
+            response.data.serie.map {
+                ProductDownload(
+                    JetBrainsProductCode.byProductCode(it.name) ?: throw IllegalStateException("No product code found for ${it.name}"),
+                    it.comment,
+                    it.value
+                )
+            }.sortedBy(ProductDownload::productName)
         }
     }
 
@@ -271,15 +300,16 @@ open class KtorMarketplaceClient(
         completeResult
     }
 
-    override suspend fun reviewCommentsSinglePage(plugin: PluginId, size: Int, page: Int): List<PluginReviewComment> = withContext(dispatcher) {
-        assert(size >= 1)
-        assert(page >= 1)
+    override suspend fun reviewCommentsSinglePage(plugin: PluginId, size: Int, page: Int): List<PluginReviewComment> =
+        withContext(dispatcher) {
+            assert(size >= 1)
+            assert(page >= 1)
 
-        httpClient.get("${apiPath}/plugins/${plugin}/comments"){
-            parameter("size", size)
-            parameter("page", page)
-        }.body()
-    }
+            httpClient.get("${apiPath}/plugins/${plugin}/comments") {
+                parameter("size", size)
+                parameter("page", page)
+            }.body()
+        }
 
     override suspend fun reviewReplies(plugin: PluginId): List<PluginReviewComment> = withContext(dispatcher) {
         httpClient.get("${apiPath}/comments/$plugin/replies").body()

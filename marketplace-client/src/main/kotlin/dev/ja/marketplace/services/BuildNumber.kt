@@ -9,6 +9,11 @@ import kotlinx.serialization.Serializable
 
 @Serializable(BuildNumberSerializer::class)
 data class BuildNumber(private val segments: IntArray) : Comparable<BuildNumber> {
+    val baseVersion: Int
+        get() {
+            return segments[0]
+        }
+
     fun toBuilderNumberString(): String {
         return segments.joinToString(".")
     }
