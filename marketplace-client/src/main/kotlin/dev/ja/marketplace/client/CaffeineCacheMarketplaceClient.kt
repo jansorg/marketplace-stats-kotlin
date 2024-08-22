@@ -8,6 +8,7 @@ package dev.ja.marketplace.client
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Expiry
 import dev.hsbrysk.caffeine.buildCoroutine
+import dev.ja.marketplace.services.JetBrainsProductCode
 import io.ktor.client.*
 import io.ktor.client.plugins.*
 import kotlinx.coroutines.CoroutineDispatcher
@@ -93,25 +94,36 @@ class CaffeineCacheMarketplaceClient(
 
     override suspend fun downloads(
         plugin: PluginId,
-        groupType: DownloadDimensionRequest,
+        groupType: DownloadRequestDimension,
         countType: DownloadCountType,
+        startDate: YearMonthDay?,
         vararg filters: DownloadFilter
     ): DownloadResponse {
         val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
-        return loadCached("downloads.$plugin.$groupType.$countType.$filterString", frequentlyModifiedCacheDuration) {
-            super.downloads(plugin, groupType, countType, *filters)
+        return loadCached("downloads.$plugin.$groupType.$countType.$startDate.$filterString", frequentlyModifiedCacheDuration) {
+            super.downloads(plugin, groupType, countType, startDate, *filters)
         }
     }
 
-    override suspend fun downloadsMonthly(plugin: PluginId, countType: DownloadCountType): List<MonthlyDownload> {
-        return loadCached("downloadsMonthly.$plugin.$countType", frequentlyModifiedCacheDuration) {
-            super.downloadsMonthly(plugin, countType)
+    override suspend fun downloadsMonthly(
+        plugin: PluginId,
+        countType: DownloadCountType,
+        startDate: YearMonthDay?,
+        productCode: JetBrainsProductCode?
+    ): List<MonthlyDownload> {
+        return loadCached("downloadsMonthly.$plugin.$countType.$startDate", frequentlyModifiedCacheDuration) {
+            super.downloadsMonthly(plugin, countType, startDate, productCode)
         }
     }
 
-    override suspend fun downloadsDaily(plugin: PluginId, countType: DownloadCountType): List<DailyDownload> {
-        return loadCached("downloadsDaily.$plugin.$countType", frequentlyModifiedCacheDuration) {
-            super.downloadsDaily(plugin, countType)
+    override suspend fun downloadsDaily(
+        plugin: PluginId,
+        countType: DownloadCountType,
+        startDate: YearMonthDay?,
+        productCode: JetBrainsProductCode?
+    ): List<DailyDownload> {
+        return loadCached("downloadsDaily.$plugin.$countType.$startDate.$productCode", frequentlyModifiedCacheDuration) {
+            super.downloadsDaily(plugin, countType, startDate, productCode)
         }
     }
 

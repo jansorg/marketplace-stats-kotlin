@@ -5,12 +5,14 @@
 
 package dev.ja.marketplace.client
 
+import kotlinx.datetime.*
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toJavaZoneId
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.YearMonth
+import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 import java.time.temporal.TemporalAdjusters
 import java.time.temporal.WeekFields
@@ -66,6 +68,19 @@ data class YearMonthDay private constructor(private val instant: LocalDate) : Co
         return instant
     }
 
+    fun toKotlinLocalDate(): kotlinx.datetime.LocalDate {
+        return instant.toKotlinLocalDate()
+    }
+
+    operator fun compareTo(instant: Instant): Int {
+        // fixme timezone offset
+        return this.instant.toEpochSecond(LocalTime.MIN, ZoneOffset.UTC).compareTo(instant.epochSeconds)
+    }
+
+    fun atFirstOfMonth(): YearMonthDay {
+        return firstOfMonth(year, month)
+    }
+
     companion object {
         val MIN = YearMonthDay(1, 1, 1)
         val MAX = YearMonthDay(9999, 12, 31)
@@ -85,8 +100,18 @@ data class YearMonthDay private constructor(private val instant: LocalDate) : Co
             }
         }
 
+        fun of(date: Instant): YearMonthDay {
+            return instantCache.computeIfAbsent(date.toJavaInstant().atZone(MarketplaceTimeZone.toJavaZoneId()).toLocalDate()) {
+                YearMonthDay(it)
+            }
+        }
+
         fun lastOfMonth(year: Int, month: Int): YearMonthDay {
             return of(YearMonth.of(year, month).atEndOfMonth())
+        }
+
+        fun firstOfMonth(year: Int, month: Int): YearMonthDay {
+            return of(YearMonth.of(year, month).atDay(1))
         }
 
         private val instantCache = ConcurrentHashMap<LocalDate, YearMonthDay>()
