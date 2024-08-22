@@ -7,8 +7,8 @@ package dev.ja.marketplace.data.trackers
 
 import com.google.common.collect.Multimaps
 import dev.ja.marketplace.client.CustomerId
-import dev.ja.marketplace.client.PluginSale
-import dev.ja.marketplace.client.PluginTrial
+import dev.ja.marketplace.client.model.PluginSale
+import dev.ja.marketplace.client.model.PluginTrial
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.data.PercentageValue
 

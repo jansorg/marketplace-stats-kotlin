@@ -6,6 +6,7 @@
 package dev.ja.marketplace.data.trackers
 
 import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.data.ContinuityDiscount
 import dev.ja.marketplace.data.PluginPricing
 import dev.ja.marketplace.exchangeRate.ExchangeRates

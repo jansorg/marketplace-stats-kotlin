@@ -9,6 +9,10 @@ import dev.ja.marketplace.churn.ChurnProcessor
 import dev.ja.marketplace.churn.CustomerChurnProcessor
 import dev.ja.marketplace.churn.LicenseChurnProcessor
 import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.model.CustomerInfo
+import dev.ja.marketplace.client.model.LicensePeriod
+import dev.ja.marketplace.client.model.MonthlyDownload
+import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.overview.OverviewTable.CustomerSegment.*
 import dev.ja.marketplace.data.trackers.*

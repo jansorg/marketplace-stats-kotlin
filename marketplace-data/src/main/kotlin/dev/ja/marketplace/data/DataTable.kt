@@ -5,8 +5,8 @@
 
 package dev.ja.marketplace.data
 
-import dev.ja.marketplace.client.MarketplaceCurrencies
-import dev.ja.marketplace.client.WithAmounts
+import dev.ja.marketplace.client.currency.MarketplaceCurrencies
+import dev.ja.marketplace.client.currency.WithAmounts
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import java.util.concurrent.atomic.AtomicReference

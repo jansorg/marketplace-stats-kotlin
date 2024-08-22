@@ -5,4 +5,6 @@
 
 package dev.ja.marketplace.client
 
+import dev.ja.marketplace.client.model.PluginSale
+
 data class SalesWithLicensesInfo(val sales: List<PluginSale>, val licenses: List<LicenseInfo>)

@@ -5,6 +5,10 @@
 
 package dev.ja.marketplace.client
 
+import dev.ja.marketplace.client.model.PluginSale
+import dev.ja.marketplace.client.model.PluginSaleItem
+import dev.ja.marketplace.client.model.PluginSaleItemType
+import dev.ja.marketplace.client.currency.WithAmounts
 import javax.money.MonetaryAmount
 
 /**

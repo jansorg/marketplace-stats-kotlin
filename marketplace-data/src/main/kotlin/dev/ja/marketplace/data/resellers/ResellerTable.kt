@@ -6,6 +6,8 @@
 package dev.ja.marketplace.data.resellers
 
 import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.model.PluginSale
+import dev.ja.marketplace.client.model.ResellerInfo
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.util.sortValue

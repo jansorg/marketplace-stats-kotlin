@@ -6,6 +6,10 @@
 package dev.ja.marketplace.data.daySummary
 
 import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.model.CustomerType
+import dev.ja.marketplace.client.model.LicensePeriod
+import dev.ja.marketplace.client.model.PluginSale
+import dev.ja.marketplace.client.model.PluginTrial
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import java.math.BigInteger

@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.client
 
+import dev.ja.marketplace.client.model.*
 import dev.ja.marketplace.services.JetBrainsProductCode
 import io.ktor.client.*
 import io.ktor.client.call.*

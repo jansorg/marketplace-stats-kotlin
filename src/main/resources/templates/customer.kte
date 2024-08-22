@@ -1,8 +1,8 @@
-@import dev.ja.marketplace.client.CustomerInfo
+@import dev.ja.marketplace.client.model.CustomerInfo
 @import dev.ja.marketplace.data.RenderedDataTable
 @import dev.ja.marketplace.client.LicenseInfo
-@import dev.ja.marketplace.client.PluginInfo
-@import dev.ja.marketplace.client.PluginTrial
+@import dev.ja.marketplace.client.model.PluginInfo
+@import dev.ja.marketplace.client.model.PluginTrial
 
 @param cssClass: String?
 @param plugin: PluginInfo

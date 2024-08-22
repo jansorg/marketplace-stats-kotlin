@@ -5,8 +5,8 @@
 
 package dev.ja.marketplace
 
-import dev.ja.marketplace.client.CustomerInfo
-import dev.ja.marketplace.client.CustomerType
+import dev.ja.marketplace.client.model.CustomerInfo
+import dev.ja.marketplace.client.model.CustomerType
 
 object TestCustomers {
     val PersonDummy = CustomerInfo(100, "DE", CustomerType.Individual, "Dummy Person")

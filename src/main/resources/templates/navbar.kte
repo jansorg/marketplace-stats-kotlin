@@ -1,4 +1,4 @@
-@import dev.ja.marketplace.client.PluginInfo
+@import dev.ja.marketplace.client.model.PluginInfo
 
 @param plugin: PluginInfo
 

@@ -7,7 +7,7 @@ package dev.ja.marketplace.data
 
 import dev.ja.marketplace.client.CustomerId
 import dev.ja.marketplace.client.LicenseId
-import dev.ja.marketplace.client.LicensePeriod
+import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.util.isZero

@@ -6,6 +6,7 @@
 package dev.ja.marketplace.data.funnel
 
 import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.TrialTracker

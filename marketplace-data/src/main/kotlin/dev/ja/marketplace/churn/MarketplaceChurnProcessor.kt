@@ -5,7 +5,7 @@
 
 package dev.ja.marketplace.churn
 
-import dev.ja.marketplace.client.LicensePeriod
+import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 
