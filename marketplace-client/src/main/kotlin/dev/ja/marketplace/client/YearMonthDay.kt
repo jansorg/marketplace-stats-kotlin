@@ -20,7 +20,7 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 @Serializable(with = YearMonthDateSerializer::class)
-data class YearMonthDay private constructor(private val instant: LocalDate) : Comparable<YearMonthDay> {
+data class YearMonthDay internal constructor(private val instant: LocalDate) : Comparable<YearMonthDay> {
     constructor(year: Int, month: Int, day: Int) : this(LocalDate.of(year, month, day))
 
     val year: Int = instant.year

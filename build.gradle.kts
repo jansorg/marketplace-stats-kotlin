@@ -11,8 +11,8 @@ val ktorVersion: String by project
 
 plugins {
     application
-    id("org.jetbrains.kotlin.jvm") version "2.0.0"
-    kotlin("plugin.serialization") version "2.0.0"
+    id("org.jetbrains.kotlin.jvm") version "2.0.20"
+    kotlin("plugin.serialization") version "2.0.20"
 
     // https://github.com/johnrengelman/shadow
     id("com.github.johnrengelman.shadow") version "8.1.1"
@@ -48,16 +48,16 @@ allprojects {
 
     dependencies {
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-datetime-jvm
-        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
+        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
 
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-serialization-json-jvm
-        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.2")
 
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-coroutines-core
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
 
         // https://mvnrepository.com/artifact/it.unimi.dsi/fastutil-core
-        implementation("it.unimi.dsi:fastutil-core:8.5.13")
+        implementation("it.unimi.dsi:fastutil-core:8.5.14")
 
         // https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
         implementation("ch.qos.logback:logback-classic:1.5.6")
@@ -73,7 +73,7 @@ allprojects {
         implementation("org.javamoney.moneta:moneta-convert-ecb:1.4.4")
 
         // https://mvnrepository.com/artifact/com.google.guava/guava
-        implementation("com.google.guava:guava:33.2.1-jre")
+        implementation("com.google.guava:guava:33.3.0-jre")
 
         // https://mvnrepository.com/artifact/com.github.ben-manes.caffeine/caffeine
         implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
