@@ -28,6 +28,10 @@
     --link-color: var(--future-color);
 }
 
+.red {
+    color: var(--negative-color);
+}
+
 /* reset */
 html, body, h1, h2, h3, h4, h5, p, div, table, tr, th, td, svg, img, dl, dt, dd {
     margin: 0;

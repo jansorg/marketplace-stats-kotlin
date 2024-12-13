@@ -11,6 +11,7 @@ import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.PluginInfoSummary
 import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.MarketplaceDataTableFactory
+import dev.ja.marketplace.data.chargeOverview.ChargeOverviewTableFactory
 import dev.ja.marketplace.data.customerType.CustomerTypeFactory
 import dev.ja.marketplace.data.customers.ActiveCustomerTableFactory
 import dev.ja.marketplace.data.customers.ChurnedCustomerTableFactory
@@ -20,6 +21,7 @@ import dev.ja.marketplace.data.downloads.MonthlyDownloadsFactory
 import dev.ja.marketplace.data.funnel.FunnelTableFactory
 import dev.ja.marketplace.data.licenses.LicenseTable
 import dev.ja.marketplace.data.licenses.LicenseTableFactory
+import dev.ja.marketplace.data.lineItems.LineItemsTable
 import dev.ja.marketplace.data.overview.OverviewTableFactory
 import dev.ja.marketplace.data.privingOverview.PricingOverviewTableFactory
 import dev.ja.marketplace.data.resellers.ResellerTableFactory
@@ -152,6 +154,12 @@ class MarketplaceStatsServer(
         pageTitle = "Plugin Pricing",
         pageDescription = "The pricing shown on the JetBrains Marketplace.<br>" +
                 "If there are two prices in the same column, then the 1st excludes VAT and the 2nd includes VAT."
+    )
+
+    private val chargesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+        client,
+        listOf(ChargeOverviewTableFactory()),
+        pageTitle = "Incorrect Plugin Charges",
     )
 
     private val httpServer = embeddedServer(Netty, host = host, port = port) {
@@ -296,6 +304,14 @@ class MarketplaceStatsServer(
 
                 renderLicensePage(loader, licenseId)
             }
+            get("/refnum/{id}") {
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                val refnum: String = call.parameters["id"]
+                    ?: throw IllegalStateException("unable to find refnum")
+
+                renderRefNumPage(loader, refnum)
+            }
             get("/churn-rate/{licensePeriod}/{lastActiveMarker}/{activeMarker}") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
@@ -318,6 +334,11 @@ class MarketplaceStatsServer(
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
                 call.respond(JteContent("main.kte", pricingPageData.createTemplateParameters(loader, context.request)))
+            }
+            get("/charges") {
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", chargesPageData.createTemplateParameters(loader, context.request)))
             }
         }
     }
@@ -417,6 +438,28 @@ class MarketplaceStatsServer(
                     "plugin" to data.getPluginInfo(),
                     "licenseId" to licenseId,
                     "licenseTable" to licenseTable.renderTable(),
+                )
+            )
+        )
+    }
+
+    private suspend fun PipelineContext<Unit, ApplicationCall>.renderRefNumPage(loader: PluginDataLoader, refNum: String) {
+        val data = loader.load()
+        val sale = data.getSales()?.single { it.ref == refNum }
+
+        val lineItemsTable = LineItemsTable()
+        for (table in listOf(lineItemsTable)) {
+            table.init(data)
+            table.process(sale!!)
+        }
+
+        call.respond(
+            JteContent(
+                "refnum.kte", mapOf(
+                    "cssClass" to null,
+                    "plugin" to data.getPluginInfo(),
+                    "sale" to sale,
+                    "lineItemsTable" to lineItemsTable.renderTable(),
                 )
             )
         )

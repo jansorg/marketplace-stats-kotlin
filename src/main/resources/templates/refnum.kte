@@ -1,0 +1,54 @@
+@import dev.ja.marketplace.data.RenderedDataTable
+@import dev.ja.marketplace.client.model.PluginInfo
+@import dev.ja.marketplace.client.model.PluginSale
+
+@param cssClass: String?
+@param plugin: PluginInfo
+@param sale: PluginSale
+@param lineItemsTable: RenderedDataTable
+
+<html lang="en">
+<head>
+    <title>RefNum Details: ${sale.ref}</title>
+    <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
+    <link rel="stylesheet" type="text/css" media="print" href="/styles/main.css"/>
+</head>
+
+<body class="${cssClass}">
+@template.navbar(plugin = plugin)
+
+<div class="sections">
+    <h1>Sale ${sale.ref}</h1>
+
+    <div class="section-wide">
+        <dl>
+            <dt>RefNum</dt>
+            <dd>${sale.ref}</dd>
+
+            <dt>Customer</dt>
+            <dd>${sale.customer.name}</dd>
+
+            <dt>Customer ID</dt>
+            <dd>${sale.customer.code}</dd>
+
+            <dt>License Type</dt>
+            <dd>${sale.licensePeriod}</dd>
+
+            <dt>Reseller</dt>
+            <dd>${sale.reseller?.name ?: "-"}</dd>
+        </dl>
+    </div>
+
+    <div class="section-wide">
+        <h2>Line Items</h2>
+
+        @if (lineItemsTable.isEmpty)
+            <p class="em">No sale line items available.</p>
+        @else
+            @template.dataTable(plugin, lineItemsTable)
+        @endif
+    </div>
+</div>
+
+</body>
+</html>

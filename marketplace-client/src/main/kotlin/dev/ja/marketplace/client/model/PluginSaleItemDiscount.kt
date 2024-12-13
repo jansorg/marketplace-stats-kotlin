@@ -19,4 +19,9 @@ data class PluginSaleItemDiscount(
         get() {
             return description.contains(" continuity discount")
         }
+
+    val isResellerDiscount: Boolean
+        get() {
+            return description.contains("Reseller discount")
+        }
 }
