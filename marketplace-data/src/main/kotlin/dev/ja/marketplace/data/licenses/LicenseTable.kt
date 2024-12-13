@@ -115,7 +115,7 @@ class LicenseTable(
                 SimpleDateTableRow(
                     values = mapOf(
                         columnLicenseId to LinkedLicense(license.id, pluginId!!),
-                        columnRefNum to license.sale.ref,
+                        columnRefNum to LinkedRefNum(license.sale.ref, pluginId!!),
                         columnPurchaseDate to if (showPurchaseDate) purchaseDate else null,
                         columnValidityStart to license.validity.start,
                         columnValidityEnd to license.validity.end,

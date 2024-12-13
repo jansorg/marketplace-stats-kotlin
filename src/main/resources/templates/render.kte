@@ -4,6 +4,7 @@
 @import dev.ja.marketplace.data.LinkedChurnRate
 @import dev.ja.marketplace.data.LinkedCustomer
 @import dev.ja.marketplace.data.LinkedLicense
+@import dev.ja.marketplace.data.LinkedRefNum
 @import dev.ja.marketplace.data.PercentageValue
 @import dev.ja.marketplace.data.format.Formatters
 @import javax.money.MonetaryAmount
@@ -33,9 +34,11 @@
 @elseif(value is Double || value is Float)
     ${String.format("%,.2f", value)}
 @elseif(value is LinkedCustomer)
-    <a href="/customer/${value.id}?pluginId=${value.pluginId}">${value.id}</a>
+    <a class="noprint" href="/customer/${value.id}?pluginId=${value.pluginId}">${value.id}</a>
 @elseif(value is LinkedLicense)
-    <a href="/license/${value.id}?pluginId=${value.pluginId}">${value.id}</a>
+    <a class="noprint" href="/license/${value.id}?pluginId=${value.pluginId}">${value.id}</a>
+@elseif(value is LinkedRefNum)
+    <a class="noprint" href="/refnum/${value.refNum}?pluginId=${value.pluginId}">${value.refNum}</a>
 @elseif(value is LinkedChurnRate)
     <a href="/churn-rate/${value.period.linkSegmentName}/${value.previousPeriodMarkerDate.toString()}/${value.currentPeriodMarkerDate.toString()}?pluginId=${value.pluginId}">
         @template.render(value.churnRate)

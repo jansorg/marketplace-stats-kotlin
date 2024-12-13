@@ -7,9 +7,9 @@ package dev.ja.marketplace.data
 
 import dev.ja.marketplace.client.CustomerId
 import dev.ja.marketplace.client.LicenseId
-import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.YearMonthDay
+import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.util.isZero
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -69,6 +69,8 @@ fun BigDecimal.sortValue(): Long {
 data class LinkedCustomer(val id: CustomerId, val pluginId: PluginId)
 
 data class LinkedLicense(val id: LicenseId, val pluginId: PluginId)
+
+data class LinkedRefNum(val refNum: String, val pluginId: PluginId)
 
 data class LinkedChurnRate(
     val churnRate: Any,

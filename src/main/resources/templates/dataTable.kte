@@ -34,7 +34,7 @@
             @endif
             @if(table.isLimitedRendering)
                 <tr>
-                    <th class="menu centered" colspan="${table.columns.size}">
+                    <th class="menu centered noprint" colspan="${table.columns.size}">
                         <form action="/refresh?pluginId=${plugin.id}&rows=" method="POST">
                             <button class="margin-top">Show all rows…</button>
                         </form>

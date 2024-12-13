@@ -5,7 +5,8 @@
 
 package dev.ja.marketplace.client.model
 
-import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.PluginSaleSerializer
+import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.currency.WithAmounts
 import kotlinx.serialization.Serializable
 import javax.money.MonetaryAmount

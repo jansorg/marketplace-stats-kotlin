@@ -14,5 +14,6 @@
         <a href="/trials/funnel?pluginId=${plugin.id}">Trials (Funnel)</a>
         <a href="/resellers?pluginId=${plugin.id}">Resellers</a>
         <a href="/pricing?pluginId=${plugin.id}">Pricing</a>
+        <a href="/charges?pluginId=${plugin.id}">Charges</a>
     @endif
 </div>
