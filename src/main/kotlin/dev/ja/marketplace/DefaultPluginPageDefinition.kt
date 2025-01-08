@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -23,7 +23,11 @@ class DefaultPluginPageDefinition(
     private val pageTitle: String? = null,
     private val pageDescription: String? = null,
 ) : PluginPageDefinition {
-    override suspend fun createTemplateParameters(dataLoader: PluginDataLoader, request: ApplicationRequest): Map<String, Any?> {
+    override suspend fun createTemplateParameters(
+        dataLoader: PluginDataLoader,
+        request: ApplicationRequest,
+        serverConfiguration: ServerConfiguration
+    ): Map<String, Any?> {
         val data = dataLoader.load()
 
         val maxTableRows = request.queryParameters["rows"]?.toIntOrNull()
@@ -60,6 +64,7 @@ class DefaultPluginPageDefinition(
             "tables" to dataSinks,
             "cssClass" to pageCssClasses,
             "urls" to dataLoader.client as MarketplaceUrlSupport,
+            "settings" to serverConfiguration,
         )
     }
 }

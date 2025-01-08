@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -233,7 +233,7 @@ class MarketplaceStatsServer(
                         loader.plugin.isPaidOrFreemium -> indexPageData
                         else -> indexPageDataFree
                     }
-                    call.respond(JteContent("main.kte", pageData.createTemplateParameters(loader, context.request)))
+                    call.respond(JteContent("main.kte", pageData.createTemplateParameters(loader, context.request, serverConfiguration)))
                 } else {
                     call.respond(
                         JteContent(
@@ -246,47 +246,92 @@ class MarketplaceStatsServer(
             get("/licenses") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", licensePageData.createTemplateParameters(loader, context.request)))
+                call.respond(JteContent("main.kte", licensePageData.createTemplateParameters(loader, context.request, serverConfiguration)))
             }
             get("/countries") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", countriesPageData.createTemplateParameters(loader, context.request)))
+                call.respond(
+                    JteContent(
+                        "main.kte",
+                        countriesPageData.createTemplateParameters(loader, context.request, serverConfiguration)
+                    )
+                )
             }
             get("/customers") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", allCustomersPageData.createTemplateParameters(loader, context.request)))
+                call.respond(
+                    JteContent(
+                        "main.kte", allCustomersPageData.createTemplateParameters(
+                            loader,
+                            context.request,
+                            serverConfiguration
+                        )
+                    )
+                )
             }
             get("/customers/active") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", activeCustomersPageData.createTemplateParameters(loader, context.request)))
+                call.respond(
+                    JteContent(
+                        "main.kte", activeCustomersPageData.createTemplateParameters(
+                            loader,
+                            context.request,
+                            serverConfiguration
+                        )
+                    )
+                )
             }
             get("/customers/churned") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", churnedCustomersPageData.createTemplateParameters(loader, context.request)))
+                call.respond(
+                    JteContent(
+                        "main.kte", churnedCustomersPageData.createTemplateParameters(
+                            loader,
+                            context.request,
+                            serverConfiguration
+                        )
+                    )
+                )
             }
             get("/trials") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", trialsPageData.createTemplateParameters(loader, context.request)))
+                call.respond(JteContent("main.kte", trialsPageData.createTemplateParameters(loader, context.request, serverConfiguration)))
             }
             get("/trials/countries") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", trialCountriesPageData.createTemplateParameters(loader, context.request)))
+                call.respond(
+                    JteContent(
+                        "main.kte", trialCountriesPageData.createTemplateParameters(
+                            loader,
+                            context.request,
+                            serverConfiguration
+                        )
+                    )
+                )
             }
             get("/trials/funnel") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", funnelPageData.createTemplateParameters(loader, context.request)))
+                call.respond(JteContent("main.kte", funnelPageData.createTemplateParameters(loader, context.request, serverConfiguration)))
             }
             get("/downloads/monthly") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", monthlyDownloadsPageData.createTemplateParameters(loader, context.request)))
+                call.respond(
+                    JteContent(
+                        "main.kte", monthlyDownloadsPageData.createTemplateParameters(
+                            loader,
+                            context.request,
+                            serverConfiguration
+                        )
+                    )
+                )
             }
             get("/customer/{id}") {
                 val loader = getDataLoader()
@@ -294,7 +339,7 @@ class MarketplaceStatsServer(
                 val customerId: CustomerId = call.parameters["id"]?.toIntOrNull()
                     ?: throw IllegalStateException("unable to find customer id")
 
-                renderCustomerPage(loader, customerId)
+                renderCustomerPage(loader, customerId, serverConfiguration)
             }
             get("/license/{id}") {
                 val loader = getDataLoader()
@@ -302,7 +347,7 @@ class MarketplaceStatsServer(
                 val licenseId: LicenseId = call.parameters["id"]
                     ?: throw IllegalStateException("unable to find customer id")
 
-                renderLicensePage(loader, licenseId)
+                renderLicensePage(loader, licenseId, serverConfiguration)
             }
             get("/refnum/{id}") {
                 val loader = getDataLoader()
@@ -310,7 +355,7 @@ class MarketplaceStatsServer(
                 val refnum: String = call.parameters["id"]
                     ?: throw IllegalStateException("unable to find refnum")
 
-                renderRefNumPage(loader, refnum)
+                renderRefNumPage(loader, refnum, serverConfiguration)
             }
             get("/churn-rate/{licensePeriod}/{lastActiveMarker}/{activeMarker}") {
                 val loader = getDataLoader()
@@ -323,22 +368,27 @@ class MarketplaceStatsServer(
                 val lastActiveMarker = YearMonthDay.parse(call.parameters["lastActiveMarker"]!!)
                 val activeMarker = YearMonthDay.parse(call.parameters["activeMarker"]!!)
 
-                renderLicenseChurnRatePage(loader, period, lastActiveMarker, activeMarker)
+                renderLicenseChurnRatePage(loader, period, lastActiveMarker, activeMarker, serverConfiguration)
             }
             get("/resellers") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", resellerPageData.createTemplateParameters(loader, context.request)))
+                call.respond(
+                    JteContent(
+                        "main.kte",
+                        resellerPageData.createTemplateParameters(loader, context.request, serverConfiguration)
+                    )
+                )
             }
             get("/pricing") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", pricingPageData.createTemplateParameters(loader, context.request)))
+                call.respond(JteContent("main.kte", pricingPageData.createTemplateParameters(loader, context.request, serverConfiguration)))
             }
             get("/charges") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(JteContent("main.kte", chargesPageData.createTemplateParameters(loader, context.request)))
+                call.respond(JteContent("main.kte", chargesPageData.createTemplateParameters(loader, context.request, serverConfiguration)))
             }
         }
     }
@@ -367,7 +417,11 @@ class MarketplaceStatsServer(
         return getDataLoader(pluginSummary)
     }
 
-    private suspend fun PipelineContext<Unit, ApplicationCall>.renderCustomerPage(loader: PluginDataLoader, customerId: CustomerId) {
+    private suspend fun PipelineContext<Unit, ApplicationCall>.renderCustomerPage(
+        loader: PluginDataLoader,
+        customerId: CustomerId,
+        serverConfiguration: ServerConfiguration
+    ) {
         val data = loader.load()
 
         val customerInfo = data.getSales()?.firstOrNull { it.customer.code == customerId }?.customer
@@ -410,12 +464,17 @@ class MarketplaceStatsServer(
                     "licenseTableAnnual" to licenseTableAnnual.renderTable(),
                     "trials" to trials,
                     "trialTable" to trialsTable.renderTable(),
+                    "settings" to serverConfiguration,
                 )
             )
         )
     }
 
-    private suspend fun PipelineContext<Unit, ApplicationCall>.renderLicensePage(loader: PluginDataLoader, licenseId: LicenseId) {
+    private suspend fun PipelineContext<Unit, ApplicationCall>.renderLicensePage(
+        loader: PluginDataLoader,
+        licenseId: LicenseId,
+        serverConfiguration: ServerConfiguration
+    ) {
         val data = loader.load()
         val sales = data.getSales() ?: emptyList()
         val licenses = data.getLicenses() ?: emptyList()
@@ -438,12 +497,17 @@ class MarketplaceStatsServer(
                     "plugin" to data.getPluginInfo(),
                     "licenseId" to licenseId,
                     "licenseTable" to licenseTable.renderTable(),
+                    "settings" to serverConfiguration,
                 )
             )
         )
     }
 
-    private suspend fun PipelineContext<Unit, ApplicationCall>.renderRefNumPage(loader: PluginDataLoader, refNum: String) {
+    private suspend fun PipelineContext<Unit, ApplicationCall>.renderRefNumPage(
+        loader: PluginDataLoader,
+        refNum: String,
+        serverConfiguration: ServerConfiguration
+    ) {
         val data = loader.load()
         val sale = data.getSales()?.single { it.ref == refNum }
 
@@ -460,6 +524,7 @@ class MarketplaceStatsServer(
                     "plugin" to data.getPluginInfo(),
                     "sale" to sale,
                     "lineItemsTable" to lineItemsTable.renderTable(),
+                    "settings" to serverConfiguration,
                 )
             )
         )
@@ -469,7 +534,8 @@ class MarketplaceStatsServer(
         loader: PluginDataLoader,
         period: LicensePeriod,
         lastActiveMarker: YearMonthDay,
-        activeMarker: YearMonthDay
+        activeMarker: YearMonthDay,
+        serverConfiguration: ServerConfiguration
     ) {
         val data = loader.load()
 
@@ -508,6 +574,6 @@ class MarketplaceStatsServer(
             pageCssClasses = "wide"
         )
 
-        call.respond(JteContent("main.kte", pageData.createTemplateParameters(loader, context.request)))
+        call.respond(JteContent("main.kte", pageData.createTemplateParameters(loader, context.request, serverConfiguration)))
     }
 }

@@ -1,3 +1,4 @@
+@import dev.ja.marketplace.ServerConfiguration
 @import dev.ja.marketplace.client.model.PluginInfo
 @import dev.ja.marketplace.client.model.PluginInfoSummary
 @import dev.ja.marketplace.client.model.PluginRating
@@ -15,6 +16,7 @@
 @param tables: List<RenderedDataTable>
 @param cssClass: String?
 @param urls: MarketplaceUrlSupport
+@param settings: ServerConfiguration
 
 <html lang="en">
 <head>
@@ -40,7 +42,7 @@
     <span title="${rating.votesCount} ratings">★ @template.render(rating.calculatedRatingValue)</span>
 </div>
 
-@template.navbar(plugin = plugin)
+@template.navbar(plugin = plugin, showResellerCharges = settings.showResellerCharges)
 
 @if(pageTitle != null)
     <h2 class="centered">${pageTitle}</h2>
