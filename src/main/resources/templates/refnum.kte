@@ -1,3 +1,4 @@
+@import dev.ja.marketplace.ServerConfiguration
 @import dev.ja.marketplace.data.RenderedDataTable
 @import dev.ja.marketplace.client.model.PluginInfo
 @import dev.ja.marketplace.client.model.PluginSale
@@ -6,6 +7,7 @@
 @param plugin: PluginInfo
 @param sale: PluginSale
 @param lineItemsTable: RenderedDataTable
+@param settings: ServerConfiguration
 
 <html lang="en">
 <head>
@@ -15,7 +17,7 @@
 </head>
 
 <body class="${cssClass}">
-@template.navbar(plugin = plugin)
+@template.navbar(plugin = plugin, showResellerCharges = settings.showResellerCharges)
 
 <div class="sections">
     <h1>Sale ${sale.ref}</h1>

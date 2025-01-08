@@ -1,6 +1,7 @@
 @import dev.ja.marketplace.client.model.PluginInfo
 
 @param plugin: PluginInfo
+@param showResellerCharges: Boolean
 
 <div class="subtitle menu small">
     <a href="/?pluginId=${plugin.id}">Overview</a>
@@ -14,6 +15,8 @@
         <a href="/trials/funnel?pluginId=${plugin.id}">Trials (Funnel)</a>
         <a href="/resellers?pluginId=${plugin.id}">Resellers</a>
         <a href="/pricing?pluginId=${plugin.id}">Pricing</a>
+        @if(showResellerCharges)
         <a href="/charges?pluginId=${plugin.id}">Charges</a>
+        @endif
     @endif
 </div>

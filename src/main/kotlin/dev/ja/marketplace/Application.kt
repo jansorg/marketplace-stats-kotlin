@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -13,10 +13,7 @@ import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.convert
 import com.github.ajalt.clikt.parameters.arguments.help
 import com.github.ajalt.clikt.parameters.arguments.optional
-import com.github.ajalt.clikt.parameters.options.default
-import com.github.ajalt.clikt.parameters.options.help
-import com.github.ajalt.clikt.parameters.options.option
-import com.github.ajalt.clikt.parameters.options.versionOption
+import com.github.ajalt.clikt.parameters.options.*
 import com.github.ajalt.clikt.parameters.types.enum
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
@@ -58,6 +55,10 @@ class Application(version: String) : CliktCommand(
     private val displayCurrency: String? by option("-c", "--currency", envvar = "MARKETPLACE_DISPLAY_CURRENCY")
         .help("Currency for the displayed monetary amounts.")
 
+    private val showResellerCharges: Boolean? by option("--show-reseller-charges", envvar = "MARKETPLACE_SHOW_RESELLER_CHARGES")
+        .nullableFlag()
+        .help("Show incorrect charges for sales through resellers.")
+
     private val logging: ClientLogLevel by option(
         "-d",
         "--debug",
@@ -75,13 +76,17 @@ class Application(version: String) : CliktCommand(
             ?: applicationConfig?.displayedCurrency
             ?: "USD"
 
+        val showResellerCharges = this.showResellerCharges
+            ?: applicationConfig?.showResellerCharges
+            ?: false
+
         runBlocking {
             val server = MarketplaceStatsServer(
                 CaffeineCacheMarketplaceClient(apiKey = apiKey, logLevel = logging),
                 KtorJetBrainsServiceClient(logLevel = logging),
                 serverHostname,
                 serverPort,
-                ServerConfiguration(displayCurrencyCode)
+                ServerConfiguration(displayCurrencyCode, showResellerCharges)
             )
 
             server.start()

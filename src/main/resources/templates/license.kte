@@ -1,3 +1,4 @@
+@import dev.ja.marketplace.ServerConfiguration
 @import dev.ja.marketplace.data.RenderedDataTable
 @import dev.ja.marketplace.client.LicenseInfo
 @import dev.ja.marketplace.client.model.PluginInfo
@@ -8,6 +9,7 @@
 @param plugin: PluginInfo
 @param licenseId: LicenseId
 @param licenseTable: RenderedDataTable
+@param settings: ServerConfiguration
 
 <html lang="en">
 <head>
@@ -17,7 +19,7 @@
 </head>
 
 <body class="${cssClass}">
-@template.navbar(plugin = plugin)
+@template.navbar(plugin = plugin, showResellerCharges = settings.showResellerCharges)
 
 <div class="sections">
     <h1>License Details</h1>
