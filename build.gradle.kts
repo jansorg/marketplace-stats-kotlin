@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -11,15 +11,15 @@ val ktorVersion: String by project
 
 plugins {
     application
-    id("org.jetbrains.kotlin.jvm") version "2.0.20"
-    kotlin("plugin.serialization") version "2.0.20"
+    id("org.jetbrains.kotlin.jvm") version "2.0.21"
+    kotlin("plugin.serialization") version "2.0.21"
 
-    // https://github.com/johnrengelman/shadow
-    id("com.github.johnrengelman.shadow") version "8.1.1"
+    // https://plugins.gradle.org/plugin/com.gradleup.shadow
+    id("com.gradleup.shadow") version "9.0.0-beta4"
     // https://plugins.gradle.org/plugin/gg.jte.gradle
-    id("gg.jte.gradle") version "3.1.12"
+    id("gg.jte.gradle") version "3.1.15"
     // https://github.com/gmazzo/gradle-buildconfig-plugin
-    id("com.github.gmazzo.buildconfig") version "5.3.5"
+    id("com.github.gmazzo.buildconfig") version "5.5.1"
 }
 
 allprojects {
@@ -51,16 +51,16 @@ allprojects {
         implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.1")
 
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-serialization-json-jvm
-        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.2")
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
 
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-coroutines-core
-        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
+        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.1")
 
         // https://mvnrepository.com/artifact/it.unimi.dsi/fastutil-core
-        implementation("it.unimi.dsi:fastutil-core:8.5.14")
+        implementation("it.unimi.dsi:fastutil-core:8.5.15")
 
         // https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
-        implementation("ch.qos.logback:logback-classic:1.5.6")
+        implementation("ch.qos.logback:logback-classic:1.5.16")
 
         // https://github.com/ajalt/clikt
         implementation("com.github.ajalt.clikt:clikt:4.4.0")
@@ -73,16 +73,16 @@ allprojects {
         implementation("org.javamoney.moneta:moneta-convert-ecb:1.4.4")
 
         // https://mvnrepository.com/artifact/com.google.guava/guava
-        implementation("com.google.guava:guava:33.3.0-jre")
+        implementation("com.google.guava:guava:33.4.0-jre")
 
         // https://mvnrepository.com/artifact/com.github.ben-manes.caffeine/caffeine
         implementation("com.github.ben-manes.caffeine:caffeine:3.1.8")
         // https://mvnrepository.com/artifact/dev.hsbrysk/caffeine-coroutines
-        implementation("dev.hsbrysk:caffeine-coroutines:1.1.0")
+        implementation("dev.hsbrysk:caffeine-coroutines:1.2.1")
 
         // https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api
-        testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.3")
-        testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.10.3")
+        testImplementation("org.junit.jupiter:junit-jupiter-api:5.11.4")
+        testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.11.4")
     }
 }
 
@@ -115,7 +115,7 @@ project(":") {
         implementation("io.ktor:ktor-server-status-pages:$ktorVersion")
 
         // https://mvnrepository.com/artifact/gg.jte/jte
-        implementation("gg.jte:jte:3.1.10")
+        implementation("gg.jte:jte:3.1.15")
 
         runtimeOnly(provider {
             files(tasks.precompileJte.get().targetDirectory)
