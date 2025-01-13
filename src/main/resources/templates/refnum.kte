@@ -2,6 +2,7 @@
 @import dev.ja.marketplace.data.RenderedDataTable
 @import dev.ja.marketplace.client.model.PluginInfo
 @import dev.ja.marketplace.client.model.PluginSale
+@import dev.ja.marketplace.data.LinkedCustomer
 
 @param cssClass: String?
 @param plugin: PluginInfo
@@ -27,11 +28,19 @@
             <dt>RefNum</dt>
             <dd>${sale.ref}</dd>
 
-            <dt>Customer</dt>
-            <dd>${sale.customer.name}</dd>
+            <dt>Date</dt>
+            <dd>@template.render(value = sale.date)</dd>
 
-            <dt>Customer ID</dt>
-            <dd>${sale.customer.code}</dd>
+            <dt>Customer</dt>
+            <dd>@template.render(value = LinkedCustomer(sale.customer.code, plugin.id)) @if (!sale.customer.name.isNullOrEmpty()) (${sale.customer.name})@endif</dd>
+
+            @if (sale.amount.currency != sale.amountUSD.currency)
+                <dt>Amount</dt>
+                <dd>@template.render(value = sale.amount)</dd>
+            @endif
+
+            <dt>Amount USD</dt>
+            <dd>@template.render(value = sale.amountUSD)</dd>
 
             <dt>License Type</dt>
             <dd>${sale.licensePeriod}</dd>

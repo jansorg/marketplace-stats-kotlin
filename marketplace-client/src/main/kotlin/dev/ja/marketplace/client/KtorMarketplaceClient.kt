@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -16,7 +16,6 @@ import io.ktor.utils.io.core.*
 import io.ktor.utils.io.jvm.nio.*
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -26,13 +25,13 @@ import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import kotlin.math.min
 
-@OptIn(ExperimentalCoroutinesApi::class)
 open class KtorMarketplaceClient(
     private val apiHost: String = Marketplace.HOSTNAME,
     private val apiPath: String = Marketplace.API_PATH,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2),
     private val httpClient: HttpClient,
 ) : MarketplaceClient {
+    @Suppress("unused")
     constructor(
         apiKey: String,
         apiHost: String = Marketplace.HOSTNAME,

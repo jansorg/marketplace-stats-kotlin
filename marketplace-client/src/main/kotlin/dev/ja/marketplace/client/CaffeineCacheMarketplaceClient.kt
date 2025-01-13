@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -20,7 +20,6 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
 
-@OptIn(ExperimentalCoroutinesApi::class)
 class CaffeineCacheMarketplaceClient(
     apiHost: String = Marketplace.HOSTNAME,
     apiPath: String = Marketplace.API_PATH,
