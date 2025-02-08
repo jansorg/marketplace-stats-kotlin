@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -16,4 +16,7 @@ enum class LicensePeriod(val linkSegmentName: String) {
 
     @SerialName("Monthly")
     Monthly("monthly"),
+
+    @SerialName("Perpetual")
+    Perpetual("perpetual"),
 }
