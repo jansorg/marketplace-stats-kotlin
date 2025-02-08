@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -15,4 +15,7 @@ enum class LicensingType {
 
     @SerialName("SUBSCRIPTION_FALLBACK")
     SubscriptionWithFallback,
+
+    @SerialName("PERPETUAL_UNBOUNDED")
+    Perpetual,
 }
