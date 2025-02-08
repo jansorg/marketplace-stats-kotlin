@@ -1,4 +1,5 @@
 {
-  "apiKey": "marketplace-api-key",
-  "displayedCurrency": "USD"
+  "apiKey": "",
+  "displayedCurrency": "USD",
+  "disabledContinuityDiscount": false
 }
