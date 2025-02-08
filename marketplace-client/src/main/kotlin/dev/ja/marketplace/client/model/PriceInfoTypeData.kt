@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -10,10 +10,8 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class PriceInfoTypeData(
-    @SerialName("firstYear")
-    val firstYear: PriceInfoData,
-    @SerialName("secondYear")
-    val secondYear: PriceInfoData,
-    @SerialName("thirdYear")
-    val thirdYear: PriceInfoData,
+    @SerialName("firstYear") val firstYear: PriceInfoData,
+    // 2nd and 3rd year pricing is unavailable for plugins without a continuity discount
+    @SerialName("secondYear") val secondYear: PriceInfoData? = null,
+    @SerialName("thirdYear") val thirdYear: PriceInfoData? = null,
 )

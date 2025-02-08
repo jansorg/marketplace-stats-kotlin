@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -110,6 +110,7 @@ class MonthlyRecurringRevenueTracker(
         return when (licensePeriod) {
             LicensePeriod.Monthly -> BigDecimal.ONE
             LicensePeriod.Annual -> annualToMonthly
+            LicensePeriod.Perpetual -> BigDecimal.ONE
         }
     }
 }
@@ -126,6 +127,7 @@ class AnnualRecurringRevenueTracker(
         return when (licensePeriod) {
             LicensePeriod.Monthly -> monthlyToAnnual
             LicensePeriod.Annual -> BigDecimal.ONE
+            LicensePeriod.Perpetual -> BigDecimal.ONE
         }
     }
 

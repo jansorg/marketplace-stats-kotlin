@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -90,6 +90,8 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
                             currency
                         )
 
+                        // fixme add perpetual pricing
+
                         SimpleDateTableRow(
                             values = mapOf(
                                 columnCountry to countryWithCurrency.country.printableName,
@@ -102,12 +104,12 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
                                 columnThirdYearCommercial to listOfNotNull(commercialC, commercialTaxedC),
                             ),
                             sortValues = mapOf(
-                                columnFirstYearPersonal to personalA.sortValue(),
-                                columnSecondYearPersonal to personalB.sortValue(),
-                                columnThirdYearPersonal to personalC.sortValue(),
-                                columnFirstYearCommercial to commercialA.sortValue(),
-                                columnSecondYearCommercial to commercialB.sortValue(),
-                                columnThirdYearCommercial to commercialC.sortValue(),
+                                columnFirstYearPersonal to personalA?.sortValue(),
+                                columnSecondYearPersonal to personalB?.sortValue(),
+                                columnThirdYearPersonal to personalC?.sortValue(),
+                                columnFirstYearCommercial to commercialA?.sortValue(),
+                                columnSecondYearCommercial to commercialB?.sortValue(),
+                                columnThirdYearCommercial to commercialC?.sortValue(),
                             )
                         )
                     }
@@ -118,19 +120,27 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
         return currencySections
     }
 
-    private fun PriceInfoTypeData.mapYears(currency: Currency): Triple<MonetaryAmount, MonetaryAmount, MonetaryAmount> {
+    private fun PriceInfoTypeData?.mapYears(currency: Currency): Triple<MonetaryAmount?, MonetaryAmount?, MonetaryAmount?> {
+        if (this == null) {
+            return Triple(null, null, null)
+        }
+
         return Triple(
             firstYear.price.withCurrency(currency),
-            secondYear.price.withCurrency(currency),
-            thirdYear.price.withCurrency(currency),
+            secondYear?.price?.withCurrency(currency),
+            thirdYear?.price?.withCurrency(currency),
         )
     }
 
-    private fun PriceInfoTypeData.mapYearsTaxed(currency: Currency): Triple<MonetaryAmount?, MonetaryAmount?, MonetaryAmount?> {
+    private fun PriceInfoTypeData?.mapYearsTaxed(currency: Currency): Triple<MonetaryAmount?, MonetaryAmount?, MonetaryAmount?> {
+        if (this == null) {
+            return Triple(null, null, null)
+        }
+
         return Triple(
             firstYear.priceTaxed?.withCurrency(currency),
-            secondYear.priceTaxed?.withCurrency(currency),
-            thirdYear.priceTaxed?.withCurrency(currency),
+            secondYear?.priceTaxed?.withCurrency(currency),
+            thirdYear?.priceTaxed?.withCurrency(currency),
         )
     }
 

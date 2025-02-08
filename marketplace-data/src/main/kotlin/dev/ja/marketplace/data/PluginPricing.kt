@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -7,12 +7,13 @@ package dev.ja.marketplace.data
 
 import com.github.benmanes.caffeine.cache.Caffeine
 import dev.hsbrysk.caffeine.buildCoroutine
-import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.MarketplaceClient
+import dev.ja.marketplace.client.PluginId
+import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.CustomerInfo
 import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.PluginPriceInfo
-import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.services.Countries
 import dev.ja.marketplace.services.CountryIsoCode
 import org.javamoney.moneta.FastMoney
@@ -63,25 +64,34 @@ data class PluginPricing(
         val countryWithCurrency = countries.byCountryName(customerCountry)
             ?: throw IllegalStateException("unable to find country for name $customerCountry")
 
-        val priceInfo = getCountryPricing(countryWithCurrency.country.isoCode) ?: return null
-
-        val baseInfo = when (customerType) {
-            CustomerType.Individual -> priceInfo.prices.personal
-            CustomerType.Organization -> priceInfo.prices.commercial
+        val countryPricing = getCountryPricing(countryWithCurrency.country.isoCode) ?: return null
+        val pricing = when (customerType) {
+            CustomerType.Individual -> countryPricing.prices.personal
+            CustomerType.Organization -> countryPricing.prices.commercial
         }
 
-        val pricing = when (licensePeriod) {
-            LicensePeriod.Monthly -> baseInfo.monthly
-            LicensePeriod.Annual -> baseInfo.annual
+        val discountedPrice = when (continuityDiscount) {
+            ContinuityDiscount.None,
+            ContinuityDiscount.FirstYear -> when (licensePeriod) {
+                LicensePeriod.Monthly -> pricing.monthly?.firstYear?.price
+                LicensePeriod.Annual -> pricing.annual?.firstYear?.price
+                LicensePeriod.Perpetual -> pricing.perpetual?.price
+            }
+
+            ContinuityDiscount.SecondYear -> when (licensePeriod) {
+                LicensePeriod.Monthly -> pricing.monthly?.secondYear?.price
+                LicensePeriod.Annual -> pricing.annual?.secondYear?.price
+                LicensePeriod.Perpetual -> null
+            }
+
+            ContinuityDiscount.ThirdYear -> when (licensePeriod) {
+                LicensePeriod.Monthly -> pricing.monthly?.secondYear?.price
+                LicensePeriod.Annual -> pricing.annual?.secondYear?.price
+                LicensePeriod.Perpetual -> null
+            }
         } ?: return null
 
-        val withDiscount = when (continuityDiscount) {
-            ContinuityDiscount.FirstYear -> pricing.firstYear
-            ContinuityDiscount.SecondYear -> pricing.secondYear
-            ContinuityDiscount.ThirdYear -> pricing.thirdYear
-        }
-
-        return FastMoney.of(withDiscount.price, countryWithCurrency.currency.isoCode)
+        return FastMoney.of(discountedPrice, countryWithCurrency.currency.isoCode)
     }
 
     companion object {

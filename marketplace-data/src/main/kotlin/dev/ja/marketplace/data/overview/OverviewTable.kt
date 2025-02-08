@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -20,6 +20,8 @@ import java.util.*
 
 class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tables-row") {
     private enum class CustomerSegment {
+        PerpetualFree,
+        PerpetualPaying,
         AnnualFree,
         AnnualPaying,
         MonthlyFree,
@@ -30,11 +32,13 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                 val isPaidLicense = licenseInfo.isPaidLicense
                 return when {
                     isPaidLicense -> when (licenseInfo.sale.licensePeriod) {
-                        LicensePeriod.Annual -> AnnualPaying
+                        LicensePeriod.Perpetual -> PerpetualPaying
                         LicensePeriod.Monthly -> MonthlyPaying
+                        LicensePeriod.Annual -> AnnualPaying
                     }
 
                     else -> when (licenseInfo.sale.licensePeriod) {
+                        LicensePeriod.Perpetual -> PerpetualFree
                         LicensePeriod.Annual -> AnnualFree
                         LicensePeriod.Monthly -> MonthlyFree
                     }
