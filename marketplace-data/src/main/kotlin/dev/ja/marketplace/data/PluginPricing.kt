@@ -7,12 +7,13 @@ package dev.ja.marketplace.data
 
 import com.github.benmanes.caffeine.cache.Caffeine
 import dev.hsbrysk.caffeine.buildCoroutine
-import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.MarketplaceClient
+import dev.ja.marketplace.client.PluginId
+import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.CustomerInfo
 import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.PluginPriceInfo
-import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.services.Countries
 import dev.ja.marketplace.services.CountryIsoCode
 import org.javamoney.moneta.FastMoney
@@ -33,9 +34,7 @@ data class PluginPricing(
     private val pluginId: PluginId,
     private val countries: Countries,
 ) {
-    private val basePriceCache = Caffeine.newBuilder()
-        .maximumSize(500)
-        .buildCoroutine<PricingCacheKey, MonetaryAmount>()
+    private val basePriceCache = Caffeine.newBuilder().maximumSize(500).buildCoroutine<PricingCacheKey, MonetaryAmount>()
 
     suspend fun getCountryPricing(countryIsoCode: CountryIsoCode): PluginPriceInfo? {
         return when {
@@ -55,13 +54,10 @@ data class PluginPricing(
     }
 
     private suspend fun getBasePriceInner(
-        customerCountry: String,
-        customerType: CustomerType,
-        licensePeriod: LicensePeriod,
-        continuityDiscount: ContinuityDiscount
+        customerCountry: String, customerType: CustomerType, licensePeriod: LicensePeriod, continuityDiscount: ContinuityDiscount?
     ): MonetaryAmount? {
-        val countryWithCurrency = countries.byCountryName(customerCountry)
-            ?: throw IllegalStateException("unable to find country for name $customerCountry")
+        val countryWithCurrency =
+            countries.byCountryName(customerCountry) ?: throw IllegalStateException("unable to find country for name $customerCountry")
 
         val priceInfo = getCountryPricing(countryWithCurrency.country.isoCode) ?: return null
 
@@ -76,9 +72,9 @@ data class PluginPricing(
         } ?: return null
 
         val withDiscount = when (continuityDiscount) {
-            ContinuityDiscount.FirstYear -> pricing.firstYear
-            ContinuityDiscount.SecondYear -> pricing.secondYear
-            ContinuityDiscount.ThirdYear -> pricing.thirdYear
+            null, ContinuityDiscount.FirstYear -> pricing.firstYear
+            ContinuityDiscount.SecondYear -> pricing.secondYear!!
+            ContinuityDiscount.ThirdYear -> pricing.thirdYear!!
         }
 
         return FastMoney.of(withDiscount.price, countryWithCurrency.currency.isoCode)

@@ -5,7 +5,9 @@
 
 package dev.ja.marketplace.data
 
-import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.LicenseInfo
+import dev.ja.marketplace.client.PluginId
+import dev.ja.marketplace.client.SalesWithLicensesInfo
 import dev.ja.marketplace.client.model.*
 import dev.ja.marketplace.data.trackers.ContinuityDiscountTracker
 import dev.ja.marketplace.exchangeRate.ExchangeRates

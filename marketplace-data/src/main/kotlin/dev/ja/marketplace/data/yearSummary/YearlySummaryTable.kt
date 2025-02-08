@@ -5,7 +5,10 @@
 
 package dev.ja.marketplace.data.yearSummary
 
-import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.LicenseInfo
+import dev.ja.marketplace.client.Marketplace
+import dev.ja.marketplace.client.YearMonthDay
+import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.model.MonthlyDownload
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.*
@@ -46,7 +49,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
             val yearRange = YearMonthDayRange.ofYear(year)
             this.data[year] = YearSummary(
                 PaymentAmountTracker(yearRange, data.exchangeRates),
-                AnnualRecurringRevenueTracker(yearRange, data.getContinuityDiscountTracker()!!, data.pluginPricing!!, data.exchangeRates)
+                AnnualRecurringRevenueTracker(yearRange, data.getContinuityDiscountTracker(), data.pluginPricing!!, data.exchangeRates)
             )
         }
 
@@ -87,9 +90,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
         val allTrialsAnyDuration = trialsTracker.getResult(YearMonthDayRange.MAX)
         val allTrialsTrialDuration = trialsTracker.getResultByTrialDuration(YearMonthDayRange.MAX, maxTrialDays)
 
-        val rows = data.entries.toList()
-            .dropLastWhile { it.value.sales.isZero }
-            .map { (year, yearData) ->
+        val rows = data.entries.toList().dropLastWhile { it.value.sales.isZero }.map { (year, yearData) ->
                 val yearDateRange = YearMonthDayRange.ofYear(year)
                 val trialResultAnyDuration = trialsTracker.getResult(yearDateRange)
                 val trialResultTrialDuration = trialsTracker.getResultByTrialDuration(yearDateRange, maxTrialDays)
@@ -97,36 +98,29 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                     year == now.year -> null
                     else -> yearData.annualRevenue.getResult()
                 }
-                SimpleDateTableRow(
-                    values = mapOf(
-                        columnYear to year,
-                        columnSalesTotal to yearData.sales.totalAmount,
-                        columnSalesFees to yearData.sales.feesAmount,
-                        columnSalesPaid to yearData.sales.paidAmount,
-                        columnARR to (arrResult?.amounts?.getTotalAmount() ?: NoValue),
-                        columnDownloads to downloads
-                            .filter { it.firstOfMonth.year == year }
-                            .sumOf(MonthlyDownload::downloads)
-                            .toBigInteger(),
-                        columnTrials to (trialResultAnyDuration.totalTrials.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
-                        columnTrialsConverted to trialResultAnyDuration.convertedTrialsPercentage,
-                    ),
-                    tooltips = mapOf(
-                        columnTrialsConverted to trialResultAnyDuration.getTooltipConverted() +
-                                "\n" +
-                                trialResultTrialDuration.getTooltipConverted(maxTrialDays)
-                    ),
-                    cssClass = when {
-                        year == now.year -> "today"
-                        else -> null
-                    }
+                SimpleDateTableRow(values = mapOf(
+                    columnYear to year,
+                    columnSalesTotal to yearData.sales.totalAmount,
+                    columnSalesFees to yearData.sales.feesAmount,
+                    columnSalesPaid to yearData.sales.paidAmount,
+                    columnARR to (arrResult?.amounts?.getTotalAmount() ?: NoValue),
+                    columnDownloads to downloads.filter { it.firstOfMonth.year == year }.sumOf(MonthlyDownload::downloads).toBigInteger(),
+                    columnTrials to (trialResultAnyDuration.totalTrials.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
+                    columnTrialsConverted to trialResultAnyDuration.convertedTrialsPercentage,
+                ), tooltips = mapOf(
+                    columnTrialsConverted to trialResultAnyDuration.getTooltipConverted() + "\n" + trialResultTrialDuration.getTooltipConverted(
+                        maxTrialDays
+                    )
+                ), cssClass = when {
+                    year == now.year -> "today"
+                    else -> null
+                }
                 )
             }
 
         return listOf(
             SimpleTableSection(
-                rows = rows,
-                footer = SimpleTableSection(
+                rows = rows, footer = SimpleTableSection(
                     SimpleDateTableRow(
                         values = mapOf(
                             columnSalesTotal to totalSales.totalAmount,
@@ -135,11 +129,10 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                             columnDownloads to downloads.sumOf { it.downloads.toBigInteger() },
                             columnTrials to allTrialsAnyDuration.totalTrials.toBigInteger(),
                             columnTrialsConverted to allTrialsAnyDuration.convertedTrialsPercentage,
-                        ),
-                        tooltips = mapOf(
-                            columnTrialsConverted to allTrialsAnyDuration.getTooltipConverted() +
-                                    "\n" +
-                                    allTrialsTrialDuration.getTooltipConverted(maxTrialDays),
+                        ), tooltips = mapOf(
+                            columnTrialsConverted to allTrialsAnyDuration.getTooltipConverted() + "\n" + allTrialsTrialDuration.getTooltipConverted(
+                                maxTrialDays
+                            ),
                         )
                     )
                 )

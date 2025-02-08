@@ -19,8 +19,7 @@ import java.math.BigDecimal
 import java.text.Collator
 import javax.money.MonetaryAmount
 
-class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column-wide"),
-    MarketplaceDataSink {
+class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column-wide"), MarketplaceDataSink {
     private lateinit var pluginPricing: PluginPricing
     private lateinit var countries: Countries
 
@@ -63,8 +62,7 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
         )
 
         val countryComparator = Comparator.comparing<Pair<CountryWithCurrency, PluginPriceInfo>, String>(
-            { it.first.country.printableName },
-            Collator.getInstance()
+            { it.first.country.printableName }, Collator.getInstance()
         )
 
         val currencyToPricing = MarketplaceCurrencies.associate { currency ->
@@ -74,43 +72,38 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
             }
         }
 
-        val currencySections = currencyToPricing
-            .entries
-            .sortedByDescending { it.value.size } // show currencies with most entries first
+        val currencySections = currencyToPricing.entries.sortedByDescending { it.value.size } // show currencies with most entries first
             .map { (currencyCode, items) ->
-                val subTableRows = items
-                    .sortedWith(countryComparator)
-                    .map { (countryWithCurrency, priceInfo) ->
-                        val currency = countryWithCurrency.currency
-                        val (personalA, personalB, personalC) = priceInfo.prices.personal.annual.mapYears(currency)
-                        val (personalTaxedA, personalTaxedB, personalTaxedC) = priceInfo.prices.personal.annual.mapYearsTaxed(currency)
+                val subTableRows = items.sortedWith(countryComparator).map { (countryWithCurrency, priceInfo) ->
+                    val currency = countryWithCurrency.currency
+                    val (personalA, personalB, personalC) = priceInfo.prices.personal.annual.mapYears(currency)
+                    val (personalTaxedA, personalTaxedB, personalTaxedC) = priceInfo.prices.personal.annual.mapYearsTaxed(currency)
 
-                        val (commercialA, commercialB, commercialC) = priceInfo.prices.commercial.annual.mapYears(currency)
-                        val (commercialTaxedA, commercialTaxedB, commercialTaxedC) = priceInfo.prices.commercial.annual.mapYearsTaxed(
-                            currency
+                    val (commercialA, commercialB, commercialC) = priceInfo.prices.commercial.annual.mapYears(currency)
+                    val (commercialTaxedA, commercialTaxedB, commercialTaxedC) = priceInfo.prices.commercial.annual.mapYearsTaxed(
+                        currency
+                    )
+
+                    SimpleDateTableRow(
+                        values = mapOf(
+                            columnCountry to countryWithCurrency.country.printableName,
+                            columnFirstYearPersonal to listOfNotNull(personalA, personalTaxedA),
+                            columnSecondYearPersonal to listOfNotNull(personalB, personalTaxedB),
+                            columnThirdYearPersonal to listOfNotNull(personalC, personalTaxedC),
+
+                            columnFirstYearCommercial to listOfNotNull(commercialA, commercialTaxedA),
+                            columnSecondYearCommercial to listOfNotNull(commercialB, commercialTaxedB),
+                            columnThirdYearCommercial to listOfNotNull(commercialC, commercialTaxedC),
+                        ), sortValues = mapOf(
+                            columnFirstYearPersonal to personalA.sortValue(),
+                            columnSecondYearPersonal to personalB.sortValue(),
+                            columnThirdYearPersonal to personalC.sortValue(),
+                            columnFirstYearCommercial to commercialA.sortValue(),
+                            columnSecondYearCommercial to commercialB.sortValue(),
+                            columnThirdYearCommercial to commercialC.sortValue(),
                         )
-
-                        SimpleDateTableRow(
-                            values = mapOf(
-                                columnCountry to countryWithCurrency.country.printableName,
-                                columnFirstYearPersonal to listOfNotNull(personalA, personalTaxedA),
-                                columnSecondYearPersonal to listOfNotNull(personalB, personalTaxedB),
-                                columnThirdYearPersonal to listOfNotNull(personalC, personalTaxedC),
-
-                                columnFirstYearCommercial to listOfNotNull(commercialA, commercialTaxedA),
-                                columnSecondYearCommercial to listOfNotNull(commercialB, commercialTaxedB),
-                                columnThirdYearCommercial to listOfNotNull(commercialC, commercialTaxedC),
-                            ),
-                            sortValues = mapOf(
-                                columnFirstYearPersonal to personalA.sortValue(),
-                                columnSecondYearPersonal to personalB.sortValue(),
-                                columnThirdYearPersonal to personalC.sortValue(),
-                                columnFirstYearCommercial to commercialA.sortValue(),
-                                columnSecondYearCommercial to commercialB.sortValue(),
-                                columnThirdYearCommercial to commercialC.sortValue(),
-                            )
-                        )
-                    }
+                    )
+                }
 
                 SimpleTableSection(rows = subTableRows, columns = subColumns, title = currencyCode.currencyCode)
             }
@@ -121,16 +114,16 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
     private fun PriceInfoTypeData.mapYears(currency: Currency): Triple<MonetaryAmount, MonetaryAmount, MonetaryAmount> {
         return Triple(
             firstYear.price.withCurrency(currency),
-            secondYear.price.withCurrency(currency),
-            thirdYear.price.withCurrency(currency),
+            secondYear?.price?.withCurrency(currency) ?: firstYear.price.withCurrency(currency),
+            thirdYear?.price?.withCurrency(currency) ?: firstYear.price.withCurrency(currency),
         )
     }
 
     private fun PriceInfoTypeData.mapYearsTaxed(currency: Currency): Triple<MonetaryAmount?, MonetaryAmount?, MonetaryAmount?> {
         return Triple(
             firstYear.priceTaxed?.withCurrency(currency),
-            secondYear.priceTaxed?.withCurrency(currency),
-            thirdYear.priceTaxed?.withCurrency(currency),
+            secondYear?.priceTaxed?.withCurrency(currency),
+            thirdYear?.priceTaxed?.withCurrency(currency),
         )
     }
 

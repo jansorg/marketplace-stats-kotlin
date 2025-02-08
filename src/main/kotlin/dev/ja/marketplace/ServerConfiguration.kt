@@ -7,5 +7,6 @@ package dev.ja.marketplace
 
 data class ServerConfiguration(
     val userDisplayCurrencyCode: String,
-    val showResellerCharges: Boolean
+    val showResellerCharges: Boolean,
+    val disabledContinuityDiscount: Boolean
 )

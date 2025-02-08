@@ -10,10 +10,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class PriceInfoTypeData(
-    @SerialName("firstYear")
-    val firstYear: PriceInfoData,
-    @SerialName("secondYear")
-    val secondYear: PriceInfoData,
-    @SerialName("thirdYear")
-    val thirdYear: PriceInfoData,
+    @SerialName("firstYear") val firstYear: PriceInfoData,
+    @SerialName("secondYear") val secondYear: PriceInfoData? = null,
+    @SerialName("thirdYear") val thirdYear: PriceInfoData? = null,
 )

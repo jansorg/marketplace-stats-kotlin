@@ -15,11 +15,11 @@ import java.math.RoundingMode
 import java.util.*
 
 /**
- * Tracks recurring revenue for a given time period, e.g. one month or one year.
+ * Tracks recurring revenue for a given time period, e.g., one month or one year.
  */
 abstract class RecurringRevenueTracker(
     private val dateRange: YearMonthDayRange,
-    private val continuityTracker: ContinuityDiscountTracker,
+    private val continuityTracker: ContinuityDiscountTracker?,
     private val pluginPricing: PluginPricing,
     private val exchangeRates: ExchangeRates,
 ) {
@@ -46,9 +46,7 @@ abstract class RecurringRevenueTracker(
 
         for ((_, license) in latestSales) {
             val basePrice = pluginPricing.getBasePrice(
-                license.sale.customer,
-                license.sale.licensePeriod,
-                nextContinuityDiscount(license)
+                license.sale.customer, license.sale.licensePeriod, nextContinuityDiscount(license)
             )
             assert(basePrice != null) {
                 "Unable to find base price for country ${license.sale.customer.country}"
@@ -66,11 +64,12 @@ abstract class RecurringRevenueTracker(
      * @return The expected continuity discount for the next month or year.
      */
     private fun nextContinuityDiscount(license: LicenseInfo): ContinuityDiscount {
-        return continuityTracker.nextContinuity(license.id, nextContinuityCheckDate(license.validity.start))
+        return continuityTracker?.nextContinuity(license.id, nextContinuityCheckDate(license.validity.start))
+            ?: ContinuityDiscount.FirstYear
     }
 
     private fun isValid(license: LicenseInfo): Boolean {
-        // Only take licenses which are valid at the end of the date range, e.g. at the end of a month.
+        // Only take licenses which are valid at the end of the date range, e.g., at the end of a month.
         // Licenses only valid at the start but expiring in the middle of a month do not contribute to recurring revenue.
         return dateRange.end in license.validity
     }
@@ -96,7 +95,7 @@ abstract class RecurringRevenueTracker(
 
 class MonthlyRecurringRevenueTracker(
     timeRange: YearMonthDayRange,
-    continuityTracker: ContinuityDiscountTracker,
+    continuityTracker: ContinuityDiscountTracker?,
     pluginPricing: PluginPricing,
     exchangeRates: ExchangeRates,
 ) : RecurringRevenueTracker(timeRange, continuityTracker, pluginPricing, exchangeRates) {
@@ -116,7 +115,7 @@ class MonthlyRecurringRevenueTracker(
 
 class AnnualRecurringRevenueTracker(
     timeRange: YearMonthDayRange,
-    continuityTracker: ContinuityDiscountTracker,
+    continuityTracker: ContinuityDiscountTracker?,
     pluginPricing: PluginPricing,
     exchangeRates: ExchangeRates,
 ) : RecurringRevenueTracker(timeRange, continuityTracker, pluginPricing, exchangeRates) {
@@ -135,6 +134,5 @@ class AnnualRecurringRevenueTracker(
 }
 
 data class RecurringRevenue(
-    val dateRange: YearMonthDayRange,
-    val amounts: MonetaryAmountTracker
+    val dateRange: YearMonthDayRange, val amounts: MonetaryAmountTracker
 )

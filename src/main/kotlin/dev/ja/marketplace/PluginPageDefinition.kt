@@ -9,8 +9,6 @@ import io.ktor.server.request.*
 
 interface PluginPageDefinition {
     suspend fun createTemplateParameters(
-        dataLoader: PluginDataLoader,
-        request: ApplicationRequest,
-        serverConfiguration: ServerConfiguration
+        dataLoader: PluginDataLoader, request: ApplicationRequest, serverConfiguration: ServerConfiguration
     ): Map<String, Any?>
 }

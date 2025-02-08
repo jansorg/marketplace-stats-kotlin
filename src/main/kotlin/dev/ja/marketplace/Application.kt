@@ -35,50 +35,46 @@ class Application(version: String) : CliktCommand(
         }
     }
 
-    private val applicationConfig: ApplicationConfig? by argument("config.json file path")
-        .help("Path to the application configuration JSON file. It's used as fallback for the other command line options. A template is available at https://github.com/jansorg/marketplace-stats-kotlin/blob/main/config-template.json.")
+    private val applicationConfig: ApplicationConfig? by argument("config.json file path").help("Path to the application configuration JSON file. It's used as fallback for the other command line options. A template is available at https://github.com/jansorg/marketplace-stats-kotlin/blob/main/config-template.json.")
         .path(mustExist = true, canBeDir = false, mustBeReadable = true)
-        .convert { Json.decodeFromString<ApplicationConfig>(Files.readString(it)) }
-        .optional()
+        .convert { Json.decodeFromString<ApplicationConfig>(Files.readString(it)) }.optional()
 
-    private val apiKey: String? by option("-k", "--api-key", envvar = "MARKETPLACE_API_KEY")
-        .help("API key for the JetBrains Marketplace. The key is used to find available plugins and to load the data needed to generate a plugin report.")
+    private val apiKey: String? by option(
+        "-k", "--api-key", envvar = "MARKETPLACE_API_KEY"
+    ).help("API key for the JetBrains Marketplace. The key is used to find available plugins and to load the data needed to generate a plugin report.")
 
-    private val serverHostname: String by option("-h", "--host", envvar = "MARKETPLACE_SERVER_HOSTNAME")
-        .default("0.0.0.0")
+    private val serverHostname: String by option("-h", "--host", envvar = "MARKETPLACE_SERVER_HOSTNAME").default("0.0.0.0")
         .help("IP address or hostname the integrated webserver is bound to.")
 
-    private val serverPort: Int by option("-p", "--port", envvar = "MARKETPLACE_SERVER_PORT").int()
-        .default(8080)
+    private val serverPort: Int by option("-p", "--port", envvar = "MARKETPLACE_SERVER_PORT").int().default(8080)
         .help("Port used by the integrated webserver.")
 
-    private val displayCurrency: String? by option("-c", "--currency", envvar = "MARKETPLACE_DISPLAY_CURRENCY")
-        .help("Currency for the displayed monetary amounts.")
+    private val displayCurrency: String? by option(
+        "-c", "--currency", envvar = "MARKETPLACE_DISPLAY_CURRENCY"
+    ).help("Currency for the displayed monetary amounts.")
 
-    private val showResellerCharges: Boolean? by option("--show-reseller-charges", envvar = "MARKETPLACE_SHOW_RESELLER_CHARGES")
-        .nullableFlag()
-        .help("Show incorrect charges for sales through resellers.")
+    private val disabledContinuityDiscount: Boolean? by option(
+        "--disabled-continuity-discount", envvar = "MARKETPLACE_WITHOUT_CONTINUITY_DISCOUNT"
+    ).nullableFlag().help("Plugin disabled the continuity discount.")
+
+    private val showResellerCharges: Boolean? by option(
+        "--show-reseller-charges", envvar = "MARKETPLACE_SHOW_RESELLER_CHARGES"
+    ).nullableFlag().help("Show incorrect charges for sales through resellers.")
 
     private val logging: ClientLogLevel by option(
-        "-d",
-        "--debug",
-        envvar = "MARKETPLACE_LOG_LEVEL"
-    ).enum<ClientLogLevel>(key = { it.name.lowercase() })
-        .default(ClientLogLevel.None)
+        "-d", "--debug", envvar = "MARKETPLACE_LOG_LEVEL"
+    ).enum<ClientLogLevel>(key = { it.name.lowercase() }).default(ClientLogLevel.None)
         .help("The log level used for the server and the API requests to the marketplace")
 
     override fun run() {
-        val apiKey = this.apiKey
-            ?: applicationConfig?.marketplaceApiKey
-            ?: throw BadParameterValue("No API key provided. Please refer to --help how to provide it.")
+        val apiKey = this.apiKey ?: applicationConfig?.marketplaceApiKey
+        ?: throw BadParameterValue("No API key provided. Please refer to --help how to provide it.")
 
-        val displayCurrencyCode = this.displayCurrency
-            ?: applicationConfig?.displayedCurrency
-            ?: "USD"
+        val displayCurrencyCode = this.displayCurrency ?: applicationConfig?.displayedCurrency ?: "USD"
 
-        val showResellerCharges = this.showResellerCharges
-            ?: applicationConfig?.showResellerCharges
-            ?: false
+        val disabledContinuityDiscount = this.disabledContinuityDiscount ?: applicationConfig?.disabledContinuityDiscount ?: true
+
+        val showResellerCharges = this.showResellerCharges ?: applicationConfig?.showResellerCharges ?: false
 
         runBlocking {
             val server = MarketplaceStatsServer(
@@ -86,7 +82,7 @@ class Application(version: String) : CliktCommand(
                 KtorJetBrainsServiceClient(logLevel = logging),
                 serverHostname,
                 serverPort,
-                ServerConfiguration(displayCurrencyCode, showResellerCharges)
+                ServerConfiguration(displayCurrencyCode, showResellerCharges, disabledContinuityDiscount)
             )
 
             server.start()

@@ -10,10 +10,8 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class ApplicationConfig(
-    @SerialName("apiKey")
-    val marketplaceApiKey: String,
-    @SerialName("displayedCurrency")
-    val displayedCurrency: String? = null,
-    @SerialName("showResellerCharges")
-    val showResellerCharges: Boolean = false,
+    @SerialName("apiKey") val marketplaceApiKey: String,
+    @SerialName("displayedCurrency") val displayedCurrency: String? = null,
+    @SerialName("showResellerCharges") val showResellerCharges: Boolean = false,
+    @SerialName("disabledContinuityDiscount") val disabledContinuityDiscount: Boolean = false,
 )

@@ -5,8 +5,8 @@
 
 package dev.ja.marketplace
 
-import dev.ja.marketplace.client.model.DownloadCountType.Downloads
 import dev.ja.marketplace.client.MarketplaceClient
+import dev.ja.marketplace.client.model.DownloadCountType.Downloads
 import dev.ja.marketplace.client.model.PluginInfoSummary
 import dev.ja.marketplace.data.PluginData
 import dev.ja.marketplace.data.PluginPricing
@@ -20,6 +20,7 @@ class PluginDataLoader(
     val plugin: PluginInfoSummary,
     val countries: Countries,
     val exchangeRates: ExchangeRates,
+    val disabledContinuityDiscount: Boolean,
 ) {
     suspend fun load(): PluginData {
         return coroutineScope {
@@ -32,12 +33,17 @@ class PluginDataLoader(
             val salesAndLicenses = loadAsyncIfPaid { client.licenseInfo(plugin.id) }
             val trials = loadAsyncIfPaid { client.trialsInfo(plugin.id) }
 
-            val continuityDiscountTracker = when (salesAndLicenses) {
-                null -> null
-                else -> async(Dispatchers.IO) {
-                    val tracker = BaseContinuityDiscountTracker()
-                    salesAndLicenses.await().licenses.forEach(tracker::process)
-                    tracker
+
+            val continuityDiscountTracker = if (disabledContinuityDiscount) {
+                null
+            } else {
+                when (salesAndLicenses) {
+                    null -> null
+                    else -> async(Dispatchers.IO) {
+                        val tracker = BaseContinuityDiscountTracker()
+                        salesAndLicenses.await().licenses.forEach(tracker::process)
+                        tracker
+                    }
                 }
             }
 
