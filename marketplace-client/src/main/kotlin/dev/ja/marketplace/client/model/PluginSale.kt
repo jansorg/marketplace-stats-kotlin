@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -17,7 +17,7 @@ data class PluginSale(
     val date: YearMonthDay,
     override val amount: MonetaryAmount,
     override val amountUSD: MonetaryAmount,
-    val licensePeriod: LicensePeriod,
+    val licensePeriod: LicensePeriod? = null,
     val customer: CustomerInfo,
     val reseller: ResellerInfo? = null,
     val lineItems: List<PluginSaleItem>
