@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2023-2025 Joachim Ansorg.
+ * Copyright (c) 2023-2024 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 package dev.ja.marketplace.client
 
-import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.*
+import dev.ja.marketplace.client.model.JsonPluginSaleItem
+import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import kotlinx.datetime.Instant
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
@@ -135,7 +136,7 @@ object PluginSaleSerializer : KSerializer<PluginSale> {
                     2 -> amountValue = decodeDoubleElement(descriptor, index)
                     3 -> currency = decodeStringElement(descriptor, index)
                     4 -> amountValueUSD = decodeDoubleElement(descriptor, index)
-                    5 -> period = decodeSerializableElement(descriptor, index, LicensePeriod.serializer().nullable)
+                    5 -> period = decodeSerializableElement(descriptor, index, LicensePeriod.serializer())
                     6 -> customer = decodeNullableSerializableElement(descriptor, index, CustomerInfo.serializer())
                     7 -> reseller = decodeNullableSerializableElement(descriptor, index, ResellerInfo.serializer())
                     8 -> lineItems = decodeNullableSerializableElement(descriptor, index, ListSerializer(JsonPluginSaleItem.serializer()))
@@ -143,7 +144,7 @@ object PluginSaleSerializer : KSerializer<PluginSale> {
                     else -> error("Unexpected index: $index")
                 }
             }
-            require(ref != null && date != null && amountValue != null && currency != null && amountValueUSD != null && customer != null)
+            require(ref != null && date != null && amountValue != null && currency != null && amountValueUSD != null && period != null && customer != null)
             require(lineItems != null)
 
             val amountCurrencyUnit = MarketplaceCurrencies.of(currency)
