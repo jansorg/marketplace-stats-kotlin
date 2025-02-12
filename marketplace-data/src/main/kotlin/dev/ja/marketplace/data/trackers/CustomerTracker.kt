@@ -1,13 +1,13 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 package dev.ja.marketplace.data.trackers
 
-import dev.ja.marketplace.client.model.CustomerInfo
-import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.LicenseInfo
+import dev.ja.marketplace.client.YearMonthDayRange
+import dev.ja.marketplace.client.model.CustomerInfo
 
 class CustomerTracker<T>(private val dateRange: YearMonthDayRange) {
     private val segmentedCustomers = mutableMapOf<T, MutableSet<CustomerInfo>>()
@@ -35,7 +35,8 @@ class CustomerTracker<T>(private val dateRange: YearMonthDayRange) {
     }
 
     fun add(segment: T, licenseInfo: LicenseInfo) {
-        if (dateRange.end in licenseInfo.validity) {
+        val validity = licenseInfo.validity
+        if (validity != null && dateRange.end in validity) {
             val customer = licenseInfo.sale.customer
 
             customers += customer

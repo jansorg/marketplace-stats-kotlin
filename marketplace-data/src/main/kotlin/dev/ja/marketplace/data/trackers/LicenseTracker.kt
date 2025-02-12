@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -33,7 +33,8 @@ class LicenseTracker<T>(private val dateRange: YearMonthDayRange) {
     }
 
     fun add(segment: T, licenseInfo: LicenseInfo) {
-        if (dateRange.end in licenseInfo.validity) {
+        val validity = licenseInfo.validity
+        if (validity != null && dateRange.end in validity) {
             licenses += licenseInfo.id
 
             if (licenseInfo.isPaidLicense) {

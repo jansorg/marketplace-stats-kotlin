@@ -31,10 +31,10 @@ abstract class RecurringRevenueTracker(
 
     fun processLicenseSale(licenseInfo: LicenseInfo) {
         // only keep the latest valid sale of a license
-        if (licenseInfo.isPaidLicense && isValid(licenseInfo)) {
+        if (licenseInfo.isPaidLicense && licenseInfo.isSubscriptionLicense && isValid(licenseInfo)) {
             latestSales.merge(licenseInfo.id, licenseInfo) { old, new ->
                 when {
-                    new.validity.end > old.validity.end -> new
+                    new.validity!!.end > old.validity!!.end -> new
                     else -> old
                 }
             }
@@ -56,7 +56,7 @@ abstract class RecurringRevenueTracker(
 
             val factors = basePriceFactor(license.sale.licensePeriod) * otherDiscountsFactor(license).toBigDecimal()
 
-            resultAmounts.add(license.validity.end, license.amountUSD * factors, license.amount * factors)
+            resultAmounts.add(license.validity!!.end, license.amountUSD * factors, license.amount * factors)
         }
 
         return RecurringRevenue(dateRange, resultAmounts)
@@ -66,13 +66,14 @@ abstract class RecurringRevenueTracker(
      * @return The expected continuity discount for the next month or year.
      */
     private fun nextContinuityDiscount(license: LicenseInfo): ContinuityDiscount {
-        return continuityTracker.nextContinuity(license.id, nextContinuityCheckDate(license.validity.start))
+        return continuityTracker.nextContinuity(license.id, nextContinuityCheckDate(license.validity!!.start))
     }
 
     private fun isValid(license: LicenseInfo): Boolean {
         // Only take licenses which are valid at the end of the date range, e.g. at the end of a month.
         // Licenses only valid at the start but expiring in the middle of a month do not contribute to recurring revenue.
-        return dateRange.end in license.validity
+        val validity = license.validity
+        return validity != null && dateRange.end in validity
     }
 
     private fun otherDiscountsFactor(licenseInfo: LicenseInfo): Double {

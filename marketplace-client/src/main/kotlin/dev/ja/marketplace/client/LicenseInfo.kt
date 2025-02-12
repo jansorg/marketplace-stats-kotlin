@@ -1,14 +1,15 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 package dev.ja.marketplace.client
 
+import dev.ja.marketplace.client.currency.WithAmounts
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.client.model.PluginSaleItem
 import dev.ja.marketplace.client.model.PluginSaleItemType
-import dev.ja.marketplace.client.currency.WithAmounts
+import dev.ja.marketplace.client.model.SubscriptionPluginSaleItem
 import javax.money.MonetaryAmount
 
 /**
@@ -17,8 +18,6 @@ import javax.money.MonetaryAmount
 data class LicenseInfo(
     // unique identifier of the license, there may be multiple LicenseInfo items with the same license ID
     val id: LicenseId,
-    // dates, when this license is valid
-    val validity: YearMonthDayRange,
     // amount of this particular license
     override val amount: MonetaryAmount,
     // same as amount, but converted from "currency" to USD
@@ -27,10 +26,16 @@ data class LicenseInfo(
     val sale: PluginSale,
     // the sale line item of this particular license purchase
     val saleLineItem: PluginSaleItem,
-) : WithDateRange, WithAmounts, Comparable<LicenseInfo> {
+) : WithAmounts, Comparable<LicenseInfo> {
     init {
         require(amountUSD.currency.currencyCode == "USD")
     }
+
+    /** Dates, when this license is valid */
+    val validity: YearMonthDayRange?
+        get() {
+            return (saleLineItem as? SubscriptionPluginSaleItem)?.subscriptionDates
+        }
 
     val isNewLicense: Boolean
         get() {
@@ -47,11 +52,20 @@ data class LicenseInfo(
             return !amountUSD.isZero && !saleLineItem.isFreeLicense
         }
 
-    override val dateRange: YearMonthDayRange
-        get() = validity
+    val isSubscriptionLicense: Boolean
+        get() {
+            return saleLineItem is SubscriptionPluginSaleItem
+        }
 
     override fun compareTo(other: LicenseInfo): Int {
-        return validity.compareTo(other.validity)
+        val validity = this.validity
+        val otherValidity = this.validity
+        return when {
+            validity == null && otherValidity == null -> 0
+            validity == null -> +1
+            otherValidity == null -> -1
+            else -> validity.compareTo(otherValidity)
+        }
     }
 
     companion object {
@@ -62,14 +76,7 @@ data class LicenseInfo(
             sales.forEach { sale ->
                 sale.lineItems.forEach { lineItem ->
                     MonetaryAmountSplitter.split(lineItem.amount, lineItem.amountUSD, lineItem.licenseIds) { amount, amountUSD, license ->
-                        licenses += LicenseInfo(
-                            license,
-                            lineItem.subscriptionDates,
-                            amount,
-                            amountUSD,
-                            sale,
-                            lineItem
-                        )
+                        licenses += LicenseInfo(license, amount, amountUSD, sale, lineItem)
                     }
                 }
             }

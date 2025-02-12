@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -70,18 +70,22 @@ class LicenseTable(
     }
 
     override suspend fun process(licenseInfo: LicenseInfo) {
+        if (!licenseInfo.isSubscriptionLicense) {
+            return
+        }
+
         val licenseId = licenseInfo.id
-        licenseMaxValidity[licenseId] = maxOfNullable(licenseMaxValidity[licenseId], licenseInfo.validity.end)
+        licenseMaxValidity[licenseId] = maxOfNullable(licenseMaxValidity[licenseId], licenseInfo.validity!!.end)
 
         if (licenseFilter(licenseInfo)) {
             data += licenseInfo
-            filteredLicenseMaxValidity[licenseId] = maxOfNullable(filteredLicenseMaxValidity[licenseId], licenseInfo.validity.end)
+            filteredLicenseMaxValidity[licenseId] = maxOfNullable(filteredLicenseMaxValidity[licenseId], licenseInfo.validity!!.end)
         }
     }
 
     // first by date, then days by new/renew, then same values by annual/monthly, then by amount
     private val comparator = Comparator.comparing<LicenseInfo?, YearMonthDay?> { it.sale.date }.reversed()
-        .thenDescending(Comparator.comparing { it.validity.start })
+        .thenDescending(Comparator.comparing { it.validity!!.start })
         .then(Comparator.comparing { it.saleLineItem.type })
         .thenDescending(Comparator.comparing { it.sale.licensePeriod })
         .thenDescending(Comparator.comparing { it.amountUSD.sortValue() })
@@ -117,8 +121,8 @@ class LicenseTable(
                         columnLicenseId to LinkedLicense(license.id, pluginId!!),
                         columnRefNum to LinkedRefNum(license.sale.ref, pluginId!!),
                         columnPurchaseDate to if (showPurchaseDate) purchaseDate else null,
-                        columnValidityStart to license.validity.start,
-                        columnValidityEnd to license.validity.end,
+                        columnValidityStart to license.validity!!.start,
+                        columnValidityEnd to license.validity!!.end,
                         columnCustomerName to (license.sale.customer.name ?: NoValue),
                         columnCustomerId to LinkedCustomer(license.sale.customer.code, pluginId = pluginId!!),
                         columnLocalAmount to license.amount,

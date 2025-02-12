@@ -542,10 +542,10 @@ class MarketplaceStatsServer(
         val churnProcessor = LicenseChurnProcessor(lastActiveMarker, activeMarker)
         churnProcessor.init()
 
-        data.getLicenses()!!.forEach {
+        data.getLicenses()!!.filter(LicenseInfo::isSubscriptionLicense).forEach {
             churnProcessor.processValue(
                 it,
-                it.validity,
+                it.validity!!,
                 it.sale.licensePeriod == period && it.isPaidLicense,
                 it.isRenewalLicense
             )

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -23,15 +23,15 @@ class BaseContinuityDiscountTracker : ContinuityDiscountTracker {
     private val newSalesValidity = mutableMapOf<LicenseId, TreeSet<LicenseInfo>>()
 
     override fun process(license: LicenseInfo) {
-        if (license.isNewLicense) {
+        if (license.isNewLicense && license.isSubscriptionLicense) {
             val sales = newSalesValidity.computeIfAbsent(license.id) { TreeSet() }
             sales += license
         }
     }
 
     override fun nextContinuity(licenseId: LicenseId, atDate: YearMonthDay): ContinuityDiscount {
-        val latestNewSale = newSalesValidity[licenseId]?.lastOrNull { it.validity.end < atDate } ?: return ContinuityDiscount.FirstYear
-        val months = latestNewSale.validity.start monthsUntil atDate
+        val latestNewSale = newSalesValidity[licenseId]?.lastOrNull { it.validity!!.end < atDate } ?: return ContinuityDiscount.FirstYear
+        val months = latestNewSale.validity!!.start monthsUntil atDate
         return when {
             months >= 24 -> ContinuityDiscount.ThirdYear
             months >= 12 -> ContinuityDiscount.SecondYear

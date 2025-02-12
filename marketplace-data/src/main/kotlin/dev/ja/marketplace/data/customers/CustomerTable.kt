@@ -1,12 +1,11 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 package dev.ja.marketplace.data.customers
 
 import dev.ja.marketplace.client.*
-import dev.ja.marketplace.client.LicenseId
 import dev.ja.marketplace.client.model.CustomerInfo
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
@@ -69,17 +68,21 @@ class CustomerTable(
             CustomerTableRowData(customer, MonetaryAmountTracker(exchangeRates))
         }
 
-        val licenseStart = licenseInfo.validity.start
-        data.earliestLicenseStart = minOf(licenseStart, data.earliestLicenseStart ?: licenseStart)
+        val validity = licenseInfo.validity
+        if (validity != null) {
+            val licenseStart = validity.start
+            data.earliestLicenseStart = minOf(licenseStart, data.earliestLicenseStart ?: licenseStart)
 
-        val licenseEnd = licenseInfo.validity.end
-        data.latestLicenseEnd = maxOf(licenseEnd, data.latestLicenseEnd ?: licenseEnd)
+            val licenseEnd = validity.end
+            data.latestLicenseEnd = maxOf(licenseEnd, data.latestLicenseEnd ?: licenseEnd)
+
+            // calculate active state of a license in the same way as LicenseTable
+            if (validity.end >= nowDate) {
+                data.activeLicenses += licenseInfo.id
+            }
+        }
 
         data.totalLicenses += licenseInfo.id
-        // calculate active state of a license in the same way as LicenseTable
-        if (licenseInfo.validity.end >= nowDate) {
-            data.activeLicenses += licenseInfo.id
-        }
         data.totalSales.add(licenseInfo.sale.date, licenseInfo.amountUSD, licenseInfo.amount)
     }
 

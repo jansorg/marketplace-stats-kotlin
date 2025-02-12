@@ -162,14 +162,24 @@ object PluginSaleSerializer : KSerializer<PluginSale> {
                 customer,
                 reseller,
                 lineItems.map {
-                    PluginSaleItem(
-                        it.type,
-                        it.licenseIds,
-                        it.subscriptionDates,
-                        FastMoney.of(it.amount, amountCurrencyUnit),
-                        FastMoney.of(it.amountUSD, MarketplaceCurrencies.USD),
-                        it.discountDescriptions
-                    )
+                    when {
+                        it.subscriptionDates == null -> PerpetualPluginSaleItem(
+                            it.type,
+                            it.licenseIds,
+                            FastMoney.of(it.amount, amountCurrencyUnit),
+                            FastMoney.of(it.amountUSD, MarketplaceCurrencies.USD),
+                            it.discountDescriptions
+                        )
+
+                        else -> SubscriptionPluginSaleItem(
+                            it.type,
+                            it.licenseIds,
+                            FastMoney.of(it.amount, amountCurrencyUnit),
+                            FastMoney.of(it.amountUSD, MarketplaceCurrencies.USD),
+                            it.discountDescriptions,
+                            it.subscriptionDates
+                        )
+                    }
                 }
             )
         }
