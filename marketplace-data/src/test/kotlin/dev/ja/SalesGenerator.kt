@@ -1,14 +1,15 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 package dev.ja
 
 import dev.ja.marketplace.TestCustomers
-import dev.ja.marketplace.client.*
-import dev.ja.marketplace.client.model.*
+import dev.ja.marketplace.client.YearMonthDay
+import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.currency.MarketplaceCurrencies
+import dev.ja.marketplace.client.model.*
 import org.javamoney.moneta.FastMoney
 import java.util.concurrent.atomic.AtomicInteger
 import javax.money.CurrencyUnit
@@ -38,7 +39,7 @@ object SalesGenerator {
             type,
             customer ?: TestCustomers.PersonDummy,
             null,
-            listOf(PluginSaleItem(saleType, listOf(nextLicenseId()), usedValidity, usedAmount, usedAmount, emptyList()))
+            listOf(SubscriptionPluginSaleItem(saleType, listOf(nextLicenseId()), usedAmount, usedAmount, emptyList(), usedValidity))
         )
     }
 
