@@ -233,31 +233,34 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         val customerSegment = CustomerSegment.of(licenseInfo)
 
         years.values.forEach { year ->
-            year.churnCustomersAnnual.processValue(
-                customer,
-                licenseInfo.validity,
-                licensePeriod == LicensePeriod.Annual && isPaidLicense,
-                isRenewal
-            )
-            year.churnLicensesAnnual.processValue(
-                licenseInfo,
-                licenseInfo.validity,
-                licensePeriod == LicensePeriod.Annual && isPaidLicense,
-                isRenewal
-            )
+            val validity = licenseInfo.validity
+            if (validity != null) {
+                year.churnCustomersAnnual.processValue(
+                    customer,
+                    validity,
+                    licensePeriod == LicensePeriod.Annual && isPaidLicense,
+                    isRenewal
+                )
+                year.churnLicensesAnnual.processValue(
+                    licenseInfo,
+                    validity,
+                    licensePeriod == LicensePeriod.Annual && isPaidLicense,
+                    isRenewal
+                )
 
-            year.churnCustomersMonthly.processValue(
-                customer,
-                licenseInfo.validity,
-                licensePeriod == LicensePeriod.Monthly && isPaidLicense,
-                isRenewal
-            )
-            year.churnLicensesMonthly.processValue(
-                licenseInfo,
-                licenseInfo.validity,
-                licensePeriod == LicensePeriod.Monthly && isPaidLicense,
-                isRenewal
-            )
+                year.churnCustomersMonthly.processValue(
+                    customer,
+                    validity,
+                    licensePeriod == LicensePeriod.Monthly && isPaidLicense,
+                    isRenewal
+                )
+                year.churnLicensesMonthly.processValue(
+                    licenseInfo,
+                    validity,
+                    licensePeriod == LicensePeriod.Monthly && isPaidLicense,
+                    isRenewal
+                )
+            }
 
             year.months.values.forEach { month ->
                 month.customers.add(customerSegment, licenseInfo)
@@ -266,31 +269,33 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                 month.mrrTracker.processLicenseSale(licenseInfo)
                 month.arrTracker.processLicenseSale(licenseInfo)
 
-                month.churnCustomersAnnual.processValue(
-                    customer,
-                    licenseInfo.validity,
-                    licensePeriod == LicensePeriod.Annual && isPaidLicense,
-                    isRenewal
-                )
-                month.churnLicensesAnnual.processValue(
-                    licenseInfo,
-                    licenseInfo.validity,
-                    licensePeriod == LicensePeriod.Annual && isPaidLicense,
-                    isRenewal
-                )
+                if (validity != null) {
+                    month.churnCustomersAnnual.processValue(
+                        customer,
+                        validity,
+                        licensePeriod == LicensePeriod.Annual && isPaidLicense,
+                        isRenewal
+                    )
+                    month.churnLicensesAnnual.processValue(
+                        licenseInfo,
+                        validity,
+                        licensePeriod == LicensePeriod.Annual && isPaidLicense,
+                        isRenewal
+                    )
 
-                month.churnCustomersMonthly.processValue(
-                    customer,
-                    licenseInfo.validity,
-                    licensePeriod == LicensePeriod.Monthly && isPaidLicense,
-                    isRenewal
-                )
-                month.churnLicensesMonthly.processValue(
-                    licenseInfo,
-                    licenseInfo.validity,
-                    licensePeriod == LicensePeriod.Monthly && isPaidLicense,
-                    isRenewal
-                )
+                    month.churnCustomersMonthly.processValue(
+                        customer,
+                        validity,
+                        licensePeriod == LicensePeriod.Monthly && isPaidLicense,
+                        isRenewal
+                    )
+                    month.churnLicensesMonthly.processValue(
+                        licenseInfo,
+                        validity,
+                        licensePeriod == LicensePeriod.Monthly && isPaidLicense,
+                        isRenewal
+                    )
+                }
             }
         }
     }
