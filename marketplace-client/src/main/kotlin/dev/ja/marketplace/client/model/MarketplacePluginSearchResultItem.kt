@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -8,10 +8,12 @@ package dev.ja.marketplace.client.model
 import dev.ja.marketplace.client.CDateSerializer
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.PluginTagName
-import kotlinx.datetime.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
+@OptIn(ExperimentalTime::class)
 @Serializable
 data class MarketplacePluginSearchResultItem(
     @SerialName("id")
