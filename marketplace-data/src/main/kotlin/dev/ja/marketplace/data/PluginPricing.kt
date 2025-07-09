@@ -61,8 +61,13 @@ data class PluginPricing(
         licensePeriod: LicensePeriod,
         continuityDiscount: ContinuityDiscount
     ): MonetaryAmount? {
+        if (customerCountry.isEmpty()) {
+            // sometimes the country name was empty, perhaps because the user deletes the JetBrains account after pur
+            return null
+        }
+
         val countryWithCurrency = countries.byCountryName(customerCountry)
-            ?: throw IllegalStateException("unable to find country for name $customerCountry")
+            ?: throw IllegalStateException("unable to find country for name '$customerCountry'")
 
         val countryPricing = getCountryPricing(countryWithCurrency.country.isoCode) ?: return null
         val pricing = when (customerType) {
