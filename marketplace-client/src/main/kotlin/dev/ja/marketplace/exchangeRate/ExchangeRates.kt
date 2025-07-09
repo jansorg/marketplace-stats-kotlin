@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -15,12 +15,14 @@ import org.javamoney.moneta.spi.CompoundRateProvider
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.LocalDate
-import java.util.*
 import java.util.concurrent.TimeUnit
 import javax.money.CurrencyUnit
 import javax.money.Monetary
 import javax.money.MonetaryAmount
-import javax.money.convert.*
+import javax.money.convert.ConversionQueryBuilder
+import javax.money.convert.CurrencyConversionException
+import javax.money.convert.ExchangeRate
+import javax.money.convert.ExchangeRateProvider
 
 /**
  * Prefetched exchange rates.
@@ -66,7 +68,7 @@ class ExchangeRates(targetCurrencyCode: String) : CacheAware {
     private fun getExchangeRateUncached(
         fixedDate: YearMonthDay,
         amount: MonetaryAmount
-    ): ExchangeRate? {
+    ): ExchangeRate {
         val query = ConversionQueryBuilder
             .of()
             .setTermCurrency(targetCurrency)

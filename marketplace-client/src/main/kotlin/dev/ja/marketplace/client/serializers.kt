@@ -7,7 +7,6 @@ package dev.ja.marketplace.client
 
 import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.*
-import kotlinx.datetime.Instant
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.IntArraySerializer
@@ -23,6 +22,8 @@ import kotlinx.serialization.json.*
 import org.javamoney.moneta.FastMoney
 import java.math.BigDecimal
 import javax.money.MonetaryAmount
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 @OptIn(ExperimentalSerializationApi::class)
 object YearMonthDateSerializer : KSerializer<YearMonthDay> {
@@ -76,6 +77,7 @@ object MonetaryAmountUsdSerializer : KSerializer<MonetaryAmount> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("amount", PrimitiveKind.DOUBLE)
 }
 
+@OptIn(ExperimentalTime::class)
 object CDateSerializer : KSerializer<Instant> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("Instant", PrimitiveKind.STRING)
 

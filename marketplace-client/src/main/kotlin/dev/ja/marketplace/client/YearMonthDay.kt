@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 package dev.ja.marketplace.client
 
-import kotlinx.datetime.*
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toJavaZoneId
+import kotlinx.datetime.toKotlinLocalDate
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.time.LocalDate
@@ -18,7 +19,11 @@ import java.time.temporal.TemporalAdjusters
 import java.time.temporal.WeekFields
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
+import kotlin.time.toJavaInstant
 
+@OptIn(ExperimentalTime::class)
 @Serializable(with = YearMonthDateSerializer::class)
 data class YearMonthDay internal constructor(private val instant: LocalDate) : Comparable<YearMonthDay> {
     constructor(year: Int, month: Int, day: Int) : this(LocalDate.of(year, month, day))
