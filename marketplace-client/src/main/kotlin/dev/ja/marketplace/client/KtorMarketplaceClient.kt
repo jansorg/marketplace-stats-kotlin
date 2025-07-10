@@ -190,11 +190,7 @@ open class KtorMarketplaceClient(
             assert(response.data.dimension == DownloadDimension.ProductCode)
 
             response.data.serie.map {
-                ProductDownload(
-                    JetBrainsProductCode.byProductCode(it.name) ?: throw IllegalStateException("No product code found for ${it.name}"),
-                    it.comment,
-                    it.value
-                )
+                ProductDownload(JetBrainsProductCode.byProductCode(it.name), it.comment, it.value)
             }.sortedBy(ProductDownload::productName)
         }
     }
@@ -272,13 +268,16 @@ open class KtorMarketplaceClient(
                         maxResults = min(pageSize, pendingResultSize)
                     )
                 )
+
                 if (resultPage.searchResult.isEmpty()) {
                     break
                 }
 
-                pendingResultSize -= resultPage.searchResult.size
-                offset += resultPage.searchResult.size
                 completeResult += resultPage.searchResult
+
+                // The API throws an error if offset + maxResults is larger than the total size
+                offset += resultPage.searchResult.size
+                pendingResultSize = resultPage.totalResult - completeResult.size
             }
 
             completeResult
