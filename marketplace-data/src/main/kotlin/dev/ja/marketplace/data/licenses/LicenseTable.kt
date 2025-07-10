@@ -84,7 +84,7 @@ class LicenseTable(
     }
 
     // first by date, then days by new/renew, then same values by annual/monthly, then by amount
-    private val comparator = Comparator.comparing<LicenseInfo?, YearMonthDay?> { it.sale.date }.reversed()
+    private val comparator = Comparator.comparing<LicenseInfo, YearMonthDay> { it.sale.date }.reversed()
         .thenDescending(Comparator.comparing { it.validity!!.start })
         .then(Comparator.comparing { it.saleLineItem.type })
         .thenDescending(Comparator.comparing { it.sale.licensePeriod })
