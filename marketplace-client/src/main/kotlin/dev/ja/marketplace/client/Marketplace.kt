@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -20,7 +20,7 @@ object Marketplace {
     val Birthday = YearMonthDay(2019, 6, 25)
     const val MAX_TRIAL_DAYS_DEFAULT: Int = 30
 
-    const val MAX_SEARCH_RESULT_SIZE: Int = 10_000
+    const val MAX_SEARCH_RESULT_SIZE: Int = 1_000
 
     val MarketplaceFrontendUrl: Url = Url("https://plugins.jetbrains.com")
 
