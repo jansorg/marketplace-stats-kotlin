@@ -23,6 +23,7 @@ import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 import kotlin.time.toJavaInstant
 
+@ConsistentCopyVisibility
 @OptIn(ExperimentalTime::class)
 @Serializable(with = YearMonthDateSerializer::class)
 data class YearMonthDay internal constructor(private val instant: LocalDate) : Comparable<YearMonthDay> {

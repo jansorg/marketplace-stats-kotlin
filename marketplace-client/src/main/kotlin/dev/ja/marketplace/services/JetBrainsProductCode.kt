@@ -5,242 +5,108 @@
 
 package dev.ja.marketplace.services
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-
-@Serializable
-enum class JetBrainsProductCode(val code: String, val displayName: String? = null) {
-    @SerialName("AC")
-    AppCode("AC", "AppCode"),
-
-    @SerialName("CC")
-    CodeCanvas("CC"),
-
-    @SerialName("CL")
-    CLion("CL", "CLion"),
-
-    @SerialName("CLN")
-    CLionNova("CLN", "CLion Nova"),
-
-    @SerialName("CWML")
-    CodeWithMeLobby("CWML"),
-
-    @SerialName("CWMR")
-    CodeWithMeRelay("CWMR"),
-
-    @SerialName("DC")
-    dotCover("DC"),
-
-    @SerialName("DCCLT")
-    dotCoverCommandLineTools("DCCLT"),
-
-    @SerialName("DG")
-    DataGrip("DG", "DataGrip"),
-
-    @SerialName("DL")
-    Datalore("DL"),
-
-    @SerialName("DLE")
-    DataloreEnterprise("DLE"),
-
-    @SerialName("DM")
-    dotMemory("DM"),
-
-    @SerialName("DMCLP")
-    dotMemoryCommandLineProfiler("DMCLP"),
-
-    @SerialName("DMU")
-    dotMemoryUnit("DMU"),
-
-    @SerialName("DP")
-    dotTrace("DP"),
-
-    @SerialName("DPCLT")
-    dotTraceCommandLineTools("DPCLT"),
-
-    @SerialName("DPK")
-    dotPeek("DPK"),
-
-    @SerialName("DPPS")
-    dotTraceProfilingSDK("DPPS"),
-
-    @SerialName("DS")
-    DataSpell("DS", "DataSpell"),
-
-    @SerialName("EHS")
-    ETWHostService("EHS"),
-
-    @SerialName("FL")
-    Fleet("FL", "Fleet"),
-
-    @SerialName("FLIJ")
-    FleetBackend("FLIJ"),
-
-    @SerialName("FLL")
-    FleetLauncher("FLL"),
-
-    @SerialName("FLS")
-    FloatingLicenseServer("FLS"),
-
-    @SerialName("GO")
-    GoLand("GO", "GoLand"),
-
-    @SerialName("GW")
-    Gateway("GW", "JetBrains Gateway"),
-
-    @SerialName("HB")
-    Hub("HB"),
-
-    @SerialName("HCC")
-    HTTPClientCLI("HCC"),
-
-    @SerialName("IDES")
-    IDEServices("IDES"),
-
-    @SerialName("IIC")
-    IntelliJIDEACommunityEdition("IIC", "IntelliJ IDEA Community"),
-
-    @SerialName("IIE")
-    IntelliJIDEAEdu("IIE", "IntelliJ IDEA Educational"),
-
-    @SerialName("IIU")
-    IntelliJIDEAUltimate("IIU", "IntelliJ IDEA Ultimate"),
-
-    @SerialName("JCD")
-    JetBrainsClientsDownloader("JCD"),
-
-    @SerialName("KT")
-    Kotlin("KT", "Kotlin"),
-
-    @SerialName("MF")
-    MonoFont("MF"),
-
-    @SerialName("MPS")
-    MPS("MPS"),
-
-    @SerialName("MPSIIP")
-    MPSIntelliJIDEAplugin("MPSIIP"),
-
-    @SerialName("PCC")
-    PyCharmCommunityEdition("PCC", "PyCharm Community"),
-
-    @SerialName("PCE")
-    PyCharmEdu("PCE"),
-
-    @SerialName("PCP")
-    PyCharmProfessionalEdition("PCP", "PyCharm Professional"),
-
-    @SerialName("PS")
-    PhpStorm("PS", "PhpStorm"),
-
-    @SerialName("QA")
-    Aqua("QA"),
-
-    @SerialName("QDANDC")
-    QodanaCommunityforAndroid("QDANDC"),
-
-    @SerialName("QDCLD")
-    QodanaCloud("QDCLD"),
-
-    @SerialName("QDGO")
-    QodanaforGo("QDGO"),
-
-    @SerialName("QDJS")
-    QodanaforJS("QDJS"),
-
-    @SerialName("QDJVM")
-    QodanaforJVM("QDJVM"),
-
-    @SerialName("QDJVMC")
-    QodanaCommunityforJVM("QDJVMC"),
-
-    @SerialName("QDNET")
-    QodanaforNET("QDNET"),
-
-    @SerialName("QDPHP")
-    QodanaforPHP("QDPHP"),
-
-    @SerialName("QDPY")
-    QodanaforPython("QDPY"),
-
-    @SerialName("QDPYC")
-    QodanaCommunityforPython("QDPYC"),
-
-    @SerialName("RC")
-    ReSharperCPlusPlus("RC"),
-
-    @SerialName("RD")
-    Rider("RD"),
-
-    @SerialName("RDCPPP")
-    RiderforUnrealEngine("RDCPPP"),
-
-    @SerialName("RFU")
-    RiderFlowforUnity("RFU"),
-
-    @SerialName("RM")
-    RubyMine("RM"),
-
-    @SerialName("RR")
-    RustRover("RR"),
-
-    @SerialName("RRD")
-    RiderRemoteDebugger("RRD"),
-
-    @SerialName("RS")
-    ReSharper("RS"),
-
-    @SerialName("RSCHB")
-    ReSharperCheckedbuilds("RSCHB"),
-
-    @SerialName("RSCLT")
-    ReSharperCommandLineTools("RSCLT"),
-
-    @SerialName("RSU")
-    ReSharperTools("RSU"),
-
-    @SerialName("SP")
-    SpaceCloud("SP"),
-
-    @SerialName("SPA")
-    SpaceDesktop("SPA"),
-
-    @SerialName("SPP")
-    SpaceOnPremises("SPP"),
-
-    @SerialName("TBA")
-    ToolboxApp("TBA"),
-
-    @SerialName("TC")
-    TeamCity("TC"),
-
-    @SerialName("TCC")
-    TeamCityCloud("TCC"),
-
-    @SerialName("US")
-    Upsource("US"),
-
-    @SerialName("WRS")
-    Writerside("WRS"),
-
-    @SerialName("WS")
-    WebStorm("WS", "WebStorm"),
-
-    @SerialName("YTD")
-    YouTrack("YTD", "YouTrack"),
-
-    @SerialName("YTWE")
-    YoutrackWorkflowEditor("YTWE"),
-
-    @SerialName("GRZ")
-    Grazie("GRZ"),
-
-    @SerialName("unknown")
-    UnknownProduct("unknown");
+import java.util.concurrent.ConcurrentHashMap
+
+@Suppress("unused")
+@Serializable(JetBrainsProductCodeSerializer::class)
+sealed interface JetBrainsProductCode {
+    val code: String
 
     companion object {
-        fun byProductCode(code: String): JetBrainsProductCode? {
-            return entries.firstOrNull { it.code == code }
+        private val codeMapping = ConcurrentHashMap<String, JetBrainsProductCode>()
+
+        private fun register(code: String, displayName: String? = null): JetBrainsProductCode {
+            return codeMapping.computeIfAbsent(code) { RegisteredCode(it, displayName) }
         }
+
+        fun byProductCode(code: String): JetBrainsProductCode {
+            return codeMapping[code] ?: codeMapping.computeIfAbsent(code) { UnknownCode(it) }
+        }
+
+        val Air = register("AIR")
+        val AppCode = register("AC", "AppCode")
+        val Aqua = register("QA")
+        val AssistantVSCode = register("VSCAI", "JetBrains AI Assistant for Visual Studio Code")
+        val CLion = register("CL", "CLion")
+        val CLionNova = register("CLN", "CLion Nova")
+        val CodeCanvas = register("CC")
+        val CodeWithMeLobby = register("CWML")
+        val CodeWithMeRelay = register("CWMR")
+        val DataGrip = register("DG", "DataGrip")
+        val DataSpell = register("DS", "DataSpell")
+        val Datalore = register("DL")
+        val DataloreEnterprise = register("DLE")
+        val DevContainersCLI = register("IJDCT", "IJ Devcontainers CLI tool")
+        val DotCover = register("DC")
+        val DotCoverCommandLineTools = register("DCCLT")
+        val DotMemory = register("DM")
+        val DotMemoryCommandLineProfiler = register("DMCLP")
+        val DotMemoryUnit = register("DMU")
+        val DotPeek = register("DPK")
+        val DotTrace = register("DP")
+        val DotTraceCommandLineTools = register("DPCLT")
+        val DotTraceProfilingSDK = register("DPPS")
+        val ETWHostService = register("EHS")
+        val Fleet = register("FL", "Fleet")
+        val FleetBackend = register("FLIJ")
+        val FleetLauncher = register("FLL")
+        val FloatingLicenseServer = register("FLS")
+        val Gateway = register("GW", "JetBrains Gateway")
+        val GitClient = register("GIG", "GitClient")
+        val GoLand = register("GO", "GoLand")
+        val Grazie = register("GRZ")
+        val HTTPClientCLI = register("HCC")
+        val Hub = register("HB")
+        val IDEServices = register("IDES")
+        val IntelliJIDEACommunityEdition = register("IIC", "IntelliJ IDEA Community")
+        val IntelliJIDEAEdu = register("IIE", "IntelliJ IDEA Educational")
+        val IntelliJIDEAUltimate = register("IIU", "IntelliJ IDEA Ultimate")
+        val JetBrainsClientsDownloader = register("JCD")
+        val Kotlin = register("KT", "Kotlin")
+        val MPS = register("MPS")
+        val MPSIntelliJIDEAplugin = register("MPSIIP")
+        val Mellum = register("MELLUM", "Mellum Enterprise")
+        val MonoFont = register("MF")
+        val PhpStorm = register("PS", "PhpStorm")
+        val PyCharmCommunityEdition = register("PCC", "PyCharm Community")
+        val PyCharmEdu = register("PCE")
+        val PyCharmProfessionalEdition = register("PCP", "PyCharm Professional")
+        val QodanaCloud = register("QDCLD")
+        val QodanaCommunityforAndroid = register("QDANDC")
+        val QodanaCommunityforJVM = register("QDJVMC")
+        val QodanaCommunityforPython = register("QDPYC")
+        val QodanaforGo = register("QDGO")
+        val QodanaforJS = register("QDJS")
+        val QodanaforJVM = register("QDJVM")
+        val QodanaforNET = register("QDNET")
+        val QodanaforPHP = register("QDPHP")
+        val QodanaforPython = register("QDPY")
+        val ReSharper = register("RS")
+        val ReSharperCPlusPlus = register("RC")
+        val ReSharperCheckedbuilds = register("RSCHB")
+        val ReSharperCommandLineTools = register("RSCLT")
+        val ReSharperTools = register("RSU")
+        val ReSharperVSCode = register("VSCRS", "ReSharper for Visual Studio Code")
+        val Rider = register("RD")
+        val RiderFlowforUnity = register("RFU")
+        val RiderRemoteDebugger = register("RRD")
+        val RiderforUnrealEngine = register("RDCPPP")
+        val RubyMine = register("RM")
+        val RustRover = register("RR")
+        val SpaceCloud = register("SP")
+        val SpaceDesktop = register("SPA")
+        val SpaceOnPremises = register("SPP")
+        val TeamCity = register("TC")
+        val TeamCityCloud = register("TCC")
+        val ToolboxApp = register("TBA")
+        val Upsource = register("US")
+        val WebStorm = register("WS", "WebStorm")
+        val Writerside = register("WRS")
+        val YouTrack = register("YTD", "YouTrack")
+        val YoutrackWorkflowEditor = register("YTWE")
     }
+
+    data class RegisteredCode(override val code: String, val displayName: String? = null) : JetBrainsProductCode
+    data class UnknownCode(override val code: String) : JetBrainsProductCode
 }
