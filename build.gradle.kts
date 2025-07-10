@@ -116,10 +116,6 @@ project(":") {
 
         // https://mvnrepository.com/artifact/gg.jte/jte
         implementation("gg.jte:jte:3.2.1")
-
-        runtimeOnly(provider {
-            files(tasks.precompileJte.get().targetDirectory)
-        })
     }
 
     jte {
@@ -144,10 +140,6 @@ project(":") {
     }
 
     tasks {
-        precompileJte {
-            inputs.files(fileTree("src/main/resources/templates"))
-        }
-
         build {
             dependsOn(precompileJte)
         }
@@ -155,9 +147,7 @@ project(":") {
         jar {
             dependsOn(precompileJte)
 
-            from(fileTree(precompileJte.get().targetDirectory) {
-                include("**/*.class")
-            })
+            from(precompileJte.map { fileTree(it.targetDirectory) { include("**/*.class") } })
         }
 
         shadowJar {
@@ -166,11 +156,16 @@ project(":") {
             archiveBaseName.set("marketplace-stats-all")
             archiveClassifier.set("")
             archiveVersion.set("")
+
+            from(precompileJte.map { fileTree(it.targetDirectory) { include("**/*.class") } })
         }
 
         // task name run conflicts with Kotlin's run
-        named("run") {
-            dependsOn("precompileJte")
+        named<JavaExec>("run") {
+            dependsOn(precompileJte)
+
+            // Shadow complains if a fileTree() or files() is added as a runtimeOnly dependency
+            classpath += files(precompileJte.map { it.targetDirectory })
         }
     }
 }
