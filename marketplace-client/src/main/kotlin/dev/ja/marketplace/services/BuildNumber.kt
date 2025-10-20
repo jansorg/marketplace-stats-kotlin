@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -8,7 +8,7 @@ package dev.ja.marketplace.services
 import kotlinx.serialization.Serializable
 
 @Serializable(BuildNumberSerializer::class)
-data class BuildNumber(private val segments: IntArray) : Comparable<BuildNumber> {
+data class BuildNumber(internal val segments: IntArray) : Comparable<BuildNumber> {
     val baseVersion: Int
         get() {
             return segments[0]
