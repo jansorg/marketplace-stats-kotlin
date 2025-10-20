@@ -11,15 +11,15 @@ val ktorVersion: String by project
 
 plugins {
     application
-    id("org.jetbrains.kotlin.jvm") version "2.2.0"
-    kotlin("plugin.serialization") version "2.2.0"
+    id("org.jetbrains.kotlin.jvm") version "2.2.20"
+    kotlin("plugin.serialization") version "2.2.20"
 
     // https://plugins.gradle.org/plugin/com.gradleup.shadow
-    id("com.gradleup.shadow") version "9.0.0-rc1"
+    id("com.gradleup.shadow") version "9.2.2"
     // https://plugins.gradle.org/plugin/gg.jte.gradle
     id("gg.jte.gradle") version "3.2.1"
     // https://github.com/gmazzo/gradle-buildconfig-plugin
-    id("com.github.gmazzo.buildconfig") version "5.6.7"
+    id("com.github.gmazzo.buildconfig") version "5.7.0"
 }
 
 allprojects {
@@ -33,9 +33,9 @@ allprojects {
     }
 
     kotlin {
-        jvmToolchain(21)
+        jvmToolchain(24)
         compilerOptions {
-            jvmTarget = JvmTarget.JVM_21
+            jvmTarget = JvmTarget.JVM_24
             freeCompilerArgs.add("-Xdebug")
         }
     }
@@ -48,7 +48,7 @@ allprojects {
 
     dependencies {
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-datetime-jvm
-        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.0")
+        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1")
 
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-serialization-json-jvm
         implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
@@ -57,10 +57,10 @@ allprojects {
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
 
         // https://mvnrepository.com/artifact/it.unimi.dsi/fastutil-core
-        implementation("it.unimi.dsi:fastutil-core:8.5.16")
+        implementation("it.unimi.dsi:fastutil-core:8.5.18")
 
         // https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
-        implementation("ch.qos.logback:logback-classic:1.5.18")
+        implementation("ch.qos.logback:logback-classic:1.5.19")
 
         // https://github.com/ajalt/clikt
         implementation("com.github.ajalt.clikt:clikt:4.4.0")
@@ -73,16 +73,16 @@ allprojects {
         implementation("org.javamoney.moneta:moneta-convert-ecb:1.4.5")
 
         // https://mvnrepository.com/artifact/com.google.guava/guava
-        implementation("com.google.guava:guava:33.4.8-jre")
+        implementation("com.google.guava:guava:33.5.0-jre")
 
         // https://mvnrepository.com/artifact/com.github.ben-manes.caffeine/caffeine
-        implementation("com.github.ben-manes.caffeine:caffeine:3.2.1")
+        implementation("com.github.ben-manes.caffeine:caffeine:3.2.2")
         // https://mvnrepository.com/artifact/dev.hsbrysk/caffeine-coroutines
-        implementation("dev.hsbrysk:caffeine-coroutines:2.0.2")
+        implementation("dev.hsbrysk:caffeine-coroutines:2.0.3")
 
         // https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api
-        testImplementation("org.junit.jupiter:junit-jupiter-api:5.11.4")
-        testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.11.4")
+        testImplementation("org.junit.jupiter:junit-jupiter:5.14.0")
+        testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     }
 }
 

@@ -1,4 +1,4 @@
-FROM eclipse-temurin:22-jre
+FROM eclipse-temurin:25-jre
 LABEL maintainer="Joachim Ansorg <mail@ja-dev.eu>"
 LABEL org.opencontainers.image.source="https://github.com/jansorg/marketplace-stats-kotlin"
 
@@ -10,4 +10,4 @@ RUN mkdir -p /opt/app
 COPY ./build/libs/marketplace-stats-all.jar /opt/app/marketplace-stats-all.jar
 
 EXPOSE 8080
-CMD ["java", "-server", "-Xmx1024m", "-jar", "/opt/app/marketplace-stats-all.jar"]
+CMD ["java", "-server", "-Xmx1512m", "-XX:MaxPermSize=192m", "-XX:+HeapDumpOnOutOfMemoryError", "-Djava.awt.headless=true", "-Dfile.encoding=UTF-8", "-jar", "/opt/app/marketplace-stats-all.jar"]
