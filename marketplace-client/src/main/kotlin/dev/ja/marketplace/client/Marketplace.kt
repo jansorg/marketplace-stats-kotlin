@@ -20,7 +20,8 @@ object Marketplace {
     val Birthday = YearMonthDay(2019, 6, 25)
     const val MAX_TRIAL_DAYS_DEFAULT: Int = 30
 
-    const val MAX_SEARCH_RESULT_SIZE: Int = 1_000
+    // That's the limited imposed by the Marketplace API
+    const val MAX_SEARCH_RESULT_SIZE: Int = 20
 
     val MarketplaceFrontendUrl: Url = Url("https://plugins.jetbrains.com")
 
