@@ -6,6 +6,7 @@
 package dev.ja.marketplace.client.model
 
 import dev.ja.marketplace.client.*
+import dev.ja.marketplace.services.BuildNumberRef
 import io.ktor.http.*
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -34,7 +35,7 @@ data class PluginReleaseInfo(
     val recalculateCompatibilityAllowed: Boolean? = null,
     @SerialName("cdate")
     @Serializable(CDateSerializer::class)
-    val createdTimestamp: Instant? = null,
+    val createdTimestamp: Instant,
     @SerialName("file")
     val fileUrlPath: String,
     @SerialName("size")
@@ -42,9 +43,9 @@ data class PluginReleaseInfo(
     @SerialName("notes")
     val notes: String? = null,
     @SerialName("since")
-    val since: String? = null,
+    val since: BuildNumberRef? = null,
     @SerialName("until")
-    val until: String? = null,
+    val until: BuildNumberRef? = null,
     @SerialName("sinceUntil")
     val sinceUntil: String? = null,
     @SerialName("channel")
@@ -61,6 +62,10 @@ data class PluginReleaseInfo(
     @SerialName("releaseVersion")
     val releaseVersion: String? = null,
 ) {
+    override fun toString(): String {
+        return "PluginReleaseInfo(id=$id, pluginId=$pluginId)"
+    }
+
     val isPaidOrFreemiumUpdate: Boolean
         get() {
             return releaseVersion != null
@@ -79,6 +84,11 @@ data class PluginReleaseInfo(
             it.parameters["rel"] = "true"
         }.build()
     }
+
+    val channelNameOrStable: String
+        get() {
+            return channel.ifBlank { "stable" }
+        }
 
     /**
      * The base filename of the uploaded file.
