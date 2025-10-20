@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2025 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -77,7 +77,7 @@ interface MarketplaceClientPublic {
      */
     suspend fun marketplacePluginsSearch(
         request: MarketplacePluginSearchRequest,
-        pageSize: Int = 100
+        pageSize: Int = Marketplace.MAX_SEARCH_RESULT_SIZE,
     ): List<MarketplacePluginSearchResultItem>
 
     suspend fun pluginReleaseDependencies(pluginReleaseId: PluginReleaseId): List<PluginDependency>
