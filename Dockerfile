@@ -10,4 +10,4 @@ RUN mkdir -p /opt/app
 COPY ./build/libs/marketplace-stats-all.jar /opt/app/marketplace-stats-all.jar
 
 EXPOSE 8080
-CMD ["java", "-server", "-Xmx1512m", "-XX:MaxPermSize=192m", "-XX:+HeapDumpOnOutOfMemoryError", "-Djava.awt.headless=true", "-Dfile.encoding=UTF-8", "--enable-native-access=ALL-UNNAMED", "-jar", "/opt/app/marketplace-stats-all.jar"]
+CMD ["java", "-server", "-Xmx1512m", "-XX:+HeapDumpOnOutOfMemoryError", "-Djava.awt.headless=true", "-Dfile.encoding=UTF-8", "--enable-native-access=ALL-UNNAMED", "-jar", "/opt/app/marketplace-stats-all.jar"]
