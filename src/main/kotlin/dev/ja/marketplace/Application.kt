@@ -7,7 +7,9 @@ package dev.ja.marketplace
 
 import com.github.ajalt.clikt.core.BadParameterValue
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.context
+import com.github.ajalt.clikt.core.main
 import com.github.ajalt.clikt.output.MordantHelpFormatter
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.convert
@@ -26,8 +28,10 @@ import java.nio.file.Files
 
 class Application(version: String) : CliktCommand(
     name = "marketplace-stats",
-    help = "Marketplace Stats provides reports for plugins hosted on the JetBrains Marketplace.",
 ) {
+    override fun help(context: Context): String =
+        "Marketplace Stats provides reports for plugins hosted on the JetBrains Marketplace."
+
     init {
         versionOption(version)
         context {

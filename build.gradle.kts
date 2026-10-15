@@ -7,19 +7,20 @@ import gg.jte.ContentType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 // https://mvnrepository.com/artifact/io.ktor/ktor-client-core-jvm
-val ktorVersion: String by project
+val ktorVersion: String = project.properties["ktorVersion"].toString()
 
 plugins {
     application
-    id("org.jetbrains.kotlin.jvm") version "2.2.20"
-    kotlin("plugin.serialization") version "2.2.20"
+    // Latest Kotlin compatible with the kotlin-compiler-embeddable bundled by the jte gradle plugin
+    id("org.jetbrains.kotlin.jvm") version "2.3.21"
+    kotlin("plugin.serialization") version "2.3.21"
 
     // https://plugins.gradle.org/plugin/com.gradleup.shadow
-    id("com.gradleup.shadow") version "9.2.2"
+    id("com.gradleup.shadow") version "9.6.1"
     // https://plugins.gradle.org/plugin/gg.jte.gradle
-    id("gg.jte.gradle") version "3.2.1"
+    id("gg.jte.gradle") version "3.2.4"
     // https://github.com/gmazzo/gradle-buildconfig-plugin
-    id("com.github.gmazzo.buildconfig") version "5.7.0"
+    id("com.github.gmazzo.buildconfig") version "6.1.2"
 }
 
 allprojects {
@@ -48,22 +49,22 @@ allprojects {
 
     dependencies {
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-datetime-jvm
-        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1")
+        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.8.0")
 
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-serialization-json-jvm
-        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-coroutines-core
-        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
 
         // https://mvnrepository.com/artifact/it.unimi.dsi/fastutil-core
-        implementation("it.unimi.dsi:fastutil-core:8.5.18")
+        implementation("it.unimi.dsi:fastutil-core:8.5.19")
 
         // https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
-        implementation("ch.qos.logback:logback-classic:1.5.19")
+        implementation("ch.qos.logback:logback-classic:1.6.5")
 
         // https://github.com/ajalt/clikt
-        implementation("com.github.ajalt.clikt:clikt:4.4.0")
+        implementation("com.github.ajalt.clikt:clikt:5.1.0")
 
         // https://mvnrepository.com/artifact/org.javamoney.moneta/moneta-core
         implementation("org.javamoney.moneta:moneta-core:1.4.5")
@@ -73,15 +74,16 @@ allprojects {
         implementation("org.javamoney.moneta:moneta-convert-ecb:1.4.5")
 
         // https://mvnrepository.com/artifact/com.google.guava/guava
-        implementation("com.google.guava:guava:33.5.0-jre")
+        implementation("com.google.guava:guava:33.7.2-jre")
 
         // https://mvnrepository.com/artifact/com.github.ben-manes.caffeine/caffeine
-        implementation("com.github.ben-manes.caffeine:caffeine:3.2.2")
+        implementation("com.github.ben-manes.caffeine:caffeine:3.3.1")
         // https://mvnrepository.com/artifact/dev.hsbrysk/caffeine-coroutines
-        implementation("dev.hsbrysk:caffeine-coroutines:2.0.3")
+        // 2.0.4 is the newest version readable by the kotlin-compiler-embeddable bundled with the jte gradle plugin
+        implementation("dev.hsbrysk:caffeine-coroutines:2.0.4")
 
         // https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api
-        testImplementation("org.junit.jupiter:junit-jupiter:5.14.0")
+        testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
         testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     }
 }
@@ -115,7 +117,7 @@ project(":") {
         implementation("io.ktor:ktor-server-status-pages:$ktorVersion")
 
         // https://mvnrepository.com/artifact/gg.jte/jte
-        implementation("gg.jte:jte:3.2.1")
+        implementation("gg.jte:jte:3.2.4")
     }
 
     jte {
