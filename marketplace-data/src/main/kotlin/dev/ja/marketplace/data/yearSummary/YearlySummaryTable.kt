@@ -46,7 +46,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
             val yearRange = YearMonthDayRange.ofYear(year)
             this.data[year] = YearSummary(
                 PaymentAmountTracker(yearRange, data.exchangeRates),
-                AnnualRecurringRevenueTracker(yearRange, data.getContinuityDiscountTracker()!!, data.pluginPricing!!, data.exchangeRates)
+                AnnualRecurringRevenueTracker(yearRange, data.exchangeRates)
             )
         }
 
