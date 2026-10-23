@@ -12,3 +12,7 @@ import dev.ja.marketplace.data.MarketplaceDataTableFactory
 class MrrMovementsTableFactory : MarketplaceDataTableFactory {
     override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable = MrrMovementsTable()
 }
+
+class RevenueRetentionTableFactory : MarketplaceDataTableFactory {
+    override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable = RevenueRetentionTable()
+}
