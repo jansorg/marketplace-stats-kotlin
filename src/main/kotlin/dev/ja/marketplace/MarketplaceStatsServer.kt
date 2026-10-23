@@ -26,6 +26,7 @@ import dev.ja.marketplace.data.lineItems.LineItemsTable
 import dev.ja.marketplace.data.overview.OverviewTableFactory
 import dev.ja.marketplace.data.privingOverview.PricingOverviewTableFactory
 import dev.ja.marketplace.data.resellers.ResellerTableFactory
+import dev.ja.marketplace.data.subscriptions.CohortRetentionTableFactory
 import dev.ja.marketplace.data.subscriptions.MrrMovementsTableFactory
 import dev.ja.marketplace.data.subscriptions.RevenueRetentionTableFactory
 import dev.ja.marketplace.data.timeSpanSummary.TimeSpanSummaryFactory
@@ -144,6 +145,7 @@ class MarketplaceStatsServer(
         listOf(
             MrrMovementsTableFactory(),
             RevenueRetentionTableFactory(),
+            CohortRetentionTableFactory(),
         ),
         pageCssClasses = "wide",
         pageTitle = "Subscription Metrics",

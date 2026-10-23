@@ -16,3 +16,7 @@ class MrrMovementsTableFactory : MarketplaceDataTableFactory {
 class RevenueRetentionTableFactory : MarketplaceDataTableFactory {
     override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable = RevenueRetentionTable()
 }
+
+class CohortRetentionTableFactory : MarketplaceDataTableFactory {
+    override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable = CohortRetentionTable()
+}
