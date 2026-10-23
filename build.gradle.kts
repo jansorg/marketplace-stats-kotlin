@@ -181,8 +181,10 @@ project(":") {
     }
 
     dependencies {
-        implementation(project(":marketplace-client"))
-        implementation(project(":marketplace-data"))
+        // api instead of implementation: Shadow's minimize keeps all classes of api dependencies,
+        // some classes are only used by the precompiled JTE templates, e.g. Formatters and ChartValues
+        api(project(":marketplace-client"))
+        api(project(":marketplace-data"))
 
         implementation("io.ktor:ktor-server-core:$ktorVersion")
         implementation("io.ktor:ktor-server-netty:$ktorVersion")
@@ -248,6 +250,18 @@ project(":") {
             exclude("META-INF/native/*netty_quiche*")
             // registers Moneta's loader, which needs the excluded OkHttp
             exclude("META-INF/services/org.javamoney.moneta.spi.loader.LoaderService")
+
+            // removes unused classes of dependencies, but keeps the libraries,
+            // which load classes by name or via ServiceLoader
+            minimize {
+                exclude(dependency("ch.qos.logback:.*:.*"))
+                exclude(dependency("io.ktor:.*:.*"))
+                exclude(dependency("com.github.ajalt.mordant:.*:.*"))
+                exclude(dependency("com.github.ben-manes.caffeine:.*:.*"))
+                exclude(dependency("org.javamoney.moneta:.*:.*"))
+                exclude(dependency("gg.jte:.*:.*"))
+                exclude(dependency("org.jetbrains.kotlin:kotlin-reflect:.*"))
+            }
         }
 
         // task name run conflicts with Kotlin's run

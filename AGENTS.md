@@ -57,6 +57,11 @@ Version constraints to keep in mind when upgrading:
   `build/jte-classes`, `marketplace-data/build/libs/*.jar`). Running Gradle in the working tree replaces these files, and
   classes loaded afterwards fail with `NoClassDefFoundError`. To test changes while such a server is running, copy the
   working tree (without `build/` and `.gradle/`) to a temporary directory and build there.
+- The fat JAR is built with Shadow's `minimize` (`shadowJar` in `build.gradle.kts`). Libraries, which load classes by
+  name or via `ServiceLoader` (Logback, Ktor, Mordant, Caffeine, Moneta, JTE), are excluded from minimizing. The root
+  project depends on the modules with `api`, so that classes only used by the JTE templates are kept. After adding or
+  upgrading a dependency, run the fat JAR and open the report pages. Shadow's build cache doesn't notice changes of the
+  `minimize` settings, use `./gradlew shadowJar --no-build-cache --rerun-tasks`.
 - Don't rebuild the fat JAR while a server is running from `build/libs/marketplace-stats-all.jar`. Classes that are
   loaded lazily afterwards fail with `NoClassDefFoundError`, which crashes Netty's event loop threads and makes requests
   hang. For profiling or comparisons, run copies of the JAR.
