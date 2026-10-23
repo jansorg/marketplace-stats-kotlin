@@ -75,9 +75,6 @@ allprojects {
         // https://mvnrepository.com/artifact/org.javamoney.moneta/moneta-core
         implementation("org.javamoney.moneta:moneta-core:1.4.5")
 
-        // https://mvnrepository.com/artifact/com.google.guava/guava
-        implementation("com.google.guava:guava:33.7.2-jre")
-
         // https://mvnrepository.com/artifact/com.github.ben-manes.caffeine/caffeine
         implementation("com.github.ben-manes.caffeine:caffeine:3.3.1")
         // https://mvnrepository.com/artifact/dev.hsbrysk/caffeine-coroutines

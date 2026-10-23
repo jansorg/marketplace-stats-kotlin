@@ -5,7 +5,6 @@
 
 package dev.ja.marketplace.data.trackers
 
-import com.google.common.collect.Multimaps
 import dev.ja.marketplace.client.CustomerId
 import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.YearMonthDay
@@ -105,14 +104,14 @@ class SimpleTrialTracker : TrialTracker {
     private data class TrialRecord(val trial: PluginTrial, var nextSale: PluginSale? = null)
 
     private val trialRecords = mutableListOf<TrialRecord>()
-    private val trialsByCustomerId = Multimaps.newListMultimap<CustomerId, TrialRecord>(mutableMapOf(), ::ArrayList)
+    private val trialsByCustomerId = mutableMapOf<CustomerId, MutableList<TrialRecord>>()
 
     override fun init(allTrials: Iterable<PluginTrial>) {
         for (trial in allTrials) {
             // the same record must be shared in the maps
             val trialRecord = TrialRecord(trial)
             trialRecords += trialRecord
-            trialsByCustomerId.put(trial.customer.code, trialRecord)
+            trialsByCustomerId.getOrPut(trial.customer.code, ::mutableListOf) += trialRecord
         }
     }
 
@@ -122,7 +121,7 @@ class SimpleTrialTracker : TrialTracker {
         }
 
         val sortedTrials = trialsByCustomerId[saleInfo.customer.code]
-        if (sortedTrials.isNotEmpty()) {
+        if (!sortedTrials.isNullOrEmpty()) {
             val newestTrialForSale = sortedTrials.lastOrNull { it.trial.date <= saleInfo.date }
             if (newestTrialForSale != null) {
                 val existingSaleDate = newestTrialForSale.nextSale?.date
