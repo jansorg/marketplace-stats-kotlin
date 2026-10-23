@@ -40,13 +40,12 @@ abstract class MarketplaceChurnProcessor<T>(
         value: T,
         validity: YearMonthDayRange,
         isAcceptedValue: Boolean,
-        isExplicitRenewal: Boolean
     ) {
         if (isAcceptedValue && previouslyActiveMarkerDate in validity) {
             addPreviousPeriodItem(value)
         }
 
-        if (currentlyActiveMarkerDate in validity || isExplicitRenewal && validity.end > currentlyActiveMarkerDate) {
+        if (currentlyActiveMarkerDate in validity) {
             when {
                 isAcceptedValue -> addActiveItem(value)
                 else -> addActiveUnacceptedItem(value)

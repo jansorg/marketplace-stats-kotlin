@@ -6,6 +6,7 @@
 package dev.ja.marketplace.data.overview
 
 import dev.ja.marketplace.churn.ChurnProcessor
+import dev.ja.marketplace.churn.ChurnValidities
 import dev.ja.marketplace.churn.LicenseChurnProcessor
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.LicensePeriod
@@ -81,6 +82,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     private var downloadsTotal: Long = 0
 
     private val trialTracker: TrialTracker = SimpleTrialTracker()
+    private lateinit var churnValidities: ChurnValidities
     private val years = TreeMap<Int, YearData>(Comparator.reverseOrder())
 
     private val columnYearMonth = DataTableColumn("month", null, "month")
@@ -114,7 +116,9 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         "trials", "Trials", "num", tooltip = "Number of new trials at the end of the month"
     )
     private val columnTrialsConverted = DataTableColumn(
-        "trials-converted-length", "Conv.", "num", tooltip = "Percentage of converted trials of the month"
+        "trials-converted-length", "Conv.", "num",
+        tooltip = "Percentage of trials started in the month, which were converted by a paid new license " +
+                "within the trial period and ${Marketplace.TRIAL_CONVERSION_EXTRA_DAYS} days after it"
     )
 
     override val columns: List<DataTableColumn> by lazy {
@@ -184,6 +188,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         }
 
         trialTracker.init(data.getTrials() ?: emptyList())
+        churnValidities = ChurnValidities(data.getLicenses() ?: emptyList())
     }
 
     private fun createMonthlyRecurringRevenueTracker(month: YearMonthDayRange, pluginData: PluginData): RecurringRevenueTracker {
@@ -206,24 +211,21 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     override suspend fun process(licenseInfo: LicenseInfo) {
         val licensePeriod = licenseInfo.sale.licensePeriod
         val isPaidLicense = licenseInfo.isPaidLicense
-        val isRenewal = licenseInfo.isRenewalLicense
         val customerSegment = CustomerSegment.of(licenseInfo)
+        val validity = churnValidities.validity(licenseInfo)
 
         years.values.forEach { year ->
-            val validity = licenseInfo.validity
             if (validity != null) {
                 year.churnLicensesAnnual.processValue(
                     licenseInfo,
                     validity,
                     licensePeriod == LicensePeriod.Annual && isPaidLicense,
-                    isRenewal
                 )
 
                 year.churnLicensesMonthly.processValue(
                     licenseInfo,
                     validity,
                     licensePeriod == LicensePeriod.Monthly && isPaidLicense,
-                    isRenewal
                 )
             }
 
@@ -238,14 +240,12 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                         licenseInfo,
                         validity,
                         licensePeriod == LicensePeriod.Annual && isPaidLicense,
-                        isRenewal
                     )
 
                     month.churnLicensesMonthly.processValue(
                         licenseInfo,
                         validity,
                         licensePeriod == LicensePeriod.Monthly && isPaidLicense,
-                        isRenewal
                     )
                 }
             }
@@ -303,7 +303,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
 
                     val trialsMonth = trialTracker.getResultBySaleDate(monthDateRange, monthDateRange)
                     val trialsMonthAnyLength = trialTracker.getResult(monthDateRange)
-                    val trialsMonthByLength = trialTracker.getResultByTrialDuration(monthDateRange, maxTrialDays)
+                    val trialsMonthByLength = trialTracker.getResultWithinConversionPeriod(monthDateRange, maxTrialDays)
                     val downloadCount = monthData.downloads
 
                     val paidLicensesTooltip =
@@ -326,7 +326,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                             columnLicenseChurnMonthly to (monthlyLicenseChurnRate ?: NoValue),
                             columnDownloads to (downloadCount.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
                             columnTrials to (trialsMonth.totalTrials.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
-                            columnTrialsConverted to trialsMonthByLength.convertedTrialsPercentage,
+                            columnTrialsConverted to trialsMonthByLength.displayedConversionRate,
                         ),
                         tooltips = mapOf(
                             columnActiveLicenses to "$annualLicensesPaying annual (paying)" +
@@ -337,7 +337,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                             columnLicenseChurnMonthly to monthlyLicenseChurn?.churnRateTooltip,
                             columnTrialsConverted to trialsMonthAnyLength.getTooltipConverted() +
                                     "\n" +
-                                    trialsMonthByLength.getTooltipConverted(maxTrialDays),
+                                    trialsMonthByLength.getTooltipConverted(trialConversionDays(maxTrialDays)),
                         ),
                         cssClass = cssClass
                     )
@@ -347,7 +347,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                 val yearLicenseChurnMonthly = yearData.churnLicensesMonthly.getResult(LicensePeriod.Monthly)
 
                 val trialsYear = trialTracker.getResultBySaleDate(yearDateRange, yearDateRange)
-                val trialsYearTrialLength = trialTracker.getResultByTrialDuration(yearDateRange, maxTrialDays)
+                val trialsYearTrialLength = trialTracker.getResultWithinConversionPeriod(yearDateRange, maxTrialDays)
                 val trialsYearAnyDuration = trialTracker.getResult(yearDateRange)
 
                 SimpleTableSection(
@@ -361,7 +361,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                                 columnDownloads to (yearData.months.values.sumOf { it.downloads }.takeIf { it > 0 }?.toBigInteger()
                                     ?: NoValue),
                                 columnTrials to (trialsYear.totalTrials.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
-                                columnTrialsConverted to trialsYearAnyDuration.convertedTrialsPercentage,
+                                columnTrialsConverted to trialsYearTrialLength.displayedConversionRate,
                             ),
                             tooltips = mapOf(
                                 columnLicenseChurnAnnual to yearLicenseChurnAnnual.churnRateTooltip,
@@ -369,7 +369,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                                 columnTrialsConverted to
                                         trialsYearAnyDuration.getTooltipConverted()
                                         + "\n"
-                                        + trialsYearTrialLength.getTooltipConverted(maxTrialDays),
+                                        + trialsYearTrialLength.getTooltipConverted(trialConversionDays(maxTrialDays)),
                             )
                         )
                     )

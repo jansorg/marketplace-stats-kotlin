@@ -11,11 +11,14 @@ import dev.ja.marketplace.client.YearMonthDayRange
 interface ChurnProcessor<T> {
     fun init()
 
+    /**
+     * @param validity Validity of the value. For licenses, use the validity provided by [ChurnValidities],
+     *  which covers short gaps between the expiration of a license and its renewal.
+     */
     fun processValue(
         value: T,
         validity: YearMonthDayRange,
         isAcceptedValue: Boolean,
-        isExplicitRenewal: Boolean = false
     )
 
     fun getResult(period: LicensePeriod): ChurnResult<T>

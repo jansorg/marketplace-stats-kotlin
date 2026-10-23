@@ -260,6 +260,10 @@ table .subheading, table .subheading h3 {
     font-style: italic;
 }
 
+.incomplete {
+    color: var(--future-color);
+}
+
 .badge-new, .badge-churned, .badge-free {
     font-size: .8em;
     line-height: 1.0;

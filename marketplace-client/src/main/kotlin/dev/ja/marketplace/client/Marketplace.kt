@@ -20,6 +20,18 @@ object Marketplace {
     val Birthday = YearMonthDay(2019, 6, 25)
     const val MAX_TRIAL_DAYS_DEFAULT: Int = 30
 
+    /**
+     * Number of days after the end of the trial period, in which a purchase still counts as a converted trial.
+     */
+    const val TRIAL_CONVERSION_EXTRA_DAYS: Int = 30
+
+    /**
+     * Maximum number of days between the expiration of a license and the start of its renewal,
+     * which is not counted as churn. It's unclear how JetBrains handles late renewals,
+     * e.g. if the continuity discount is kept.
+     */
+    const val LICENSE_RENEWAL_GRACE_DAYS: Int = 90
+
     // That's the limited imposed by the Marketplace API
     const val MAX_SEARCH_RESULT_SIZE: Int = 20
 

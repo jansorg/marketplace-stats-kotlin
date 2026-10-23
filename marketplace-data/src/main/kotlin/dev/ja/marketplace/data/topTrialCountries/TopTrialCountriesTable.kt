@@ -12,7 +12,8 @@ import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.TrialTracker
-import dev.ja.marketplace.data.trackers.getResultByTrialDuration
+import dev.ja.marketplace.data.trackers.getResultWithinConversionPeriod
+import dev.ja.marketplace.data.trackers.trialConversionDays
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import java.math.BigDecimal
 
@@ -93,7 +94,7 @@ class TopTrialCountriesTable(
             .take(maxItems ?: Int.MAX_VALUE)
             .map { (country, trialCount) ->
                 val trialPercentage = PercentageValue.of(trialCount, totalTrialCount)
-                val trialConversion = countryToTrialTracker[country]!!.getResultByTrialDuration(
+                val trialConversion = countryToTrialTracker[country]!!.getResultWithinConversionPeriod(
                     YearMonthDayRange.MAX,
                     maxTrialsDays
                 ).convertedTrialsPercentage
@@ -113,7 +114,7 @@ class TopTrialCountriesTable(
             }
 
         val trialsAnyDuration = allTrialsTracker.getResult(YearMonthDayRange.MAX)
-        val trialsTrialDuration = allTrialsTracker.getResultByTrialDuration(YearMonthDayRange.MAX, totalTrialCount)
+        val trialsTrialDuration = allTrialsTracker.getResultWithinConversionPeriod(YearMonthDayRange.MAX, maxTrialsDays)
         return listOf(
             SimpleTableSection(
                 rows,
@@ -123,12 +124,12 @@ class TopTrialCountriesTable(
                             columnCountry to "${countryToTrialCount.size} countries",
                             columnTrialCount to countryToTrialCount.values.sum().toBigInteger(),
                             columnTrialsPercentage to PercentageValue(BigDecimal(100.0)),
-                            columnTrialConversionRate to trialsAnyDuration.convertedTrialsPercentage,
+                            columnTrialConversionRate to trialsTrialDuration.convertedTrialsPercentage,
                         ),
                         tooltips = mapOf(
                             columnTrialConversionRate to trialsAnyDuration.getTooltipConverted() +
                                     "\n" +
-                                    trialsTrialDuration.getTooltipConverted(maxTrialsDays)
+                                    trialsTrialDuration.getTooltipConverted(trialConversionDays(maxTrialsDays))
                         )
                     )
                 )

@@ -17,6 +17,12 @@
 - Fix the overview page failing with "Unable to find base price" when assertions are enabled, e.g. with `./gradlew run`.
 - Convert MRR and ARR to the display currency at the sale date instead of today's rate for future license end dates.
 - Fix sorting of licenses by validity, which compared a license with itself.
+- Count only paid new licenses as converted trials, not renewals or free licenses.
+- Use the same trial conversion rate everywhere: purchases within the trial period and 30 days after it (`Marketplace.TRIAL_CONVERSION_EXTRA_DAYS`).
+- Mark trial conversion rates as incomplete while trials can still convert.
+- Limit renewals, which prevent churn, to renewals within 90 days after the license expired (`Marketplace.LICENSE_RENEWAL_GRACE_DAYS`).
+- Show a churn rate of 0% instead of "—" if there were active licenses.
+- Fix the tooltip of the trial conversion rate of the trial countries table, which used the number of trials as the number of days.
 - Fix amounts below 1 rendered without the leading zero in English locales, e.g. "USD .50".
 - Fix sorting of amounts which only differ in cents.
 - Round amounts with more than 5 decimal places instead of failing to load the sales of a plugin.

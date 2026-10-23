@@ -13,7 +13,8 @@ import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.TrialTracker
-import dev.ja.marketplace.data.trackers.getResultByTrialDuration
+import dev.ja.marketplace.data.trackers.getResultWithinConversionPeriod
+import dev.ja.marketplace.data.trackers.trialConversionDays
 import dev.ja.marketplace.util.sortValue
 import java.util.*
 
@@ -101,7 +102,7 @@ class TopCountriesTable(
         val totalSalesAmount = allSalesTracker.getTotalAmount()
 
         val trialsAnyDuration = allTrialsTracker.getResult(YearMonthDayRange.MAX)
-        val trialsTrialDuration = allTrialsTracker.getResultByTrialDuration(YearMonthDayRange.MAX, maxTrialDays)
+        val trialsTrialDuration = allTrialsTracker.getResultWithinConversionPeriod(YearMonthDayRange.MAX, maxTrialDays)
 
         val rows = countries.entries
             .sortedByDescending { it.value.totalSales.getTotalAmount() }
@@ -111,9 +112,9 @@ class TopCountriesTable(
                 val salesPercentage = PercentageValue.of(countryData.totalSales.getTotalAmount(), totalSalesAmount)
 
                 val countryTrialsAnyDuration = countryData.trials.getResult(YearMonthDayRange.MAX)
-                val countryTrialsTrialDuration = countryData.trials.getResultByTrialDuration(YearMonthDayRange.MAX, maxTrialDays)
+                val countryTrialsTrialDuration = countryData.trials.getResultWithinConversionPeriod(YearMonthDayRange.MAX, maxTrialDays)
                 val trialPercentage = PercentageValue.of(countryTrialsAnyDuration.totalTrials, trialsAnyDuration.totalTrials)
-                val trialConversionRate = countryTrialsAnyDuration.convertedTrialsPercentage
+                val trialConversionRate = countryTrialsTrialDuration.convertedTrialsPercentage
 
                 val totalAmount = totalSales?.getTotalAmount()
                 SimpleDateTableRow(
@@ -135,14 +136,14 @@ class TopCountriesTable(
                     tooltips = mapOf(
                         columnTrialConversion to countryTrialsAnyDuration.getTooltipConverted() +
                                 "\n" +
-                                countryTrialsTrialDuration.getTooltipConverted(maxTrialDays)
+                                countryTrialsTrialDuration.getTooltipConverted(trialConversionDays(maxTrialDays))
                     )
                 )
             }
 
         val countriesWithSales = this.countries.values.count { it.salesCount > 0 }
         val countriesWithTrials = this.countries.values.count {
-            it.trials.getResultByTrialDuration(YearMonthDayRange.MAX, maxTrialDays).totalTrials > 0
+            it.trials.getResult(YearMonthDayRange.MAX).totalTrials > 0
         }
 
         return listOf(
@@ -165,12 +166,12 @@ class TopCountriesTable(
                                 ),
                                 columnSales to totalSalesAmount,
                                 columnTrialCount to trialsAnyDuration.totalTrials.toBigInteger(),
-                                columnTrialConversion to trialsAnyDuration.convertedTrialsPercentage,
+                                columnTrialConversion to trialsTrialDuration.convertedTrialsPercentage,
                             ),
                             tooltips = mapOf(
                                 columnTrialConversion to trialsAnyDuration.getTooltipConverted() +
                                         "\n" +
-                                        trialsTrialDuration.getTooltipConverted(maxTrialDays)
+                                        trialsTrialDuration.getTooltipConverted(trialConversionDays(maxTrialDays))
                             )
                         )
                     )
