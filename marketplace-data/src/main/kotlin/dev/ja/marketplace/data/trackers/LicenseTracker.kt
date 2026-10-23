@@ -8,11 +8,12 @@ package dev.ja.marketplace.data.trackers
 import dev.ja.marketplace.client.LicenseId
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.YearMonthDayRange
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 
 class LicenseTracker<T>(private val dateRange: YearMonthDayRange) {
     private val segmentedLicenses = mutableMapOf<T, MutableList<LicenseInfo>>()
-    private val licenses = mutableSetOf<LicenseId>()
-    private val licensesPaying = mutableSetOf<LicenseId>()
+    private val licenses = ObjectOpenHashSet<LicenseId>()
+    private val licensesPaying = ObjectOpenHashSet<LicenseId>()
 
     val totalLicenseCount: Int
         get() {

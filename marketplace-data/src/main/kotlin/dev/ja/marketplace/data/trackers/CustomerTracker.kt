@@ -8,12 +8,13 @@ package dev.ja.marketplace.data.trackers
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.model.CustomerInfo
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 
 class CustomerTracker<T>(private val dateRange: YearMonthDayRange) {
     private val segmentedCustomers = mutableMapOf<T, MutableSet<CustomerInfo>>()
-    private val customers = mutableSetOf<CustomerInfo>()
-    private val customersFree = mutableSetOf<CustomerInfo>()
-    private val customersPaying = mutableSetOf<CustomerInfo>()
+    private val customers = ObjectOpenHashSet<CustomerInfo>()
+    private val customersFree = ObjectOpenHashSet<CustomerInfo>()
+    private val customersPaying = ObjectOpenHashSet<CustomerInfo>()
 
     val totalCustomerCount: Int
         get() {
@@ -47,7 +48,7 @@ class CustomerTracker<T>(private val dateRange: YearMonthDayRange) {
                 customersFree += customer
             }
 
-            segmentedCustomers.computeIfAbsent(segment) { mutableSetOf() } += customer
+            segmentedCustomers.computeIfAbsent(segment) { ObjectOpenHashSet() } += customer
         }
     }
 }

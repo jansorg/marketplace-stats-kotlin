@@ -11,8 +11,8 @@ import dev.ja.marketplace.data.ContinuityDiscount
 import dev.ja.marketplace.data.PluginPricing
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import java.math.BigDecimal
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import java.math.RoundingMode
-import java.util.*
 
 /**
  * Tracks recurring revenue for a given time period, e.g. one month or one year.
@@ -23,7 +23,7 @@ abstract class RecurringRevenueTracker(
     private val pluginPricing: PluginPricing,
     private val exchangeRates: ExchangeRates,
 ) {
-    private val latestSales = TreeMap<LicenseId, LicenseInfo>()
+    private val latestSales = Object2ObjectOpenHashMap<LicenseId, LicenseInfo>()
 
     protected abstract fun nextContinuityCheckDate(date: YearMonthDay): YearMonthDay
 

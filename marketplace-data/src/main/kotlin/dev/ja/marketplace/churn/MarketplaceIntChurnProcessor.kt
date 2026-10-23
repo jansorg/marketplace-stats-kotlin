@@ -6,15 +6,15 @@
 package dev.ja.marketplace.churn
 
 import dev.ja.marketplace.client.YearMonthDay
-import it.unimi.dsi.fastutil.ints.IntArraySet
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 
 abstract class MarketplaceIntChurnProcessor<T>(
     previouslyActiveMarkerDate: YearMonthDay,
     currentlyActiveMarkerDate: YearMonthDay
 ) : MarketplaceChurnProcessor<T>(previouslyActiveMarkerDate, currentlyActiveMarkerDate) {
-    private val previousPeriodItems = IntArraySet(250)
-    private val activeItems = IntArraySet(250)
-    private val activeUnacceptedItems = IntArraySet(250)
+    private val previousPeriodItems = IntOpenHashSet()
+    private val activeItems = IntOpenHashSet()
+    private val activeUnacceptedItems = IntOpenHashSet()
 
     protected abstract fun getId(value: T): Int
 
@@ -44,7 +44,7 @@ abstract class MarketplaceIntChurnProcessor<T>(
     }
 
     fun churnedIds(): Set<Int> {
-        val churned = IntArraySet(previousPeriodItems)
+        val churned = IntOpenHashSet(previousPeriodItems)
         churned.removeAll(activeItems)
         churned.removeAll(activeUnacceptedItems)
         return churned
