@@ -223,6 +223,12 @@ dd {
     white-space: nowrap;
 }
 
+/* the refresh button is shown next to the links of the footer */
+footer.menu form {
+    display: inline;
+    margin-left: .8em;
+}
+
 .menu a + a:before {
     content: "·";
     display: inline-block;

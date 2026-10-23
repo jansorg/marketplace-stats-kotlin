@@ -90,6 +90,7 @@
 </section>
 
 <footer class="menu subtitle section-small">
+    <a href="/">All Plugins</a>
     <form action="/refresh?pluginId=${plugin.id}&reload=true" method="POST"><button>Refresh</button></form>
 </footer>
 

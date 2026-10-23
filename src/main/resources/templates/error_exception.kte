@@ -17,6 +17,8 @@
     It could be a bug in marketplace-stats server itself or request to the JetBrains Marketplace.
 </p>
 
+<p class="margin-bottom"><a href="/">Back to all plugins</a></p>
+
 <dl>
     <dt>Stacktrace</dt>
     <dd>
