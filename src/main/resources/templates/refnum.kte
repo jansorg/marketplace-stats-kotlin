@@ -10,8 +10,11 @@
 @param lineItemsTable: RenderedDataTable
 @param settings: ServerConfiguration
 
+<!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>RefNum Details: ${sale.ref}</title>
     <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
     <link rel="stylesheet" type="text/css" media="print" href="/styles/print.css"/>
