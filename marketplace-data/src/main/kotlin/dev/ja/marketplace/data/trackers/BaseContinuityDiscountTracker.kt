@@ -9,6 +9,7 @@ import dev.ja.marketplace.client.LicenseId
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.ContinuityDiscount
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import java.util.*
 
 interface ContinuityDiscountTracker {
@@ -20,7 +21,7 @@ interface ContinuityDiscountTracker {
  * Tracks the current continuity discount of licenses and can provide the continuity discount
  */
 class BaseContinuityDiscountTracker : ContinuityDiscountTracker {
-    private val newSalesValidity = mutableMapOf<LicenseId, TreeSet<LicenseInfo>>()
+    private val newSalesValidity = Object2ObjectOpenHashMap<LicenseId, TreeSet<LicenseInfo>>()
 
     override fun process(license: LicenseInfo) {
         if (license.isNewLicense && license.isSubscriptionLicense) {
