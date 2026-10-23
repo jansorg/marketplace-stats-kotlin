@@ -38,13 +38,14 @@ class TopCountriesTable(
     private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
 
     private val columnCountry = DataTableColumn("country", if (smallSpace) null else "Country", "col-right")
-    private val columnSales = DataTableColumn("sales", if (smallSpace) null else "Total Sales", "num", preSorted = AriaSortOrder.Descending)
-    private val columnSalesPercentage = DataTableColumn("sales", "% of Sales", "num num-percentage")
+    private val columnSales = DataTableColumn("sales", if (smallSpace) null else "Total Sales", "num", preSorted = AriaSortOrder.Descending, chartTitle = "Total Sales")
+    private val columnSalesPercentage = DataTableColumn("sales", "% of Sales", "num num-percentage", isShareOfTotal = true)
     private val columnTrialCount = DataTableColumn("trials", "Trials", "num")
     private val columnTrialsPercentage = DataTableColumn(
         "trials",
         "% of Trials",
         "num num-percentage",
+        isShareOfTotal = true,
         tooltip = "Percentage of the total trials"
     )
     private val columnTrialConversion = DataTableColumn(

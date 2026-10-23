@@ -29,4 +29,7 @@
 - Fix sorting of amounts which only differ in cents.
 - Round amounts with more than 5 decimal places instead of failing to load the sales of a plugin.
 - Cache exchange rates only for dates before the latest published ECB rates.
+- Show columns of the tables with dates as line charts, and share columns like "% of Sales" as pie charts, by clicking the column header.
+- Remember the charts in the browser and restore them on later visits, available via the "Charts" link in the navigation.
+- Show a tooltip with the values of all lines at the cursor, switch line charts between lines and bars, and show only values of the same period in one chart.
 - Add `AGENTS.md` with setup information for coding agents.

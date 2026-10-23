@@ -14,8 +14,8 @@ import java.util.*
 
 class CustomerTypeTable : SimpleDataTable("Customer Type", "customer-type"), MarketplaceDataSink {
     private val columnType = DataTableColumn("customer-type", null)
-    private val columnAmount = DataTableColumn("amount", null, "num")
-    private val columnPercentage = DataTableColumn("percentage", "% of Sales", "num num-percentage")
+    private val columnAmount = DataTableColumn("amount", null, "num", chartTitle = "Total Sales")
+    private val columnPercentage = DataTableColumn("percentage", "% of Sales", "num num-percentage", isShareOfTotal = true)
 
     private lateinit var totalAmount: MonetaryAmountTracker
     private val customerTypes = TreeMap<CustomerType, MonetaryAmountTracker>()

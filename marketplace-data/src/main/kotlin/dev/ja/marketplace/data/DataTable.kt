@@ -41,6 +41,17 @@ interface DataTable : MarketplaceDataSink {
 
     val isLimitedRendering: Boolean get() = false
 
+    /**
+     * If `true`, the numeric columns of the table can be shown in a chart.
+     * The first column of each row must contain its date, e.g. a [dev.ja.marketplace.client.YearMonthDay].
+     */
+    val isChartable: Boolean get() = false
+
+    /**
+     * The period of the rows of a chartable table.
+     */
+    val chartPeriod: ChartPeriod get() = ChartPeriod.Day
+
     suspend fun renderTable(): RenderedDataTable
 }
 
@@ -104,6 +115,15 @@ data class DataTableColumn(
     val cssStyle: String? = null,
     val tooltip: String? = null,
     val preSorted: AriaSortOrder? = null,
+    /**
+     * Title of the column in charts, if it differs from the [title], e.g. if the title is only a symbol.
+     */
+    val chartTitle: String? = title,
+    /**
+     * If `true`, the column contains the share of each row of a total, e.g. the percentage of sales,
+     * which can be shown in a pie chart. The first column of each row must contain the name of the row.
+     */
+    val isShareOfTotal: Boolean = false,
 )
 
 data class SimpleTableSection(

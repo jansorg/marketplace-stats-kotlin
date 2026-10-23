@@ -31,14 +31,16 @@ data class ChurnResult<T>(
             return "—"
         }
 
+        val rate = churnRate.asPercentageValue() ?: return "—"
         val percentage: Any = when (churnRate) {
             // PercentageValue.ZERO is rendered as "no value", but no churn is a valid result
             0.0 -> PercentageValue(BigDecimal.ZERO).toString()
-            else -> churnRate.asPercentageValue() ?: return "—"
+            else -> rate
         }
 
         val linkedChurnRate = LinkedChurnRate(
             percentage,
+            rate,
             previousPeriodMarkerDate,
             currentPeriodMarkerDate,
             period,

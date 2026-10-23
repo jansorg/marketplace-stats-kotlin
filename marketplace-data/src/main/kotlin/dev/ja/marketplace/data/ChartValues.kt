@@ -1,0 +1,99 @@
+/*
+ * Copyright (c) 2026 Joachim Ansorg.
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+package dev.ja.marketplace.data
+
+import dev.ja.marketplace.client.YearMonthDay
+import java.math.BigDecimal
+import java.math.BigInteger
+import java.math.RoundingMode
+import javax.money.MonetaryAmount
+
+/**
+ * A numeric value of a table cell, which can be shown in a chart.
+ *
+ * @param unit The currency code for amounts, `%` for percentages and `count` for numbers.
+ * @param isIncomplete If the value may still change, see [IncompleteValue].
+ */
+data class ChartValue(val value: BigDecimal, val unit: String, val isIncomplete: Boolean = false)
+
+/**
+ * The period of the rows of a chartable table, see [DataTable.chartPeriod].
+ */
+enum class ChartPeriod {
+    Day,
+    Month,
+    Year,
+}
+
+/**
+ * Extracts the data of chartable tables, see [DataTable.isChartable].
+ */
+object ChartValues {
+    private val yearMonthPattern = Regex("""\d{4}-\d{2}""")
+
+    /**
+     * The value of a month is located at the end of its period, e.g. the number of licenses at the end of a month,
+     * the value of the current month at the given date, e.g. today.
+     * The value of a year is located in the middle of the year, the value of the current year in the middle of the
+     * elapsed part of the year, so that it's shown between the ticks of the years.
+     *
+     * @return The date of a row as ISO date, based on the value of the first column of the row.
+     */
+    fun xValue(period: ChartPeriod, firstColumnValue: Any?, today: YearMonthDay = YearMonthDay.now()): String? {
+        val date = when (firstColumnValue) {
+            is YearMonthDay -> firstColumnValue
+            is String -> when {
+                yearMonthPattern.matches(firstColumnValue) -> YearMonthDay.parse("$firstColumnValue-01")
+                else -> return null
+            }
+
+            is Int -> when (firstColumnValue) {
+                in 1970..9999 -> YearMonthDay(firstColumnValue, 1, 1)
+                else -> return null
+            }
+
+            else -> return null
+        }
+
+        return when (period) {
+            ChartPeriod.Day -> date
+            ChartPeriod.Month -> minOf(YearMonthDay.lastOfMonth(date.year, date.month), maxOf(today, date))
+            ChartPeriod.Year -> {
+                val start = YearMonthDay(date.year, 1, 1)
+                val end = minOf(YearMonthDay(date.year, 12, 31), maxOf(today, start))
+                start.add(0, 0, (start daysUntil end).toInt() / 2)
+            }
+        }.asIsoString
+    }
+
+    /**
+     * @return The name of a row of a table with share columns, based on the value of the first column of the row.
+     */
+    fun category(firstColumnValue: Any?): String? {
+        return when (firstColumnValue) {
+            null, NoValue -> null
+            is IncompleteValue -> category(firstColumnValue.value)
+            else -> firstColumnValue.toString().takeIf(String::isNotBlank)
+        }
+    }
+
+    fun value(cellValue: Any?): ChartValue? {
+        return when (cellValue) {
+            is IncompleteValue -> value(cellValue.value)?.copy(isIncomplete = true)
+            is LinkedChurnRate -> ChartValue(cellValue.rate.value.setScale(2, RoundingMode.HALF_UP), "%")
+            is MonetaryAmount -> ChartValue(
+                cellValue.number.numberValue(BigDecimal::class.java).setScale(2, RoundingMode.HALF_UP),
+                cellValue.currency.currencyCode
+            )
+            // PercentageValue.ZERO is rendered as "—" in tables, but it's 0% in the chartable tables, e.g. no converted trials
+            is PercentageValue -> ChartValue(cellValue.value.setScale(2, RoundingMode.HALF_UP), "%")
+            is BigInteger -> ChartValue(cellValue.toBigDecimal(), "count")
+            is Int -> ChartValue(cellValue.toBigDecimal(), "count")
+            is Long -> ChartValue(cellValue.toBigDecimal(), "count")
+            else -> null
+        }
+    }
+}

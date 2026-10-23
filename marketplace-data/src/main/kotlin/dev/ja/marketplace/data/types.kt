@@ -82,6 +82,10 @@ data class LinkedRefNum(val refNum: String, val pluginId: PluginId)
 
 data class LinkedChurnRate(
     val churnRate: Any,
+    /**
+     * The churn rate as a number, e.g. for charts.
+     */
+    val rate: PercentageValue,
     val previousPeriodMarkerDate: YearMonthDay,
     val currentPeriodMarkerDate: YearMonthDay,
     val period: LicensePeriod,

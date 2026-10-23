@@ -4,6 +4,7 @@
  */
 
 import gg.jte.ContentType
+import javax.inject.Inject
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 // https://mvnrepository.com/artifact/io.ktor/ktor-client-core-jvm
@@ -106,6 +107,82 @@ project(":marketplace-data") {
 }
 
 project(":") {
+    repositories {
+        // JavaScript libraries are downloaded from the npm registry and bundled with the server
+        exclusiveContent {
+            forRepository {
+                ivy {
+                    name = "npm"
+                    url = uri("https://registry.npmjs.org")
+                    patternLayout {
+                        artifact("[module]/-/[module]-[revision].[ext]")
+                    }
+                    metadataSources {
+                        artifact()
+                    }
+                }
+            }
+            filter {
+                includeGroup("npm")
+            }
+        }
+    }
+
+    val javascriptLibraries by configurations.creating {
+        isCanBeConsumed = false
+        isTransitive = false
+    }
+
+    dependencies {
+        // https://www.npmjs.com/package/uplot, used for the charts
+        javascriptLibraries("npm:uplot:1.6.32@tgz")
+    }
+
+    // Extracts the files of the JavaScript libraries, which are served from the "js" directory of the resources.
+    // ArchiveOperations instead of Project.tarTree is compatible with the configuration cache.
+    val archives = objects.newInstance<InjectedArchiveOperations>().archiveOperations
+    val bundleJavascriptLibraries by tasks.registering(Sync::class) {
+        from(javascriptLibraries.elements.map { files -> files.map { archives.tarTree(archives.gzip(it.asFile)) } }) {
+            include("package/dist/uPlot.iife.min.js", "package/dist/uPlot.min.css", "package/LICENSE")
+            eachFile {
+                val fileName = if (name == "LICENSE") "uPlot.LICENSE.txt" else name
+                relativePath = RelativePath(true, "js", fileName)
+            }
+            includeEmptyDirs = false
+        }
+        into(layout.buildDirectory.dir("generated/javascript"))
+    }
+
+    sourceSets.main {
+        resources.srcDir(bundleJavascriptLibraries)
+    }
+
+    // Tests of the JavaScript modules of the charts, with the test runner of Node.js. Skipped if Node.js isn't installed.
+    val isNodeAvailable = try {
+        providers.exec {
+            commandLine("node", "--version")
+            isIgnoreExitValue = true
+        }.result.get().exitValue == 0
+    } catch (e: Exception) {
+        false
+    }
+
+    val testJavascript by tasks.registering(Exec::class) {
+        description = "Runs the tests of the JavaScript modules with Node.js"
+        group = "verification"
+        onlyIf("Node.js is available") { isNodeAvailable }
+        inputs.dir("src/main/resources/js/charts")
+        inputs.dir("src/test/js")
+        workingDir = projectDir
+        // the test files are passed explicitly, older versions of Node.js don't accept a directory
+        val testFiles = fileTree("src/test/js") { include("**/*.test.mjs") }.files.map { it.relativeTo(projectDir).path }.sorted()
+        commandLine(listOf("node", "--test") + testFiles)
+    }
+
+    tasks.named("check") {
+        dependsOn(testJavascript)
+    }
+
     dependencies {
         implementation(project(":marketplace-client"))
         implementation(project(":marketplace-data"))
@@ -170,4 +247,9 @@ project(":") {
             classpath += files(precompileJte.map { it.targetDirectory })
         }
     }
+}
+
+interface InjectedArchiveOperations {
+    @get:Inject
+    val archiveOperations: ArchiveOperations
 }

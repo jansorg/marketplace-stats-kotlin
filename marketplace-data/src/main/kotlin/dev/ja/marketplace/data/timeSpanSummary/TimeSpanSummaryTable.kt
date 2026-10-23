@@ -24,13 +24,15 @@ class TimeSpanSummaryTable(maxDays: Int, title: String) : SimpleDataTable(title,
 
     private val columnDay = DataTableColumn("day", null)
     private val columnSales = DataTableColumn("total", "Sales", "num")
-    private val columnDownloads = DataTableColumn("total", "↓", "num", tooltip = "Downloads")
+    private val columnDownloads = DataTableColumn("total", "↓", "num", chartTitle = "Downloads", tooltip = "Downloads")
     private val columnTrials = DataTableColumn("total", "Trials", "num")
 
     private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
     private val dateRange = YearMonthDay.now().let { YearMonthDayRange(it.add(0, 0, -maxDays), it) }
     private val daySummaries = TreeMap<YearMonthDay, DaySummary>()
     private lateinit var totalSales: MonetaryAmountTracker
+
+    override val isChartable: Boolean = true
 
     override val columns: List<DataTableColumn> by lazy {
         listOfNotNull(

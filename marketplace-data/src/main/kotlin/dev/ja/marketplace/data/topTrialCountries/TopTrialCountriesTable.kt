@@ -31,11 +31,12 @@ class TopTrialCountriesTable(
     private var maxTrialsDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
 
     private val columnCountry = DataTableColumn("country", null, "col-right")
-    private val columnTrialCount = DataTableColumn("trials", "Trials".takeUnless { smallSpaceFormat }, "num")
+    private val columnTrialCount = DataTableColumn("trials", "Trials".takeUnless { smallSpaceFormat }, "num", chartTitle = "Trials")
     private val columnTrialsPercentage = DataTableColumn(
         "trials",
         "% of Trials",
         "num num-percentage",
+        isShareOfTotal = true,
         tooltip = "Percentage of the total trials"
     )
     private val columnTrialConversionRate = DataTableColumn(

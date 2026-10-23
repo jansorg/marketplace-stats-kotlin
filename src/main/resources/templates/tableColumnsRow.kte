@@ -8,7 +8,9 @@
 
 <tr class="${cssClass}">
     @for((columnIndex, column) in columns.withIndex())
-        <th colspan="${column.columnSpan}" class="${column.cssClass}" style="${column.cssStyle}" title="${column.tooltip}" aria-sort="${column.preSorted?.attributeValue}">
+        <th colspan="${column.columnSpan}" class="${column.cssClass}" style="${column.cssStyle}" title="${column.tooltip}" aria-sort="${column.preSorted?.attributeValue}"
+            data-chart-col="${if ((table.isChartable && columnIndex > 0) || column.isShareOfTotal) columnIndex else null}" data-chart-label="${if ((table.isChartable && columnIndex > 0) || columns.any { it.isShareOfTotal }) column.chartTitle else null}"
+            data-chart-pie="${if (column.isShareOfTotal) "true" else null}">
             @if(columnIndex == 0 && title != null && column.title == null)
                 <h2>${title}</h2>
             @elseif(column.title != null)

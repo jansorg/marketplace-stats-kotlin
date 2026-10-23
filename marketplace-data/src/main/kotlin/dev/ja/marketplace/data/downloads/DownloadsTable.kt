@@ -15,6 +15,9 @@ class DownloadsTable : SimpleDataTable("", "downloads"), MarketplaceDataSink {
     private val columnMonth = DataTableColumn("month", null)
     private val columnDownloads = DataTableColumn("downloads", "Downloads", "num")
 
+    override val isChartable: Boolean = true
+    override val chartPeriod: ChartPeriod = ChartPeriod.Month
+
     override val columns: List<DataTableColumn> = listOf(columnMonth, columnDownloads)
 
     override suspend fun init(data: PluginData) {

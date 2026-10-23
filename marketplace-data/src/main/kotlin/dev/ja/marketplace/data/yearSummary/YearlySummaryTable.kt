@@ -25,7 +25,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
     private val columnSalesFees = DataTableColumn("fees", "Fees", "num")
     private val columnSalesPaid = DataTableColumn("paid", "Paid", "num")
     private val columnARR = DataTableColumn("arr", "ARR", "num")
-    private val columnDownloads = DataTableColumn("downloads", "↓", "num", tooltip = "Downloads")
+    private val columnDownloads = DataTableColumn("downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Downloads")
     private val columnTrials = DataTableColumn("trials", "Trials", "num")
     private val columnTrialsConverted = DataTableColumn("trials-converted", "Conv. Trials", "num")
 
@@ -52,6 +52,9 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
 
         trialsTracker.init(data.getTrials() ?: emptyList())
     }
+
+    override val isChartable: Boolean = true
+    override val chartPeriod: ChartPeriod = ChartPeriod.Year
 
     override val columns: List<DataTableColumn> by lazy {
         listOfNotNull(
