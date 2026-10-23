@@ -68,7 +68,8 @@ class TopTrialCountriesTable(
         if (pluginTrials.isNotEmpty()) {
             for ((country, trials) in pluginTrials.groupBy { it.customer.country }) {
                 if (country.isNotEmpty() || showEmptyCountry) {
-                    countryToTrialCount.addTo(country, trials.size)
+                    // both maps must use the same key, trials without a country are shown with a placeholder
+                    countryToTrialCount.addTo(country.orEmptyCountry(), trials.size)
                     countryToTrialTracker.getOrPut(country.orEmptyCountry(), ::SimpleTrialTracker).init(trials)
                 }
             }
