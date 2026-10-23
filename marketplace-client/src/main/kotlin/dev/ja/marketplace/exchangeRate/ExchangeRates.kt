@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -9,44 +9,34 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import dev.ja.marketplace.client.CacheAware
 import dev.ja.marketplace.client.YearMonthDay
 import org.javamoney.moneta.FastMoney
-import org.javamoney.moneta.convert.ecb.ECBCurrentRateProvider
-import org.javamoney.moneta.convert.ecb.ECBHistoricRateProvider
-import org.javamoney.moneta.spi.CompoundRateProvider
 import java.math.BigDecimal
+import java.math.MathContext
 import java.math.RoundingMode
-import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 import javax.money.CurrencyUnit
 import javax.money.Monetary
 import javax.money.MonetaryAmount
-import javax.money.convert.ConversionQueryBuilder
-import javax.money.convert.CurrencyConversionException
-import javax.money.convert.ExchangeRate
-import javax.money.convert.ExchangeRateProvider
+import javax.money.MonetaryException
 
 /**
- * Prefetched exchange rates.
+ * Converts monetary amounts with the daily reference rates of the European Central Bank.
  */
-class ExchangeRates(targetCurrencyCode: String) : CacheAware {
+class ExchangeRates(
+    targetCurrencyCode: String,
+    private val rateData: EcbExchangeRateData = EcbExchangeRateData.Default,
+) : CacheAware {
     private data class CacheKey(val date: YearMonthDay, val baseCurrency: CurrencyUnit)
 
-    private val composedRateProvider = CompoundRateProvider(
-        listOf<ExchangeRateProvider>(
-            ECBHistoricRateProvider(),
-            ECBCurrentRateProvider()
-        )
-    )
-
     private val cachedExchangeRates = Caffeine.newBuilder()
-        .softValues()
-        .maximumSize(1_000)
+        .maximumSize(10_000)
         .expireAfterWrite(7, TimeUnit.DAYS)
-        .build<CacheKey, ExchangeRate>()
+        .build<CacheKey, BigDecimal>()
 
     val targetCurrency: CurrencyUnit = Monetary.getCurrency(targetCurrencyCode)
 
     override fun invalidateCache() {
         cachedExchangeRates.invalidateAll()
+        rateData.invalidate()
     }
 
     fun convert(date: YearMonthDay, amount: MonetaryAmount): MonetaryAmount {
@@ -55,48 +45,43 @@ class ExchangeRates(targetCurrencyCode: String) : CacheAware {
         }
 
         val now = YearMonthDay.now()
-        val exchangeRate = when {
-            date >= now -> getExchangeRateUncached(now, amount)
+        val factor = when {
+            date >= now -> getExchangeRateFactorUncached(now, amount.currency)
             else -> cachedExchangeRates.get(CacheKey(date, amount.currency)) {
-                getExchangeRateUncached(date, amount)
+                getExchangeRateFactorUncached(date, amount.currency)
             }
         }
 
-        return applyConversion(exchangeRate, amount, targetCurrency)
-    }
-
-    private fun getExchangeRateUncached(
-        fixedDate: YearMonthDay,
-        amount: MonetaryAmount
-    ): ExchangeRate {
-        val query = ConversionQueryBuilder
-            .of()
-            .setTermCurrency(targetCurrency)
-            .set(Array<LocalDate>::class.java, createLookupDates(fixedDate))
-            .build()
-        return composedRateProvider.getCurrencyConversion(query).getExchangeRate(amount)
-    }
-
-    // fixed apply method to make it work with FastMoney
-    private fun applyConversion(rate: ExchangeRate?, amount: MonetaryAmount, termCurrency: CurrencyUnit): MonetaryAmount {
-        val baseCurrency = amount.currency
-        if (rate == null || baseCurrency != rate.baseCurrency) {
-            throw CurrencyConversionException(baseCurrency, termCurrency, null)
-        }
-
-        val multiplied = rate.factor.numberValue(BigDecimal::class.java)
+        val converted = factor
             .multiply(amount.number.numberValue(BigDecimal::class.java))
             .setScale(5, RoundingMode.HALF_UP)
-        return FastMoney.of(multiplied, rate.currency)
+        return FastMoney.of(converted, targetCurrency)
     }
 
-    // requested date with several fallback to make up to weekends
-    private fun createLookupDates(date: YearMonthDay) = arrayOf(
-        date.toLocalDate(),
-        date.add(0, 0, -1).toLocalDate(),
-        date.add(0, 0, -2).toLocalDate(),
-        date.add(0, 0, -3).toLocalDate(),
-        date.add(0, 0, 1).toLocalDate(),
-        date.add(0, 0, 2).toLocalDate(),
-    )
+    private fun getExchangeRateFactorUncached(date: YearMonthDay, baseCurrency: CurrencyUnit): BigDecimal {
+        val rates = rateData.get()
+        // rates are not published on weekends and holidays
+        val rateDate = rates.closestDate(date.toLocalDate())
+            ?: throw MonetaryException("No ECB exchange rates available for ${date.asIsoString}")
+
+        val baseCode = baseCurrency.currencyCode
+        val termCode = targetCurrency.currencyCode
+        val baseRate = rates.euroRate(baseCode, rateDate)
+        val termRate = rates.euroRate(termCode, rateDate)
+        if (baseRate == null || termRate == null) {
+            throw MonetaryException("No ECB exchange rate available for $baseCode to $termCode on $rateDate")
+        }
+
+        // ECB rates are quoted as the amount of a currency for 1 EUR, other conversions are derived via EUR
+        return when {
+            baseCode == "EUR" -> termRate
+            termCode == "EUR" -> reverse(baseRate)
+            else -> reverse(baseRate).multiply(termRate)
+        }
+    }
+
+    private fun reverse(rate: BigDecimal): BigDecimal {
+        return BigDecimal.ONE.divide(rate, MathContext.DECIMAL64)
+    }
+
 }

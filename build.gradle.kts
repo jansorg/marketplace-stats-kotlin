@@ -73,10 +73,6 @@ allprojects {
 
         // https://mvnrepository.com/artifact/org.javamoney.moneta/moneta-core
         implementation("org.javamoney.moneta:moneta-core:1.4.5")
-        // https://mvnrepository.com/artifact/org.javamoney.moneta/moneta-convert
-        implementation("org.javamoney.moneta:moneta-convert:1.4.5")
-        // https://mvnrepository.com/artifact/org.javamoney.moneta/moneta-convert-ecb
-        implementation("org.javamoney.moneta:moneta-convert-ecb:1.4.5")
 
         // https://mvnrepository.com/artifact/com.google.guava/guava
         implementation("com.google.guava:guava:33.7.2-jre")
