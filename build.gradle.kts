@@ -33,11 +33,16 @@ allprojects {
     }
 
     kotlin {
-        jvmToolchain(24)
+        // Kotlin 2.3 doesn't support JVM 27 bytecode yet, build with JDK 27 but target the latest LTS
+        jvmToolchain(27)
         compilerOptions {
-            jvmTarget = JvmTarget.JVM_24
+            jvmTarget = JvmTarget.JVM_25
             freeCompilerArgs.add("-Xdebug")
         }
+    }
+
+    java {
+        targetCompatibility = JavaVersion.VERSION_25
     }
 
     tasks {
