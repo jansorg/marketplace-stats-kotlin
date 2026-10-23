@@ -24,3 +24,7 @@ class CohortRetentionTableFactory : MarketplaceDataTableFactory {
 class RenewalRateTableFactory : MarketplaceDataTableFactory {
     override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable = RenewalRateTable()
 }
+
+class AverageRevenuePerCustomerTableFactory : MarketplaceDataTableFactory {
+    override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable = AverageRevenuePerCustomerTable()
+}
