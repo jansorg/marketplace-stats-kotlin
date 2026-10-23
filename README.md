@@ -17,7 +17,7 @@ java -jar /path/to/marketplace-stats-all.jar \
 
 ## Requirements
 
-This software is build upon Java 21.
+Building this software requires JDK 27. The application runs on Java 25 or later.
 
 ## Building
 

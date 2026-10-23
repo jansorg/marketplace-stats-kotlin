@@ -27,6 +27,6 @@ class FormattersTest {
     @Test
     fun swissLocale() {
         val format = Formatters.createMoneyFormatter(Locale.of("de", "ch"))
-        assertEquals("USD 1’234.57", format.format(Money.of(1234.567890, MarketplaceCurrencies.USD)))
+        assertEquals("USD 1'234.57", format.format(Money.of(1234.567890, MarketplaceCurrencies.USD)))
     }
 }
