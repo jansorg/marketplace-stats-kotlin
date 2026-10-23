@@ -10,7 +10,6 @@ import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.client.model.PluginInfoSummary
 import dev.ja.marketplace.data.PluginData
 import dev.ja.marketplace.data.PluginPricing
-import dev.ja.marketplace.data.trackers.BaseContinuityDiscountTracker
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import dev.ja.marketplace.services.Countries
 import kotlinx.coroutines.*
@@ -32,15 +31,6 @@ class PluginDataLoader(
             val salesAndLicenses = loadAsyncIfPaid { client.licenseInfo(plugin.id) }
             val trials = loadAsyncIfPaid { client.trialsInfo(plugin.id) }
 
-            val continuityDiscountTracker = when (salesAndLicenses) {
-                null -> null
-                else -> async(Dispatchers.IO) {
-                    val tracker = BaseContinuityDiscountTracker()
-                    salesAndLicenses.await().licenses.forEach(tracker::process)
-                    tracker
-                }
-            }
-
             val data = PluginData(
                 countries,
                 exchangeRates,
@@ -53,7 +43,6 @@ class PluginDataLoader(
                 PluginPricing.create(client, plugin.id, countries),
                 salesAndLicenses,
                 trials,
-                continuityDiscountTracker,
             )
 
             data
