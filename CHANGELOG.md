@@ -10,6 +10,7 @@
 - Improve typography: render pages in standards mode, use accessible text colors, load only the used font weights and keep navigation links on one line.
 - Render the plugin overview about 4x faster by using hash sets for churn tracking and removing unused trackers.
 - Use fastutil collections for per-license maps and sets.
+- Load the monthly sales and trials chunks with up to 4 concurrent requests to speed up the first load of a plugin.
 - Load ECB exchange rates lazily with a lightweight loader instead of Moneta, reducing memory usage by about 80 MB.
 - Use the exchange rate of the closest day with published ECB rates, e.g. the following Monday for Sundays.
 - Fix MRR and ARR: discounts other than the continuity discount were applied twice.
