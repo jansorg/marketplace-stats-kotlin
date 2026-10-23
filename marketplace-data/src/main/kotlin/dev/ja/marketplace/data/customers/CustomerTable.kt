@@ -10,14 +10,16 @@ import dev.ja.marketplace.client.model.CustomerInfo
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.util.sortValue
+import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 
 data class CustomerTableRowData(
     val customer: CustomerInfo,
     var totalSales: MonetaryAmountTracker,
     var earliestLicenseStart: YearMonthDay? = null,
     var latestLicenseEnd: YearMonthDay? = null,
-    val totalLicenses: MutableSet<LicenseId> = mutableSetOf(),
-    val activeLicenses: MutableSet<LicenseId> = mutableSetOf()
+    val totalLicenses: MutableSet<LicenseId> = ObjectOpenHashSet(),
+    val activeLicenses: MutableSet<LicenseId> = ObjectOpenHashSet()
 )
 
 class CustomerTable(
@@ -36,7 +38,8 @@ class CustomerTable(
     private val columnTotalLicenses = DataTableColumn("customer-licenses-total", "Total Licenses", "num")
     private val columnId = DataTableColumn("customer-id", "Cust. ID", "num")
 
-    private val customerMap = mutableMapOf<CustomerId, CustomerTableRowData>()
+    // linked map to keep the insertion order, which is the order of customers with equal sort values
+    private val customerMap = Int2ObjectLinkedOpenHashMap<CustomerTableRowData>()
     private lateinit var totalSales: MonetaryAmountTracker
 
     private var pluginId: PluginId? = null

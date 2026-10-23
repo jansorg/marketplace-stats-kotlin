@@ -10,6 +10,8 @@ import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.PaymentAmountTracker
 import dev.ja.marketplace.util.sortValue
 import dev.ja.marketplace.util.takeNullable
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 
 class LicenseTable(
     private val maxTableRows: Int? = null,
@@ -38,8 +40,8 @@ class LicenseTable(
     private val columnReseller = DataTableColumn("reseller", "Reseller")
 
     private val data = mutableListOf<LicenseInfo>()
-    private val licenseMaxValidity = mutableMapOf<LicenseId, YearMonthDay>()
-    private val filteredLicenseMaxValidity = mutableMapOf<LicenseId, YearMonthDay>()
+    private val licenseMaxValidity = Object2ObjectOpenHashMap<LicenseId, YearMonthDay>()
+    private val filteredLicenseMaxValidity = Object2ObjectOpenHashMap<LicenseId, YearMonthDay>()
     private var pluginId: PluginId? = null
 
     override val isLimitedRendering: Boolean
@@ -92,7 +94,7 @@ class LicenseTable(
 
     override suspend fun createSections(): List<DataTableSection> {
         var previousPurchaseDate: YearMonthDay? = null
-        val shownLicenseInfos = if (showOnlyLatestLicenseInfo) mutableSetOf<LicenseId>() else null
+        val shownLicenseInfos = if (showOnlyLatestLicenseInfo) ObjectOpenHashSet<LicenseId>() else null
         // any date because the consumed data is already filtered
         val amountTracker = PaymentAmountTracker(YearMonthDayRange.MAX, exchangeRates)
         val rows = data
