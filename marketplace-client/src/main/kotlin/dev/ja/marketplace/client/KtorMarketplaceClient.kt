@@ -15,9 +15,11 @@ import io.ktor.utils.io.*
 import io.ktor.utils.io.jvm.nio.*
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.nio.file.Files
 import java.nio.file.Path
@@ -29,7 +31,12 @@ open class KtorMarketplaceClient(
     private val apiPath: String = Marketplace.API_PATH,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2),
     private val httpClient: HttpClient,
+    maxConcurrentChunkRequests: Int = 4,
 ) : MarketplaceClient {
+    // Limits the concurrent requests of sales, trials and prices, which are loaded in many small requests,
+    // to avoid a high load on the JetBrains API
+    private val chunkRequestLimiter = Semaphore(maxConcurrentChunkRequests)
+
     @Suppress("unused")
     constructor(
         apiKey: String,
@@ -88,12 +95,7 @@ open class KtorMarketplaceClient(
 
     override suspend fun salesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> = withContext(dispatcher) {
         // fetch in smaller chunks to avoid gateway timeouts and high load on the JetBrains sales API
-        range.stepSequence(months = 1)
-            .asFlow()
-            .map { loadSalesInfo(plugin, it) }
-            .toList()
-            .flatten()
-            .sorted()
+        loadMonthlyChunks(range) { loadSalesInfo(plugin, it) }
     }
 
     override suspend fun licenseInfo(plugin: PluginId): SalesWithLicensesInfo = withContext(dispatcher) {
@@ -107,11 +109,7 @@ open class KtorMarketplaceClient(
 
     override suspend fun trialsInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginTrial> = withContext(dispatcher) {
         // smaller chunk size because of gateway timeouts when a year was used
-        range.stepSequence(months = 1)
-            .asFlow()
-            .map { loadTrialsInfo(plugin, it) }.toList()
-            .flatten()
-            .sorted()
+        loadMonthlyChunks(range) { loadTrialsInfo(plugin, it) }
     }
 
     override suspend fun downloadsTotal(plugin: PluginId, vararg filters: DownloadFilter): Long = withContext(dispatcher) {
@@ -382,9 +380,11 @@ open class KtorMarketplaceClient(
     }
 
     override suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo = withContext(dispatcher) {
-        httpClient.get("${apiPath}/marketplace/plugin/${plugin}/prices") {
-            parameter("countryCode", isoCountryCode)
-        }.body()
+        chunkRequestLimiter.withPermit {
+            httpClient.get("${apiPath}/marketplace/plugin/${plugin}/prices") {
+                parameter("countryCode", isoCountryCode)
+            }.body()
+        }
     }
 
     override suspend fun marketplacePrograms(plugin: PluginId): List<MarketplaceProgram> = withContext(dispatcher) {
@@ -404,17 +404,37 @@ open class KtorMarketplaceClient(
     }
 
     protected open suspend fun loadSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> = withContext(dispatcher) {
-        httpClient.get("$apiPath/marketplace/plugin/$plugin/sales-info") {
-            parameter("beginDate", range.start.asIsoString)
-            parameter("endDate", range.end.asIsoString)
-        }.body()
+        chunkRequestLimiter.withPermit {
+            httpClient.get("$apiPath/marketplace/plugin/$plugin/sales-info") {
+                parameter("beginDate", range.start.asIsoString)
+                parameter("endDate", range.end.asIsoString)
+            }.body()
+        }
     }
 
     protected open suspend fun loadTrialsInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginTrial> = withContext(dispatcher) {
-        httpClient.get("$apiPath/marketplace/plugin/$plugin/trials-info") {
-            parameter("beginDate", range.start.asIsoString)
-            parameter("endDate", range.end.asIsoString)
-        }.body()
+        chunkRequestLimiter.withPermit {
+            httpClient.get("$apiPath/marketplace/plugin/$plugin/trials-info") {
+                parameter("beginDate", range.start.asIsoString)
+                parameter("endDate", range.end.asIsoString)
+            }.body()
+        }
+    }
+
+    /**
+     * Loads the data of a date range in chunks of one month. The chunks are loaded concurrently,
+     * the number of concurrent requests is limited by [chunkRequestLimiter].
+     */
+    private suspend fun <T : Comparable<T>> loadMonthlyChunks(
+        range: YearMonthDayRange,
+        loader: suspend (YearMonthDayRange) -> List<T>
+    ): List<T> = coroutineScope {
+        range.stepSequence(months = 1)
+            .map { async { loader(it) } }
+            .toList()
+            .awaitAll()
+            .flatten()
+            .sorted()
     }
 
     private fun HttpRequestBuilder.addDownloadFilters(filters: Array<out DownloadFilter>) {
