@@ -28,6 +28,7 @@ import dev.ja.marketplace.data.privingOverview.PricingOverviewTableFactory
 import dev.ja.marketplace.data.resellers.ResellerTableFactory
 import dev.ja.marketplace.data.subscriptions.CohortRetentionTableFactory
 import dev.ja.marketplace.data.subscriptions.MrrMovementsTableFactory
+import dev.ja.marketplace.data.subscriptions.RenewalRateTableFactory
 import dev.ja.marketplace.data.subscriptions.RevenueRetentionTableFactory
 import dev.ja.marketplace.data.timeSpanSummary.TimeSpanSummaryFactory
 import dev.ja.marketplace.data.topCountries.TopCountriesFactory
@@ -146,6 +147,7 @@ class MarketplaceStatsServer(
             MrrMovementsTableFactory(),
             RevenueRetentionTableFactory(),
             CohortRetentionTableFactory(),
+            RenewalRateTableFactory(),
         ),
         pageCssClasses = "wide",
         pageTitle = "Subscription Metrics",
