@@ -567,7 +567,7 @@ th.chartable:hover, th.chartable:focus-visible {
 }
 
 .chart-marker-release {
-    background: repeating-linear-gradient(to bottom, #8f8e89 0 4px, transparent 4px 8px);
+    background: repeating-linear-gradient(to bottom, #7d7c77 0 4px, transparent 4px 8px);
 }
 
 .chart-marker-price {
