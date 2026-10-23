@@ -11,7 +11,7 @@
  * - column headers: `data-chart-col` (index), `data-chart-label` and `data-chart-pie` for share columns
  * - rows of line charts: `data-chart-x` (ISO date), cells: `data-chart-value`, `data-chart-unit`, `data-chart-incomplete`
  * - rows of pie charts: `data-chart-category`, cells: `data-chart-share` (percentage)
- * - the major releases: `#chart-major-releases li[data-date]`
+ * - vertical lines: `#chart-major-releases`, `#chart-price-changes` and `#chart-ide-releases` with `li[data-date]`
  */
 
 import {isoDateToTimestamp, PERIODS} from "./format.js";
@@ -110,12 +110,21 @@ export function readPieRows(table, columnIndex) {
     return {key: chartKey("pie", tableTitle, column), table: tableTitle, column, label: chartLabel(tableTitle, column), rows};
 }
 
+/** The kinds of vertical lines and how their labels are created from the text of the list items. */
+const MARKER_SOURCES = [
+    {kind: "release", selector: "#chart-major-releases li", label: text => "v" + text},
+    {kind: "price", selector: "#chart-price-changes li", label: text => text},
+    {kind: "ide", selector: "#chart-ide-releases li", label: text => "IDEA " + text},
+];
+
 /**
- * @return {{timestamp: number, label: string}[]} The first releases of the major versions of the plugin.
+ * @return {{kind: "release"|"price"|"ide", timestamp: number, label: string}[]} The vertical lines of the line charts:
+ *  major releases of the plugin, changes of its base price and major releases of IntelliJ IDEA.
  */
-export function readMajorReleases(document) {
-    return [...document.querySelectorAll("#chart-major-releases li")].map(item => ({
+export function readMarkers(document) {
+    return MARKER_SOURCES.flatMap(({kind, selector, label}) => [...document.querySelectorAll(selector)].map(item => ({
+        kind,
         timestamp: isoDateToTimestamp(item.dataset.date),
-        label: "v" + item.textContent.trim(),
-    }));
+        label: label(item.textContent.trim()),
+    })));
 }

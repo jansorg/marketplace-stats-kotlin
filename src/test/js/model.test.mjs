@@ -7,7 +7,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {
     alignSeries, barLayout, canCombineUnits, dateRange, groupCharts, groupUnits, layoutLabels, MAX_PIE_SLICES,
-    nextColor, OTHER_SLICE_COLOR, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange,
+    nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange,
 } from "../../main/resources/js/charts/model.js";
 
 function series(period, unit, points) {
@@ -104,4 +104,11 @@ test("bars of a group are side by side, thin and centered", () => {
     assert.deepEqual(barLayout(0, 100, {maxBarWidth: 24, gap: 2}), {width: 0, offsets: []});
     assert.equal(smallestInterval([10, 40, 50], 1), 10);
     assert.equal(smallestInterval([10], 7), 7);
+});
+
+test("only the shown kinds of vertical lines are drawn, sorted by date", () => {
+    const markers = [{kind: "ide", timestamp: 30}, {kind: "release", timestamp: 10}, {kind: "price", timestamp: 20}];
+    assert.deepEqual(visibleMarkers(markers, ["ide", "release"]).map(m => m.timestamp), [10, 30]);
+    // hidden by default
+    assert.deepEqual(visibleMarkers(markers, []), []);
 });

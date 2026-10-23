@@ -13,6 +13,7 @@ import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.MarketplaceDataTableFactory
 import dev.ja.marketplace.data.releases.MajorRelease
 import dev.ja.marketplace.data.releases.MajorReleases
+import dev.ja.marketplace.data.prices.PriceChanges
 import io.ktor.server.request.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
@@ -36,6 +37,7 @@ class DefaultPluginPageDefinition(
     ): Map<String, Any?> = coroutineScope {
         // shown in the charts, loaded concurrently with the data of the tables
         val majorReleases = async { loadMajorReleases(dataLoader) }
+        val ideReleases = async { dataLoader.ideReleases.majorReleases() }
         val data = dataLoader.load()
 
         val maxTableRows = request.queryParameters["rows"]?.toIntOrNull()
@@ -74,6 +76,8 @@ class DefaultPluginPageDefinition(
             "urls" to dataLoader.client as MarketplaceUrlSupport,
             "settings" to serverConfiguration,
             "majorReleases" to majorReleases.await(),
+            "ideReleases" to ideReleases.await(),
+            "priceChanges" to (data.getSales()?.let(PriceChanges::find) ?: emptyList()),
         )
     }
 

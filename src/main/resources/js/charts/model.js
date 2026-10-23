@@ -241,3 +241,14 @@ export function smallestInterval(timestamps, fallback) {
 export function lineChartKey(chart) {
     return chart.period + "/" + chart.units.join("+");
 }
+
+/** Kinds of vertical lines in the line charts. */
+export const MARKER_KINDS = ["release", "price", "ide"];
+
+/**
+ * @param {string[]} shownKinds The kinds of vertical lines to show, they are hidden by default.
+ * @return {object[]} The markers of the shown kinds, sorted by date, as needed to place their labels.
+ */
+export function visibleMarkers(markers, shownKinds) {
+    return markers.filter(marker => shownKinds.includes(marker.kind)).sort((a, b) => a.timestamp - b.timestamp);
+}

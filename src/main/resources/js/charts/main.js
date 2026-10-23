@@ -10,9 +10,11 @@
  */
 
 import {createFormatter} from "./format.js";
-import {canCombineUnits, CHART_STYLES, groupCharts, lineChartKey, MAX_PIES, MAX_SERIES, nextColor, pieSlices} from "./model.js";
+import {
+    canCombineUnits, CHART_STYLES, groupCharts, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES, nextColor, pieSlices, visibleMarkers,
+} from "./model.js";
 import {browserStorage, createSetupStorage} from "./storage.js";
-import {chartColumns, readLineSeries, readMajorReleases, readPieRows} from "./tableData.js";
+import {chartColumns, readLineSeries, readMarkers, readPieRows} from "./tableData.js";
 import {ChartDialog} from "./dialog.js";
 import {createLineChart} from "./lineChart.js";
 import {renderPie} from "./pieChart.js";
@@ -27,7 +29,9 @@ class ChartController {
         this.lineChartsAvailable = lineChartsAvailable;
         this.formatter = createFormatter(document.body.dataset.locale || undefined);
         this.fontFamily = getComputedStyle(document.documentElement).fontFamily || "sans-serif";
-        this.majorReleases = readMajorReleases(document);
+        this.markers = readMarkers(document);
+        // the vertical lines are hidden by default
+        this.shownMarkers = [];
         this.storage = createSetupStorage(browserStorage());
 
         this.series = [];
@@ -40,6 +44,7 @@ class ChartController {
         // style of each line chart, the last selected style is used for new charts
         this.chartStyles = {};
         this.preferredStyle = "lines";
+        this.shownStyles = {};
         this.dialog = null;
         this.menuLink = null;
     }
@@ -163,6 +168,7 @@ class ChartController {
         this.maximized = setup.maximized;
         this.chartStyles = setup.chartStyles;
         this.preferredStyle = setup.preferredStyle;
+        this.shownMarkers = setup.shownMarkers;
 
         for (const entry of setup.entries) {
             const column = columns.find(c => c.type === entry.type && c.table === entry.table && c.column === entry.column);
@@ -190,6 +196,7 @@ class ChartController {
             maximized: this.maximized,
             preferredStyle: this.preferredStyle,
             chartStyles: this.chartStyles,
+            shownMarkers: this.shownMarkers,
             entries: [
                 ...this.series.map(s => ({type: "line", table: s.table, column: s.column, color: s.color})),
                 ...this.pies.map(p => ({type: "pie", table: p.table, column: p.column})),
@@ -236,7 +243,12 @@ class ChartController {
                     this.render();
                 },
                 onResize: () => this.resize(),
-            }, this.majorReleases.length > 0);
+                onMarkerVisibilityChange: (kind, visible) => {
+                    this.shownMarkers = visible ? [...new Set([...this.shownMarkers, kind])] : this.shownMarkers.filter(k => k !== kind);
+                    this.save();
+                    this.render();
+                },
+            }, MARKER_KINDS.filter(kind => this.markers.some(marker => marker.kind === kind)));
         }
         return this.dialog;
     }
@@ -255,19 +267,24 @@ class ChartController {
         dialog.clearPanels();
         dialog.setMaximized(this.maximized);
         dialog.setCombineUnits(this.combineUnits, canCombineUnits(this.series));
+        dialog.setShownMarkers(this.shownMarkers);
+        const markers = visibleMarkers(this.markers, this.shownMarkers);
 
         const charts = groupCharts(this.series, this.combineUnits);
         const height = dialog.chartHeight(charts.length);
+        // the styles of the shown charts, a new style of one chart must not change the others
+        this.shownStyles = {};
         for (const chart of charts) {
             const key = lineChartKey(chart);
             const chartStyle = this.chartStyles[key] ?? this.preferredStyle;
+            this.shownStyles[key] = chartStyle;
             const panel = dialog.addPanel("chart-panel");
             panel.append(this.styleSwitch(key, chartStyle));
             this.plots.push(createLineChart({
                 units: chart.units,
                 series: this.series.filter(s => s.period === chart.period),
                 dateRange: chart.dateRange,
-                majorReleases: this.majorReleases,
+                markers,
                 formatter: this.formatter,
                 syncKey: "marketplace-charts-" + chart.period,
                 chartStyle,
@@ -303,7 +320,8 @@ class ChartController {
             button.textContent = STYLE_LABELS[style];
             button.setAttribute("aria-pressed", String(style === currentStyle));
             button.addEventListener("click", () => {
-                this.chartStyles = {...this.chartStyles, [key]: style};
+                // only this chart changes, the other charts keep their current style
+                this.chartStyles = {...this.chartStyles, ...this.shownStyles, [key]: style};
                 this.preferredStyle = style;
                 this.save();
                 this.render();

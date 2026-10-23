@@ -9,4 +9,9 @@ interface JetBrainsServiceClient {
     suspend fun countries(): Countries
 
     suspend fun products(): Products
+
+    /**
+     * @return The releases of a product, sorted by date in descending order.
+     */
+    suspend fun productReleases(product: JetBrainsProductCode, type: ProductReleaseType = ProductReleaseType.Release): List<ProductRelease>
 }

@@ -63,6 +63,7 @@ class MarketplaceStatsServer(
     private lateinit var allPlugins: List<PluginInfoSummary>
     private lateinit var countries: Countries
     private lateinit var exchangeRates: ExchangeRates
+    private val ideReleases = IdeReleaseProvider(servicesClient)
 
     private val indexPageData: PluginPageDefinition = DefaultPluginPageDefinition(
         client,
@@ -406,7 +407,7 @@ class MarketplaceStatsServer(
     }
 
     private fun getDataLoader(plugin: PluginInfoSummary): PluginDataLoader {
-        return PluginDataLoader(client, plugin, countries, exchangeRates)
+        return PluginDataLoader(client, plugin, countries, exchangeRates, ideReleases)
     }
 
     private fun RoutingContext.getDataLoader(): PluginDataLoader? {

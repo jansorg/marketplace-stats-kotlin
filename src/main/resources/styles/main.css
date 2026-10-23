@@ -481,14 +481,20 @@ th.chartable:hover, th.chartable:focus-visible {
 
 .chart-dialog-header {
     display: flex;
-    align-items: baseline;
+    /* centered instead of the baseline, the icon button has no text */
+    align-items: center;
     gap: 0.5rem;
 }
 
 .chart-dialog-header button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    height: 1.75rem;
     font: inherit;
     font-size: .8rem;
-    padding: 0.2rem 0.6rem;
+    padding: 0 0.6rem;
     color: var(--text-color);
     background-color: #f4f4f2;
     border: 1px solid var(--separator-light-color);
@@ -515,9 +521,61 @@ th.chartable:hover, th.chartable:focus-visible {
 }
 
 .chart-dialog-combine {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
     font-size: .8rem;
     margin-right: 0.5rem;
     white-space: nowrap;
+}
+
+.chart-icon {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.chart-marker-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.2rem;
+    font-size: .8rem;
+    margin: 0 0 0.75rem;
+}
+
+.chart-marker-toggles[hidden] {
+    display: none;
+}
+
+.chart-marker-toggles label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+/* samples of the vertical lines, like they are drawn in the charts */
+.chart-marker-sample {
+    display: inline-block;
+    width: 2px;
+    height: 14px;
+}
+
+.chart-marker-release {
+    background: repeating-linear-gradient(to bottom, #8f8e89 0 4px, transparent 4px 8px);
+}
+
+.chart-marker-price {
+    background: repeating-linear-gradient(to bottom, #c27c0e 0 2px, transparent 2px 5px);
+}
+
+.chart-marker-ide {
+    background: repeating-linear-gradient(to bottom, #6f74b8 0 8px, transparent 8px 11px);
 }
 
 .chart-dialog-hint, .chart-dialog-message {

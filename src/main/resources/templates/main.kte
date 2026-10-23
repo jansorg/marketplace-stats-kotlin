@@ -18,6 +18,8 @@
 @param urls: MarketplaceUrlSupport
 @param settings: ServerConfiguration
 @param majorReleases: List<dev.ja.marketplace.data.releases.MajorRelease>
+@param ideReleases: List<dev.ja.marketplace.data.releases.MajorRelease>
+@param priceChanges: List<dev.ja.marketplace.data.prices.PriceChange>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -62,6 +64,20 @@
 @if(majorReleases.isNotEmpty())
     <ul id="chart-major-releases" hidden>
         @for(release in majorReleases)
+            <li data-date="${release.date.asIsoString}">${release.version}</li>
+        @endfor
+    </ul>
+@endif
+@if(priceChanges.isNotEmpty())
+    <ul id="chart-price-changes" hidden>
+        @for(change in priceChanges)
+            <li data-date="${change.date.asIsoString}">${change.label}</li>
+        @endfor
+    </ul>
+@endif
+@if(ideReleases.isNotEmpty())
+    <ul id="chart-ide-releases" hidden>
+        @for(release in ideReleases)
             <li data-date="${release.date.asIsoString}">${release.version}</li>
         @endfor
     </ul>
