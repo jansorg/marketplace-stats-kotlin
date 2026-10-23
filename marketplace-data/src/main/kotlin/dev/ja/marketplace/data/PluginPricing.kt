@@ -9,6 +9,7 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import dev.hsbrysk.caffeine.buildCoroutine
 import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.client.PluginId
+import dev.ja.marketplace.client.fastMoneyOf
 import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.CustomerInfo
 import dev.ja.marketplace.client.model.CustomerType
@@ -17,7 +18,6 @@ import dev.ja.marketplace.client.model.PluginPriceInfo
 import dev.ja.marketplace.services.Countries
 import dev.ja.marketplace.services.Country
 import dev.ja.marketplace.services.CountryIsoCode
-import org.javamoney.moneta.FastMoney
 import org.javamoney.moneta.Money
 import javax.money.MonetaryAmount
 
@@ -117,7 +117,7 @@ data class PluginPricing(
             }
         } ?: return null
 
-        return FastMoney.of(discountedPrice, countryWithCurrency.currency.isoCode)
+        return fastMoneyOf(discountedPrice, countryWithCurrency.currency.isoCode)
     }
 
     companion object {

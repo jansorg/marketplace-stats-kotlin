@@ -19,7 +19,6 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.encoding.decodeStructure
 import kotlinx.serialization.json.*
-import org.javamoney.moneta.FastMoney
 import java.math.BigDecimal
 import javax.money.MonetaryAmount
 import kotlin.time.ExperimentalTime
@@ -67,7 +66,7 @@ object BigDecimalSerializer : KSerializer<BigDecimal> {
 
 object MonetaryAmountUsdSerializer : KSerializer<MonetaryAmount> {
     override fun deserialize(decoder: Decoder): MonetaryAmount {
-        return FastMoney.of(decoder.decodeDouble(), "USD")
+        return fastMoneyOf(decoder.decodeDouble(), "USD")
     }
 
     override fun serialize(encoder: Encoder, value: MonetaryAmount) {
@@ -149,10 +148,10 @@ object PluginSaleSerializer : KSerializer<PluginSale> {
             require(lineItems != null)
 
             val amountCurrencyUnit = MarketplaceCurrencies.of(currency)
-            val amountUSD = FastMoney.of(amountValueUSD, MarketplaceCurrencies.USD)
+            val amountUSD = fastMoneyOf(amountValueUSD, MarketplaceCurrencies.USD.currencyCode)
             val amount = when {
                 currency == "USD" -> amountUSD
-                else -> FastMoney.of(amountValue, amountCurrencyUnit)
+                else -> fastMoneyOf(amountValue, amountCurrencyUnit.currencyCode)
             }
 
             PluginSale(
@@ -168,16 +167,16 @@ object PluginSaleSerializer : KSerializer<PluginSale> {
                         it.subscriptionDates == null -> PerpetualPluginSaleItem(
                             it.type,
                             it.licenseIds,
-                            FastMoney.of(it.amount, amountCurrencyUnit),
-                            FastMoney.of(it.amountUSD, MarketplaceCurrencies.USD),
+                            fastMoneyOf(it.amount, amountCurrencyUnit.currencyCode),
+                            fastMoneyOf(it.amountUSD, MarketplaceCurrencies.USD.currencyCode),
                             it.discountDescriptions
                         )
 
                         else -> SubscriptionPluginSaleItem(
                             it.type,
                             it.licenseIds,
-                            FastMoney.of(it.amount, amountCurrencyUnit),
-                            FastMoney.of(it.amountUSD, MarketplaceCurrencies.USD),
+                            fastMoneyOf(it.amount, amountCurrencyUnit.currencyCode),
+                            fastMoneyOf(it.amountUSD, MarketplaceCurrencies.USD.currencyCode),
                             it.discountDescriptions,
                             it.subscriptionDates
                         )

@@ -17,4 +17,8 @@
 - Fix the overview page failing with "Unable to find base price" when assertions are enabled, e.g. with `./gradlew run`.
 - Convert MRR and ARR to the display currency at the sale date instead of today's rate for future license end dates.
 - Fix sorting of licenses by validity, which compared a license with itself.
+- Fix amounts below 1 rendered without the leading zero in English locales, e.g. "USD .50".
+- Fix sorting of amounts which only differ in cents.
+- Round amounts with more than 5 decimal places instead of failing to load the sales of a plugin.
+- Cache exchange rates only for dates before the latest published ECB rates.
 - Add `AGENTS.md` with setup information for coding agents.

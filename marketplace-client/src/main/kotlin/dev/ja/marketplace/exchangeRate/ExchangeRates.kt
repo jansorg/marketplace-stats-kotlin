@@ -47,15 +47,26 @@ class ExchangeRates(
         val now = YearMonthDay.now()
         val factor = when {
             date >= now -> getExchangeRateFactorUncached(now, amount.currency)
-            else -> cachedExchangeRates.get(CacheKey(date, amount.currency)) {
-                getExchangeRateFactorUncached(date, amount.currency)
-            }
+            else -> getExchangeRateFactor(date, amount.currency)
         }
 
         val converted = factor
             .multiply(amount.number.numberValue(BigDecimal::class.java))
             .setScale(5, RoundingMode.HALF_UP)
         return FastMoney.of(converted, targetCurrency)
+    }
+
+    private fun getExchangeRateFactor(date: YearMonthDay, baseCurrency: CurrencyUnit): BigDecimal {
+        val key = CacheKey(date, baseCurrency)
+        cachedExchangeRates.getIfPresent(key)?.let { return it }
+
+        val factor = getExchangeRateFactorUncached(date, baseCurrency)
+        // The closest date with rates may change for dates after the latest published rates
+        val lastDate = rateData.get().lastDate
+        if (lastDate != null && date.toLocalDate() < lastDate) {
+            cachedExchangeRates.put(key, factor)
+        }
+        return factor
     }
 
     private fun getExchangeRateFactorUncached(date: YearMonthDay, baseCurrency: CurrencyUnit): BigDecimal {

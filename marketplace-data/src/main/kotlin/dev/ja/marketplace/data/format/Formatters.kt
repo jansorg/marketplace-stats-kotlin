@@ -22,7 +22,7 @@ object Formatters {
             locale.language == "en" -> MonetaryFormats.getAmountFormat(
                 AmountFormatQueryBuilder
                     .of(locale)
-                    .set(AmountFormatParams.PATTERN, "¤ ###,###.00")
+                    .set(AmountFormatParams.PATTERN, "¤ #,##0.00")
                     .build()
             )
 
