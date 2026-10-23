@@ -31,7 +31,9 @@ Dependency direction: root → `marketplace-data` → `marketplace-client`. All 
   kotlinx-datetime 0.8 (the `0.6.x-compat` variant, which Ktor requires)
 - JTE 3.2.4 templates (`.kte`, Kotlin syntax), precompiled at build time
 - Clikt 5 for the CLI (`Application.kt`)
-- Moneta (JSR 354) for monetary amounts and currency conversion, Caffeine for caching, Logback for logging
+- Moneta (JSR 354, `moneta-core` only) for monetary amounts. Currency conversion uses the ECB reference rates, loaded
+  lazily by our own `EcbExchangeRateData` (`marketplace-client/.../exchangeRate/`), not by Moneta's ECB providers.
+- fastutil for collections on hot paths (per-license sets and maps), Caffeine for caching, Logback for logging
 - JUnit 6 for tests
 - Gradle plugins: Shadow (fat JAR), gmazzo BuildConfig (`BuildConfig.APP_VERSION` from `VERSION.txt`)
 
@@ -51,6 +53,9 @@ Version constraints to keep in mind when upgrading:
 
   Before upgrading a Kotlin library, check the `kotlin-stdlib` version it requires, and afterwards check
   `./gradlew dependencyInsight --configuration runtimeClasspath --dependency org.jetbrains.kotlin:kotlin-stdlib`.
+- Don't rebuild the fat JAR while a server is running from `build/libs/marketplace-stats-all.jar`. Classes that are
+  loaded lazily afterwards fail with `NoClassDefFoundError`, which crashes Netty's event loop threads and makes requests
+  hang. For profiling or comparisons, run copies of the JAR.
 - After dependency upgrades, run `./gradlew build` (it includes `precompileJte` and the tests) and do a quick smoke test of
   the web server (see below).
 
