@@ -53,6 +53,10 @@ Version constraints to keep in mind when upgrading:
 
   Before upgrading a Kotlin library, check the `kotlin-stdlib` version it requires, and afterwards check
   `./gradlew dependencyInsight --configuration runtimeClasspath --dependency org.jetbrains.kotlin:kotlin-stdlib`.
+- The user may run a server from the IDE, which uses the build output of the working tree (`build/classes`,
+  `build/jte-classes`, `marketplace-data/build/libs/*.jar`). Running Gradle in the working tree replaces these files, and
+  classes loaded afterwards fail with `NoClassDefFoundError`. To test changes while such a server is running, copy the
+  working tree (without `build/` and `.gradle/`) to a temporary directory and build there.
 - Don't rebuild the fat JAR while a server is running from `build/libs/marketplace-stats-all.jar`. Classes that are
   loaded lazily afterwards fail with `NoClassDefFoundError`, which crashes Netty's event loop threads and makes requests
   hang. For profiling or comparisons, run copies of the JAR.
@@ -94,6 +98,25 @@ CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
   `MARKETPLACE_API_KEY` environment variable.
 - `config.json`, `config.*.json` and `.env` are git-ignored and may contain real API keys. Never commit them or print their contents.
 - See `README.md` for all CLI options and environment variables.
+
+## Charts
+
+- The charts are ES modules in `src/main/resources/js/charts/`, loaded without a build step (`main.js` is the entry
+  point). Line charts use uPlot, pie charts are SVG. Keep logic out of the DOM code:
+  - `format.js`, `model.js`, `storage.js`: pure functions, tested with Node.js in `src/test/js/*.test.mjs`
+    (`node --test src/test/js/`, or `./gradlew testJavascript`, which is part of `check` and skipped without Node.js)
+  - `tableData.js`: reads the `data-chart-*` attributes of the tables
+  - `lineChart.js`, `pieChart.js`, `dialog.js`: rendering, `main.js`: state of the charts
+- Only series of the same period (`DataTable.chartPeriod`: day, month or year) share a line chart and its date range.
+  Values of months and years are located at the end of the period, the current period at today.
+- The chart setup (columns, colors, options) is stored in the browser's local storage (`marketplace-stats.charts`) and
+  restored on all pages with the same tables. Values are never stored, they're read from the tables of the current page.
+- uPlot isn't committed. Gradle downloads the npm package (`npm:uplot:<version>@tgz` in `build.gradle.kts`, from an
+  Ivy repository for the npm registry) and the task `bundleJavascriptLibraries` extracts it into
+  `build/generated/javascript/js`, which is added to the resources and served at `/js/`. To upgrade, change the version.
+- Tables opt in with `DataTable.isChartable` (line charts over the date in the first column) or columns with
+  `DataTableColumn.isShareOfTotal` (pie charts with one slice per row). The templates write the raw values and units as
+  `data-chart-*` attributes, computed by `ChartValues`, so the JavaScript doesn't parse formatted numbers.
 
 ## Styling of the Rendered HTML
 

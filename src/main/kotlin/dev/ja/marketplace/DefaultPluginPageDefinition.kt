@@ -6,11 +6,17 @@
 package dev.ja.marketplace
 
 import dev.ja.marketplace.client.MarketplaceClient
+import dev.ja.marketplace.client.PluginChannelNames
 import dev.ja.marketplace.client.MarketplaceUrlSupport
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.MarketplaceDataTableFactory
+import dev.ja.marketplace.data.releases.MajorRelease
+import dev.ja.marketplace.data.releases.MajorReleases
 import io.ktor.server.request.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -27,7 +33,9 @@ class DefaultPluginPageDefinition(
         dataLoader: PluginDataLoader,
         request: ApplicationRequest,
         serverConfiguration: ServerConfiguration
-    ): Map<String, Any?> {
+    ): Map<String, Any?> = coroutineScope {
+        // shown in the charts, loaded concurrently with the data of the tables
+        val majorReleases = async { loadMajorReleases(dataLoader) }
         val data = dataLoader.load()
 
         val maxTableRows = request.queryParameters["rows"]?.toIntOrNull()
@@ -55,7 +63,7 @@ class DefaultPluginPageDefinition(
             .map(DataTable::renderTable)
             .toList()
 
-        return mapOf(
+        mapOf(
             "pageTitle" to pageTitle,
             "pageDescription" to pageDescription,
             "today" to YearMonthDay.now(),
@@ -65,6 +73,22 @@ class DefaultPluginPageDefinition(
             "cssClass" to pageCssClasses,
             "urls" to dataLoader.client as MarketplaceUrlSupport,
             "settings" to serverConfiguration,
+            "majorReleases" to majorReleases.await(),
         )
+    }
+
+    private suspend fun loadMajorReleases(dataLoader: PluginDataLoader): List<MajorRelease> {
+        if (!dataLoader.plugin.isPaidOrFreemium) {
+            return emptyList()
+        }
+
+        return try {
+            MajorReleases.find(client.releases(dataLoader.plugin.id, PluginChannelNames.Stable, pageSize = 100))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // the releases are optional, the page must be rendered without them
+            emptyList()
+        }
     }
 }

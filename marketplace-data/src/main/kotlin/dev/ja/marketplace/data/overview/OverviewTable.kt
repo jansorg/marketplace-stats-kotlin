@@ -110,7 +110,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         "churn-monthly-paid", "Churn (monthly)", "num num-percentage", tooltip = "Churn of paid monthly licenses"
     )
     private val columnDownloads = DataTableColumn(
-        "downloads", "↓", "num", tooltip = "Number of downloads in the month"
+        "downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Number of downloads in the month"
     )
     private val columnTrials = DataTableColumn(
         "trials", "Trials", "num", tooltip = "Number of new trials at the end of the month"
@@ -120,6 +120,9 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         tooltip = "Percentage of trials started in the month, which were converted by a paid new license " +
                 "within the trial period and ${Marketplace.TRIAL_CONVERSION_EXTRA_DAYS} days after it"
     )
+
+    override val isChartable: Boolean = true
+    override val chartPeriod: ChartPeriod = ChartPeriod.Month
 
     override val columns: List<DataTableColumn> by lazy {
         listOfNotNull(

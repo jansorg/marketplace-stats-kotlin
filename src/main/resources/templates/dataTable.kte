@@ -8,7 +8,8 @@
 @param table: RenderedDataTable
 
 !{val renderTableHeader = table.sections.size == 1}
-<table class="small table-striped ${table.cssClass}">
+<table class="small table-striped ${table.cssClass}" data-chart-title="${if (table.isChartable || table.columns.any { it.isShareOfTotal }) table.title else null}"
+       data-chart-period="${if (table.isChartable) table.chartPeriod.name.lowercase() else null}">
     @if(renderTableHeader || table.alwaysShowMainColumns)
         <thead>
         @template.tableColumnsRow(table, columns = table.columns, title = table.title, cssClass = "row-border-bottom")
