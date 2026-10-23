@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.30.0
 
 - Upgrade to Java 27 for builds, CI and the Docker image; the bytecode targets Java 25.
 - Upgrade Gradle to 9.8.2.
