@@ -25,8 +25,8 @@ Dependency direction: root → `marketplace-data` → `marketplace-client`. All 
 - Gradle 9.8 with the Kotlin DSL and configuration cache enabled
 - Kotlin 2.3.21 (JVM plugin and serialization plugin)
 - Java: built and run with JDK 27 (Gradle toolchain, CI, Docker image `eclipse-temurin:27-jre`). The bytecode targets
-  Java 25 because Kotlin 2.3 can't emit JVM 27 bytecode. No toolchain download repository is configured, so a JDK 27
-  must be installed locally; Gradle detects it automatically. The default `java` on the PATH can be an older version.
+  Java 25 because Kotlin 2.3 can't emit JVM 27 bytecode. Gradle uses a locally installed JDK 27 or downloads one via the
+  foojay toolchain resolver (`settings.gradle.kts`). The default `java` on the PATH can be an older version.
 - Ktor 3.6 (client with the Java engine, server with Netty), kotlinx-serialization 1.11, kotlinx-coroutines 1.11,
   kotlinx-datetime 0.8 (the `0.6.x-compat` variant, which Ktor requires)
 - JTE 3.2.4 templates (`.kte`, Kotlin syntax), precompiled at build time
