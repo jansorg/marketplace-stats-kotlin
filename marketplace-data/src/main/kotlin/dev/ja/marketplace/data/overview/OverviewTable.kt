@@ -264,18 +264,12 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                     val isCurrentMonth = now.year == year && now.month == month
                     val monthDateRange = YearMonthDayRange.ofMonth(year, month)
 
-                    val mrrResult = when {
-                        isCurrentMonth -> null
-                        else -> monthData.mrrTracker.getResult()
-                    }
-
-                    val arrResult = when {
-                        isCurrentMonth -> null
-                        else -> monthData.arrTracker.getResult()
-                    }
-
-                    val mrrValue = mrrResult?.amounts?.getTotalAmount()
-                    val arrValue = arrResult?.amounts?.getTotalAmount()
+                    // The recurring revenue of the current month is incomplete,
+                    // because licenses renewed later in the month are not included yet
+                    val mrrValue = monthData.mrrTracker.getResult().amounts.getTotalAmount()
+                        .let { if (isCurrentMonth) IncompleteValue(it) else it }
+                    val arrValue = monthData.arrTracker.getResult().amounts.getTotalAmount()
+                        .let { if (isCurrentMonth) IncompleteValue(it) else it }
 
                     val annualLicenseChurn = when {
                         isCurrentMonth -> null
@@ -317,8 +311,8 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                             columnYearMonth to String.format("%02d-%02d", year, month),
                             columnActiveLicenses to totalLicenses.toBigInteger(),
                             columnActiveLicensesPaying to totalLicensesPaying.toBigInteger(),
-                            columnMonthlyRecurringRevenue to (mrrValue ?: NoValue),
-                            columnAnnualRecurringRevenue to (arrValue ?: NoValue),
+                            columnMonthlyRecurringRevenue to mrrValue,
+                            columnAnnualRecurringRevenue to arrValue,
                             columnAmountTotal to monthData.amounts.totalAmount,
                             columnAmountFees to monthData.amounts.feesAmount,
                             columnAmountPaid to monthData.amounts.paidAmount,
@@ -333,6 +327,8 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                                     "\n$annualLicensesFree annual (free)" +
                                     "\n$monthlyLicensesPaying monthly (paying)",
                             columnActiveLicensesPaying to paidLicensesTooltip,
+                            columnMonthlyRecurringRevenue to IncompleteRecurringRevenueTooltip.takeIf { isCurrentMonth },
+                            columnAnnualRecurringRevenue to IncompleteRecurringRevenueTooltip.takeIf { isCurrentMonth },
                             columnLicenseChurnAnnual to annualLicenseChurn?.churnRateTooltip,
                             columnLicenseChurnMonthly to monthlyLicenseChurn?.churnRateTooltip,
                             columnTrialsConverted to trialsMonthAnyLength.getTooltipConverted() +
