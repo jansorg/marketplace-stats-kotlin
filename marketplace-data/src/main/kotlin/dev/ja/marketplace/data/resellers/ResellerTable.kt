@@ -71,14 +71,23 @@ class ResellerTable : SimpleDataTable("Resellers", cssClass = "table-column-wide
     override suspend fun createSections(): List<DataTableSection> {
         val rows = data.int2ObjectEntrySet()
             .map { (_, row) ->
+                val rowTotalSales = row.totalSales.getTotalAmount()
                 SimpleDateTableRow(
-                    columnName to row.resellerInfo.name,
-                    columnCode to row.resellerInfo.code,
-                    columnCountry to row.resellerInfo.country,
-                    columnType to row.resellerInfo.type.displayString,
-                    columnCustomerCount to row.customers.size,
-                    columnLicenseCount to row.licenses.size,
-                    columnTotalSales to row.totalSales.getTotalAmount(),
+                    values = mapOf(
+                        columnName to row.resellerInfo.name,
+                        columnCode to row.resellerInfo.code,
+                        columnCountry to row.resellerInfo.country,
+                        columnType to row.resellerInfo.type.displayString,
+                        columnCustomerCount to row.customers.size,
+                        columnLicenseCount to row.licenses.size,
+                        columnTotalSales to rowTotalSales,
+                    ),
+                    // the numbers are formatted with the locale, the sortable table sorts by these values instead
+                    sortValues = mapOf(
+                        columnCustomerCount to row.customers.size.toLong(),
+                        columnLicenseCount to row.licenses.size.toLong(),
+                        columnTotalSales to rowTotalSales.sortValue(),
+                    ),
                 )
             }
             .sortedByDescending { (it.values[columnTotalSales] as MonetaryAmount).sortValue() }
