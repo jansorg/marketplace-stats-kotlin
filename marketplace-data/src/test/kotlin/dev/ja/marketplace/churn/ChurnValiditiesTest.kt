@@ -9,9 +9,11 @@ import dev.ja.SalesGenerator
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.YearMonthDay
+import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.PluginSaleItemType
 import dev.ja.marketplace.client.model.SubscriptionPluginSaleItem
+import org.javamoney.moneta.FastMoney
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -19,12 +21,15 @@ class ChurnValiditiesTest {
     private val firstValidity = YearMonthDay(2024, 1, 1).rangeTo(YearMonthDay(2024, 12, 31))
 
     private fun licenses(renewalStart: YearMonthDay, renewalType: PluginSaleItemType = PluginSaleItemType.Renew): List<LicenseInfo> {
-        val first = SalesGenerator.createSale(type = LicensePeriod.Annual, validity = firstValidity)
+        // a fixed amount, a random amount of 0 would be a free license, which doesn't churn
+        val amount = FastMoney.of(100, MarketplaceCurrencies.USD)
+        val first = SalesGenerator.createSale(type = LicensePeriod.Annual, validity = firstValidity, amount = amount)
         val licenseId = first.lineItems.single().licenseIds.single()
         val renewal = SalesGenerator.createSale(
             type = LicensePeriod.Annual,
             validity = renewalStart.rangeTo(renewalStart.add(1, 0, -1)),
             saleType = renewalType,
+            amount = amount,
         ).let { sale ->
             val item = sale.lineItems.single() as SubscriptionPluginSaleItem
             sale.copy(lineItems = listOf(item.copy(licenseIds = listOf(licenseId))))
