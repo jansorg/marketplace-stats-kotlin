@@ -107,6 +107,23 @@ class CustomerRecurringRevenue(
         return firstPaidMonthIndices.get(customer)
     }
 
+    /**
+     * Groups the customers by the year of their first month with recurring revenue.
+     *
+     * @return The ID and the index of the first month of the customers of each year, ordered by year.
+     */
+    fun cohorts(): Map<Int, List<Pair<CustomerId, Int>>> {
+        val customersByYear = sortedMapOf<Int, MutableList<Pair<CustomerId, Int>>>()
+        for (monthIndex in months.indices) {
+            for (customer in customers(monthIndex).keys) {
+                if (firstPaidMonthIndex(customer) == monthIndex) {
+                    customersByYear.getOrPut(months[monthIndex].year, ::mutableListOf) += customer to monthIndex
+                }
+            }
+        }
+        return customersByYear
+    }
+
     fun customerType(customer: CustomerId): CustomerType? {
         return customerTypes.get(customer)
     }

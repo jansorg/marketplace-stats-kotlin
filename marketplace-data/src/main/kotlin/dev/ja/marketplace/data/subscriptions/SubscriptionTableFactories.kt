@@ -29,3 +29,7 @@ class RenewalRateTableFactory(private val licensePeriod: LicensePeriod) : Market
 class AverageRevenuePerCustomerTableFactory : MarketplaceDataTableFactory {
     override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable = AverageRevenuePerCustomerTable()
 }
+
+class RealizedLifetimeValueTableFactory : MarketplaceDataTableFactory {
+    override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable = RealizedLifetimeValueTable()
+}
