@@ -38,4 +38,24 @@ class BaseContinuityDiscountTrackerTest {
         assertEquals(ContinuityDiscount.ThirdYear, tracker.nextContinuity(license.id, validity.end.add(0, 24, 0)))
         assertEquals(ContinuityDiscount.ThirdYear, tracker.nextContinuity(license.id, validity.end.add(0, 25, 0)))
     }
+
+    @Test
+    fun repurchasedLicense() {
+        val tracker = BaseContinuityDiscountTracker()
+
+        // the same license was purchased as a new license twice, years apart
+        val first = SalesGenerator.createSale(validity = YearMonthDay(2020, 1, 1).rangeTo(YearMonthDay(2020, 12, 31)))
+        val firstLicense = LicenseInfo.createFrom(listOf(first)).single()
+        val second = SalesGenerator.createSale(validity = YearMonthDay(2023, 1, 1).rangeTo(YearMonthDay(2023, 12, 31))).let { sale ->
+            val item = sale.lineItems.single() as dev.ja.marketplace.client.model.SubscriptionPluginSaleItem
+            sale.copy(lineItems = listOf(item.copy(licenseIds = listOf(firstLicense.id))))
+        }
+        val licenses = LicenseInfo.createFrom(listOf(second, first))
+        assertEquals(listOf(first.ref, second.ref), licenses.map { it.sale.ref }, "licenses must be sorted by validity")
+        licenses.forEach(tracker::process)
+
+        // continuity must be based on the latest new sale, i.e. 17 months after the 2nd purchase
+        // and not 53 months after the 1st purchase
+        assertEquals(ContinuityDiscount.SecondYear, tracker.nextContinuity(firstLicense.id, YearMonthDay(2024, 6, 1)))
+    }
 }

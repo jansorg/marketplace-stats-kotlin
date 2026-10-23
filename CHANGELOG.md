@@ -16,4 +16,5 @@
 - Fix MRR and ARR: discounts other than the continuity discount were applied twice.
 - Fix the overview page failing with "Unable to find base price" when assertions are enabled, e.g. with `./gradlew run`.
 - Convert MRR and ARR to the display currency at the sale date instead of today's rate for future license end dates.
+- Fix sorting of licenses by validity, which compared a license with itself.
 - Add `AGENTS.md` with setup information for coding agents.

@@ -59,7 +59,7 @@ data class LicenseInfo(
 
     override fun compareTo(other: LicenseInfo): Int {
         val validity = this.validity
-        val otherValidity = this.validity
+        val otherValidity = other.validity
         return when {
             validity == null && otherValidity == null -> 0
             validity == null -> +1
