@@ -7,6 +7,28 @@
  * The dialog, which shows the charts.
  */
 
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+
+/** Arrows pointing to the corners to maximize, and to the center to restore. */
+const ICON_PATHS = {
+    maximize: "M3 8V3h5 M3 3l6 6 M17 8V3h-5 M17 3l-6 6 M3 12v5h5 M3 17l6-6 M17 12v5h-5 M17 17l-6-6",
+    restore: "M8 3v5H3 M8 8L2 2 M12 3v5h5 M12 8l6-6 M8 17v-5H3 M8 12l-6 6 M12 17v-5h5 M12 12l6 6",
+};
+
+function icon(name) {
+    const svg = document.createElementNS(SVG_NAMESPACE, "svg");
+    svg.setAttribute("viewBox", "0 0 20 20");
+    svg.setAttribute("aria-hidden", "true");
+    svg.classList.add("chart-icon");
+    const path = document.createElementNS(SVG_NAMESPACE, "path");
+    path.setAttribute("d", ICON_PATHS[name]);
+    svg.append(path);
+    return svg;
+}
+
+/** Labels of the kinds of vertical lines. */
+const MARKER_LABELS = {release: "Product version", price: "Price changes", ide: "IntelliJ IDEA releases"};
+
 function button(text, onClick, className) {
     const result = document.createElement("button");
     result.type = "button";
@@ -25,9 +47,10 @@ export class ChartDialog {
      * @param {(combine: boolean) => void} callbacks.onCombineUnitsChange
      * @param {(maximized: boolean) => void} callbacks.onMaximizedChange
      * @param {() => void} callbacks.onResize
-     * @param {boolean} hasMajorReleases If the charts show major releases, which are explained in the hint.
+     * @param {(kind: string, visible: boolean) => void} callbacks.onMarkerVisibilityChange
+     * @param {string[]} markerKinds The kinds of vertical lines, which are available on this page.
      */
-    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize}, hasMajorReleases) {
+    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange}, markerKinds) {
         this.element = document.createElement("dialog");
         this.element.className = "chart-dialog noprint";
         this.element.setAttribute("aria-labelledby", "chart-dialog-title");
@@ -44,7 +67,7 @@ export class ChartDialog {
         this.combineLabel.title = "Show two units of the same period in one chart, the second unit on the right y-axis";
         this.combineLabel.append(this.combineCheckbox, " Second y-axis");
 
-        this.maximizeButton = button("Maximize", () => onMaximizedChange(!this.isMaximized), "chart-dialog-maximize");
+        this.maximizeButton = button("", () => onMaximizedChange(!this.isMaximized), "chart-dialog-maximize");
 
         const header = document.createElement("div");
         header.className = "chart-dialog-header";
@@ -53,8 +76,25 @@ export class ChartDialog {
         const hint = document.createElement("p");
         hint.className = "chart-dialog-hint";
         hint.textContent = "Close the dialog and click another column header to add it. "
-            + "Grey points are incomplete values, which may still change."
-            + (hasMajorReleases ? " Dashed lines mark the first release of a major version." : "");
+            + "Grey points are incomplete values, which may still change.";
+
+        // toggles of the vertical lines, with a sample of each line as key
+        this.markerToggles = document.createElement("div");
+        this.markerToggles.className = "chart-marker-toggles";
+        this.markerToggles.hidden = markerKinds.length === 0;
+        this.markerCheckboxes = {};
+        for (const kind of markerKinds) {
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = false;
+            checkbox.addEventListener("change", () => onMarkerVisibilityChange(kind, checkbox.checked));
+            const sample = document.createElement("span");
+            sample.className = "chart-marker-sample chart-marker-" + kind;
+            const label = document.createElement("label");
+            label.append(checkbox, sample, MARKER_LABELS[kind] ?? kind);
+            this.markerToggles.append(label);
+            this.markerCheckboxes[kind] = checkbox;
+        }
 
         this.message = document.createElement("p");
         this.message.className = "chart-dialog-message";
@@ -63,7 +103,8 @@ export class ChartDialog {
         this.panels = document.createElement("div");
         this.panels.className = "chart-panels";
 
-        this.element.append(header, hint, this.message, this.panels);
+        this.element.append(header, hint, this.markerToggles, this.message, this.panels);
+        this.setMaximized(false);
         // a click on the backdrop closes the dialog
         this.element.addEventListener("click", event => {
             if (event.target === this.element) {
@@ -103,8 +144,17 @@ export class ChartDialog {
 
     setMaximized(maximized) {
         this.element.classList.toggle("maximized", maximized);
-        this.maximizeButton.textContent = maximized ? "Restore" : "Maximize";
-        this.maximizeButton.setAttribute("aria-pressed", String(maximized));
+        const title = maximized ? "Restore" : "Maximize";
+        this.maximizeButton.replaceChildren(icon(maximized ? "restore" : "maximize"));
+        this.maximizeButton.title = title;
+        this.maximizeButton.setAttribute("aria-label", title);
+    }
+
+    /** @param {string[]} shownKinds */
+    setShownMarkers(shownKinds) {
+        for (const [kind, checkbox] of Object.entries(this.markerCheckboxes)) {
+            checkbox.checked = shownKinds.includes(kind);
+        }
     }
 
     /**

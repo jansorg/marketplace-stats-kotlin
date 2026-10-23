@@ -16,7 +16,12 @@ export const CHART_STYLE = {
     surfaceColor: "#ffffff",
     // values, which may still change, use the color of incomplete values in the tables
     incompleteColor: "#6b6b6b",
-    releaseLineColor: "#a8a7a2",
+    // vertical lines: line color and dash pattern of each kind, the labels use the color of the axes
+    markers: {
+        release: {color: "#8f8e89", dash: [4, 4]},
+        price: {color: "#c27c0e", dash: [2, 3]},
+        ide: {color: "#6f74b8", dash: [8, 3]},
+    },
     pointRadius: 3,
     pointRing: 2,
     // bars are thin, with a gap between neighbors and a rounded end at the value
@@ -42,11 +47,11 @@ function scaledFont(font, pixelRatio) {
 }
 
 /**
- * Draws a dashed vertical line with a centered label above the plot for each major release in the date range.
+ * Draws a vertical line with a centered label above the plot for each marker in the date range, e.g. major releases.
  * The lines are drawn before the series, so that they don't cover the data.
  */
-function drawMajorReleases(plot, majorReleases, font) {
-    const releases = majorReleases.filter(release => release.timestamp >= plot.scales.x.min && release.timestamp <= plot.scales.x.max);
+function drawMarkers(plot, markers, font) {
+    const releases = markers.filter(marker => marker.timestamp >= plot.scales.x.min && marker.timestamp <= plot.scales.x.max);
     if (releases.length === 0) {
         return;
     }
@@ -65,14 +70,15 @@ function drawMajorReleases(plot, majorReleases, font) {
         6 * pixelRatio,
     );
 
-    context.strokeStyle = CHART_STYLE.releaseLineColor;
     context.lineWidth = pixelRatio;
-    context.setLineDash([4 * pixelRatio, 4 * pixelRatio]);
     context.fillStyle = CHART_STYLE.axisColor;
     context.textBaseline = "bottom";
     context.textAlign = "center";
 
     releases.forEach((release, index) => {
+        const style = CHART_STYLE.markers[release.kind] ?? CHART_STYLE.markers.release;
+        context.strokeStyle = style.color;
+        context.setLineDash(style.dash.map(length => length * pixelRatio));
         context.beginPath();
         context.moveTo(positions[index], top);
         context.lineTo(positions[index], bottom);
@@ -329,7 +335,7 @@ function yAxis(unit, scale, side, style) {
  * @param {string[]} options.units One or two units.
  * @param {object[]} options.series All series, only the series with the units are shown.
  * @param {[number, number]} options.dateRange Date range of the x-axis.
- * @param {{timestamp: number, label: string}[]} options.majorReleases
+ * @param {{kind: string, timestamp: number, label: string}[]} options.markers Vertical lines, sorted by date.
  * @param {{value: Function, compact: Function}} options.formatter
  * @param {string} options.syncKey Charts with the same key have synchronized cursors.
  * @param {"lines"|"bars"} options.chartStyle
@@ -339,7 +345,7 @@ function yAxis(unit, scale, side, style) {
  * @param {HTMLElement} options.container
  * @return {uPlot}
  */
-export function createLineChart({units, series, dateRange, majorReleases, formatter, syncKey, chartStyle, fontFamily, width, height, container}) {
+export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, fontFamily, width, height, container}) {
     const style = {formatter, fonts: fonts(fontFamily)};
     const scaleKeys = ["y", "y2"];
     const chartSeries = units.flatMap((unit, unitIndex) => series
@@ -400,11 +406,11 @@ export function createLineChart({units, series, dateRange, majorReleases, format
         scales,
         axes,
         legend: {show: true},
-        // space for the labels of the major releases above the plot and for points at the right edge
-        padding: [majorReleases.length > 0 ? 20 : null, units.length > 1 ? null : 16, null, null],
+        // space for the labels of the vertical lines above the plot, and for points and tick labels at the right edge
+        padding: [markers.length > 0 ? 20 : null, units.length > 1 ? null : 28, null, null],
         cursor: {points: {size: 8}, sync: {key: syncKey}},
         hooks: {
-            drawAxes: [plot => drawMajorReleases(plot, majorReleases, style.fonts.releaseLabel)],
+            drawAxes: [plot => drawMarkers(plot, markers, style.fonts.releaseLabel)],
             draw: [plot => isBars ? drawBars(plot, chartSeries, interval) : drawPoints(plot, chartSeries)],
             setCursor: [plot => updateTooltip?.(plot)],
         },

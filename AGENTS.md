@@ -107,6 +107,9 @@ CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
     (`node --test src/test/js/`, or `./gradlew testJavascript`, which is part of `check` and skipped without Node.js)
   - `tableData.js`: reads the `data-chart-*` attributes of the tables
   - `lineChart.js`, `pieChart.js`, `dialog.js`: rendering, `main.js`: state of the charts
+- Vertical lines in line charts: major releases of the plugin (`MajorReleases`, from the plugin's releases), changes of the
+  annual base price (`PriceChanges`, derived from undiscounted new US sales, the API has no price history) and major
+  releases of IntelliJ IDEA (`IdeReleaseProvider`, from the JetBrains product service, cached for a day).
 - Only series of the same period (`DataTable.chartPeriod`: day, month or year) share a line chart and its date range.
   Values of months and years are located at the end of the period, the current period at today.
 - The chart setup (columns, colors, options) is stored in the browser's local storage (`marketplace-stats.charts`) and

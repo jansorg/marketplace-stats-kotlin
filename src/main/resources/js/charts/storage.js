@@ -14,15 +14,17 @@ const VERSION = 1;
 /**
  * @typedef {{type: "line"|"pie", table: string, column: string, color?: string}} ChartEntry
  * @typedef {{combineUnits: boolean, maximized: boolean, preferredStyle: "lines"|"bars",
- *  chartStyles: Object<string, "lines"|"bars">, entries: ChartEntry[]}} ChartSetup
+ *  chartStyles: Object<string, "lines"|"bars">, shownMarkers: string[], entries: ChartEntry[]}} ChartSetup
  */
 
 /** @return {ChartSetup} */
 export function emptySetup() {
-    return {combineUnits: false, maximized: false, preferredStyle: "lines", chartStyles: {}, entries: []};
+    // vertical lines are hidden by default
+    return {combineUnits: false, maximized: false, preferredStyle: "lines", chartStyles: {}, shownMarkers: [], entries: []};
 }
 
 const STYLES = ["lines", "bars"];
+const MARKER_KINDS = ["release", "price", "ide"];
 
 function validStyles(chartStyles) {
     if (chartStyles === null || typeof chartStyles !== "object") {
@@ -56,6 +58,7 @@ export function createSetupStorage(storage) {
                     maximized: setup.maximized === true,
                     preferredStyle: STYLES.includes(setup.preferredStyle) ? setup.preferredStyle : "lines",
                     chartStyles: validStyles(setup.chartStyles),
+                    shownMarkers: Array.isArray(setup.shownMarkers) ? setup.shownMarkers.filter(kind => MARKER_KINDS.includes(kind)) : [],
                     entries: setup.entries.filter(isValidEntry),
                 };
             } catch (e) {

@@ -38,4 +38,14 @@ class KtorJetBrainsServiceClient(
         val productsData = httpClient.get(url.build()).body<List<ProductWithReleases>>()
         return Products(productsData)
     }
+
+    override suspend fun productReleases(product: JetBrainsProductCode, type: ProductReleaseType): List<ProductRelease> {
+        val url = URLBuilder(dataServicesUrl).also {
+            it.encodedPath = "/products/releases"
+            it.parameters.append("code", product.code)
+            it.parameters.append("type", type.jsonId)
+        }
+        // the response maps the product code to its releases
+        return httpClient.get(url.build()).body<Map<String, List<ProductRelease>>>()[product.code] ?: emptyList()
+    }
 }

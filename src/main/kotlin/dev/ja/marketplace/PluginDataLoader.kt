@@ -19,6 +19,7 @@ class PluginDataLoader(
     val plugin: PluginInfoSummary,
     val countries: Countries,
     val exchangeRates: ExchangeRates,
+    val ideReleases: IdeReleaseProvider,
 ) {
     suspend fun load(): PluginData {
         return coroutineScope {
