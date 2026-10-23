@@ -5,8 +5,11 @@
 @param plugins: List<PluginInfoSummary>
 @param urls: MarketplaceUrlSupport
 
+<!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Choose a Plugin</title>
     <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
     <link rel="stylesheet" type="text/css" media="print" href="/styles/print.css"/>

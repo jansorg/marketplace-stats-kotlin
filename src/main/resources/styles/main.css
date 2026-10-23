@@ -4,23 +4,23 @@
  */
 
 /* Default font */
-@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,300;0,400;0,700;0,900;1,300;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap');
 /* Chinese fallback */
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC&display=swap');
 
 :root {
     --heading-color: #00008b;
     --now-color: #00008b;
-    --future-color: #808080;
+    --future-color: #6b6b6b;
     --link-color: #4545e6;
-    --link-color-active: #ff0000;
+    --link-color-active: #c8102e;
     --stripe-bgcolor: #f2f2f2;
     --separator-light-color: hsl(0, 0%, 85%);
     --separator-color: #808080;
-    --positive-color: #119e39;
-    --negative-color: #ff0000;
-    --text-color: #000;
-    --text-color-disabled: #808080;
+    --positive-color: #0b7a2b;
+    --negative-color: #c8102e;
+    --text-color: #1c1b22;
+    --text-color-disabled: #6b6b6b;
     --background-highlighted-color: rgba(255, 255, 0, 0.1);
 }
 
@@ -42,6 +42,10 @@ html, body, h1, h2, h3, h4, h5, p, div, table, tr, th, td, svg, img, dl, dt, dd 
 /* html tags */
 html {
     font-family: 'Lato', 'Noto Sans SC', sans-serif;
+    color: var(--text-color);
+    font-kerning: normal;
+    /* render missing weights and styles with the closest loaded font instead of faking them */
+    font-synthesis: none;
 }
 
 body {
@@ -65,7 +69,12 @@ h2, h3, h4 {
 
 h1 {
     font-size: 2.5rem;
+    line-height: 1.15;
     text-align: center;
+}
+
+h1, h2, h3, h4 {
+    text-wrap: balance;
 }
 
 h2 {
@@ -77,7 +86,7 @@ h3, h4 {
 }
 
 h2, h3, b, strong {
-    font-weight: 800;
+    font-weight: 700;
 }
 
 a, a:visited {
@@ -87,6 +96,10 @@ a, a:visited {
 
 a:hover {
     color: var(--link-color-active);
+}
+
+a {
+    transition: color .15s;
 }
 
 p.em {
@@ -147,7 +160,7 @@ tfoot tr {
 }
 
 dt {
-    font-weight: 800;
+    font-weight: 700;
 }
 
 dd {
@@ -182,8 +195,9 @@ dd {
 .subtitle {
     text-align: center;
     font-size: 1rem;
-    font-weight: 300;
+    font-weight: 400;
     line-height: 1.5rem;
+    color: var(--future-color);
     margin: 0 0 2rem 0;
 }
 
@@ -205,8 +219,15 @@ dd {
     background-color: rgba(255, 255, 255, .8);
 }
 
+.menu a {
+    white-space: nowrap;
+}
+
 .menu a + a:before {
-    content: " · ";
+    content: "·";
+    display: inline-block;
+    padding: 0 .4em;
+    color: var(--text-color-disabled);
 }
 
 .table-striped tbody tr:nth-child(even) {
@@ -291,7 +312,7 @@ table .subheading, table .subheading h3 {
 }
 
 .num, .month, .date {
-    font-variant: common-ligatures tabular-nums;
+    font-variant-numeric: tabular-nums lining-nums;
     white-space: nowrap;
 }
 
@@ -323,7 +344,7 @@ th.highlighted, td.highlighted {
 
 .today {
     color: var(--now-color);
-    font-weight: 800;
+    font-weight: 700;
 }
 
 .future, .churned {
@@ -335,7 +356,7 @@ th.highlighted, td.highlighted {
 }
 
 .term-name {
-    font-weight: 800;
+    font-weight: 700;
 }
 
 .term-short {
