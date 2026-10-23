@@ -260,7 +260,7 @@ table .subheading, table .subheading h3 {
     font-style: italic;
 }
 
-.incomplete {
+.incomplete, .incomplete a {
     color: var(--future-color);
 }
 

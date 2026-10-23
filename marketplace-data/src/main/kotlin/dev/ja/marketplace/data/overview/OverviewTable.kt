@@ -166,8 +166,9 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                     month,
                     LicenseTracker(activeCustomerRange),
                     PaymentAmountTracker(currentMonth, exchangeRates),
-                    createLicenseChurnProcessor(currentMonth),
-                    createLicenseChurnProcessor(currentMonth),
+                    // churn of the current month until today, licenses expiring later in the month may still be renewed
+                    createLicenseChurnProcessor(activeCustomerRange),
+                    createLicenseChurnProcessor(activeCustomerRange),
                     createMonthlyRecurringRevenueTracker(currentMonth, data),
                     createAnnualRecurringRevenueTracker(currentMonth, data),
                     downloadsMonthly
@@ -271,17 +272,11 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                     val arrValue = monthData.arrTracker.getResult().amounts.getTotalAmount()
                         .let { if (isCurrentMonth) IncompleteValue(it) else it }
 
-                    val annualLicenseChurn = when {
-                        isCurrentMonth -> null
-                        else -> monthData.churnLicensesAnnual.getResult(LicensePeriod.Annual)
-                    }
-                    val annualLicenseChurnRate = annualLicenseChurn?.getRenderedChurnRate(pluginId)
+                    val annualLicenseChurn = monthData.churnLicensesAnnual.getResult(LicensePeriod.Annual)
+                    val annualLicenseChurnRate = annualLicenseChurn.getRenderedChurnRate(pluginId, isIncomplete = isCurrentMonth)
 
-                    val monthlyLicenseChurn = when {
-                        isCurrentMonth -> null
-                        else -> monthData.churnLicensesMonthly.getResult(LicensePeriod.Monthly)
-                    }
-                    val monthlyLicenseChurnRate = monthlyLicenseChurn?.getRenderedChurnRate(pluginId)
+                    val monthlyLicenseChurn = monthData.churnLicensesMonthly.getResult(LicensePeriod.Monthly)
+                    val monthlyLicenseChurnRate = monthlyLicenseChurn.getRenderedChurnRate(pluginId, isIncomplete = isCurrentMonth)
 
                     val cssClass = when {
                         isCurrentMonth -> "today"
@@ -316,8 +311,8 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                             columnAmountTotal to monthData.amounts.totalAmount,
                             columnAmountFees to monthData.amounts.feesAmount,
                             columnAmountPaid to monthData.amounts.paidAmount,
-                            columnLicenseChurnAnnual to (annualLicenseChurnRate ?: NoValue),
-                            columnLicenseChurnMonthly to (monthlyLicenseChurnRate ?: NoValue),
+                            columnLicenseChurnAnnual to annualLicenseChurnRate,
+                            columnLicenseChurnMonthly to monthlyLicenseChurnRate,
                             columnDownloads to (downloadCount.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
                             columnTrials to (trialsMonth.totalTrials.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
                             columnTrialsConverted to trialsMonthByLength.displayedConversionRate,
@@ -329,8 +324,8 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                             columnActiveLicensesPaying to paidLicensesTooltip,
                             columnMonthlyRecurringRevenue to IncompleteRecurringRevenueTooltip.takeIf { isCurrentMonth },
                             columnAnnualRecurringRevenue to IncompleteRecurringRevenueTooltip.takeIf { isCurrentMonth },
-                            columnLicenseChurnAnnual to annualLicenseChurn?.churnRateTooltip,
-                            columnLicenseChurnMonthly to monthlyLicenseChurn?.churnRateTooltip,
+                            columnLicenseChurnAnnual to annualLicenseChurn.getChurnRateTooltip(isIncomplete = isCurrentMonth),
+                            columnLicenseChurnMonthly to monthlyLicenseChurn.getChurnRateTooltip(isIncomplete = isCurrentMonth),
                             columnTrialsConverted to trialsMonthAnyLength.getTooltipConverted() +
                                     "\n" +
                                     trialsMonthByLength.getTooltipConverted(trialConversionDays(maxTrialDays)),
@@ -339,6 +334,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                     )
                 }
 
+                val isCurrentYear = year == now.year
                 val yearLicenseChurnAnnual = yearData.churnLicensesAnnual.getResult(LicensePeriod.Annual)
                 val yearLicenseChurnMonthly = yearData.churnLicensesMonthly.getResult(LicensePeriod.Monthly)
 
@@ -352,16 +348,16 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                     footer = SimpleRowGroup(
                         SimpleDateTableRow(
                             values = mapOf(
-                                columnLicenseChurnAnnual to yearLicenseChurnAnnual.getRenderedChurnRate(pluginId),
-                                columnLicenseChurnMonthly to yearLicenseChurnMonthly.getRenderedChurnRate(pluginId),
+                                columnLicenseChurnAnnual to yearLicenseChurnAnnual.getRenderedChurnRate(pluginId, isIncomplete = isCurrentYear),
+                                columnLicenseChurnMonthly to yearLicenseChurnMonthly.getRenderedChurnRate(pluginId, isIncomplete = isCurrentYear),
                                 columnDownloads to (yearData.months.values.sumOf { it.downloads }.takeIf { it > 0 }?.toBigInteger()
                                     ?: NoValue),
                                 columnTrials to (trialsYear.totalTrials.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
                                 columnTrialsConverted to trialsYearTrialLength.displayedConversionRate,
                             ),
                             tooltips = mapOf(
-                                columnLicenseChurnAnnual to yearLicenseChurnAnnual.churnRateTooltip,
-                                columnLicenseChurnMonthly to yearLicenseChurnMonthly.churnRateTooltip,
+                                columnLicenseChurnAnnual to yearLicenseChurnAnnual.getChurnRateTooltip(isIncomplete = isCurrentYear),
+                                columnLicenseChurnMonthly to yearLicenseChurnMonthly.getChurnRateTooltip(isIncomplete = isCurrentYear),
                                 columnTrialsConverted to
                                         trialsYearAnyDuration.getTooltipConverted()
                                         + "\n"

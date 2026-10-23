@@ -8,6 +8,7 @@ package dev.ja.marketplace.churn
 import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.YearMonthDay
+import dev.ja.marketplace.data.IncompleteValue
 import dev.ja.marketplace.data.LinkedChurnRate
 import dev.ja.marketplace.data.PercentageValue
 import dev.ja.marketplace.data.asPercentageValue
@@ -22,7 +23,10 @@ data class ChurnResult<T>(
     val currentPeriodMarkerDate: YearMonthDay,
     val period: LicensePeriod,
 ) {
-    fun getRenderedChurnRate(pluginId: PluginId): Any {
+    /**
+     * @param isIncomplete If the churn rate of a period, which hasn't ended yet, is shown.
+     */
+    fun getRenderedChurnRate(pluginId: PluginId, isIncomplete: Boolean = false): Any {
         if (previousActiveItemCount == 0 || churnRate.isNaN()) {
             return "—"
         }
@@ -33,17 +37,24 @@ data class ChurnResult<T>(
             else -> churnRate.asPercentageValue() ?: return "—"
         }
 
-        return LinkedChurnRate(
+        val linkedChurnRate = LinkedChurnRate(
             percentage,
             previousPeriodMarkerDate,
             currentPeriodMarkerDate,
             period,
             pluginId
         )
+        return when {
+            isIncomplete -> IncompleteValue(linkedChurnRate)
+            else -> linkedChurnRate
+        }
     }
 
-    val churnRateTooltip: String
-        get() {
-            return "$churnedItemCount of $previousActiveItemCount churned"
+    fun getChurnRateTooltip(isIncomplete: Boolean = false): String {
+        val tooltip = "$churnedItemCount of $previousActiveItemCount churned"
+        return when {
+            isIncomplete -> "$tooltip until ${currentPeriodMarkerDate.asIsoString}\nIncomplete: licenses expiring later in this period may still be renewed"
+            else -> tooltip
         }
+    }
 }
