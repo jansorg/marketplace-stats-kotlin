@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace
 
+import dev.ja.marketplace.churn.ChurnValidities
 import dev.ja.marketplace.churn.LicenseChurnProcessor
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.LicensePeriod
@@ -541,12 +542,13 @@ class MarketplaceStatsServer(
         val churnProcessor = LicenseChurnProcessor(lastActiveMarker, activeMarker)
         churnProcessor.init()
 
-        data.getLicenses()!!.filter(LicenseInfo::isSubscriptionLicense).forEach {
+        val licenses = data.getLicenses()!!
+        val churnValidities = ChurnValidities(licenses)
+        licenses.filter(LicenseInfo::isSubscriptionLicense).forEach {
             churnProcessor.processValue(
                 it,
-                it.validity!!,
+                churnValidities.validity(it)!!,
                 it.sale.licensePeriod == period && it.isPaidLicense,
-                it.isRenewalLicense
             )
         }
 

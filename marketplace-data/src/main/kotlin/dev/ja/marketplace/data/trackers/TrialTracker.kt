@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -7,14 +7,22 @@ package dev.ja.marketplace.data.trackers
 
 import com.google.common.collect.Multimaps
 import dev.ja.marketplace.client.CustomerId
-import dev.ja.marketplace.client.model.PluginSale
-import dev.ja.marketplace.client.model.PluginTrial
+import dev.ja.marketplace.client.Marketplace
+import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
+import dev.ja.marketplace.client.model.PluginSale
+import dev.ja.marketplace.client.model.PluginSaleItemType
+import dev.ja.marketplace.client.model.PluginTrial
+import dev.ja.marketplace.data.IncompleteValue
 import dev.ja.marketplace.data.PercentageValue
 
 data class TrialTrackerInfo(
     val totalTrials: Int,
     val convertedTrials: Map<PluginTrial, PluginSale>,
+    /**
+     * Trials, which are not converted yet, but can still convert because their conversion period hasn't ended yet.
+     */
+    val pendingTrials: Int = 0,
 ) {
     val convertedTrialsCount: Int = convertedTrials.size
 
@@ -23,17 +31,34 @@ data class TrialTrackerInfo(
             return PercentageValue.of(convertedTrialsCount, totalTrials)
         }
 
-    fun getTooltipConverted(maxTrialDays: Int? = null): String {
+    val isIncomplete: Boolean
+        get() {
+            return pendingTrials > 0
+        }
+
+    /**
+     * The conversion rate for display, marked as incomplete if trials can still convert.
+     */
+    val displayedConversionRate: Any
+        get() {
+            return when {
+                isIncomplete -> IncompleteValue(convertedTrialsPercentage)
+                else -> convertedTrialsPercentage
+            }
+        }
+
+    fun getTooltipConverted(maxConversionDays: Int? = null): String {
+        val converted = when {
+            maxConversionDays == null -> "$convertedTrialsCount trials of $totalTrials converted ($convertedTrialsPercentage)"
+            else -> "$convertedTrialsCount trials of $totalTrials converted within $maxConversionDays days ($convertedTrialsPercentage)"
+        }
         return when {
-            maxTrialDays == null -> "$convertedTrialsCount trials of $totalTrials converted ($convertedTrialsPercentage)"
-            else -> "$convertedTrialsCount trials of $totalTrials converted within $maxTrialDays days ($convertedTrialsPercentage)"
+            pendingTrials > 0 -> "$converted, $pendingTrials trials can still convert"
+            else -> converted
         }
     }
 }
 
-/**
- * Tracks conversion of trials into subscriptions.
- */
 interface TrialTracker {
     fun init(allTrials: Iterable<PluginTrial>)
 
@@ -41,14 +66,33 @@ interface TrialTracker {
 
     fun getResult(
         trialStartDateRange: YearMonthDayRange,
-        isValidConversion: (PluginTrial, PluginSale) -> Boolean = { _, _ -> true }
+        isPendingTrial: (PluginTrial) -> Boolean = { false },
+        isValidConversion: (PluginTrial, PluginSale) -> Boolean = { _, _ -> true },
     ): TrialTrackerInfo
 }
 
-fun TrialTracker.getResultByTrialDuration(trialStartDateRange: YearMonthDayRange, maxTrialDays: Int): TrialTrackerInfo {
-    return getResult(trialStartDateRange) { trial, sale ->
-        trial.date.daysUntil(sale.date) <= maxTrialDays
-    }
+/**
+ * @return The number of days after the start of a trial, in which a purchase counts as a converted trial.
+ */
+fun trialConversionDays(maxTrialDays: Int): Int {
+    return maxTrialDays + Marketplace.TRIAL_CONVERSION_EXTRA_DAYS
+}
+
+/**
+ * Trials converted by a purchase within the trial period and [Marketplace.TRIAL_CONVERSION_EXTRA_DAYS] days after it.
+ * Trials, which can still convert today, are counted as pending.
+ */
+fun TrialTracker.getResultWithinConversionPeriod(
+    trialStartDateRange: YearMonthDayRange,
+    maxTrialDays: Int,
+    today: YearMonthDay = YearMonthDay.now(),
+): TrialTrackerInfo {
+    val conversionDays = trialConversionDays(maxTrialDays)
+    return getResult(
+        trialStartDateRange,
+        isPendingTrial = { trial -> trial.date.daysUntil(today) <= conversionDays },
+        isValidConversion = { trial, sale -> trial.date.daysUntil(sale.date) <= conversionDays },
+    )
 }
 
 fun TrialTracker.getResultBySaleDate(trialStartDateRange: YearMonthDayRange, saleDateRange: YearMonthDayRange): TrialTrackerInfo {
@@ -73,7 +117,11 @@ class SimpleTrialTracker : TrialTracker {
     }
 
     override fun processSale(saleInfo: PluginSale) {
-        val sortedTrials = trialsByCustomerId[saleInfo.customer.code]//.sortedBy { it.trial.date }
+        if (!isTrialConversion(saleInfo)) {
+            return
+        }
+
+        val sortedTrials = trialsByCustomerId[saleInfo.customer.code]
         if (sortedTrials.isNotEmpty()) {
             val newestTrialForSale = sortedTrials.lastOrNull { it.trial.date <= saleInfo.date }
             if (newestTrialForSale != null) {
@@ -87,9 +135,11 @@ class SimpleTrialTracker : TrialTracker {
 
     override fun getResult(
         trialStartDateRange: YearMonthDayRange,
+        isPendingTrial: (PluginTrial) -> Boolean,
         isValidConversion: (PluginTrial, PluginSale) -> Boolean,
     ): TrialTrackerInfo {
         var validTrialsCount = 0
+        var pendingTrialsCount = 0
         val convertedTrials = mutableMapOf<PluginTrial, PluginSale>()
 
         // iterating to avoid expensive and unnecessary filtering and flattening of the multimap
@@ -98,10 +148,22 @@ class SimpleTrialTracker : TrialTracker {
                 validTrialsCount++
                 if (sale != null && isValidConversion(trial, sale)) {
                     convertedTrials[trial] = sale
+                } else if (isPendingTrial(trial)) {
+                    pendingTrialsCount++
                 }
             }
         }
 
-        return TrialTrackerInfo(validTrialsCount, convertedTrials)
+        return TrialTrackerInfo(validTrialsCount, convertedTrials, pendingTrialsCount)
+    }
+
+    /**
+     * Only the purchase of a new, paid license converts a trial.
+     * Renewals and free licenses, e.g. with a 100% discount, are not counted.
+     */
+    private fun isTrialConversion(sale: PluginSale): Boolean {
+        return sale.lineItems.any { item ->
+            item.type == PluginSaleItemType.New && !item.isFreeLicense && !item.amountUSD.isZero
+        }
     }
 }

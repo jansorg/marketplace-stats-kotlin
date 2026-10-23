@@ -9,7 +9,9 @@ import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.LinkedChurnRate
+import dev.ja.marketplace.data.PercentageValue
 import dev.ja.marketplace.data.asPercentageValue
+import java.math.BigDecimal
 
 data class ChurnResult<T>(
     val churnRate: Double,
@@ -21,12 +23,15 @@ data class ChurnResult<T>(
     val period: LicensePeriod,
 ) {
     fun getRenderedChurnRate(pluginId: PluginId): Any {
-        if (churnRate == 0.0 || churnRate.isNaN()) {
+        if (previousActiveItemCount == 0 || churnRate.isNaN()) {
             return "—"
         }
 
-        val percentage = churnRate.asPercentageValue()
-            ?: return "—"
+        val percentage: Any = when (churnRate) {
+            // PercentageValue.ZERO is rendered as "no value", but no churn is a valid result
+            0.0 -> PercentageValue(BigDecimal.ZERO).toString()
+            else -> churnRate.asPercentageValue() ?: return "—"
+        }
 
         return LinkedChurnRate(
             percentage,

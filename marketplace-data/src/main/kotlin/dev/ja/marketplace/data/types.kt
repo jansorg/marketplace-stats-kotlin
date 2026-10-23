@@ -66,6 +66,11 @@ fun BigDecimal.sortValue(): Long {
     return setScale(2, RoundingMode.HALF_UP).unscaledValue().toLong()
 }
 
+/**
+ * A value, which may still change, e.g. a conversion rate of trials which can still convert.
+ */
+data class IncompleteValue(val value: Any)
+
 data class LinkedCustomer(val id: CustomerId, val pluginId: PluginId)
 
 data class LinkedLicense(val id: LicenseId, val pluginId: PluginId)

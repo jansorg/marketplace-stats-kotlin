@@ -85,14 +85,14 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
     override suspend fun createSections(): List<DataTableSection> {
         val now = YearMonthDay.now()
         val allTrialsAnyDuration = trialsTracker.getResult(YearMonthDayRange.MAX)
-        val allTrialsTrialDuration = trialsTracker.getResultByTrialDuration(YearMonthDayRange.MAX, maxTrialDays)
+        val allTrialsTrialDuration = trialsTracker.getResultWithinConversionPeriod(YearMonthDayRange.MAX, maxTrialDays)
 
         val rows = data.entries.toList()
             .dropLastWhile { it.value.sales.isZero }
             .map { (year, yearData) ->
                 val yearDateRange = YearMonthDayRange.ofYear(year)
                 val trialResultAnyDuration = trialsTracker.getResult(yearDateRange)
-                val trialResultTrialDuration = trialsTracker.getResultByTrialDuration(yearDateRange, maxTrialDays)
+                val trialResultTrialDuration = trialsTracker.getResultWithinConversionPeriod(yearDateRange, maxTrialDays)
                 val arrResult = when {
                     year == now.year -> null
                     else -> yearData.annualRevenue.getResult()
@@ -109,12 +109,12 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                             .sumOf(MonthlyDownload::downloads)
                             .toBigInteger(),
                         columnTrials to (trialResultAnyDuration.totalTrials.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
-                        columnTrialsConverted to trialResultAnyDuration.convertedTrialsPercentage,
+                        columnTrialsConverted to trialResultTrialDuration.displayedConversionRate,
                     ),
                     tooltips = mapOf(
                         columnTrialsConverted to trialResultAnyDuration.getTooltipConverted() +
                                 "\n" +
-                                trialResultTrialDuration.getTooltipConverted(maxTrialDays)
+                                trialResultTrialDuration.getTooltipConverted(trialConversionDays(maxTrialDays))
                     ),
                     cssClass = when {
                         year == now.year -> "today"
@@ -134,12 +134,12 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                             columnSalesPaid to totalSales.paidAmount,
                             columnDownloads to downloads.sumOf { it.downloads.toBigInteger() },
                             columnTrials to allTrialsAnyDuration.totalTrials.toBigInteger(),
-                            columnTrialsConverted to allTrialsAnyDuration.convertedTrialsPercentage,
+                            columnTrialsConverted to allTrialsTrialDuration.convertedTrialsPercentage,
                         ),
                         tooltips = mapOf(
                             columnTrialsConverted to allTrialsAnyDuration.getTooltipConverted() +
                                     "\n" +
-                                    allTrialsTrialDuration.getTooltipConverted(maxTrialDays),
+                                    allTrialsTrialDuration.getTooltipConverted(trialConversionDays(maxTrialDays)),
                         )
                     )
                 )
