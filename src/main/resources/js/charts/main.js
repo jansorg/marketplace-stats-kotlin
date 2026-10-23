@@ -46,7 +46,6 @@ class ChartController {
         this.preferredStyle = "lines";
         this.shownStyles = {};
         this.dialog = null;
-        this.menuLink = null;
     }
 
     start() {
@@ -60,7 +59,7 @@ class ChartController {
     }
 
     /**
-     * A click on the logo of the plugin opens the charts, like the "Charts" link of the navigation.
+     * A click on the logo of the plugin opens the charts.
      */
     makeLogoClickable() {
         const logo = document.querySelector("img.plugin-icon");
@@ -187,7 +186,6 @@ class ChartController {
                 }
             }
         }
-        this.updateMenuLink();
     }
 
     save() {
@@ -203,29 +201,6 @@ class ChartController {
                 ...this.unresolvedEntries,
             ],
         });
-        this.updateMenuLink();
-    }
-
-    /**
-     * A "Charts" link in the navigation opens the charts without adding a column.
-     */
-    updateMenuLink() {
-        const menu = document.querySelector(".menu");
-        if (menu === null) {
-            return;
-        }
-        if (this.menuLink === null) {
-            this.menuLink = document.createElement("a");
-            this.menuLink.href = "#";
-            this.menuLink.className = "chart-menu-link";
-            this.menuLink.textContent = "Charts";
-            this.menuLink.addEventListener("click", event => {
-                event.preventDefault();
-                this.openDialog(null);
-            });
-            menu.append(this.menuLink);
-        }
-        this.menuLink.hidden = this.series.length === 0 && this.pies.length === 0;
     }
 
     ensureDialog() {
