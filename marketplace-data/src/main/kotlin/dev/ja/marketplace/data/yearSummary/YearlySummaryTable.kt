@@ -93,17 +93,17 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                 val yearDateRange = YearMonthDayRange.ofYear(year)
                 val trialResultAnyDuration = trialsTracker.getResult(yearDateRange)
                 val trialResultTrialDuration = trialsTracker.getResultWithinConversionPeriod(yearDateRange, maxTrialDays)
-                val arrResult = when {
-                    year == now.year -> null
-                    else -> yearData.annualRevenue.getResult()
-                }
+                // The recurring revenue of the current year is incomplete,
+                // because licenses renewed later in the year are not included yet
+                val arrValue = yearData.annualRevenue.getResult().amounts.getTotalAmount()
+                    .let { if (year == now.year) IncompleteValue(it) else it }
                 SimpleDateTableRow(
                     values = mapOf(
                         columnYear to year,
                         columnSalesTotal to yearData.sales.totalAmount,
                         columnSalesFees to yearData.sales.feesAmount,
                         columnSalesPaid to yearData.sales.paidAmount,
-                        columnARR to (arrResult?.amounts?.getTotalAmount() ?: NoValue),
+                        columnARR to arrValue,
                         columnDownloads to downloads
                             .filter { it.firstOfMonth.year == year }
                             .sumOf(MonthlyDownload::downloads)
@@ -112,6 +112,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                         columnTrialsConverted to trialResultTrialDuration.displayedConversionRate,
                     ),
                     tooltips = mapOf(
+                        columnARR to IncompleteRecurringRevenueTooltip.takeIf { year == now.year },
                         columnTrialsConverted to trialResultAnyDuration.getTooltipConverted() +
                                 "\n" +
                                 trialResultTrialDuration.getTooltipConverted(trialConversionDays(maxTrialDays))

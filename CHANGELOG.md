@@ -20,6 +20,7 @@
 - Count only paid new licenses as converted trials, not renewals or free licenses.
 - Use the same trial conversion rate everywhere: purchases within the trial period and 30 days after it (`Marketplace.TRIAL_CONVERSION_EXTRA_DAYS`).
 - Mark trial conversion rates as incomplete while trials can still convert.
+- Show the MRR and ARR of the current month and year as incomplete values instead of hiding them.
 - Limit renewals, which prevent churn, to renewals within 90 days after the license expired (`Marketplace.LICENSE_RENEWAL_GRACE_DAYS`).
 - Show a churn rate of 0% instead of "—" if there were active licenses.
 - Fix the tooltip of the trial conversion rate of the trial countries table, which used the number of trials as the number of days.
