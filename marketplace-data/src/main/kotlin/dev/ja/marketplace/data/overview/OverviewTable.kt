@@ -186,22 +186,12 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         trialTracker.init(data.getTrials() ?: emptyList())
     }
 
-    private suspend fun createMonthlyRecurringRevenueTracker(month: YearMonthDayRange, pluginData: PluginData): RecurringRevenueTracker {
-        return MonthlyRecurringRevenueTracker(
-            month,
-            pluginData.getContinuityDiscountTracker()!!,
-            pluginData.pluginPricing!!,
-            pluginData.exchangeRates
-        )
+    private fun createMonthlyRecurringRevenueTracker(month: YearMonthDayRange, pluginData: PluginData): RecurringRevenueTracker {
+        return MonthlyRecurringRevenueTracker(month, pluginData.exchangeRates)
     }
 
-    private suspend fun createAnnualRecurringRevenueTracker(month: YearMonthDayRange, pluginData: PluginData): RecurringRevenueTracker {
-        return AnnualRecurringRevenueTracker(
-            month,
-            pluginData.getContinuityDiscountTracker()!!,
-            pluginData.pluginPricing!!,
-            pluginData.exchangeRates
-        )
+    private fun createAnnualRecurringRevenueTracker(month: YearMonthDayRange, pluginData: PluginData): RecurringRevenueTracker {
+        return AnnualRecurringRevenueTracker(month, pluginData.exchangeRates)
     }
 
     override suspend fun process(sale: PluginSale) {

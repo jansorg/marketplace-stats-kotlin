@@ -12,4 +12,7 @@
 - Use fastutil collections for per-license maps and sets.
 - Load ECB exchange rates lazily with a lightweight loader instead of Moneta, reducing memory usage by about 80 MB.
 - Use the exchange rate of the closest day with published ECB rates, e.g. the following Monday for Sundays.
+- Fix MRR and ARR: discounts other than the continuity discount were applied twice.
+- Fix the overview page failing with "Unable to find base price" when assertions are enabled, e.g. with `./gradlew run`.
+- Convert MRR and ARR to the display currency at the sale date instead of today's rate for future license end dates.
 - Add `AGENTS.md` with setup information for coding agents.
