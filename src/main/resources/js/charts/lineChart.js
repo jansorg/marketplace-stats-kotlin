@@ -17,8 +17,9 @@ export const CHART_STYLE = {
     // values, which may still change, use the color of incomplete values in the tables
     incompleteColor: "#6b6b6b",
     // vertical lines: line color and dash pattern of each kind, the labels use the color of the axes
+    markerWidth: 2,
     markers: {
-        release: {color: "#8f8e89", dash: [4, 4]},
+        release: {color: "#7d7c77", dash: [4, 4]},
         price: {color: "#c27c0e", dash: [2, 3]},
         ide: {color: "#6f74b8", dash: [8, 3]},
     },
@@ -63,14 +64,17 @@ function drawMarkers(plot, markers, font) {
 
     context.save();
     context.font = scaledFont(font, pixelRatio);
-    const positions = releases.map(release => Math.round(plot.valToPos(release.timestamp, "x", true)) + 0.5);
+    // lines of an even width are sharp on whole pixels, lines of an odd width in the middle of a pixel
+    const lineWidth = Math.round(CHART_STYLE.markerWidth * pixelRatio);
+    const pixelOffset = lineWidth % 2 === 0 ? 0 : 0.5;
+    const positions = releases.map(release => Math.round(plot.valToPos(release.timestamp, "x", true)) + pixelOffset);
     const labelCenters = layoutLabels(
         releases.map((release, index) => ({x: positions[index], width: context.measureText(release.label).width})),
         context.canvas.width,
         6 * pixelRatio,
     );
 
-    context.lineWidth = pixelRatio;
+    context.lineWidth = lineWidth;
     context.fillStyle = CHART_STYLE.axisColor;
     context.textBaseline = "bottom";
     context.textAlign = "center";
