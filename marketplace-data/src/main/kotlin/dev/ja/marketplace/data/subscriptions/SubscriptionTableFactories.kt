@@ -6,6 +6,7 @@
 package dev.ja.marketplace.data.subscriptions
 
 import dev.ja.marketplace.client.MarketplaceClient
+import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.MarketplaceDataTableFactory
 
@@ -21,8 +22,8 @@ class CohortRetentionTableFactory : MarketplaceDataTableFactory {
     override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable = CohortRetentionTable()
 }
 
-class RenewalRateTableFactory : MarketplaceDataTableFactory {
-    override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable = RenewalRateTable()
+class RenewalRateTableFactory(private val licensePeriod: LicensePeriod) : MarketplaceDataTableFactory {
+    override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable = RenewalRateTable(licensePeriod)
 }
 
 class AverageRevenuePerCustomerTableFactory : MarketplaceDataTableFactory {

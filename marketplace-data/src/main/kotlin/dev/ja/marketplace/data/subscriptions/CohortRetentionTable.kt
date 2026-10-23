@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.data.subscriptions
 
+import dev.ja.marketplace.data.ChartPeriod
 import dev.ja.marketplace.data.DataTableColumn
 import dev.ja.marketplace.data.DataTableSection
 import dev.ja.marketplace.data.IncompleteValue
@@ -25,8 +26,8 @@ class CohortRetentionTable : RecurringRevenueTable("Customer Cohorts", "customer
 
     private var anniversaryColumns: List<DataTableColumn> = emptyList()
 
-    // the rows are years of the first sale, not dates
-    override val isChartable: Boolean = false
+    override val isChartable: Boolean = true
+    override val chartPeriod: ChartPeriod = ChartPeriod.Year
 
     override val columns: List<DataTableColumn>
         get() = listOf(columnYear, columnCustomers, columnInitialMrr) + anniversaryColumns
@@ -45,7 +46,7 @@ class CohortRetentionTable : RecurringRevenueTable("Customer Cohorts", "customer
 
         val rows = cohorts.reversed().map { cohort ->
             val values = mutableMapOf<DataTableColumn, Any?>(
-                columnYear to cohort.year.toString(),
+                columnYear to cohort.year,
                 columnCustomers to cohort.customers,
                 columnInitialMrr to revenue.toAmount(cohort.initialMrr),
             )
