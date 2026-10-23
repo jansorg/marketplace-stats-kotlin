@@ -6,10 +6,8 @@
 package dev.ja.marketplace.data.overview
 
 import dev.ja.marketplace.churn.ChurnProcessor
-import dev.ja.marketplace.churn.CustomerChurnProcessor
 import dev.ja.marketplace.churn.LicenseChurnProcessor
 import dev.ja.marketplace.client.*
-import dev.ja.marketplace.client.model.CustomerInfo
 import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.MonthlyDownload
 import dev.ja.marketplace.client.model.PluginSale
@@ -50,12 +48,9 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     private data class MonthData(
         val year: Int,
         val month: Int,
-        val customers: CustomerTracker<CustomerSegment>,
         val licenses: LicenseTracker<CustomerSegment>,
         val amounts: PaymentAmountTracker,
-        val churnCustomersAnnual: ChurnProcessor<CustomerInfo>,
         val churnLicensesAnnual: ChurnProcessor<LicenseInfo>,
-        val churnCustomersMonthly: ChurnProcessor<CustomerInfo>,
         val churnLicensesMonthly: ChurnProcessor<LicenseInfo>,
         val mrrTracker: RecurringRevenueTracker,
         val arrTracker: RecurringRevenueTracker,
@@ -69,9 +64,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
 
     private data class YearData(
         val year: Int,
-        val churnCustomersAnnual: ChurnProcessor<CustomerInfo>,
         val churnLicensesAnnual: ChurnProcessor<LicenseInfo>,
-        val churnCustomersMonthly: ChurnProcessor<CustomerInfo>,
         val churnLicensesMonthly: ChurnProcessor<LicenseInfo>,
         val months: Map<Int, MonthData>,
     ) {
@@ -167,12 +160,9 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                 MonthData(
                     year,
                     month,
-                    CustomerTracker(activeCustomerRange),
                     LicenseTracker(activeCustomerRange),
                     PaymentAmountTracker(currentMonth, exchangeRates),
-                    createCustomerChurnProcessor(currentMonth),
                     createLicenseChurnProcessor(currentMonth),
-                    createCustomerChurnProcessor(currentMonth),
                     createLicenseChurnProcessor(currentMonth),
                     createMonthlyRecurringRevenueTracker(currentMonth, data),
                     createAnnualRecurringRevenueTracker(currentMonth, data),
@@ -187,9 +177,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
             val activeTimeRange = YearMonthDayRange(YearMonthDay(year, 1, 1), minOf(now, YearMonthDay(year, 12, 31)))
             years[year] = YearData(
                 year,
-                createCustomerChurnProcessor(activeTimeRange),
                 createLicenseChurnProcessor(activeTimeRange),
-                createCustomerChurnProcessor(activeTimeRange),
                 createLicenseChurnProcessor(activeTimeRange),
                 months,
             )
@@ -226,7 +214,6 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     }
 
     override suspend fun process(licenseInfo: LicenseInfo) {
-        val customer = licenseInfo.sale.customer
         val licensePeriod = licenseInfo.sale.licensePeriod
         val isPaidLicense = licenseInfo.isPaidLicense
         val isRenewal = licenseInfo.isRenewalLicense
@@ -235,12 +222,6 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         years.values.forEach { year ->
             val validity = licenseInfo.validity
             if (validity != null) {
-                year.churnCustomersAnnual.processValue(
-                    customer,
-                    validity,
-                    licensePeriod == LicensePeriod.Annual && isPaidLicense,
-                    isRenewal
-                )
                 year.churnLicensesAnnual.processValue(
                     licenseInfo,
                     validity,
@@ -248,12 +229,6 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                     isRenewal
                 )
 
-                year.churnCustomersMonthly.processValue(
-                    customer,
-                    validity,
-                    licensePeriod == LicensePeriod.Monthly && isPaidLicense,
-                    isRenewal
-                )
                 year.churnLicensesMonthly.processValue(
                     licenseInfo,
                     validity,
@@ -263,19 +238,12 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
             }
 
             year.months.values.forEach { month ->
-                month.customers.add(customerSegment, licenseInfo)
                 month.licenses.add(customerSegment, licenseInfo)
 
                 month.mrrTracker.processLicenseSale(licenseInfo)
                 month.arrTracker.processLicenseSale(licenseInfo)
 
                 if (validity != null) {
-                    month.churnCustomersAnnual.processValue(
-                        customer,
-                        validity,
-                        licensePeriod == LicensePeriod.Annual && isPaidLicense,
-                        isRenewal
-                    )
                     month.churnLicensesAnnual.processValue(
                         licenseInfo,
                         validity,
@@ -283,12 +251,6 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                         isRenewal
                     )
 
-                    month.churnCustomersMonthly.processValue(
-                        customer,
-                        validity,
-                        licensePeriod == LicensePeriod.Monthly && isPaidLicense,
-                        isRenewal
-                    )
                     month.churnLicensesMonthly.processValue(
                         licenseInfo,
                         validity,
@@ -423,14 +385,6 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                     )
                 )
             }
-    }
-
-    private fun createCustomerChurnProcessor(timeRange: YearMonthDayRange): ChurnProcessor<CustomerInfo> {
-        val churnDate = timeRange.end
-        val activeDate = timeRange.start.add(0, 0, -1)
-        val processor = CustomerChurnProcessor(activeDate, churnDate)
-        processor.init()
-        return processor
     }
 
     private fun createLicenseChurnProcessor(timeRange: YearMonthDayRange): ChurnProcessor<LicenseInfo> {

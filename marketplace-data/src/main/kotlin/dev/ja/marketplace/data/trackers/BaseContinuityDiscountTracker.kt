@@ -30,7 +30,7 @@ class BaseContinuityDiscountTracker : ContinuityDiscountTracker {
     }
 
     override fun nextContinuity(licenseId: LicenseId, atDate: YearMonthDay): ContinuityDiscount {
-        val latestNewSale = newSalesValidity[licenseId]?.lastOrNull { it.validity!!.end < atDate } ?: return ContinuityDiscount.FirstYear
+        val latestNewSale = newSalesValidity[licenseId]?.descendingSet()?.firstOrNull { it.validity!!.end < atDate } ?: return ContinuityDiscount.FirstYear
         val months = latestNewSale.validity!!.start monthsUntil atDate
         return when {
             months >= 24 -> ContinuityDiscount.ThirdYear
