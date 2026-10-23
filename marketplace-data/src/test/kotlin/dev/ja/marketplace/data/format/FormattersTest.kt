@@ -29,4 +29,12 @@ class FormattersTest {
         val format = Formatters.createMoneyFormatter(Locale.of("de", "ch"))
         assertEquals("USD 1'234.57", format.format(Money.of(1234.567890, MarketplaceCurrencies.USD)))
     }
+
+    @Test
+    fun englishLocaleSmallAmounts() {
+        val format = Formatters.createMoneyFormatter(Locale.ENGLISH)
+        assertEquals("USD 0.50", format.format(Money.of(0.5, MarketplaceCurrencies.USD)))
+        assertEquals("USD 0.00", format.format(Money.of(0, MarketplaceCurrencies.USD)))
+        assertEquals("USD -0.50", format.format(Money.of(-0.5, MarketplaceCurrencies.USD)))
+    }
 }
