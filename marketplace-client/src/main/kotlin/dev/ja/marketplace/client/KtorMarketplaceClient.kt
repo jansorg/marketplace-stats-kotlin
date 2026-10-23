@@ -12,7 +12,6 @@ import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.utils.io.*
-import io.ktor.utils.io.core.*
 import io.ktor.utils.io.jvm.nio.*
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
