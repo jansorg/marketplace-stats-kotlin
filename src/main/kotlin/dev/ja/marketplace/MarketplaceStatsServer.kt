@@ -26,6 +26,7 @@ import dev.ja.marketplace.data.lineItems.LineItemsTable
 import dev.ja.marketplace.data.overview.OverviewTableFactory
 import dev.ja.marketplace.data.privingOverview.PricingOverviewTableFactory
 import dev.ja.marketplace.data.resellers.ResellerTableFactory
+import dev.ja.marketplace.data.subscriptions.MrrMovementsTableFactory
 import dev.ja.marketplace.data.timeSpanSummary.TimeSpanSummaryFactory
 import dev.ja.marketplace.data.topCountries.TopCountriesFactory
 import dev.ja.marketplace.data.topTrialCountries.TopTrialCountriesFactory
@@ -135,6 +136,18 @@ class MarketplaceStatsServer(
         client,
         listOf(FunnelTableFactory()),
         pageTitle = "Trial Funnel",
+    )
+
+    private val subscriptionsPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+        client,
+        listOf(
+            MrrMovementsTableFactory(),
+        ),
+        pageCssClasses = "wide",
+        pageTitle = "Subscription Metrics",
+        pageDescription = "Calculated from the monthly recurring revenue (MRR) of each customer at the end of each month.<br>" +
+                "<strong>Experimental:</strong> these metrics are new and not yet thoroughly tested or reviewed. " +
+                "Please verify important numbers before you rely on them.",
     )
 
     private val monthlyDownloadsPageData: PluginPageDefinition = DefaultPluginPageDefinition(
@@ -320,6 +333,11 @@ class MarketplaceStatsServer(
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
                 call.respond(JteContent("main.kte", funnelPageData.createTemplateParameters(loader, call.request, serverConfiguration)))
+            }
+            get("/subscriptions") {
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", subscriptionsPageData.createTemplateParameters(loader, call.request, serverConfiguration)))
             }
             get("/downloads/monthly") {
                 val loader = getDataLoader()
