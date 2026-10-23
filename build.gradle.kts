@@ -194,6 +194,15 @@ project(":") {
         implementation("gg.jte:jte:3.2.4")
     }
 
+    configurations.runtimeClasspath {
+        // Mordant uses the FFM API of Java 22+ to detect the terminal, the JNA and GraalVM backends aren't needed
+        exclude(group = "com.github.ajalt.mordant", module = "mordant-jvm-jna-jvm")
+        exclude(group = "com.github.ajalt.mordant", module = "mordant-jvm-graal-ffi-jvm")
+        exclude(group = "net.java.dev.jna", module = "jna")
+        // only used by Moneta's remote loader of exchange rates, we load the ECB rates ourselves
+        exclude(group = "com.squareup.okhttp3", module = "okhttp")
+    }
+
     jte {
         sourceDirectory.set(file("src/main/resources/templates").toPath())
         targetDirectory.set(project.layout.buildDirectory.file("jte-classes").get().asFile.toPath())
@@ -234,6 +243,11 @@ project(":") {
             archiveVersion.set("")
 
             from(precompileJte.map { fileTree(it.targetDirectory) { include("**/*.class") } })
+
+            // native libraries of HTTP/3 for all platforms, the server doesn't enable HTTP/3
+            exclude("META-INF/native/*netty_quiche*")
+            // registers Moneta's loader, which needs the excluded OkHttp
+            exclude("META-INF/services/org.javamoney.moneta.spi.loader.LoaderService")
         }
 
         // task name run conflicts with Kotlin's run
