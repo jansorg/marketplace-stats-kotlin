@@ -27,16 +27,7 @@ data class CohortRetention(
          * e.g. the end of March 2025 and 2026 for a customer, who paid for the first time in March 2024.
          */
         fun of(revenue: CustomerRecurringRevenue): List<CohortRetention> {
-            val customersByYear = sortedMapOf<Int, MutableList<Pair<Int, Int>>>()
-            for (monthIndex in revenue.months.indices) {
-                for (customer in revenue.customers(monthIndex).keys) {
-                    if (revenue.firstPaidMonthIndex(customer) == monthIndex) {
-                        customersByYear.getOrPut(revenue.months[monthIndex].year, ::mutableListOf) += customer to monthIndex
-                    }
-                }
-            }
-
-            return customersByYear.map { (year, customers) ->
+            return revenue.cohorts().map { (year, customers) ->
                 val initialMrr = customers.fold(BigDecimal.ZERO) { sum, (customer, first) -> sum + revenue.mrr(first, customer) }
 
                 val anniversaries = generateSequence(1) { it + 1 }

@@ -29,6 +29,7 @@ import dev.ja.marketplace.data.resellers.ResellerTableFactory
 import dev.ja.marketplace.data.subscriptions.AverageRevenuePerCustomerTableFactory
 import dev.ja.marketplace.data.subscriptions.CohortRetentionTableFactory
 import dev.ja.marketplace.data.subscriptions.MrrMovementsTableFactory
+import dev.ja.marketplace.data.subscriptions.RealizedLifetimeValueTableFactory
 import dev.ja.marketplace.data.subscriptions.RenewalRateTableFactory
 import dev.ja.marketplace.data.subscriptions.RevenueRetentionTableFactory
 import dev.ja.marketplace.data.timeSpanSummary.TimeSpanSummaryFactory
@@ -148,6 +149,7 @@ class MarketplaceStatsServer(
             MrrMovementsTableFactory(),
             RevenueRetentionTableFactory(),
             CohortRetentionTableFactory(),
+            RealizedLifetimeValueTableFactory(),
             RenewalRateTableFactory(LicensePeriod.Annual),
             RenewalRateTableFactory(LicensePeriod.Monthly),
             AverageRevenuePerCustomerTableFactory(),
