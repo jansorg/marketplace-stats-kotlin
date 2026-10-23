@@ -22,7 +22,7 @@
 <head>
     <title>${plugin.name}: ${pageTitle ?: "Report"}</title>
     <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
-    <link rel="stylesheet" type="text/css" media="print" href="/styles/main.css"/>
+    <link rel="stylesheet" type="text/css" media="print" href="/styles/print.css"/>
     <link href="/js/sortable.css" rel="stylesheet"/>
     <script src="/js/sortable.min.js"></script>
 </head>
