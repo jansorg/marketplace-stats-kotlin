@@ -313,8 +313,9 @@ button {
     box-sizing: border-box;
     min-width: 0;
     max-width: 100%;
-    /* the first and the last column have their own padding, so that stripes and highlighted rows don't end at the text */
-    padding: 0.75rem 0.5rem;
+    /* no horizontal padding: scrolled columns would show through it next to the sticky first column.
+       The first and the last cells have the padding instead, the stripes and highlighted rows extend to the border. */
+    padding: 0.75rem 0;
     overflow-x: auto;
     background-color: var(--surface-color);
     border: 1px solid var(--separator-light-color);
@@ -327,11 +328,11 @@ button {
 }
 
 .table-card th:first-child, .table-card td:first-child {
-    padding-left: 0.5rem;
+    padding-left: 1rem;
 }
 
 .table-card th:last-child, .table-card td:last-child {
-    padding-right: 0.5rem;
+    padding-right: 1rem;
 }
 
 /* the card defines the width and the spacing of its table */
@@ -359,12 +360,20 @@ button {
 /* more columns fit on small screens */
 @media (max-width: 900px) {
     .table-card {
-        padding: 0.6rem 0.35rem;
+        padding: 0.6rem 0;
     }
 
     th, td {
         padding-left: .4rem;
         padding-right: .4rem;
+    }
+
+    .table-card th:first-child, .table-card td:first-child {
+        padding-left: 0.75rem;
+    }
+
+    .table-card th:last-child, .table-card td:last-child {
+        padding-right: 0.75rem;
     }
 }
 
