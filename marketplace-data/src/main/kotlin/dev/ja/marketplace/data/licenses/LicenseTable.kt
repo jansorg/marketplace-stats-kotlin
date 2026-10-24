@@ -24,6 +24,8 @@ class LicenseTable(
     private val supportedChurnStyling: Boolean = true,
     private val showOnlyLatestLicenseInfo: Boolean = false,
     private val showReseller: Boolean = false,
+    /** Only licenses with this status, all licenses if it's `null`. */
+    private val statusFilter: LicenseStatus? = null,
     /** The release dates for the fallback licenses, the table shows the fallback versions if they're available. */
     private val fallbackReleases: List<PluginReleaseDate>? = null,
     private val licenseFilter: (LicenseInfo) -> Boolean = { true },
@@ -32,7 +34,7 @@ class LicenseTable(
     private val columnRefNum = DataTableColumn("license-refnum", "Ref Num", "col-right")
     private val columnPurchaseDate = DataTableColumn("sale-date", "Purchase", "date")
     private val columnValidityStart = DataTableColumn("license-validity", "License Start", "date")
-    private val columnValidityEnd = DataTableColumn("license-validity", "End", "date")
+    private val columnValidityEnd = DataTableColumn("license-validity-end", "End", "date")
     private val columnCustomerName = DataTableColumn("customer", "Name", cssStyle = "width: 20%; max-width: 35%")
     private val columnCustomerId = DataTableColumn("customer-id", "Cust. ID", "num")
     private val columnAmount = DataTableColumn("sale-amount", "Amount", "num")
@@ -49,6 +51,8 @@ class LicenseTable(
 
     private val data = mutableListOf<LicenseInfo>()
     private val licenseMaxValidity = Object2ObjectOpenHashMap<LicenseId, YearMonthDay>()
+    // the purchase with the latest end of each license, of all customers
+    private val licenseLatestPurchase = Object2ObjectOpenHashMap<LicenseId, LicenseInfo>()
     private val filteredLicenseMaxValidity = Object2ObjectOpenHashMap<LicenseId, YearMonthDay>()
     // all purchases of the licenses, a fallback license depends on all of them, e.g. of the purchases of other customers
     private val allSubscriptionLicenses = mutableListOf<LicenseInfo>()
@@ -89,6 +93,9 @@ class LicenseTable(
 
         val licenseId = licenseInfo.id
         licenseMaxValidity[licenseId] = maxOfNullable(licenseMaxValidity[licenseId], licenseInfo.validity!!.end)
+        if (licenseInfo.validity!!.end >= (licenseLatestPurchase[licenseId]?.validity?.end ?: YearMonthDay.MIN)) {
+            licenseLatestPurchase[licenseId] = licenseInfo
+        }
         if (fallbackReleases != null) {
             allSubscriptionLicenses += licenseInfo
         }
@@ -113,6 +120,7 @@ class LicenseTable(
         val amountTracker = PaymentAmountTracker(YearMonthDayRange.MAX, exchangeRates)
         val fallbackVersions = fallbackVersions()
         val rows = data
+            .filter { statusFilter == null || status(it.id) == statusFilter }
             .sortedWith(comparator)
             .takeNullable(maxTableRows)
             .mapNotNull { license ->
@@ -136,6 +144,10 @@ class LicenseTable(
                 val validityEnd = license.validity!!.end
                 val licenseEnd = licenseMaxValidity[license.id]!!
                 val isExpired = supportedChurnStyling && licenseEnd < nowDate
+                // the latest purchase of the customer, if another customer renewed the license
+                val transferredTo = licenseLatestPurchase.getValue(license.id).sale.customer.takeIf {
+                    it.code != license.sale.customer.code && validityEnd == filteredLicenseMaxValidity[license.id]
+                }
 
                 SimpleDateTableRow(
                     values = mapOf(
@@ -143,7 +155,14 @@ class LicenseTable(
                         columnRefNum to LinkedRefNum(license.sale.ref, pluginId!!),
                         columnPurchaseDate to if (showPurchaseDate) purchaseDate else null,
                         columnValidityStart to license.validity!!.start,
-                        columnValidityEnd to if (isExpired) ExpiredLicenseEnd(validityEnd, licenseEnd) else validityEnd,
+                        columnValidityEnd to when {
+                            isExpired -> ExpiredLicenseEnd(validityEnd, licenseEnd)
+                            transferredTo != null -> TransferredLicenseEnd(
+                                validityEnd, LinkedCustomer(transferredTo.code, pluginId!!), transferredTo.name, licenseEnd
+                            )
+
+                            else -> validityEnd
+                        },
                         columnFallbackVersion to fallbackVersions
                             .takeIf { validityEnd == filteredLicenseMaxValidity[license.id] }
                             ?.remove(license.id),
@@ -174,8 +193,9 @@ class LicenseTable(
                 )
             }
 
-        val licenseCount = filteredLicenseMaxValidity.size
-        val activeLicenseCount = filteredLicenseMaxValidity.count { it.value >= nowDate }
+        val shownLicenseIds = filteredLicenseMaxValidity.keys.filter { statusFilter == null || status(it) == statusFilter }
+        val licenseCount = shownLicenseIds.size
+        val activeLicenseCount = shownLicenseIds.count { status(it) == LicenseStatus.Active }
         val footer = when {
             showFooter -> SimpleRowGroup(
                 SimpleDateTableRow(
@@ -193,6 +213,10 @@ class LicenseTable(
         }
 
         return listOf(SimpleTableSection(rows, null, footer = footer))
+    }
+
+    private fun status(licenseId: LicenseId): LicenseStatus {
+        return LicenseStatus.of(licenseMaxValidity.getValue(licenseId), nowDate)
     }
 
     /**

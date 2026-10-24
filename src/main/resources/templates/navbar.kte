@@ -6,10 +6,15 @@
 <nav class="subtitle menu small navbar">
     <a href="/?pluginId=${plugin.id}">Overview</a>
     @if(plugin.isPaidOrFreemium)
-        <a href="/licenses?pluginId=${plugin.id}&rows=1000">Licenses</a>
-        <a href="/customers/active?pluginId=${plugin.id}">Customers (active)</a>
-        <a href="/customers/churned?pluginId=${plugin.id}">Customers (churned)</a>
-        <a href="/customers?pluginId=${plugin.id}">Customers (all)</a>
+        <details class="navbar-menu">
+            <summary>Licenses</summary>
+            <div>
+                <a href="/licenses?pluginId=${plugin.id}&rows=1000">All</a>
+                <a href="/licenses/active?pluginId=${plugin.id}&rows=1000">Active</a>
+                <a href="/licenses/churned?pluginId=${plugin.id}&rows=1000">Churned</a>
+            </div>
+        </details>
+        <a href="/customers?pluginId=${plugin.id}">Customers</a>
         <a href="/countries?pluginId=${plugin.id}">Countries</a>
         <a href="/trials?pluginId=${plugin.id}&rows=100">Trials</a>
         <a href="/trials/funnel?pluginId=${plugin.id}">Trials (Funnel)</a>
@@ -21,11 +26,31 @@
         @endif
     @endif
     <script>
-        // marks the link of the current page
-        for (const link of document.currentScript.parentElement.querySelectorAll("a")) {
+        // marks the link of the current page, and the menu, which contains it
+        const navbar = document.currentScript.parentElement;
+        for (const link of navbar.querySelectorAll("a")) {
             if (new URL(link.href).pathname === location.pathname) {
                 link.setAttribute("aria-current", "page");
+                link.closest("details")?.classList.add("current");
             }
         }
+
+        // the menus are closed by a click outside of them and by the Escape key
+        const menus = navbar.querySelectorAll("details.navbar-menu");
+        document.addEventListener("click", event => {
+            for (const menu of menus) {
+                if (menu.open && !menu.contains(event.target)) {
+                    menu.open = false;
+                }
+            }
+        });
+        document.addEventListener("keydown", event => {
+            for (const menu of menus) {
+                if (menu.open && event.key === "Escape") {
+                    menu.open = false;
+                    menu.querySelector("summary").focus();
+                }
+            }
+        });
     </script>
 </nav>

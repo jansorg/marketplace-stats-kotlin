@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -11,6 +11,7 @@ import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.util.sortValue
 import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 
 data class CustomerTableRowData(
@@ -19,43 +20,69 @@ data class CustomerTableRowData(
     var earliestLicenseStart: YearMonthDay? = null,
     var latestLicenseEnd: YearMonthDay? = null,
     val totalLicenses: MutableSet<LicenseId> = ObjectOpenHashSet(),
-    val activeLicenses: MutableSet<LicenseId> = ObjectOpenHashSet()
+    /** Licenses, which this customer holds today. */
+    val activeLicenses: MutableSet<LicenseId> = ObjectOpenHashSet(),
+    /** Licenses with a subscription, the status of a perpetual license doesn't change. */
+    val subscriptionLicenses: MutableSet<LicenseId> = ObjectOpenHashSet(),
 )
 
+/**
+ * The customers with the numbers of their licenses.
+ *
+ * Customers aren't churned, only licenses: a license can be renewed by another customer, e.g. after it was transferred
+ * to an organization. A license is churned, if the latest purchase of all customers ended. A license of a customer is
+ * transferred, if another customer renewed it, and the license is still valid.
+ */
 class CustomerTable(
-    private val customerFilter: (CustomerTableRowData) -> Boolean = { true },
-    private val isChurnedStyling: Boolean = false,
     private val nowDate: YearMonthDay = YearMonthDay.now(),
 ) : SimpleDataTable("Customers", cssClass = "table-column-wide sortable"), MarketplaceDataSink {
-    private val columnValidSince = DataTableColumn("customer-since", if (isChurnedStyling) "Licensed since" else "Since")
+    private val columnValidSince = DataTableColumn("customer-since", "Since")
     // the rows are sorted by the end of the latest license, the sortable table shows its arrow
-    private val columnValidUntil = DataTableColumn("customer-until", "Licensed Until", preSorted = AriaSortOrder.Descending)
-    private val columnChurnedAt = DataTableColumn("customer-churn-date", "Churn date", preSorted = AriaSortOrder.Descending)
+    private val columnValidUntil = DataTableColumn(
+        "customer-until", "Licensed Until", preSorted = AriaSortOrder.Descending,
+        tooltip = "End of the latest purchase of the customer"
+    )
     private val columnName = DataTableColumn("customer-name", "Name", cssStyle = "width:20%")
     private val columnCountry = DataTableColumn("customer-country", "Country")
     private val columnType = DataTableColumn("customer-type", "Type")
     private val columnSales = DataTableColumn("sales-total", "Total Sales", "num")
-    private val columnActiveLicenses = DataTableColumn("customer-licenses-active", "Active Licenses", "num")
+    private val columnActiveLicenses = DataTableColumn(
+        "customer-licenses-active", "Active Licenses", "num", tooltip = "Licenses, which the customer holds today"
+    )
+    private val columnChurnedLicenses = DataTableColumn(
+        "customer-licenses-churned", "Churned Licenses", "num",
+        tooltip = "Licenses, which ended and weren't renewed by any customer"
+    )
+    private val columnTransferredLicenses = DataTableColumn(
+        "customer-licenses-transferred", "Transferred Licenses", "num",
+        tooltip = "Licenses, which another customer renewed and still holds, e.g. after a transfer to an organization"
+    )
     private val columnTotalLicenses = DataTableColumn("customer-licenses-total", "Total Licenses", "num")
     private val columnId = DataTableColumn("customer-id", "Cust. ID", "num")
 
     // linked map to keep the insertion order, which is the order of customers with equal sort values
     private val customerMap = Int2ObjectLinkedOpenHashMap<CustomerTableRowData>()
+    // the end of the latest purchase of each license, of all customers
+    private val licenseLatestEnd = Object2ObjectOpenHashMap<LicenseId, YearMonthDay>()
     private lateinit var totalSales: MonetaryAmountTracker
 
     private var pluginId: PluginId? = null
 
-    override val columns: List<DataTableColumn> = listOfNotNull(
-        if (isChurnedStyling) columnChurnedAt else columnValidUntil,
-        columnValidSince,
-        columnName,
-        columnSales,
-        columnActiveLicenses.takeUnless { isChurnedStyling },
-        columnTotalLicenses,
-        columnType,
-        columnCountry,
-        columnId
-    )
+    // the column of transferred licenses is only shown, if a customer has one
+    override val columns: List<DataTableColumn>
+        get() = listOfNotNull(
+            columnValidUntil,
+            columnValidSince,
+            columnName,
+            columnSales,
+            columnActiveLicenses,
+            columnChurnedLicenses,
+            columnTransferredLicenses.takeIf { customerMap.values.any { transferredLicenses(it) > 0 } },
+            columnTotalLicenses,
+            columnType,
+            columnCountry,
+            columnId
+        )
 
     override suspend fun init(data: PluginData) {
         super.init(data)
@@ -84,16 +111,26 @@ class CustomerTable(
             if (validity.end >= nowDate) {
                 data.activeLicenses += licenseInfo.id
             }
+
+            data.subscriptionLicenses += licenseInfo.id
+            licenseLatestEnd[licenseInfo.id] = maxOf(licenseEnd, licenseLatestEnd[licenseInfo.id] ?: licenseEnd)
         }
 
         data.totalLicenses += licenseInfo.id
         data.totalSales.add(licenseInfo.sale.date, licenseInfo.amountUSD, licenseInfo.amount)
     }
 
+    private fun churnedLicenses(data: CustomerTableRowData): Int {
+        return data.subscriptionLicenses.count { licenseLatestEnd.getValue(it) < nowDate }
+    }
+
+    private fun transferredLicenses(data: CustomerTableRowData): Int {
+        return data.subscriptionLicenses.count { it !in data.activeLicenses && licenseLatestEnd.getValue(it) >= nowDate }
+    }
+
     override suspend fun createSections(): List<DataTableSection> {
         var prevValidUntil: YearMonthDay? = null
         val displayedCustomers = customerMap.values
-            .filter(customerFilter)
             .sortedByDescending { it.totalSales.getTotalAmount().sortValue() }
             .sortedByDescending { it.latestLicenseEnd!! }
 
@@ -102,31 +139,23 @@ class CustomerTable(
                 val customer = customerData.customer
                 val validSince = customerData.earliestLicenseStart!!
                 val validUntil = customerData.latestLicenseEnd!!
-                val churnedAt = validUntil.add(0, 0, 1)
                 val showValidUntil = validUntil != prevValidUntil
                 prevValidUntil = validUntil
 
-                val cssClass: String? = when {
-                    !isChurnedStyling && validUntil < nowDate -> "churned"
-                    else -> null
-                }
-
                 SimpleDateTableRow(
                     mapOf(
-                        when {
-                            isChurnedStyling -> columnChurnedAt to churnedAt.takeIf { showValidUntil }
-                            else -> columnValidUntil to validUntil.takeIf { showValidUntil }
-                        },
+                        columnValidUntil to validUntil.takeIf { showValidUntil },
                         columnValidSince to validSince,
                         columnId to LinkedCustomer(customer.code, pluginId = pluginId!!),
                         columnName to (customer.name ?: NoValue),
                         columnCountry to customer.country,
                         columnType to customer.type,
-                        columnTotalLicenses to customerData.totalLicenses.size,
-                        columnActiveLicenses to customerData.activeLicenses.size,
+                        columnTotalLicenses to customerData.totalLicenses.size.toBigInteger(),
+                        columnActiveLicenses to customerData.activeLicenses.size.toBigInteger(),
+                        columnChurnedLicenses to churnedLicenses(customerData).toBigInteger(),
+                        columnTransferredLicenses to transferredLicenses(customerData).toBigInteger(),
                         columnSales to customerData.totalSales.getTotalAmount(),
                     ),
-                    cssClass = cssClass,
                     sortValues = mapOf(
                         columnValidUntil to validUntil.sortValue,
                         columnValidSince to validSince.sortValue,
@@ -140,6 +169,8 @@ class CustomerTable(
                 columnName to "${displayedCustomers.size} customers",
                 columnTotalLicenses to displayedCustomers.sumOf { it.totalLicenses.size }.toBigInteger(),
                 columnActiveLicenses to displayedCustomers.sumOf { it.activeLicenses.size }.toBigInteger(),
+                columnChurnedLicenses to displayedCustomers.sumOf { churnedLicenses(it) }.toBigInteger(),
+                columnTransferredLicenses to displayedCustomers.sumOf { transferredLicenses(it) }.toBigInteger(),
                 columnSales to totalSales.getTotalAmount(),
             )
         )

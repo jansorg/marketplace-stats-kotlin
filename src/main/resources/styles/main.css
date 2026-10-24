@@ -732,6 +732,66 @@ footer.menu form {
     content: none;
 }
 
+/* a menu of the navigation bar, e.g. the licenses with a status */
+.navbar-menu {
+    position: relative;
+}
+
+.navbar-menu summary {
+    list-style: none;
+    padding: 0.2rem 0.6rem;
+    color: var(--link-color);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: color .15s, background-color .15s;
+}
+
+.navbar-menu summary::-webkit-details-marker {
+    display: none;
+}
+
+.navbar-menu summary::after {
+    content: " ▾";
+}
+
+.navbar-menu summary:hover, .navbar-menu[open] summary {
+    background-color: var(--row-hover-bgcolor);
+}
+
+.navbar-menu summary:focus-visible {
+    outline: 2px solid var(--link-color);
+    outline-offset: 1px;
+}
+
+/* the menu, which contains the link of the current page */
+.navbar-menu.current summary {
+    color: var(--text-color);
+    font-weight: 700;
+    background-color: var(--nav-active-bgcolor, var(--button-bgcolor));
+}
+
+.navbar-menu > div {
+    position: absolute;
+    left: 0;
+    z-index: 4;
+    display: flex;
+    flex-direction: column;
+    min-width: 8rem;
+    margin-top: 0.3rem;
+    padding: 0.3rem 0;
+    text-align: left;
+    background-color: var(--raised-surface-color);
+    border: 1px solid var(--separator-light-color);
+    border-radius: 6px;
+    box-shadow: 0 2px 8px var(--popup-shadow-color);
+}
+
+.navbar .navbar-menu > div a {
+    padding: 0.35rem 0.9rem;
+    border-radius: 0;
+    white-space: nowrap;
+}
+
 .table-striped tbody tr:nth-child(even) {
     background-color: var(--stripe-bgcolor);
 }
@@ -770,6 +830,12 @@ tr.disabled a, tr.disabled a:visited {
 
 tr.disabled a:hover {
     color: var(--link-color-active);
+}
+
+/* the customer, who renewed a transferred license, see TransferredLicenseEnd */
+.transferred-marker {
+    white-space: nowrap;
+    cursor: help;
 }
 
 /* the symbol of expired licenses, besides the gray of their rows, see ExpiredLicenseEnd */
