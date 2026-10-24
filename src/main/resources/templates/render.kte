@@ -28,7 +28,7 @@
 --%>@elseif(value is Double)${Formatters.formatDecimal(value)}<%--
 --%>@elseif(value is Float)${Formatters.formatDecimal(value.toDouble())}<%--
 --%>@elseif(value is ExpiredLicenseEnd)${value.date.toString()}<span class="expired-marker" title="Expired license, it ended on ${value.expiryDate.toString()}" role="img" aria-label="expired">⊘</span><%--
---%>@elseif(value is TransferredLicenseEnd)${value.date.toString()}<span class="transferred-marker" title="Transferred license, renewed by ${value.customerName ?: "customer ${value.customer.id}"} until ${value.licenseEnd.toString()}"> → <a href="/customer/${value.customer.id}?pluginId=${value.customer.pluginId}">${value.customer.id}</a></span><%--
+--%>@elseif(value is TransferredLicenseEnd)<span class="transferred-marker" title="Transferred license, renewed by ${value.customerName ?: "customer ${value.customer.id}"} until ${value.licenseEnd.toString()}">→ <a href="/customer/${value.customer.id}?pluginId=${value.customer.pluginId}">${value.customer.id}</a>, </span>${value.date.toString()}<%--
 --%>@elseif(value is FallbackVersion)@template.fallbackVersion(version = value)<%--
 --%>@elseif(value is IncompleteValue)<span class="incomplete">@template.render(value.value)</span><%--
 --%>@elseif(value is LinkedCustomer)<a class="noprint" href="/customer/${value.id}?pluginId=${value.pluginId}">${value.id}</a><%--
