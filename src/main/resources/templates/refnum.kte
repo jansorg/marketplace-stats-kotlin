@@ -3,11 +3,12 @@
 @import dev.ja.marketplace.client.model.PluginInfo
 @import dev.ja.marketplace.client.model.PluginSale
 @import dev.ja.marketplace.data.LinkedCustomer
+@import dev.ja.marketplace.data.lineItems.SaleLineItemSummary
 
 @param cssClass: String?
 @param plugin: PluginInfo
 @param sale: PluginSale
-@param lineItemsTable: RenderedDataTable
+@param lineItems: List<Pair<SaleLineItemSummary, RenderedDataTable>>
 @param settings: ServerConfiguration
 
 <!DOCTYPE html>
@@ -65,15 +66,38 @@
         </dl>
     </div>
 
-    <div class="section-wide">
-        <h2>Line Items</h2>
-
-        @if (lineItemsTable.isEmpty)
+    @if (lineItems.isEmpty())
+        <div class="section-wide">
+            <h2>Line Items</h2>
             <p class="em">No sale line items available.</p>
-        @else
-            @template.dataTable(plugin, lineItemsTable)
-        @endif
-    </div>
+        </div>
+    @endif
+
+    @for((index, lineItem) in lineItems.withIndex())
+        !{val (item, licenseTable) = lineItem}
+        !{val subscription = item.subscriptionDates}
+        <div class="section-wide">
+            <h2>@if(lineItems.size > 1)Line Item ${index + 1}: @endif${item.typeLabel}</h2>
+            <dl>
+                <dt>Licenses</dt>
+                <dd>${item.licenseCount}</dd>
+
+                <dt>Subscription</dt>
+                <dd>@if(subscription == null)Perpetual@else${subscription.start.toString()} — ${subscription.end.toString()}@endif</dd>
+
+                <dt>Amount</dt>
+                <dd>@template.render(value = item.amount)@if(!item.isUSD) (@template.render(value = item.amountUSD))@endif</dd>
+
+                <dt>Paid Amount</dt>
+                <dd title="Amount after the share of the Marketplace">@template.render(value = item.paidAmount)@if(!item.isUSD) (@template.render(value = item.paidAmountUSD))@endif</dd>
+
+                <dt>Discount</dt>
+                <dd>@if(item.discounts.isEmpty())—@else@for(discount in item.discounts)<div>${discount}</div>@endfor@endif</dd>
+            </dl>
+
+            @template.dataTable(plugin, licenseTable)
+        </div>
+    @endfor
 </div>
 
 @template.siteFooter()
