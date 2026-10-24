@@ -186,6 +186,11 @@ object DataTableJson {
                 put("incomplete", true)
             }
 
+            is ExpiredLicenseEnd -> buildJsonObject {
+                put("value", value.date.asIsoString)
+                put("expired", true)
+            }
+
             is LinkedChurnRate -> when {
                 value.previousActiveCount > 0 -> buildJsonObject {
                     put("percent", percent(value.rate))

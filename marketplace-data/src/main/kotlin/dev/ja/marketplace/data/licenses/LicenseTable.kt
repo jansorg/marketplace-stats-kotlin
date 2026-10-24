@@ -118,13 +118,17 @@ class LicenseTable(
 
                 amountTracker.add(license.sale.date, license.amountUSD, license.amount)
 
+                val validityEnd = license.validity!!.end
+                val licenseEnd = licenseMaxValidity[license.id]!!
+                val isExpired = supportedChurnStyling && licenseEnd < nowDate
+
                 SimpleDateTableRow(
                     values = mapOf(
                         columnLicenseId to LinkedLicense(license.id, pluginId!!),
                         columnRefNum to LinkedRefNum(license.sale.ref, pluginId!!),
                         columnPurchaseDate to if (showPurchaseDate) purchaseDate else null,
                         columnValidityStart to license.validity!!.start,
-                        columnValidityEnd to license.validity!!.end,
+                        columnValidityEnd to if (isExpired) ExpiredLicenseEnd(validityEnd, licenseEnd) else validityEnd,
                         columnCustomerName to (license.sale.customer.name ?: NoValue),
                         columnCustomerId to LinkedCustomer(license.sale.customer.code, pluginId = pluginId!!),
                         columnLocalAmount to license.amount,
@@ -137,7 +141,7 @@ class LicenseTable(
                             .map { it.asPercentageValue(false) },
                         columnReseller to license.sale.reseller?.name,
                     ),
-                    cssClass = if (supportedChurnStyling && licenseMaxValidity[license.id]!! < nowDate) "disabled" else null,
+                    cssClass = if (isExpired) "disabled" else null,
                     tooltips = mapOf(
                         columnDiscount to license.saleLineItem.discountDescriptions
                             .sortedBy { it.percent ?: 0.0 }

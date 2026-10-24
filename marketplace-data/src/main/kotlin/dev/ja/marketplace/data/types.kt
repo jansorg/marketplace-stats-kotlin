@@ -81,6 +81,13 @@ data class LinkedLicense(val id: LicenseId, val pluginId: PluginId)
 
 data class LinkedRefNum(val refNum: String, val pluginId: PluginId)
 
+/**
+ * The end of a purchase of an expired license, rendered with a symbol, so that expired licenses aren't only marked by
+ * their color.
+ * @param expiryDate The end of the latest purchase of the license.
+ */
+data class ExpiredLicenseEnd(val date: YearMonthDay, val expiryDate: YearMonthDay)
+
 data class LinkedChurnRate(
     val churnRate: Any,
     /**
