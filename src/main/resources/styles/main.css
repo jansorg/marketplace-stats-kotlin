@@ -303,19 +303,18 @@ button {
  * a row of their own and scroll horizontally if they are wider than the page.
  */
 .tables {
-    display: flex;
-    flex-wrap: wrap;
-    /* the cards of a row have the same height */
-    align-items: stretch;
+    display: grid;
+    /* columns of the same width, so that the cards of all rows are aligned. The cards of a row have the same height. */
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
     gap: 1rem;
 }
 
 .table-card {
-    flex: 1 1 auto;
     box-sizing: border-box;
     min-width: 0;
     max-width: 100%;
-    padding: 0.75rem 1rem;
+    /* the first and the last column have their own padding, so that stripes and highlighted rows don't end at the text */
+    padding: 0.75rem 0.5rem;
     overflow-x: auto;
     background-color: var(--surface-color);
     border: 1px solid var(--separator-light-color);
@@ -324,7 +323,15 @@ button {
 }
 
 .tables > .table-card:has(> .tables-row, > .table-column-wide), .tables > .table-card:only-child {
-    flex-basis: 100%;
+    grid-column: 1 / -1;
+}
+
+.table-card th:first-child, .table-card td:first-child {
+    padding-left: 0.5rem;
+}
+
+.table-card th:last-child, .table-card td:last-child {
+    padding-right: 0.5rem;
 }
 
 /* the card defines the width and the spacing of its table */
@@ -352,7 +359,7 @@ button {
 /* more columns fit on small screens */
 @media (max-width: 900px) {
     .table-card {
-        padding: 0.6rem 0.75rem;
+        padding: 0.6rem 0.35rem;
     }
 
     th, td {
