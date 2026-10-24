@@ -29,6 +29,11 @@ services:
     # keeps the persistent cache when the container is replaced, e.g. by a new version
     volumes:
       - marketplace-stats-cache:/root/.cache/marketplace-stats
+      # To store the cache in a directory of the host instead, replace the line above with a bind mount, e.g.
+      # "- ./cache:/root/.cache/marketplace-stats" (relative to this file) or an absolute path like
+      # "- /srv/marketplace-stats/cache:/root/.cache/marketplace-stats", and remove the "volumes:" section at the end.
+      # Docker creates a missing directory. The container runs as root, so the files are owned by root.
+      # The cache contains your sales data, restrict the access to the directory.
 
 volumes:
   marketplace-stats-cache:
