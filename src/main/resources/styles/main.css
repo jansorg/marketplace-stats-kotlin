@@ -324,6 +324,35 @@ button {
     margin: 0.75rem 0 1.25rem;
 }
 
+/* tables with the same columns, e.g. the tables of the summary of all plugins, have columns of the same width */
+.table-fixed-columns {
+    table-layout: fixed;
+}
+
+/* a hint of a keyboard shortcut, e.g. below the title of the list of plugins */
+.keyboard-hint {
+    margin: 0 0 1rem;
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--text-color-disabled);
+}
+
+kbd {
+    display: inline-block;
+    min-width: 1.4em;
+    padding: 0.05em 0.4em;
+    font: inherit;
+    font-size: 0.85em;
+    font-weight: 700;
+    line-height: 1.4;
+    text-align: center;
+    color: var(--text-color);
+    background-color: var(--button-bgcolor);
+    border: 1px solid var(--separator-color);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+}
+
 .summary-description + .tables {
     margin-bottom: 2.5rem;
 }

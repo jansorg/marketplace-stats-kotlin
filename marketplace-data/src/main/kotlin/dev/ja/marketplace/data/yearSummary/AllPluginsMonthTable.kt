@@ -26,7 +26,7 @@ import dev.ja.marketplace.exchangeRate.ExchangeRates
 class AllPluginsMonthTable(
     private val displayExchangeRates: ExchangeRates,
     private val today: YearMonthDay = YearMonthDay.now(),
-) : SimpleDataTable("This Month", "all-plugins-month", "table-column-medium") {
+) : SimpleDataTable("This Month", "all-plugins-month", "table-column-wide table-fixed-columns") {
     private val columnDay = DataTableColumn("day", null)
     // the charts show the values per week and per day with the scale of a month, see AllPluginsDailyValues
     private val columnSalesTotal = DataTableColumn(
