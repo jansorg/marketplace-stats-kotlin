@@ -16,6 +16,12 @@ services:
         # the image stores the persistent cache in /root/.cache/marketplace-stats, it speeds up restarts.
         # An empty value disables it.
       #- MARKETPLACE_CACHE_DIR=
+        # the MCP server for AI agents at /mcp, e.g. http://localhost:8080/mcp, is enabled by default.
+        # It has no authentication, like the web interface. Set to false to disable it.
+      #- MARKETPLACE_MCP=true
+        # MCP requests are only accepted for the hostnames localhost, 127.0.0.1 and [::1].
+        # Add the hostnames used to access the server from other machines, comma-separated, ports are ignored.
+      #- MARKETPLACE_MCP_ALLOWED_HOSTS=my-server,my-server.example.com
         # language settings, change this to configure formatting of numbers and currency amounts
       - LANG=en_US.UTF-8
       - LANGUAGE=en_US:en
