@@ -328,6 +328,14 @@ button {
     margin-bottom: 2.5rem;
 }
 
+/* the row with the button, which shows the hidden rows of a table, see js/collapsibleTables.js */
+.table-expand-row > td {
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+    text-align: center;
+    background-color: var(--surface-color);
+}
+
 /* the plugins of the list of plugins are small cards, which wrap */
 .plugin-cards {
     display: flex;

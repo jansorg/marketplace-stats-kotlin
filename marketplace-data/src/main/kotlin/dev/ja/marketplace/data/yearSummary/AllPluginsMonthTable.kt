@@ -34,6 +34,9 @@ class AllPluginsMonthTable(
     override val isChartable: Boolean = true
     override val chartPeriod: ChartPeriod = ChartPeriod.Day
 
+    // the last week, the other days of the month are shown on demand
+    override val collapsedRowCount: Int = 7
+
     override val columns: List<DataTableColumn> = listOf(columnDay, columnSalesTotal, columnSalesFees, columnSalesPaid)
 
     /**

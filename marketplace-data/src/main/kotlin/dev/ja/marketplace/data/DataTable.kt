@@ -42,6 +42,12 @@ interface DataTable : MarketplaceDataSink {
     val isLimitedRendering: Boolean get() = false
 
     /**
+     * If set, only this number of rows of the first section is shown, until the rows are expanded in the browser.
+     * All rows are rendered, e.g. for the charts, see `js/collapsibleTables.js`.
+     */
+    val collapsedRowCount: Int? get() = null
+
+    /**
      * If `true`, the numeric columns of the table can be shown in a chart.
      * The first column of each row must contain its date, e.g. a [dev.ja.marketplace.client.YearMonthDay].
      */
