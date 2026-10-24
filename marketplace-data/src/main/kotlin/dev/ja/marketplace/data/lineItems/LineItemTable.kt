@@ -9,6 +9,7 @@ import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.YearMonthDayRange
+import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.client.model.PluginSaleItem
 import dev.ja.marketplace.client.model.PluginSaleItemType
@@ -38,18 +39,23 @@ class LineItemsTable : SimpleDataTable("Line Items", "line-items", "table-column
     private val data = mutableListOf<Pair<PluginSale, PluginSaleItem>>()
     private var pluginId: PluginId? = null
 
-    override val columns: List<DataTableColumn> = listOfNotNull(
-        columnType,
-        columnLicenseCount,
-        columnLicenseIds,
-        columnSubscriptionStart,
-        columnSubscriptionEnd,
-        columnAmountUsd,
-        columnPaidAmountUsd,
-        columnLocalAmount,
-        columnLocalPaidAmount,
-        columnDiscount,
-    )
+    // the columns of the amounts in USD would repeat the amounts of sales in USD
+    override val columns: List<DataTableColumn>
+        get() {
+            val isUsdOnly = data.all { (sale, _) -> sale.amount.currency == MarketplaceCurrencies.USD }
+            return listOfNotNull(
+                columnType,
+                columnLicenseCount,
+                columnLicenseIds,
+                columnSubscriptionStart,
+                columnSubscriptionEnd,
+                columnAmountUsd.takeUnless { isUsdOnly },
+                columnPaidAmountUsd.takeUnless { isUsdOnly },
+                columnLocalAmount,
+                columnLocalPaidAmount,
+                columnDiscount,
+            )
+        }
 
     override suspend fun init(data: PluginData) {
         super.init(data)
