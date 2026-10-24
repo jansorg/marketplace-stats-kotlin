@@ -19,6 +19,24 @@ import java.math.BigDecimal
  * [MarketplaceClient.fullSalesReport].
  */
 internal object SalesReportCsv {
+    /** The columns of the analytics report, which are read. Other columns would be ignored, see [unknownColumns]. */
+    val analyticsReportColumns: Set<String> = setOf(
+        "code", "processed_date", "customer_type", "license_type", "billing_period", "sum_quantity", "revenue_usd",
+    )
+
+    /** The columns of the full report, which are read. Other columns would be ignored, see [unknownColumns]. */
+    val fullReportColumns: Set<String> = setOf(
+        "code", "processed_date", "customer_type", "customer_name", "customer_country_iso", "via_reseller", "license_type",
+        "billing_period", "quantity", "amount_in_usd", "is_discounted", "customer_code", "order_ref", "purchase_id",
+    )
+
+    /**
+     * @return The columns of the header of the CSV file, which aren't in [knownColumns], e.g. new columns of the API.
+     */
+    fun unknownColumns(csv: String, knownColumns: Set<String>): List<String> {
+        return parse(csv).firstOrNull().orEmpty().filter { it.isNotEmpty() && it !in knownColumns }
+    }
+
     fun analyticsReport(csv: String): List<SalesAnalyticsReportRow> {
         return records(csv).map { row ->
             SalesAnalyticsReportRow(
