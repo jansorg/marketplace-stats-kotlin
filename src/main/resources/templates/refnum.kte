@@ -76,10 +76,6 @@
     </div>
 </div>
 
-<footer class="menu subtitle section-small">
-    <a href="/">All Plugins</a>
-</footer>
-
 @template.siteFooter()
 </body>
 </html>
