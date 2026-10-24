@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.40.0
+
+- Add an MCP server for AI agents at `/mcp` (Streamable HTTP), enabled by default. Its tools provide the report tables,
+  sales, customers, licenses, trials, license cohorts and transfers, prices, price changes, exchange rates, downloads by IDE
+  product and plugin version, reviews, visitors of the plugin page, and releases of the plugin and of JetBrains products.
+  `--no-mcp` disables it, `--mcp-allowed-hosts` adds hostnames for remote access. See the README for the list of tools.
+- Store sales, trials, prices, exchange rates, downloads and the products of JetBrains in a persistent cache with
+  `--cache-dir`, so that restarts are fast. The Docker image enables it, `docker-compose.yml` keeps it in a volume.
+- Add a subscription metrics page: MRR movements, net and gross revenue retention, renewal rates by license period and
+  number of previous renewals, retention and realized lifetime value of yearly customer cohorts, and the average MRR per customer.
+- Line charts: compare the values at the cursor with the previous and next month and year, show the overview table per week
+  or per day, mark incomplete values, add moving averages and the previous year as trends, and add a View menu with options.
+- Print the charts and export them as PNG or SVG images. The plugin logo opens the charts.
+- Link to the list of all plugins on each page and in the page footer.
+- The trials of the "Today" and "Yesterday" tables have one row per country.
+- Fix sorting of sortable tables with a click on the arrow of a column header.
+- Fix the trial countries page failing for trials without a country.
+- Fix the label of the paid licenses in charts.
+- Enable native access for Netty to avoid the JVM warning.
+- Remove the Guava dependency and unused classes from the fat JAR.
+- Download the JDK of the Gradle toolchain if it isn't installed.
+
 ## 0.30.0
 
 - Upgrade to Java 27 for builds, CI and the Docker image; the bytecode targets Java 25.
