@@ -24,11 +24,11 @@ export function isoDateToTimestamp(isoDate) {
 }
 
 /**
- * @param {string} unit Currency code, `%` or `count`.
+ * @param {string} unit Currency code, `%`, `count` or `rating`.
  * @return {boolean} If the unit is a monetary amount.
  */
 export function isAmountUnit(unit) {
-    return unit !== "%" && unit !== "count";
+    return unit !== "%" && unit !== "count" && unit !== "rating";
 }
 
 /**
@@ -40,6 +40,8 @@ export function unitTitle(unit) {
             return "Percentage (%)";
         case "count":
             return "Count";
+        case "rating":
+            return "Rating (1–5)";
         default:
             return "Amount (" + unit + ")";
     }
@@ -88,6 +90,8 @@ export function createFormatter(locale) {
                     return numberFormat.format(value) + " %";
                 case "count":
                     return numberFormat.format(value);
+                case "rating":
+                    return fixedFormat.format(value);
                 default:
                     return numberFormat.format(value) + " " + unit;
             }
@@ -103,6 +107,9 @@ export function createFormatter(locale) {
             }
             if (unit === "count") {
                 return numberFormat.format(value);
+            }
+            if (unit === "rating") {
+                return fixedFormat.format(value);
             }
             return fixedFormat.format(value) + " " + unit;
         },

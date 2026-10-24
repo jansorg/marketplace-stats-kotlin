@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -32,6 +32,13 @@ data class PluginReviewComment(
     val vendor: Boolean,
     @SerialName("markedAsSpam")
     val markedAsSpam: Boolean,
+    /** The state of the resolution of the review, e.g. `INIT` or `RESOLVED`. Resolved reviews don't count for the rating. */
+    @SerialName("resolveState")
+    val resolveState: String? = null,
+    @SerialName("isResolveRequested")
+    val isResolveRequested: Boolean = false,
+    @SerialName("isDeleted")
+    val isDeleted: Boolean = false,
     @SerialName("author")
     val author: JetBrainsAccountInfo? = null,
     @SerialName("votes")

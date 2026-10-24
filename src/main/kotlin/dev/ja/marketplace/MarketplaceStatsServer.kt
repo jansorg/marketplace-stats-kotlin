@@ -38,6 +38,7 @@ import dev.ja.marketplace.data.topCountries.TopCountriesFactory
 import dev.ja.marketplace.data.topTrialCountries.TopTrialCountriesFactory
 import dev.ja.marketplace.data.trials.TrialsTable
 import dev.ja.marketplace.data.trials.TrialsTableFactory
+import dev.ja.marketplace.data.ratings.RatingHistory
 import dev.ja.marketplace.data.yearSummary.AllPluginsDailyValues
 import dev.ja.marketplace.data.yearSummary.AllPluginsMonthTable
 import dev.ja.marketplace.data.yearSummary.AllPluginsSummaryTable
@@ -609,11 +610,20 @@ class MarketplaceStatsServer(
         val licenses: List<LicenseInfo>,
         val monthlyDownloads: List<MonthlyDownload>,
         val dailyDownloads: List<DailyDownload>,
+        val reviews: List<PluginReviewComment>,
+        val rating: PluginRating,
     ) {
+        /** The rating at past dates, ratings without a date are counted from the first month with sales. */
+        val ratingHistory: RatingHistory by lazy {
+            val firstSale = sales.minOfOrNull { it.date }
+            RatingHistory(reviews, rating, firstSale?.let { YearMonthDay.firstOfMonth(it.year, it.month) } ?: Marketplace.Birthday)
+        }
+
         /** The client returns the same lists, until it loads the data again. */
         fun isSameData(other: AllPluginsData): Boolean {
             return sales === other.sales && licenses === other.licenses
                     && monthlyDownloads === other.monthlyDownloads && dailyDownloads === other.dailyDownloads
+                    && reviews === other.reviews && rating == other.rating
         }
     }
 
@@ -650,6 +660,8 @@ class MarketplaceStatsServer(
                                 salesAndLicenses.licenses,
                                 client.downloadsMonthly(plugin.id, DownloadCountType.Downloads),
                                 client.downloadsDaily(plugin.id, DownloadCountType.Downloads),
+                                client.reviewComments(plugin.id, pageSize = 100),
+                                client.pluginRating(plugin.id),
                             )
                         } catch (e: CancellationException) {
                             throw e
@@ -682,8 +694,8 @@ class MarketplaceStatsServer(
         val years = AllPluginsSummaryTable(exchangeRates)
         val month = AllPluginsMonthTable(exchangeRates, today)
         for (data in allData) {
-            years.add(data.sales, data.licenses, data.monthlyDownloads)
-            month.add(data.sales, data.licenses, data.dailyDownloads)
+            years.add(data.sales, data.licenses, data.monthlyDownloads, data.ratingHistory)
+            month.add(data.sales, data.licenses, data.dailyDownloads, data.ratingHistory)
         }
         val tables = listOf(years.renderTable(), month.renderTable()).filterNot(RenderedDataTable::isEmpty)
         allPluginsSummaryCache = AllPluginsCache(allData, today, tables)
@@ -705,6 +717,7 @@ class MarketplaceStatsServer(
                 allData.map { it.licenses },
                 exchangeRates,
                 today,
+                allData.map { it.ratingHistory },
             )
         }
         allPluginsDailyValuesCache = AllPluginsCache(allData, today, values)

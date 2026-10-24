@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.PluginData
 import dev.ja.marketplace.data.overview.DailySeries
 import dev.ja.marketplace.data.overview.OverviewDailyValues
+import dev.ja.marketplace.data.ratings.RatingHistory
 import dev.ja.marketplace.data.subscriptions.SubscriptionDailyValues
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -66,6 +67,7 @@ class DailyChartSeries {
 
         val licenses = data.getLicenses() ?: emptyList()
         val revenue = data.getCustomerRecurringRevenue()
+        val ratingHistory = data.getRatingHistory()
         val values = withContext(Dispatchers.Default) {
             val overview = OverviewDailyValues.create(
                 sales ?: emptyList(),
@@ -76,9 +78,11 @@ class DailyChartSeries {
                 today,
             )
             val subscriptions = SubscriptionDailyValues.create(overview.days, licenses, revenue, today)
+            // the rating of today may still change
+            val rating = DailySeries("rating", overview.days.map(ratingHistory::ratingAt), overview.days.lastIndex)
             Values(
                 overview,
-                overview.series.mapKeys { it.key.id } + subscriptions.mapKeys { it.key.id },
+                overview.series.mapKeys { it.key.id } + subscriptions.mapKeys { it.key.id } + (RatingHistory.DAILY_SERIES_ID to rating),
             )
         }
         entries[data.pluginId] = Entry(sales, trials, downloads, currency, today, values)

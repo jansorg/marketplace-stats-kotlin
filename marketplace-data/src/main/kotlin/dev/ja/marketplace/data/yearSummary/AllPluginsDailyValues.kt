@@ -16,6 +16,7 @@ import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.overview.DailySeries
 import dev.ja.marketplace.data.overview.OverviewDailyColumn
 import dev.ja.marketplace.data.overview.OverviewDailyValues
+import dev.ja.marketplace.data.ratings.RatingHistory
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.javamoney.moneta.FastMoney
 import java.math.BigDecimal
@@ -41,6 +42,7 @@ class AllPluginsDailyValues private constructor(val days: List<YearMonthDay>, va
         const val DOWNLOADS = "all-plugins-downloads"
         const val MRR = "all-plugins-mrr"
         const val ARR = "all-plugins-arr"
+        const val RATING = "all-plugins-rating"
 
         /** The sums of the month before each day, for [AllPluginsMonthTable]. */
         const val MONTH_SALES = "all-plugins-month-sales"
@@ -52,6 +54,7 @@ class AllPluginsDailyValues private constructor(val days: List<YearMonthDay>, va
          * @param sales The sales of all paid plugins.
          * @param downloads The downloads of all paid plugins.
          * @param licensesOfPlugins The licenses of each paid plugin.
+         * @param ratingHistories The ratings of the paid plugins at past dates, for the rating of all plugins.
          */
         fun create(
             sales: List<PluginSale>,
@@ -59,6 +62,7 @@ class AllPluginsDailyValues private constructor(val days: List<YearMonthDay>, va
             licensesOfPlugins: List<List<LicenseInfo>>,
             exchangeRates: ExchangeRates,
             today: YearMonthDay = YearMonthDay.now(),
+            ratingHistories: List<RatingHistory> = emptyList(),
         ): AllPluginsDailyValues {
             val firstDate = listOfNotNull(
                 sales.minOfOrNull { it.date },
@@ -179,6 +183,8 @@ class AllPluginsDailyValues private constructor(val days: List<YearMonthDay>, va
                     DOWNLOADS to DailySeries("count", downloadsOfYear.map(BigDecimal::valueOf), incompleteFrom),
                     MRR to DailySeries(currency, mrr.toList(), incompleteRecurringRevenue),
                     ARR to DailySeries(currency, arr.toList(), incompleteRecurringRevenue),
+                    // the rating of all plugins, calculated from their votes, today's rating may still change
+                    RATING to DailySeries("rating", days.map { RatingHistory.combinedRatingAt(ratingHistories, it) }, incompleteFrom),
                     MONTH_SALES to DailySeries(currency, amounts(totalsOfMonth), incompleteFrom),
                     MONTH_FEES to DailySeries(currency, amounts(feesOfMonth), incompleteFrom),
                     MONTH_PAID to DailySeries(currency, amounts(totalsOfMonth.zip(feesOfMonth) { total, fee -> total - fee }), incompleteFrom),

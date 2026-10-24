@@ -33,6 +33,7 @@ class PluginDataLoader(
 
             val salesAndLicenses = loadAsyncIfPaid { client.licenseInfo(plugin.id) }
             val trials = loadAsyncIfPaid { client.trialsInfo(plugin.id) }
+            val reviews = async { client.reviewComments(plugin.id, pageSize = 100) }
 
             val data = PluginData(
                 countries,
@@ -46,6 +47,7 @@ class PluginDataLoader(
                 PluginPricing.create(client, plugin.id, countries),
                 salesAndLicenses,
                 trials,
+                reviews,
             )
 
             data

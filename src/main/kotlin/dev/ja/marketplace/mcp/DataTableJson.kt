@@ -154,6 +154,7 @@ object DataTableJson {
             is IncompleteValue -> unit(value.value)
             is MonetaryAmount -> value.currency.currencyCode
             is PercentageValue, is LinkedChurnRate -> "%"
+            is RatingValue -> "rating"
             is Iterable<*> -> value.firstNotNullOfOrNull(::unit)
             else -> null
         }
@@ -198,6 +199,7 @@ object DataTableJson {
 
             is MonetaryAmount -> JsonPrimitive(amount(value))
             is PercentageValue -> JsonPrimitive(percent(value))
+            is RatingValue -> JsonPrimitive(value.value)
             is BigInteger -> JsonPrimitive(value)
             is BigDecimal -> JsonPrimitive(value)
             is Number -> JsonPrimitive(value)

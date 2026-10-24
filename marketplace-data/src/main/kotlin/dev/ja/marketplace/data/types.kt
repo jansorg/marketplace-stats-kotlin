@@ -16,6 +16,11 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import javax.money.MonetaryAmount
 
+/**
+ * A rating of the Marketplace, 1 to 5 stars, e.g. `4.85`.
+ */
+data class RatingValue(val value: BigDecimal)
+
 data class PercentageValue(val value: BigDecimal) {
     override fun toString(): String {
         return Formatters.formatPercentage(value)

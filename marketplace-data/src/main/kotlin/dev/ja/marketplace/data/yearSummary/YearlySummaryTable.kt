@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -9,12 +9,14 @@ import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.MonthlyDownload
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.ratings.RatingHistory
 import dev.ja.marketplace.data.trackers.*
 import java.util.*
 
 class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide") {
     private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
     private lateinit var downloads: List<MonthlyDownload>
+    private lateinit var ratingHistory: RatingHistory
 
     private val trialsTracker: TrialTracker = SimpleTrialTracker()
     private val data = TreeMap<Int, YearSummary>(Comparator.reverseOrder())
@@ -26,6 +28,10 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
     private val columnSalesPaid = DataTableColumn("paid", "Paid", "num")
     private val columnARR = DataTableColumn("arr", "ARR", "num")
     private val columnDownloads = DataTableColumn("downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Downloads")
+    private val columnRating = DataTableColumn(
+        "rating", "Rating", "num", tooltip = RatingHistory.TOOLTIP,
+        chartMeasure = ChartMeasure.Stock, dailyChartSeries = RatingHistory.DAILY_SERIES_ID,
+    )
     private val columnTrials = DataTableColumn("trials", "Trials", "num")
     private val columnTrialsConverted = DataTableColumn("trials-converted", "Conv. Trials", "num")
 
@@ -39,6 +45,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
 
         this.maxTrialDays = data.getPluginInfo().purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
         this.downloads = data.getDownloadsMonthly()
+        this.ratingHistory = data.getRatingHistory()
         this.totalSales = PaymentAmountTracker(YearMonthDayRange.MAX, data.exchangeRates)
 
         val now = YearMonthDay.now()
@@ -64,6 +71,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
             columnSalesPaid,
             columnARR,
             columnDownloads,
+            columnRating,
             columnTrials.takeIf { maxTrialDays > 0 },
             columnTrialsConverted.takeIf { maxTrialDays > 0 },
         )
@@ -111,6 +119,9 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                             .filter { it.firstOfMonth.year == year }
                             .sumOf(MonthlyDownload::downloads)
                             .toBigInteger(),
+                        // the rating at the end of the year, of the current year at today, which may still change
+                        columnRating to ratingHistory.ratingAt(minOf(YearMonthDay(year, 12, 31), now))
+                            ?.let { if (year == now.year) IncompleteValue(RatingValue(it)) else RatingValue(it) },
                         columnTrials to (trialResultAnyDuration.totalTrials.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
                         columnTrialsConverted to trialResultTrialDuration.displayedConversionRate,
                     ),

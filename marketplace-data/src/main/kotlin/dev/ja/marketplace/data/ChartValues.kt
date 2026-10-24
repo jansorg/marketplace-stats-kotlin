@@ -14,7 +14,7 @@ import javax.money.MonetaryAmount
 /**
  * A numeric value of a table cell, which can be shown in a chart.
  *
- * @param unit The currency code for amounts, `%` for percentages and `count` for numbers.
+ * @param unit The currency code for amounts, `%` for percentages, `count` for numbers and `rating` for ratings.
  * @param isIncomplete If the value may still change, see [IncompleteValue].
  */
 data class ChartValue(val value: BigDecimal, val unit: String, val isIncomplete: Boolean = false)
@@ -105,6 +105,7 @@ object ChartValues {
             )
             // PercentageValue.ZERO is rendered as "—" in tables, but it's 0% in the chartable tables, e.g. no converted trials
             is PercentageValue -> ChartValue(cellValue.value.setScale(2, RoundingMode.HALF_UP), "%")
+            is RatingValue -> ChartValue(cellValue.value.setScale(2, RoundingMode.HALF_UP), "rating")
             is BigInteger -> ChartValue(cellValue.toBigDecimal(), "count")
             is Int -> ChartValue(cellValue.toBigDecimal(), "count")
             is Long -> ChartValue(cellValue.toBigDecimal(), "count")

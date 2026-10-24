@@ -11,6 +11,7 @@ import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.model.*
 import dev.ja.marketplace.data.PercentageValue
+import dev.ja.marketplace.data.ratings.RatingHistory
 import dev.ja.marketplace.data.subscriptions.LicenseCohorts
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.trialConversionDays
@@ -97,8 +98,10 @@ class McpAnalysisTools(private val provider: McpDataProvider) {
         McpToolDefinition(
             "list_reviews",
             "Reviews and ratings",
-            "Reviews (without spam) with date, rating 1-5, text, author and votes, the average rating per month, and the current rating, " +
-                    "which also counts ratings without a review.",
+            "Reviews (without spam) with date, rating 1-5, text, author, votes and if they count for the rating " +
+                    "(resolved and deleted reviews and reviews without rating don't), the average rating of the reviews per month, " +
+                    "the rating of the plugin at the end of each month (an approximation: ratings without a review have no date, " +
+                    "they are counted from the first month of the plugin), and the current rating, which also counts ratings without a review.",
             buildJsonObject {
                 put("pluginId", pluginIdProperty)
                 put("startDate", startDateProperty)
@@ -426,12 +429,17 @@ class McpAnalysisTools(private val provider: McpDataProvider) {
         val range = dateRange.toRange()
         val includeText = arguments.booleanArgument("includeText") ?: true
 
-        val reviews = provider.reviews(plugin)
+        val allReviews = provider.reviews(plugin)
+        val reviews = allReviews
             .filter { !it.markedAsSpam && it.parentId == null }
             .mapNotNull { review -> review.createdTimestamp?.let { YearMonthDay.of(it) to review } }
             .filter { (date, _) -> date in range }
             .sortedBy { it.first }
-        val rating = provider.pluginData(plugin).getPluginRating()
+        val data = provider.pluginData(plugin)
+        val rating = data.getPluginRating()
+        val firstSale = data.getSales()?.minOfOrNull { it.date }
+        val history = RatingHistory(allReviews, rating, firstSale?.let { YearMonthDay.firstOfMonth(it.year, it.month) } ?: Marketplace.Birthday)
+        val today = YearMonthDay.now()
 
         return buildJsonObject {
             putPlugin(plugin)
@@ -453,6 +461,8 @@ class McpAnalysisTools(private val provider: McpDataProvider) {
                         put("month", month)
                         put("reviews", items.size)
                         put("averageRating", BigDecimal(items.map { it.second.rating.toInt() }.average()).setScale(2, RoundingMode.HALF_UP))
+                        val date = items.first().first
+                        put("ratingAtEndOfMonth", history.ratingAt(minOf(YearMonthDay.lastOfMonth(date.year, date.month), today)))
                     })
                 }
             })
@@ -469,6 +479,9 @@ class McpAnalysisTools(private val provider: McpDataProvider) {
                         put("replies", review.repliesCount)
                         put("votesPositive", review.votes?.positive)
                         put("votesNegative", review.votes?.negative)
+                        if (!RatingHistory.isCountedReview(review)) {
+                            put("countedInRating", false)
+                        }
                     })
                 }
             })

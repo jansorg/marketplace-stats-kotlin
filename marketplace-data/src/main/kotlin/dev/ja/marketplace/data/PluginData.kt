@@ -7,6 +7,7 @@ package dev.ja.marketplace.data
 
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.*
+import dev.ja.marketplace.data.ratings.RatingHistory
 import dev.ja.marketplace.data.subscriptions.CustomerRecurringRevenue
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import dev.ja.marketplace.services.Countries
@@ -35,6 +36,8 @@ data class PluginData(
     val pluginPricing: PluginPricing?,
     private val salesWithLicensesDeferred: Deferred<SalesWithLicensesInfo>?,
     private val trialsDeferred: Deferred<List<PluginTrial>>?,
+    /** The reviews of the plugin, for the rating at past dates. */
+    private val reviewsDeferred: Deferred<List<PluginReviewComment>>? = null,
 ) {
     val pluginId: PluginId = pluginSummary.id
 
@@ -47,6 +50,20 @@ data class PluginData(
 
     suspend fun getPluginRating(): PluginRating {
         return pluginRatingDeferred.await()
+    }
+
+    suspend fun getReviews(): List<PluginReviewComment> {
+        return reviewsDeferred?.await() ?: emptyList()
+    }
+
+    /**
+     * The rating at past dates. Ratings without a date are counted from the first month with sales,
+     * or from the start of the Marketplace for plugins without sales.
+     */
+    suspend fun getRatingHistory(): RatingHistory {
+        val firstSale = getSales()?.minOfOrNull { it.date }
+        val firstDay = firstSale?.let { YearMonthDay.firstOfMonth(it.year, it.month) } ?: Marketplace.Birthday
+        return RatingHistory(getReviews(), getPluginRating(), firstDay)
     }
 
     suspend fun getTotalDownloads(): Long {

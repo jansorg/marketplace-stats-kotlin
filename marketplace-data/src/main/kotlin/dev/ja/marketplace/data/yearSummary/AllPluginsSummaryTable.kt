@@ -11,6 +11,7 @@ import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.model.MonthlyDownload
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.ratings.RatingHistory
 import dev.ja.marketplace.data.trackers.AnnualRecurringRevenueTracker
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.data.trackers.MonthlyRecurringRevenueTracker
@@ -43,6 +44,12 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
         chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.DOWNLOADS,
     )
 
+    private val columnRating = DataTableColumn(
+        "rating", "Rating", "num", tooltip = RatingHistory.TOOLTIP + " The rating of all plugins is calculated from their votes.",
+        chartMeasure = ChartMeasure.Stock, dailyChartSeries = AllPluginsDailyValues.RATING,
+    )
+
+    private val ratingHistories = mutableListOf<RatingHistory>()
     private val totalSales = PaymentAmountTracker(YearMonthDayRange.MAX, displayExchangeRates)
     private val salesByYear = TreeMap<Int, PaymentAmountTracker>(Comparator.reverseOrder())
     private val downloadsByYear = TreeMap<Int, BigInteger>(Comparator.reverseOrder())
@@ -56,13 +63,14 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
     override val collapsedRowCount: Int = 3
 
     override val columns: List<DataTableColumn> = listOf(
-        columnYear, columnSalesTotal, columnSalesFees, columnSalesPaid, columnMrr, columnArr, columnDownloads,
+        columnYear, columnSalesTotal, columnSalesFees, columnSalesPaid, columnMrr, columnArr, columnDownloads, columnRating,
     )
 
     /**
      * Adds the sales, the licenses and the downloads of a plugin.
      */
-    suspend fun add(sales: List<PluginSale>, licenses: List<LicenseInfo>, downloads: List<MonthlyDownload>) {
+    suspend fun add(sales: List<PluginSale>, licenses: List<LicenseInfo>, downloads: List<MonthlyDownload>, ratingHistory: RatingHistory) {
+        ratingHistories += ratingHistory
         for (sale in sales) {
             totalSales.add(sale.date, sale.amountUSD, sale.amount)
             salesByYear.getOrPut(sale.date.year) { PaymentAmountTracker(YearMonthDayRange.ofYear(sale.date.year), displayExchangeRates) }
@@ -118,6 +126,9 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
                     columnDownloads to (downloadsByYear[year] ?: BigInteger.ZERO).let {
                         if (year == now.year) IncompleteValue(it) else it
                     },
+                    // the rating at the end of the year, of the current year at today, which may still change
+                    columnRating to RatingHistory.combinedRatingAt(ratingHistories, minOf(YearMonthDay(year, 12, 31), now))
+                        ?.let { if (year == now.year) IncompleteValue(RatingValue(it)) else RatingValue(it) },
                 ),
                 tooltips = mapOf(
                     columnMrr to IncompleteRecurringRevenueTooltip.takeIf { year == now.year },

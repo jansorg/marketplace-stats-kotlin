@@ -11,6 +11,7 @@ import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.model.DailyDownload
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.ratings.RatingHistory
 import dev.ja.marketplace.data.trackers.AnnualRecurringRevenueTracker
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.data.trackers.MonthlyRecurringRevenueTracker
@@ -50,6 +51,12 @@ class AllPluginsMonthTable(
         "downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Downloads",
         chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.MONTH_DOWNLOADS,
     )
+    private val columnRating = DataTableColumn(
+        "rating", "Rating", "num", tooltip = "Rating at the day, calculated from the votes of all plugins. " +
+                "Ratings without a review text are counted from the first month of a plugin.",
+        chartMeasure = ChartMeasure.Stock, dailyChartSeries = AllPluginsDailyValues.RATING,
+    )
+    private val ratingHistories = mutableListOf<RatingHistory>()
 
     private val month = YearMonthDayRange(YearMonthDay(today.year, today.month, 1), today)
     private val totalSales = PaymentAmountTracker(month, displayExchangeRates)
@@ -66,13 +73,14 @@ class AllPluginsMonthTable(
     override val collapsedRowCount: Int = 7
 
     override val columns: List<DataTableColumn> = listOf(
-        columnDay, columnSalesTotal, columnSalesFees, columnSalesPaid, columnMrr, columnArr, columnDownloads,
+        columnDay, columnSalesTotal, columnSalesFees, columnSalesPaid, columnMrr, columnArr, columnDownloads, columnRating,
     )
 
     /**
      * Adds the sales, the licenses and the downloads of a plugin, only the data of the current month is used.
      */
-    suspend fun add(sales: List<PluginSale>, licenses: List<LicenseInfo>, downloads: List<DailyDownload>) {
+    suspend fun add(sales: List<PluginSale>, licenses: List<LicenseInfo>, downloads: List<DailyDownload>, ratingHistory: RatingHistory) {
+        ratingHistories += ratingHistory
         for (sale in sales) {
             if (sale.date in month) {
                 totalSales.add(sale.date, sale.amountUSD, sale.amount)
@@ -118,6 +126,7 @@ class AllPluginsMonthTable(
                     columnArr to arrByDay.getValue(day).getTotalAmount(),
                     // the downloads of a day are reported on the next day at the earliest
                     columnDownloads to if (day < today) downloadsByDay.getValue(day).toBigInteger() else NoValue,
+                    columnRating to RatingHistory.combinedRatingAt(ratingHistories, day)?.let(::RatingValue),
                 ),
                 tooltips = mapOf(columnDownloads to IncompleteDownloadsTooltip.takeIf { day == today }),
                 cssClass = if (day == today) "today" else null,
