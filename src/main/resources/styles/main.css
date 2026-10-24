@@ -449,14 +449,15 @@ th.highlighted, td.highlighted {
     border-radius: 4px;
 }
 
-/* the dotted underline marks headers which open a chart, also on touch devices without hover */
-th.chartable {
+/* the dotted underline marks headers which open a chart, also on touch devices without hover.
+   In sortable tables, only the label of the header opens the chart. */
+.chartable {
     cursor: pointer;
     text-decoration: underline dotted var(--separator-color);
     text-underline-offset: 0.25em;
 }
 
-th.chartable:hover, th.chartable:focus-visible {
+.chartable:hover, .chartable:focus-visible {
     text-decoration-color: currentColor;
 }
 
