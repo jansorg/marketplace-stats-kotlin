@@ -6,13 +6,23 @@
 @param title: String?
 @param cssClass: String?
 
+<%-- A long title has its own row, so that it doesn't widen the first column, which usually only contains dates.
+     Sortable tables keep a single header row. --%>
+
+!{val firstColumnTitle = columns.firstOrNull()?.title}
+!{val hasTitleRow = title != null && firstColumnTitle == null && title.length > 20 && !table.cssClass.orEmpty().contains("sortable")}
+@if(hasTitleRow)
+    <tr class="table-title-row">
+        <th colspan="${columns.sumOf { it.columnSpan ?: 1 }}"><h2>${title}</h2></th>
+    </tr>
+@endif
 <tr class="${cssClass}">
     @for((columnIndex, column) in columns.withIndex())
         <th colspan="${column.columnSpan}" class="${column.cssClass}" style="${column.cssStyle}" title="${column.tooltip}" aria-sort="${column.preSorted?.attributeValue}"
             data-chart-col="${if ((table.isChartable && columnIndex > 0) || column.isShareOfTotal) columnIndex else null}" data-chart-label="${if ((table.isChartable && columnIndex > 0) || columns.any { it.isShareOfTotal }) column.chartTitle else null}"
             data-chart-pie="${if (column.isShareOfTotal) "true" else null}" data-chart-daily="${if (table.isChartable) column.dailyChartSeries else null}"
             data-chart-measure="${if (table.isChartable) column.chartMeasure?.name?.lowercase() else null}">
-            @if(columnIndex == 0 && title != null && column.title == null)
+            @if(columnIndex == 0 && title != null && column.title == null && !hasTitleRow)
                 <h2>${title}</h2>
             @elseif(column.title != null)
                 ${column.title}

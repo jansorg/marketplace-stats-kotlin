@@ -406,6 +406,11 @@ button {
     margin: 0;
 }
 
+/* a long title has its own row above the labels of the columns, see tableColumnsRow.kte */
+.table-title-row > th {
+    padding-bottom: 0;
+}
+
 table.small {
     font-size: .875rem;
 }
