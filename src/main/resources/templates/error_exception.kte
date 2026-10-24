@@ -27,5 +27,6 @@
     </dd>
 </dl>
 
+@template.siteFooter()
 </body>
 </html>

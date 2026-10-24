@@ -298,6 +298,19 @@ button {
 
 /* custom */
 
+/* the footer of all pages with the version and links to the project, see siteFooter.kte */
+.site-footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.4rem 1.25rem;
+    margin-top: 3rem;
+    padding-top: 1rem;
+    font-size: 0.8rem;
+    color: var(--text-color-disabled);
+    border-top: 1px solid var(--separator-light-color);
+}
+
 /*
  * The tables of a page are cards, which flow in rows. Narrow tables share a row and grow to fill it, wide tables use
  * a row of their own and scroll horizontally if they are wider than the page.

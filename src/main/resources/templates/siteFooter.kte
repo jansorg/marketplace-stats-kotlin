@@ -1,0 +1,6 @@
+<%-- The footer of all pages: the version and links to the project and its author. --%>
+<footer class="site-footer noprint">
+    <span>Marketplace Stats ${dev.ja.marketplace.AppInfo.version}</span>
+    <a href="https://github.com/jansorg/marketplace-stats-kotlin" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://j-a.dev" target="_blank" rel="noopener">j-a.dev</a>
+</footer>
