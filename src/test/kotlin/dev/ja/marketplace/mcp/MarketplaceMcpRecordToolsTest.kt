@@ -457,21 +457,16 @@ class MarketplaceMcpRecordToolsTest {
     }
 
     @Test
-    suspend fun freeLicensesByMonthAndLicenseType() {
-        val result = tools.call("get_free_licenses", arguments())
-        val total = result["total"]!!.jsonObject
-        assertEquals(setOf("openSource", "trial"), total.keys, "the paid license isn't a free license")
-        assertEquals(3, total["openSource"]!!.jsonObject["licenses"]!!.jsonPrimitive.int)
-        assertEquals(1, total["openSource"]!!.jsonObject["customers"]!!.jsonPrimitive.int)
-        assertEquals(2, total["trial"]!!.jsonObject["licenses"]!!.jsonPrimitive.int)
-
-        val months = result["months"]!!.jsonArray.map { it.jsonObject }
-        assertEquals(listOf("2025-08", "2025-09"), months.map { it["month"]!!.jsonPrimitive.content })
-        assertEquals(setOf("trial"), months[1]["licenseTypes"]!!.jsonObject.keys)
-
-        val september = tools.call("get_free_licenses", arguments { put("startDate", "2025-09-01") })
-        assertEquals(1, september["total"]!!.jsonObject["trial"]!!.jsonObject["licenses"]!!.jsonPrimitive.int)
-        assertNull(september["total"]!!.jsonObject["openSource"])
+    suspend fun lineItemsOfSalesWithoutAmountAreFreeLicenses() {
+        val sales = listOf(McpTestData.changedSale("R-ZERO", YearMonthDay(2024, 5, 10)))
+        val result = MarketplaceMcpTools(McpTestData.providerWithSales(sales)).call("list_sales", arguments { put("refNum", "R-ZERO") })
+        val items = result["sales"]!!.jsonArray.single().jsonObject["lineItems"]!!.jsonArray.map { it.jsonObject }
+        assertEquals(2, items.size)
+        for (item in items) {
+            // the amounts of the line items are limited to the total of the sale
+            assertEquals(BigDecimal("0.00"), item["amount"]!!.jsonPrimitive.content.toBigDecimal())
+            assertTrue(item["isFreeLicense"]!!.jsonPrimitive.boolean)
+        }
     }
 
     @Test

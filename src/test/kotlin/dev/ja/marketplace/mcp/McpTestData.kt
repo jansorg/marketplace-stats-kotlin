@@ -51,32 +51,17 @@ object McpTestData {
         ),
     )
 
-    /** Free licenses of the full sales report and one paid license, which isn't a free license. */
-    val fullSalesReport: List<FullSalesReportRow> = listOf(
-        reportRow(YearMonthDay(2025, 8, 3), SalesReportLicenseType.OpenSource, quantity = 1, amountUSD = 0, customerId = 10),
-        reportRow(YearMonthDay(2025, 8, 20), SalesReportLicenseType.OpenSource, quantity = 2, amountUSD = 0, customerId = 10),
-        reportRow(YearMonthDay(2025, 8, 21), SalesReportLicenseType.Trial, quantity = 1, amountUSD = 0, customerId = 11),
-        reportRow(YearMonthDay(2025, 9, 5), SalesReportLicenseType.Trial, quantity = 1, amountUSD = 0, customerId = 12),
-        reportRow(YearMonthDay(2025, 9, 6), SalesReportLicenseType.Commercial, quantity = 1, amountUSD = 100, customerId = 13),
-    )
-
-    private fun reportRow(date: YearMonthDay, type: SalesReportLicenseType, quantity: Int, amountUSD: Int, customerId: Int): FullSalesReportRow {
-        return FullSalesReportRow(
-            productCode = "PTEST",
-            date = date,
-            customerType = CustomerType.Individual,
-            customerName = "Customer $customerId",
-            customerCountryIsoCode = "DE",
-            isViaReseller = false,
-            licenseType = type,
-            billingPeriod = LicensePeriod.Annual,
-            quantity = quantity,
-            amountUSD = FastMoney.of(amountUSD, MarketplaceCurrencies.USD),
-            isDiscounted = false,
-            customerId = customerId,
-            orderRef = "R-$customerId",
-            purchaseId = "P-$customerId",
-        )
+    /**
+     * A sale with manual changes by JetBrains: its total is 0, its line items have the regular amounts and no discounts.
+     */
+    fun changedSale(ref: String, date: YearMonthDay): PluginSale {
+        val amount = FastMoney.of(68, MarketplaceCurrencies.USD)
+        val zero = FastMoney.zero(MarketplaceCurrencies.USD)
+        val validity = date.rangeTo(date.add(1, 0, -1))
+        val lineItems = listOf("a", "b").map { license ->
+            SubscriptionPluginSaleItem(PluginSaleItemType.New, listOf("license-$ref-$license"), amount, amount, emptyList(), validity)
+        }
+        return PluginSale(ref, date, zero, zero, LicensePeriod.Annual, individualUS, null, lineItems)
     }
 
     val plugin = PluginInfoSummary(
@@ -179,8 +164,6 @@ object McpTestData {
         override suspend fun monetization(plugin: PluginInfoSummary): PluginMonetization {
             return PluginMonetization("PTEST", "PAID", listOf("OBFUSCATE"))
         }
-
-        override suspend fun fullSalesReport(plugin: PluginInfoSummary): List<FullSalesReportRow> = fullSalesReport
 
         override suspend fun productReleases(product: JetBrainsProductCode, type: ProductReleaseType): List<ProductRelease> {
             return productReleases.filter { product == JetBrainsProductCode.IntelliJIDEAUltimate && it.type == type }

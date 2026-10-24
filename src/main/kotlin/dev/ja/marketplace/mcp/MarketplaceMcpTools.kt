@@ -78,12 +78,6 @@ interface McpDataProvider {
      */
     suspend fun monetization(plugin: PluginInfoSummary): PluginMonetization
 
-    /**
-     * @return The full sales report of the Marketplace, with each license of each sale, including free licenses.
-     * The Marketplace creates the report on demand, the first call is slow.
-     */
-    suspend fun fullSalesReport(plugin: PluginInfoSummary): List<FullSalesReportRow>
-
     suspend fun productReleases(product: JetBrainsProductCode, type: ProductReleaseType): List<ProductRelease>
 
     suspend fun products(): Products
@@ -418,19 +412,6 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
             },
             listOf("pluginId"),
         ) { arguments -> listOffers(arguments) },
-        McpToolDefinition(
-            "get_free_licenses",
-            "Free licenses",
-            "Licenses without payment by month and license type, e.g. open source licenses, trials and licenses with " +
-                    "a discount of 100%, from the full sales report of the Marketplace. The sales and the other tools " +
-                    "only contain paid licenses. Slow on the first call, the Marketplace creates the report.",
-            buildJsonObject {
-                put("pluginId", pluginIdProperty)
-                put("startDate", startDateProperty)
-                put("endDate", endDateProperty)
-            },
-            listOf("pluginId"),
-        ) { arguments -> getFreeLicenses(arguments) },
         McpToolDefinition(
             "list_jetbrains_product_releases",
             "Releases of JetBrains products",
@@ -832,36 +813,6 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
                     put("coupons", offerCoupons.size)
                     put("activeCoupons", offerCoupons.count(PluginOfferCoupon::isActive))
                     put("sentCoupons", offerCoupons.count(PluginOfferCoupon::isSent))
-                }
-            }))
-        }
-    }
-
-    private suspend fun getFreeLicenses(arguments: JsonObject): JsonObject {
-        val plugin = provider.findPlugin(arguments)
-        require(plugin.isPaidOrFreemium) { "Plugin ${plugin.id} has no sales report, it's not a paid or freemium plugin" }
-        val dateRange = McpDateRange.parse(arguments.stringArgument("startDate"), arguments.stringArgument("endDate"))
-        val range = dateRange.toRange()
-
-        val rows = provider.fullSalesReport(plugin).filter { it.amountUSD.isZero && it.date in range }
-        fun licenseTypes(rows: List<FullSalesReportRow>): JsonObject = buildJsonObject {
-            for ((type, typeRows) in rows.groupBy { it.licenseType?.toolName ?: "unknown" }.toSortedMap()) {
-                put(type, buildJsonObject {
-                    put("licenses", typeRows.sumOf(FullSalesReportRow::quantity))
-                    put("customers", typeRows.map(FullSalesReportRow::customerId).distinct().size)
-                })
-            }
-        }
-
-        return buildJsonObject {
-            putPlugin(plugin)
-            put("startDate", dateRange.start?.asIsoString)
-            put("endDate", dateRange.end?.asIsoString)
-            put("total", licenseTypes(rows))
-            put("months", JsonArray(rows.groupBy { String.format("%04d-%02d", it.date.year, it.date.month) }.toSortedMap().map { (month, monthRows) ->
-                buildJsonObject {
-                    put("month", month)
-                    put("licenseTypes", licenseTypes(monthRows))
                 }
             }))
         }

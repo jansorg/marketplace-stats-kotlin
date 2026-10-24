@@ -248,8 +248,6 @@ class MarketplaceStatsServer(
 
         override suspend fun monetization(plugin: PluginInfoSummary): PluginMonetization = client.monetization(plugin.id)
 
-        override suspend fun fullSalesReport(plugin: PluginInfoSummary): List<FullSalesReportRow> = client.fullSalesReport(plugin.id)
-
         // cached by the services client
         override suspend fun productReleases(product: JetBrainsProductCode, type: ProductReleaseType): List<ProductRelease> {
             return servicesClient.productReleases(product, type)
