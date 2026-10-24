@@ -151,25 +151,35 @@ project(":") {
         files.filter { it.asFile.name.startsWith("$name-") }.map { archives.tarTree(archives.gzip(it.asFile)) }
     }
 
+    // the served files of each library: the paths in the package and the names in the "js" directory
+    val javascriptLibraryFiles = mapOf(
+        "uplot" to mapOf(
+            "package/dist/uPlot.iife.min.js" to "uPlot.iife.min.js",
+            "package/dist/uPlot.min.css" to "uPlot.min.css",
+            "package/LICENSE" to "uPlot.LICENSE.txt",
+        ),
+        // the base styles only contain the arrows of the sorting, sortable.min.css also styles the table like the
+        // example of the package, e.g. with gray headers, which doesn't fit the tables of the pages
+        "sortable-tablesort" to mapOf(
+            "package/dist/sortable.min.js" to "sortable.min.js",
+            "package/dist/sortable-base.min.css" to "sortable-base.min.css",
+            "package/LICENSE" to "sortable.LICENSE.txt",
+        ),
+    )
+
     val bundleJavascriptLibraries by tasks.registering(Sync::class) {
-        from(library("uplot")) {
-            include("package/dist/uPlot.iife.min.js", "package/dist/uPlot.min.css", "package/LICENSE")
-            eachFile {
-                val fileName = if (name == "LICENSE") "uPlot.LICENSE.txt" else name
-                relativePath = RelativePath(true, "js", fileName)
+        for ((libraryName, files) in javascriptLibraryFiles) {
+            from(library(libraryName)) {
+                include(files.keys)
+                eachFile {
+                    relativePath = RelativePath(true, "js", files.getValue(path))
+                }
+                includeEmptyDirs = false
             }
-            includeEmptyDirs = false
         }
-        from(library("sortable-tablesort")) {
-            // the base styles only contain the arrows of the sorting, sortable.min.css also styles the table like the
-            // example of the package, e.g. with gray headers, which doesn't fit the tables of the pages
-            include("package/dist/sortable.min.js", "package/dist/sortable-base.min.css", "package/LICENSE")
-            eachFile {
-                val fileName = if (name == "LICENSE") "sortable.LICENSE.txt" else name
-                relativePath = RelativePath(true, "js", fileName)
-            }
-            includeEmptyDirs = false
-        }
+        // Gradle doesn't notice changes of the patterns and the names of the files of sources from providers.
+        // Without this input, the task and the JARs would keep the files of the previous configuration.
+        inputs.property("libraryFiles", javascriptLibraryFiles)
         into(layout.buildDirectory.dir("generated/javascript"))
     }
 
