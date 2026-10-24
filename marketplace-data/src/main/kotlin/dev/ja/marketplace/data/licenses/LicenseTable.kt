@@ -12,7 +12,6 @@ import dev.ja.marketplace.data.trackers.PaymentAmountTracker
 import dev.ja.marketplace.util.sortValue
 import dev.ja.marketplace.util.takeNullable
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 
 class LicenseTable(
     private val maxTableRows: Int? = null,
@@ -53,6 +52,8 @@ class LicenseTable(
     private val licenseMaxValidity = Object2ObjectOpenHashMap<LicenseId, YearMonthDay>()
     // the purchase with the latest end of each license, of all customers
     private val licenseLatestPurchase = Object2ObjectOpenHashMap<LicenseId, LicenseInfo>()
+    // the purchases of each license, the latest purchase is shown with the period of all purchases of its sale
+    private val licensePurchases = Object2ObjectOpenHashMap<LicenseId, MutableList<LicenseInfo>>()
     private val filteredLicenseMaxValidity = Object2ObjectOpenHashMap<LicenseId, YearMonthDay>()
     // all purchases of the licenses, a fallback license depends on all of them, e.g. of the purchases of other customers
     private val allSubscriptionLicenses = mutableListOf<LicenseInfo>()
@@ -99,6 +100,9 @@ class LicenseTable(
         if (fallbackReleases != null) {
             allSubscriptionLicenses += licenseInfo
         }
+        if (showOnlyLatestLicenseInfo) {
+            licensePurchases.getOrPut(licenseId) { mutableListOf() } += licenseInfo
+        }
 
         if (licenseFilter(licenseInfo)) {
             data += licenseInfo
@@ -115,33 +119,33 @@ class LicenseTable(
 
     override suspend fun createSections(): List<DataTableSection> {
         var previousPurchaseDate: YearMonthDay? = null
-        val shownLicenseInfos = if (showOnlyLatestLicenseInfo) ObjectOpenHashSet<LicenseId>() else null
         // any date because the consumed data is already filtered
         val amountTracker = PaymentAmountTracker(YearMonthDayRange.MAX, exchangeRates)
         val fallbackVersions = fallbackVersions()
         val rows = data
             .filter { statusFilter == null || status(it.id) == statusFilter }
             .sortedWith(comparator)
+            // only display the latest renewal (or the first purchase if new), before the rows are limited
+            .let { sorted -> if (showOnlyLatestLicenseInfo) sorted.distinctBy { it.id } else sorted }
             .takeNullable(maxTableRows)
-            .mapNotNull { license ->
-                // only display the latest renewal (or the first purchase if new)
-                if (shownLicenseInfos != null) {
-                    try {
-                        if (license.id in shownLicenseInfos) {
-                            return@mapNotNull null
-                        }
-                    } finally {
-                        shownLicenseInfos += license.id
-                    }
-                }
-
+            .map { license ->
                 val purchaseDate = license.sale.date
                 val showPurchaseDate = previousPurchaseDate != purchaseDate
                 previousPurchaseDate = purchaseDate
 
                 amountTracker.add(license.sale.date, license.amountUSD, license.amount)
 
-                val validityEnd = license.validity!!.end
+                // the latest purchase of a license shows the period of all purchases of its sale,
+                // e.g. of a sale with a purchase until a date and a purchase, which starts on the next day
+                val validity = when {
+                    showOnlyLatestLicenseInfo -> licensePurchases.getValue(license.id)
+                        .filter { it.sale.ref == license.sale.ref }
+                        .map { it.validity!! }
+                        .let { YearMonthDayRange(it.minOf { range -> range.start }, it.maxOf { range -> range.end }) }
+
+                    else -> license.validity!!
+                }
+                val validityEnd = validity.end
                 val licenseEnd = licenseMaxValidity[license.id]!!
                 val isExpired = supportedChurnStyling && licenseEnd < nowDate
                 // the latest purchase of the customer, if another customer renewed the license
@@ -154,7 +158,7 @@ class LicenseTable(
                         columnLicenseId to LinkedLicense(license.id, pluginId!!),
                         columnRefNum to LinkedRefNum(license.sale.ref, pluginId!!),
                         columnPurchaseDate to if (showPurchaseDate) purchaseDate else null,
-                        columnValidityStart to license.validity!!.start,
+                        columnValidityStart to validity.start,
                         columnValidityEnd to when {
                             isExpired -> ExpiredLicenseEnd(validityEnd, licenseEnd)
                             transferredTo != null -> TransferredLicenseEnd(
@@ -178,7 +182,8 @@ class LicenseTable(
                             .map { it.asPercentageValue(false) },
                         columnReseller to license.sale.reseller?.name,
                     ),
-                    cssClass = if (isExpired) "disabled" else null,
+                    // all licenses of the page of churned licenses would be gray, they keep the symbol of expired licenses
+                    cssClass = if (isExpired && statusFilter != LicenseStatus.Churned) "disabled" else null,
                     tooltips = mapOf(
                         columnDiscount to license.saleLineItem.discountDescriptions
                             .sortedBy { it.percent ?: 0.0 }
@@ -202,7 +207,7 @@ class LicenseTable(
                     values = mapOf(
                         columnAmount to amountTracker.totalAmount,
                         columnLicenseId to (if (licenseCount == 0) NoValue else listOfNotNull(
-                            "$activeLicenseCount active".takeIf { supportedChurnStyling },
+                            "$activeLicenseCount active".takeIf { supportedChurnStyling && statusFilter != LicenseStatus.Churned },
                             "$licenseCount total"
                         ))
                     ),

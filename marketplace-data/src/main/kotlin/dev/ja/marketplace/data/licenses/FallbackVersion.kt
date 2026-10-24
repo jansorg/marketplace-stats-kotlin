@@ -63,25 +63,11 @@ data class FallbackVersion(
          * @return `null` if the license has no paid subscription.
          */
         fun of(licenseId: LicenseId, licenses: Iterable<LicenseInfo>, releases: List<PluginReleaseDate>): FallbackVersion? {
-            val validities = licenses
-                .filter { it.id == licenseId && it.isPaidLicense }
-                .mapNotNull { it.validity }
-                .sortedByDescending { it.end }
-            if (validities.isEmpty()) {
-                return null
-            }
-
-            // the start of the latest subscription without a day without license, overlapping validities are uninterrupted
-            val subscriptionEnd = validities.first().end
-            var subscriptionStart = validities.first().start
-            for (validity in validities.drop(1)) {
-                if (validity.end.add(0, 0, 1) < subscriptionStart) {
-                    break
-                }
-                if (validity.start < subscriptionStart) {
-                    subscriptionStart = validity.start
-                }
-            }
+            val subscription = latestSubscription(
+                licenses.filter { it.id == licenseId && it.isPaidLicense }.mapNotNull { it.validity }
+            ) ?: return null
+            val subscriptionStart = subscription.start
+            val subscriptionEnd = subscription.end
 
             // the subscription expires at the end of its last day
             val fallbackDate = subscriptionEnd.add(0, 0, 1).add(-1, 0, 0)
