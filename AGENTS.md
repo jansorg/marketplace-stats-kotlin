@@ -193,7 +193,8 @@ CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
 - `dataTable.kte` wraps each table in a `.table-card`. The cards of `.tables` flow in rows: narrow tables share a row,
   tables with `tables-row` or `table-column-wide` use a full row, wide tables scroll horizontally with a sticky first
   column.
-- The sortable tables use `sortable.min.js` and `sortable.min.css` of the npm package `sortable-tablesort`. Like uPlot,
+- The sortable tables use `sortable.min.js` and `sortable-base.min.css` of the npm package `sortable-tablesort`. The
+  base CSS only contains the arrows of the sorting, `sortable.min.css` would also style the tables. Like uPlot,
   they aren't committed: Gradle downloads the package and `bundleJavascriptLibraries` extracts the files, served at
   `/js/`. To upgrade, change the version in `build.gradle.kts`.
 - `src/main/resources/styles/print.css` contains the print-only rules (`.noprint`, `.noprintlink`, A4 landscape `@page`).

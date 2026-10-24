@@ -161,7 +161,9 @@ project(":") {
             includeEmptyDirs = false
         }
         from(library("sortable-tablesort")) {
-            include("package/dist/sortable.min.js", "package/dist/sortable.min.css", "package/LICENSE")
+            // the base styles only contain the arrows of the sorting, sortable.min.css also styles the table like the
+            // example of the package, e.g. with gray headers, which doesn't fit the tables of the pages
+            include("package/dist/sortable.min.js", "package/dist/sortable-base.min.css", "package/LICENSE")
             eachFile {
                 val fileName = if (name == "LICENSE") "sortable.LICENSE.txt" else name
                 relativePath = RelativePath(true, "js", fileName)
