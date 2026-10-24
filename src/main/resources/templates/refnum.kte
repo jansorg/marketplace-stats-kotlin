@@ -69,5 +69,6 @@
     <a href="/">All Plugins</a>
 </footer>
 
+@template.siteFooter()
 </body>
 </html>

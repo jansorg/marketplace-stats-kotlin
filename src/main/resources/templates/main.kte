@@ -93,5 +93,6 @@
     <form action="/refresh?pluginId=${plugin.id}&reload=true" method="POST"><button>Refresh</button></form>
 </footer>
 
+@template.siteFooter()
 </body>
 </html>

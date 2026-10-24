@@ -44,5 +44,6 @@
     @endfor
 </ul>
 
+@template.siteFooter()
 </body>
 </html>
