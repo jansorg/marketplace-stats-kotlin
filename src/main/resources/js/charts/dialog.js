@@ -197,7 +197,29 @@ export class ChartDialog {
     open() {
         if (!this.isOpen) {
             this.element.showModal();
+            this.fixPage();
         }
+    }
+
+    /**
+     * Safari and the other browsers of iPadOS scroll the page behind a modal dialog with touch gestures on the parts of
+     * the dialog, which can't be scrolled, even with `overflow: hidden` on the page. A fixed page can't be scrolled.
+     * Its scroll position is restored when the dialog is closed, also with the Escape key.
+     */
+    fixPage() {
+        const scrollY = window.scrollY;
+        const style = document.body.style;
+        style.position = "fixed";
+        style.top = `-${scrollY}px`;
+        style.left = "0";
+        style.right = "0";
+        this.element.addEventListener("close", () => {
+            style.position = "";
+            style.top = "";
+            style.left = "";
+            style.right = "";
+            window.scrollTo(0, scrollY);
+        }, {once: true});
     }
 
     close() {
