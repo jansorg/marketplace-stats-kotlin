@@ -5,7 +5,8 @@
 
 @param plugins: List<PluginInfoSummary>
 @param urls: MarketplaceUrlSupport
-@param summary: RenderedDataTable?
+@param summaryTables: List<RenderedDataTable>
+@param ideReleases: List<dev.ja.marketplace.data.releases.MajorRelease>
 
 <!DOCTYPE html>
 <html lang="en">
@@ -16,7 +17,7 @@
     @template.favicons()
     <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
     <link rel="stylesheet" type="text/css" media="print" href="/styles/print.css"/>
-    @if(summary != null)
+    @if(summaryTables.isNotEmpty())
         <link href="/js/uPlot.min.css" rel="stylesheet"/>
         <script src="/js/uPlot.iife.min.js" defer></script>
         <script type="module" src="/js/charts/main.js"></script>
@@ -29,30 +30,44 @@
 <br>
 
 <h2>Paid or Freemium Plugins</h2>
-@if(summary != null && !summary.isEmpty)
+@if(summaryTables.isNotEmpty() && ideReleases.isNotEmpty())
+    <%-- major releases of IntelliJ IDEA as vertical lines of the charts, like on the report pages --%>
+    <ul id="chart-ide-releases" hidden>
+        @for(release in ideReleases)
+            <li data-date="${release.date.asIsoString}">${release.version}</li>
+        @endfor
+    </ul>
+@endif
+@if(summaryTables.isNotEmpty())
     <p class="summary-description">The sales and downloads of all paid and freemium plugins.</p>
     <section class="tables">
-        @template.dataTable(null, summary)
+        @for(table in summaryTables)
+            @template.dataTable(null, table)
+        @endfor
     </section>
 @endif
-<ul>
+<ul class="plugin-cards">
     @for(plugin in plugins.filter { it.isPaidOrFreemium })
         <li>
             !{val iconUrl = plugin.iconUrlPath?.let { urls.assetUrl(it) }}
-            @if(iconUrl != null)<img src="${iconUrl}" alt="logo" class="plugin-icon-small"/>@endif
-            <a href="/?pluginId=${plugin.id}">${plugin.name}</a>
+            <a class="plugin-card" href="/?pluginId=${plugin.id}">
+                @if(iconUrl != null)<img src="${iconUrl}" alt="" class="plugin-card-icon"/>@endif
+                <span>${plugin.name}</span>
+            </a>
         </li>
     @endfor
 </ul>
 
 <h2>Free Plugins</h2>
 <p>There's only limited data provided for free plugins.</p>
-<ul>
+<ul class="plugin-cards">
     @for(plugin in plugins.filter { !it.isPaidOrFreemium })
         <li>
             !{val iconUrl = plugin.iconUrlPath?.let { urls.assetUrl(it) }}
-            @if(iconUrl != null)<img src="${iconUrl}" alt="logo" class="plugin-icon-small"/>@endif
-            <a href="/?pluginId=${plugin.id}">${plugin.name}</a>
+            <a class="plugin-card" href="/?pluginId=${plugin.id}">
+                @if(iconUrl != null)<img src="${iconUrl}" alt="" class="plugin-card-icon"/>@endif
+                <span>${plugin.name}</span>
+            </a>
         </li>
     @endfor
 </ul>
