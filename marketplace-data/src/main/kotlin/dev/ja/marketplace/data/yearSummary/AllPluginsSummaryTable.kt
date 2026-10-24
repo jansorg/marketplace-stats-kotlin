@@ -11,37 +11,52 @@ import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.model.MonthlyDownload
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.trackers.AnnualRecurringRevenueTracker
+import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
+import dev.ja.marketplace.data.trackers.MonthlyRecurringRevenueTracker
 import dev.ja.marketplace.data.trackers.PaymentAmountTracker
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import java.math.BigInteger
 import java.util.*
 
 /**
- * The sales and downloads of all paid plugins of the account by year, like the first columns of [YearlySummaryTable].
- * The data of the plugins is added with [add], it doesn't use the data of a single plugin.
+ * The sales, recurring revenue and downloads of all paid plugins of the account by year, like the columns of
+ * [YearlySummaryTable]. The data of the plugins is added with [add], it doesn't use the data of a single plugin.
+ *
+ * MRR and ARR are the sums of the MRR and ARR of the plugins at the end of each year, with the rules of the overview.
  */
 class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : SimpleDataTable("Years", "all-plugins", "table-column-wide") {
     private val columnYear = DataTableColumn("year", null)
     private val columnSalesTotal = DataTableColumn("sales", "Sales Total", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.SALES)
     private val columnSalesFees = DataTableColumn("fees", "Fees", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.FEES)
     private val columnSalesPaid = DataTableColumn("paid", "Paid", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.PAID)
+    private val columnMrr = DataTableColumn(
+        "mrr", "MRR", "num", tooltip = "Monthly recurring revenue at the end of the year",
+        chartMeasure = ChartMeasure.Stock, dailyChartSeries = AllPluginsDailyValues.MRR,
+    )
+    private val columnArr = DataTableColumn(
+        "arr", "ARR", "num", tooltip = "Annual recurring revenue at the end of the year",
+        chartMeasure = ChartMeasure.Stock, dailyChartSeries = AllPluginsDailyValues.ARR,
+    )
     private val columnDownloads = DataTableColumn("downloads", "Downloads", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.DOWNLOADS)
 
     private val totalSales = PaymentAmountTracker(YearMonthDayRange.MAX, displayExchangeRates)
     private val salesByYear = TreeMap<Int, PaymentAmountTracker>(Comparator.reverseOrder())
     private val downloadsByYear = TreeMap<Int, BigInteger>(Comparator.reverseOrder())
+    private val mrrByYear = HashMap<Int, MonetaryAmountTracker>()
+    private val arrByYear = HashMap<Int, MonetaryAmountTracker>()
 
     override val isChartable: Boolean = true
     override val chartPeriod: ChartPeriod = ChartPeriod.Year
 
     override val columns: List<DataTableColumn> = listOf(
-        columnYear, columnSalesTotal, columnSalesFees, columnSalesPaid, columnDownloads,
+        columnYear, columnSalesTotal, columnSalesFees, columnSalesPaid, columnMrr, columnArr, columnDownloads,
     )
 
     /**
-     * Adds the sales and the downloads of a plugin.
+     * Adds the sales, the licenses and the downloads of a plugin.
      */
-    suspend fun add(sales: List<PluginSale>, downloads: List<MonthlyDownload>) {
+    suspend fun add(sales: List<PluginSale>, licenses: List<LicenseInfo>, downloads: List<MonthlyDownload>) {
         for (sale in sales) {
             totalSales.add(sale.date, sale.amountUSD, sale.amount)
             salesByYear.getOrPut(sale.date.year) { PaymentAmountTracker(YearMonthDayRange.ofYear(sale.date.year), displayExchangeRates) }
@@ -49,6 +64,20 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
         }
         for (download in downloads) {
             downloadsByYear.merge(download.firstOfMonth.year, download.downloads.toBigInteger(), BigInteger::add)
+        }
+
+        // the trackers of each plugin, the IDs of the licenses of different plugins could be the same
+        val firstYear = licenses.mapNotNull { it.validity?.start?.year }.minOrNull() ?: return
+        for (year in firstYear..YearMonthDay.now().year) {
+            val yearRange = YearMonthDayRange.ofYear(year)
+            val mrr = MonthlyRecurringRevenueTracker(yearRange, displayExchangeRates)
+            val arr = AnnualRecurringRevenueTracker(yearRange, displayExchangeRates)
+            for (license in licenses) {
+                mrr.processLicenseSale(license)
+                arr.processLicenseSale(license)
+            }
+            mrrByYear.getOrPut(year) { MonetaryAmountTracker(displayExchangeRates) }.add(mrr.getResult().amounts)
+            arrByYear.getOrPut(year) { MonetaryAmountTracker(displayExchangeRates) }.add(arr.getResult().amounts)
         }
     }
 
@@ -60,7 +89,7 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
     }
 
     override suspend fun createSections(): List<DataTableSection> {
-        val years = (salesByYear.keys + downloadsByYear.keys).toSortedSet(Comparator.reverseOrder())
+        val years = (salesByYear.keys + downloadsByYear.keys + mrrByYear.keys).toSortedSet(Comparator.reverseOrder())
         if (years.isEmpty()) {
             return emptyList()
         }
@@ -75,7 +104,15 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
                     columnSalesTotal to sales.totalAmount,
                     columnSalesFees to sales.feesAmount,
                     columnSalesPaid to sales.paidAmount,
+                    // the recurring revenue of the current year is incomplete,
+                    // because licenses renewed later in the year are not included yet
+                    columnMrr to recurringRevenue(mrrByYear[year], year == now.year),
+                    columnArr to recurringRevenue(arrByYear[year], year == now.year),
                     columnDownloads to (downloadsByYear[year] ?: BigInteger.ZERO),
+                ),
+                tooltips = mapOf(
+                    columnMrr to IncompleteRecurringRevenueTooltip.takeIf { year == now.year },
+                    columnArr to IncompleteRecurringRevenueTooltip.takeIf { year == now.year },
                 ),
                 cssClass = if (year == now.year) "today" else null,
             )
@@ -96,5 +133,10 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
                 )
             )
         )
+    }
+
+    private fun recurringRevenue(amounts: MonetaryAmountTracker?, isIncomplete: Boolean): Any {
+        val amount = (amounts ?: MonetaryAmountTracker(displayExchangeRates)).getTotalAmount()
+        return if (isIncomplete) IncompleteValue(amount) else amount
     }
 }

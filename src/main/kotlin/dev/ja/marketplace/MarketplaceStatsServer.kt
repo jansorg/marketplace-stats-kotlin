@@ -371,7 +371,12 @@ class MarketplaceStatsServer(
                     serverConfiguration.showAllPluginsSummary -> {
                         val data = loadAllPluginsData()
                         val values = withContext(Dispatchers.Default) {
-                            AllPluginsDailyValues.create(data.flatMap { it.sales }, data.flatMap { it.dailyDownloads }, exchangeRates)
+                            AllPluginsDailyValues.create(
+                                data.flatMap { it.sales },
+                                data.flatMap { it.dailyDownloads },
+                                data.map { it.licenses },
+                                exchangeRates,
+                            )
                         }
                         dailyChartSeries.toJson(values.days, values.series, granularity)
                     }
@@ -599,6 +604,7 @@ class MarketplaceStatsServer(
 
     private class AllPluginsData(
         val sales: List<PluginSale>,
+        val licenses: List<LicenseInfo>,
         val monthlyDownloads: List<MonthlyDownload>,
         val dailyDownloads: List<DailyDownload>,
     )
@@ -615,8 +621,10 @@ class MarketplaceStatsServer(
                 async(Dispatchers.IO) {
                     requests.withPermit {
                         try {
+                            val salesAndLicenses = client.licenseInfo(plugin.id)
                             AllPluginsData(
-                                client.salesInfo(plugin.id),
+                                salesAndLicenses.sales,
+                                salesAndLicenses.licenses,
                                 client.downloadsMonthly(plugin.id, DownloadCountType.Downloads),
                                 client.downloadsDaily(plugin.id, DownloadCountType.Downloads),
                             )
@@ -645,7 +653,7 @@ class MarketplaceStatsServer(
 
         val table = AllPluginsSummaryTable(exchangeRates)
         for (data in loadAllPluginsData()) {
-            table.add(data.sales, data.monthlyDownloads)
+            table.add(data.sales, data.licenses, data.monthlyDownloads)
         }
         return table.renderTable()
     }
