@@ -28,17 +28,27 @@ class AllPluginsMonthTable(
     private val today: YearMonthDay = YearMonthDay.now(),
 ) : SimpleDataTable("This Month", "all-plugins-month", "table-column-medium") {
     private val columnDay = DataTableColumn("day", null)
-    private val columnSalesTotal = DataTableColumn("sales", "Sales Total", "num", chartMeasure = ChartMeasure.Flow)
-    private val columnSalesFees = DataTableColumn("fees", "Fees", "num", chartMeasure = ChartMeasure.Flow)
-    private val columnSalesPaid = DataTableColumn("paid", "Invoice", "num", chartMeasure = ChartMeasure.Flow)
+    // the charts show the values per week and per day with the scale of a month, see AllPluginsDailyValues
+    private val columnSalesTotal = DataTableColumn(
+        "sales", "Sales Total", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.MONTH_SALES,
+    )
+    private val columnSalesFees = DataTableColumn(
+        "fees", "Fees", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.MONTH_FEES,
+    )
+    private val columnSalesPaid = DataTableColumn(
+        "paid", "Invoice", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.MONTH_PAID,
+    )
     private val columnMrr = DataTableColumn(
-        "mrr", "MRR", "num", tooltip = "Monthly recurring revenue at the day", chartMeasure = ChartMeasure.Stock,
+        "mrr", "MRR", "num", tooltip = "Monthly recurring revenue at the day",
+        chartMeasure = ChartMeasure.Stock, dailyChartSeries = AllPluginsDailyValues.MRR,
     )
     private val columnArr = DataTableColumn(
-        "arr", "ARR", "num", tooltip = "Annual recurring revenue at the day", chartMeasure = ChartMeasure.Stock,
+        "arr", "ARR", "num", tooltip = "Annual recurring revenue at the day",
+        chartMeasure = ChartMeasure.Stock, dailyChartSeries = AllPluginsDailyValues.ARR,
     )
     private val columnDownloads = DataTableColumn(
-        "downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Downloads", chartMeasure = ChartMeasure.Flow,
+        "downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Downloads",
+        chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.MONTH_DOWNLOADS,
     )
 
     private val month = YearMonthDayRange(YearMonthDay(today.year, today.month, 1), today)
