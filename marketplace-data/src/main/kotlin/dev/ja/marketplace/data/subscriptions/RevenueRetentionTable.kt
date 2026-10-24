@@ -14,7 +14,7 @@ import dev.ja.marketplace.data.SimpleTableSection
 /**
  * The net and gross revenue retention and the customer retention of each month, compared to a year ago.
  */
-class RevenueRetentionTable : RecurringRevenueTable("Revenue Retention", "revenue-retention", "table-striped") {
+class RevenueRetentionTable : RecurringRevenueTable("Revenue Retention", "revenue-retention", "table-striped table-column-medium") {
     private val columnMonth = DataTableColumn("month", null)
     private val columnCustomers = DataTableColumn(
         "customers", "Customers a Year Ago", "num",

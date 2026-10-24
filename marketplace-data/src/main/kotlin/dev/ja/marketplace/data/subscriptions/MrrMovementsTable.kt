@@ -14,7 +14,7 @@ import dev.ja.marketplace.data.SimpleTableSection
 /**
  * The monthly changes of the MRR, grouped by new, expansion, contraction, churned and reactivated revenue.
  */
-class MrrMovementsTable : RecurringRevenueTable("MRR Movements", "mrr-movements", "table-striped") {
+class MrrMovementsTable : RecurringRevenueTable("MRR Movements", "mrr-movements", "table-striped table-column-wide") {
     private val columnMonth = DataTableColumn("month", null)
     private val columnMrr = DataTableColumn(
         "mrr", "MRR", "num",

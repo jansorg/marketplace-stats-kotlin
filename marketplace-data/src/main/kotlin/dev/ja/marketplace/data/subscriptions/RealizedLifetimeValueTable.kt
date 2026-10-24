@@ -18,7 +18,7 @@ import java.math.BigDecimal
  * The average amount, which the customers of each year paid within one, two, ... years.
  */
 class RealizedLifetimeValueTable : RecurringRevenueTable(
-    "Realized Lifetime Value", "realized-lifetime-value", "table-striped"
+    "Realized Lifetime Value", "realized-lifetime-value", "table-striped table-column-medium"
 ) {
     private val payments = mutableListOf<CustomerPayment>()
 

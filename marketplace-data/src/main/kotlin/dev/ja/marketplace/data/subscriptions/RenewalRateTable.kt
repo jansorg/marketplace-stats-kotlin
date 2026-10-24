@@ -23,7 +23,7 @@ import dev.ja.marketplace.data.SimpleTableSection
 class RenewalRateTable(private val licensePeriod: LicensePeriod) : SimpleDataTable(
     "Renewal Rates of ${licensePeriod.name} Licenses",
     "renewal-rates-${licensePeriod.name.lowercase()}",
-    "table-striped",
+    "table-striped table-column-medium",
 ) {
     private val licenses = mutableListOf<LicenseInfo>()
 
