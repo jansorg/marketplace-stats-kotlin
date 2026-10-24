@@ -35,6 +35,7 @@
     <script src="/js/sortable.min.js"></script>
     <script src="/js/uPlot.iife.min.js" defer></script>
     <script type="module" src="/js/charts/main.js"></script>
+    <script type="module" src="/js/collapsibleTables.js"></script>
 </head>
 <body class="${cssClass}" data-locale="${java.util.Locale.getDefault().toLanguageTag()}">
 !{val iconUrl = plugin.iconUrlPath?.let { urls.assetUrl(it) }}
