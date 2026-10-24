@@ -591,6 +591,17 @@ kbd {
     }
 }
 
+/*
+ * The arrows of the sortable tables, see sortable-base.min.css of sortable-tablesort: the arrows of the columns,
+ * which aren't sorted, are faint instead of transparent, so that sortable columns are recognizable without hovering,
+ * e.g. on touch devices. The hovered and the sorted column show their arrow in the color of the text.
+ * The selector is more specific than the transparent color of sortable-base.min.css, which is loaded later,
+ * but less specific than its rules of the hovered and the sorted column.
+ */
+.table-card .sortable thead th:not(.no-sort)::after {
+    color: var(--separator-color);
+}
+
 .table-card button, footer.menu button {
     padding: 0.2rem 0.75rem;
     color: var(--text-color);
