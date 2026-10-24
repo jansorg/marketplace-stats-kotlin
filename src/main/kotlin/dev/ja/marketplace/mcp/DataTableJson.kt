@@ -8,6 +8,7 @@ package dev.ja.marketplace.mcp
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.licenses.FallbackVersion
 import kotlinx.serialization.json.*
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -184,6 +185,13 @@ object DataTableJson {
             is IncompleteValue -> buildJsonObject {
                 put("value", cellValue(value.value))
                 put("incomplete", true)
+            }
+
+            is FallbackVersion -> buildJsonObject {
+                put("version", value.displayVersion)
+                put("eligible", value.isEligible)
+                put("latestVersion", value.isLatestVersion)
+                put("fallbackDate", value.fallbackDate.asIsoString)
             }
 
             is ExpiredLicenseEnd -> buildJsonObject {

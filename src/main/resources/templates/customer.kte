@@ -4,8 +4,6 @@
 @import dev.ja.marketplace.client.LicenseInfo
 @import dev.ja.marketplace.client.model.PluginInfo
 @import dev.ja.marketplace.client.model.PluginTrial
-@import dev.ja.marketplace.data.LinkedLicense
-@import dev.ja.marketplace.data.licenses.FallbackVersion
 
 @param cssClass: String?
 @param plugin: PluginInfo
@@ -14,7 +12,6 @@
 @param licenseTableAnnual: RenderedDataTable
 @param trials: List<PluginTrial>
 @param trialTable: RenderedDataTable
-@param fallbackVersions: List<FallbackVersion>
 @param settings: ServerConfiguration
 
 <!DOCTYPE html>
@@ -47,15 +44,6 @@
 
             <dt>ID</dt>
             <dd>${customer.code}</dd>
-
-            @if(fallbackVersions.isNotEmpty())
-                <dt>Fallback Version@if(fallbackVersions.size > 1)s@endif</dt>
-                <dd>
-                    @for(version in fallbackVersions)
-                        <div>@template.fallbackVersion(version = version)@if(fallbackVersions.size > 1) (license @template.render(value = LinkedLicense(version.licenseId, plugin.id)))@endif</div>
-                    @endfor
-                </dd>
-            @endif
         </dl>
     </div>
 
