@@ -7,7 +7,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
-    alignSeries, availableComparisons, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
+    alignSeries, availableComparisons, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear, trailingAverageOfDays,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, groupCharts, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
 } from "../../main/resources/js/charts/model.js";
@@ -260,7 +260,10 @@ test("values per day start with the last zero before the first value", () => {
 test("averages apply to monthly values, the previous year to all except yearly values", () => {
     const flow = {period: "month", measure: "flow", unit: "USD"};
     assert.equal(overlayApplies("average3", flow, "month"), true);
+    // values per week or per day need the values per day of the series
     assert.equal(overlayApplies("average12", flow, "day"), false);
+    assert.equal(overlayApplies("average12", {...flow, daily: "sales"}, "day"), true);
+    assert.equal(overlayApplies("average3", {...flow, daily: "sales"}, "week"), true);
     assert.equal(overlayApplies("average3", {period: "month", measure: "stock", unit: "count"}, "month"), true);
     assert.equal(overlayApplies("average12", {period: "month", unit: "%"}, "month"), true);
     assert.equal(overlayApplies("average3", {period: "year", measure: "flow", unit: "USD"}, "month"), false);
@@ -283,6 +286,22 @@ test("moving averages of months", () => {
     const gap = monthly([["2025-01-31", 10], ["2025-02-28", 20], ["2025-04-30", 30], ["2025-05-31", 40], ["2025-06-30", 50]]);
     assert.deepEqual([...trailingAverage(gap, 3).values()], [40]);
     assert.equal(trailingAverage(monthly([["2025-01-31", 10]]), 3).size, 0);
+});
+
+test("moving averages of values per day use the same day of the previous months", () => {
+    const series = monthly([
+        ["2025-01-15", 10], ["2025-01-31", 1], ["2025-02-15", 20], ["2025-02-28", 2], ["2025-03-15", 30], ["2025-03-30", 99],
+        ["2025-03-31", 3], ["2025-04-15", 40],
+    ], ["2025-04-15"]);
+    const averages = trailingAverageOfDays(series, 3);
+    // the last day of a month is compared with the last days of the previous months
+    assert.deepEqual([...averages.entries()], [[isoDateToTimestamp("2025-03-15"), 20], [isoDateToTimestamp("2025-03-31"), 2]]);
+    // only at the given dates, e.g. the ends of the weeks
+    assert.deepEqual([...trailingAverageOfDays(series, 2, [isoDateToTimestamp("2025-02-15")]).values()], [15]);
+    // a month before 2025-03-30 is the last day of February, like the values per day of the server
+    assert.deepEqual([...trailingAverageOfDays(series, 2, [isoDateToTimestamp("2025-03-30")]).values()], [50.5]);
+    // there's no average without the values of all months
+    assert.equal(trailingAverageOfDays(series, 3, [isoDateToTimestamp("2025-02-15")]).size, 0);
 });
 
 test("the previous year is shifted by a year and ends with the series", () => {
