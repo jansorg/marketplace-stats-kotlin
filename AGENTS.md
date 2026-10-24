@@ -115,6 +115,9 @@ CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
   - `exportImage.js`: images of the charts with title and legend, for downloads (PNG, pie charts also SVG) and
     printing. Printing adds the images to the page and `print.css` hides everything else (`body.print-charts`).
 - The key C shows and hides the chart dialog.
+- The cursor of a line chart snaps to the closest value. Dashed and dotted lines mark the dates one year and one month
+  before and after it, the table below the chart compares the values at these dates (`enableComparisons` in
+  `lineChart.js`). The uPlot legend only shows and hides the series.
 - In sortable tables (`sortable` CSS class), a click on the label of a column header opens the chart and a click on
   the rest of the header, e.g. the arrow, sorts the table.
 - Line charts of the overview table can show the values per week or per day. Columns with values per day set

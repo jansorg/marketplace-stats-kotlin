@@ -25,6 +25,22 @@ test("values are formatted with their unit and the locale", () => {
     assert.equal(createFormatter("en-US").value(1234.5, "USD"), "1,234.5 USD");
 });
 
+test("values in tables have a fixed number of decimals", () => {
+    const formatter = createFormatter("en-US");
+    assert.equal(formatter.fixedValue(1234.5, "USD"), "1,234.50 USD");
+    assert.equal(formatter.fixedValue(52, "EUR"), "52.00 EUR");
+    assert.equal(formatter.fixedValue(5.5, "%"), "5.50 %");
+    assert.equal(formatter.fixedValue(17, "count"), "17");
+    assert.equal(formatter.fixedValue(null, "USD"), NO_VALUE);
+});
+
+test("changes have a sign and one decimal", () => {
+    const formatter = createFormatter("en-US");
+    assert.equal(formatter.change({value: 12, unit: "%"}), "+12.0 %");
+    assert.equal(formatter.change({value: -0.44, unit: "pp"}), "−0.4 pp");
+    assert.equal(formatter.change({value: 0, unit: "%"}), "±0.0 %");
+});
+
 test("days for the ticks of date axes", () => {
     assert.equal(createFormatter("en-US").day(isoDateToTimestamp("2026-10-23")), "Oct 23");
     assert.equal(createFormatter("de-DE").day(isoDateToTimestamp("2026-10-23")), "23. Okt.");
