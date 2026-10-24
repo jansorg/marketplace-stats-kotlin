@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.42.1
+
+- Faster pages: the summary of all plugins on the list of plugins and its values per week and per day, and the
+  recurring revenue of the customers of the subscription metrics are reused in the next requests, until the data or
+  the day changes.
+- Smaller HTML of the tables, the cells don't contain whitespace anymore, e.g. the licenses page is about half as large.
+- Percentages are formatted with the cached number formats.
+
 ## 0.42.0
 
 - The list of plugins shows a summary of all paid and freemium plugins: sales, fees, invoiced amounts, MRR, ARR and
