@@ -143,9 +143,11 @@ export class ChartDialog {
 
         this.element.append(header, hint, this.markerToggles, this.message, this.panels);
         this.setMaximized(false);
-        // a click on the backdrop closes the dialog, a click outside of an open menu closes the menu
+        // a click on the backdrop closes the dialog, a click outside of an open menu closes the menu.
+        // The target of clicks on the backdrop and on the padding of the dialog is the dialog, only clicks outside of
+        // its bounds are on the backdrop.
         this.element.addEventListener("click", event => {
-            if (event.target === this.element) {
+            if (event.target === this.element && !this.contains(event.clientX, event.clientY)) {
                 this.close();
             }
             for (const menu of this.element.querySelectorAll("details[open]")) {
@@ -184,6 +186,12 @@ export class ChartDialog {
                 requestAnimationFrame(() => resize(true));
             }
         });
+    }
+
+    /** @return {boolean} If the position of the viewport is within the bounds of the dialog. */
+    contains(x, y) {
+        const bounds = this.element.getBoundingClientRect();
+        return x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom;
     }
 
     get isOpen() {
