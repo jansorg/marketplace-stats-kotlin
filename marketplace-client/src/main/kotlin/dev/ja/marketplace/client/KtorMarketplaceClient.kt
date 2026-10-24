@@ -10,6 +10,7 @@ import dev.ja.marketplace.services.JetBrainsProductCode
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.utils.io.*
 import io.ktor.utils.io.jvm.nio.*
@@ -18,9 +19,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.future.await
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import java.net.URI
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
@@ -36,6 +41,11 @@ open class KtorMarketplaceClient(
     // Limits the concurrent requests of sales, trials and prices, which are loaded in many small requests,
     // to avoid a high load on the JetBrains API
     private val chunkRequestLimiter = Semaphore(maxConcurrentChunkRequests)
+
+    // downloads the CSV files of the reports, without the default headers of httpClient, see downloadReport
+    private val reportHttpClient by lazy {
+        java.net.http.HttpClient.newBuilder().followRedirects(java.net.http.HttpClient.Redirect.NORMAL).build()
+    }
 
     @Suppress("unused")
     constructor(
@@ -412,6 +422,48 @@ open class KtorMarketplaceClient(
 
     override suspend fun marketplacePrograms(plugin: PluginId): List<MarketplaceProgram> = withContext(dispatcher) {
         httpClient.get("$apiPath/marketplace/plugin/$plugin/programs").body()
+    }
+
+    override suspend fun releaseDates(plugin: PluginId): List<PluginReleaseDate> = withContext(dispatcher) {
+        httpClient.get("$apiPath/marketplace/plugin/$plugin/release-infos").body()
+    }
+
+    override suspend fun offers(plugin: PluginId): List<PluginOffer> = withContext(dispatcher) {
+        httpClient.get("$apiPath/marketplace/plugin/$plugin/offers").body()
+    }
+
+    override suspend fun offer(plugin: PluginId, offer: PluginOfferId): PluginOffer = withContext(dispatcher) {
+        httpClient.get("$apiPath/marketplace/plugin/$plugin/offers/$offer").body()
+    }
+
+    override suspend fun offerCoupons(plugin: PluginId, offer: PluginOfferId): List<PluginOfferCoupon> = withContext(dispatcher) {
+        httpClient.get("$apiPath/marketplace/plugin/$plugin/offers/$offer/coupons").body()
+    }
+
+    override suspend fun monetization(plugin: PluginId): PluginMonetization = withContext(dispatcher) {
+        httpClient.get("$apiPath/plugins/$plugin/monetization").body()
+    }
+
+    override suspend fun salesAnalyticsReport(plugin: PluginId): List<SalesAnalyticsReportRow> {
+        return SalesReportCsv.analyticsReport(downloadReport("$apiPath/marketplace/plugin/$plugin/analytics"))
+    }
+
+    override suspend fun fullSalesReport(plugin: PluginId): List<FullSalesReportRow> {
+        return SalesReportCsv.fullReport(downloadReport("$apiPath/marketplace/plugin/$plugin/full-report"))
+    }
+
+    /**
+     * The API returns a temporary, presigned URL of the CSV file of a report. The file is downloaded without the
+     * API key: the storage of the reports rejects requests with more than one kind of authentication.
+     */
+    private suspend fun downloadReport(reportUrlPath: String): String = withContext(dispatcher) {
+        val reportUrl = httpClient.get(reportUrlPath).bodyAsText().trim()
+        val request = HttpRequest.newBuilder(URI(reportUrl)).GET().build()
+        val response = reportHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString()).await()
+        if (response.statusCode() != 200) {
+            throw IllegalStateException("Unable to download the report, HTTP status ${response.statusCode()}")
+        }
+        response.body()
     }
 
     private suspend fun Path.streamingDownload(url: Url): Unit = withContext(dispatcher) {
