@@ -77,7 +77,7 @@ export class ChartDialog {
 
         const header = document.createElement("div");
         header.className = "chart-dialog-header";
-        header.append(title, this.combineLabel, button("Remove all", onRemoveAll), this.maximizeButton, button("Close", () => this.close()));
+        header.append(title, this.combineLabel, button("Clear", onRemoveAll), this.maximizeButton, button("Close", () => this.close()));
 
         const hint = document.createElement("p");
         hint.className = "chart-dialog-hint";
