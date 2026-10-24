@@ -24,7 +24,7 @@ class AllPluginsMonthTable(
     private val columnDay = DataTableColumn("day", null)
     private val columnSalesTotal = DataTableColumn("sales", "Sales Total", "num", chartMeasure = ChartMeasure.Flow)
     private val columnSalesFees = DataTableColumn("fees", "Fees", "num", chartMeasure = ChartMeasure.Flow)
-    private val columnSalesPaid = DataTableColumn("paid", "Paid", "num", chartMeasure = ChartMeasure.Flow)
+    private val columnSalesPaid = DataTableColumn("paid", "Invoice", "num", chartMeasure = ChartMeasure.Flow)
 
     private val month = YearMonthDayRange(YearMonthDay(today.year, today.month, 1), today)
     private val totalSales = PaymentAmountTracker(month, displayExchangeRates)

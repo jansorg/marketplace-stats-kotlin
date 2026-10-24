@@ -29,7 +29,7 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
     private val columnYear = DataTableColumn("year", null)
     private val columnSalesTotal = DataTableColumn("sales", "Sales Total", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.SALES)
     private val columnSalesFees = DataTableColumn("fees", "Fees", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.FEES)
-    private val columnSalesPaid = DataTableColumn("paid", "Paid", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.PAID)
+    private val columnSalesPaid = DataTableColumn("paid", "Invoice", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.PAID)
     private val columnMrr = DataTableColumn(
         "mrr", "MRR", "num", tooltip = "Monthly recurring revenue at the end of the year",
         chartMeasure = ChartMeasure.Stock, dailyChartSeries = AllPluginsDailyValues.MRR,
