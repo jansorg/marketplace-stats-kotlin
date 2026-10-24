@@ -203,7 +203,6 @@ claude mcp add --transport http marketplace-stats http://localhost:8080/mcp
 | `list_trials`                      | Single trials with customer and conversion, and a summary per month                                     |
 | `get_license_cohorts`              | Renewals of the subscription licenses by the month of their first paid subscription                     |
 | `list_license_transfers`           | Licenses bought by another customer than before, e.g. moved from an individual to an organization       |
-| `get_free_licenses`                | Free licenses by month and license type, e.g. open source licenses and trials (slow at first)           |
 
 #### Prices and exchange rates
 
