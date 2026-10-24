@@ -444,6 +444,8 @@ class MarketplaceStatsServer(
         countries = countriesAsync.await()
         allPlugins = allPluginsAsync.await()
         exchangeRates = ExchangeRates(serverConfiguration.userDisplayCurrencyCode)
+        // stored data is updated after the start, also without a report being opened
+        (client as? CaffeineCacheMarketplaceClient)?.updateStoredHistory(allPlugins.filter(PluginInfoSummary::isPaidOrFreemium).map(PluginInfoSummary::id))
 
         println("Launching web server: http://$host:$port/")
         httpServer.start(true)

@@ -49,6 +49,9 @@ Options:
   -h, --host=<text>                  IP address or hostname the integrated webserver is bound to. (default: 0.0.0.0)
   -p, --port=<int>                   Port used by the integrated webserver. (default: 8080)
   -c, --currency=<text>              Currency for the displayed monetary amounts.
+  --cache-dir=<text>                 Directory of the persistent cache. Sales, trials, prices and exchange rates are stored there to speed up
+                                     restarts. The data is kept in memory only if no directory is set or if it's empty. A leading ~ is the
+                                     home directory.
   -d, --debug=(none|normal|verbose)  The log level used for the server and the API requests to the marketplace (default: None)
   --help                             Show this message and exit
 
@@ -82,6 +85,7 @@ Instead of options, you can use the following environment variables:
 --host:              MARKETPLACE_SERVER_HOSTNAME
 --display-currency:  MARKETPLACE_DISPLAY_CURRENCY
 --debug:             MARKETPLACE_LOG_LEVEL
+--cache-dir:         MARKETPLACE_CACHE_DIR
 ```
 
 For example:
@@ -107,6 +111,37 @@ java -jar ./build/libs/marketplace-stats-all.jar
     ```
 3. Open http://localhost:8080 in your browser to use the application.
 
+The configuration file also supports the keys `displayedCurrency`, `showResellerCharges` and `cacheDir`.
+
+### Persistent Cache
+
+Loading the sales, trials and prices of a plugin takes many requests to the JetBrains Marketplace.
+By default, the data is only cached in memory and loaded again after a restart.
+With `--cache-dir` (or `MARKETPLACE_CACHE_DIR`), the data is also stored in the given directory:
+
+```bash
+java -jar ./build/libs/marketplace-stats-all.jar \
+  --api-key="Your JetBrains API key" \
+  --cache-dir="$HOME/.cache/marketplace-stats"
+```
+
+A leading `~` is the home directory, also in `MARKETPLACE_CACHE_DIR` and in the configuration file.
+A relative `cacheDir` of the configuration file is relative to the directory of the file,
+a relative `--cache-dir` or `MARKETPLACE_CACHE_DIR` to the working directory.
+
+After a restart, the stored data is shown immediately. The sales and trials of the last 45 days and newer ones are
+loaded again in the background right after the start, for all plugins with stored data and also if the stored data is
+recent, to catch changes like refunds. If the stored data is
+older than a day, for example after a long downtime, they are loaded before the report is shown.
+While the server is running, they are loaded again when a report is shown and the data is older than 30 minutes.
+The complete history is loaded again once a week.
+Prices are loaded again after a week, exchange rates after six hours.
+The "Refresh" button of a report (`POST /refresh?reload=true`) ignores the stored data and loads everything again.
+
+The data of each API key is stored in a separate directory, the key itself isn't stored.
+The directory contains sales and customer data, protect it accordingly. It's safe to delete it at any time.
+Files of an older or newer version of the application, and damaged files, are ignored and replaced.
+
 ## Deployment
 
 ### Deploy with Docker
@@ -115,9 +150,15 @@ java -jar ./build/libs/marketplace-stats-all.jar
 
 ```bash
 docker run \
-  jansorg/jetbrains-marketplace-stats:latest \
-  --env MARKETPLACE_API_KEY="your-api-key" 
+  --env MARKETPLACE_API_KEY="your-api-key" \
+  --publish 8080:8080 \
+  --volume marketplace-stats-cache:/root/.cache/marketplace-stats \
+  jansorg/jetbrains-marketplace-stats:latest
 ```
+
+The image stores the [persistent cache](#persistent-cache) in `/root/.cache/marketplace-stats`.
+Mount a volume there to keep the cache when the container is replaced, e.g. by a new version.
+An empty `MARKETPLACE_CACHE_DIR` disables the cache.
 
 ### Deploy with docker-compose
 

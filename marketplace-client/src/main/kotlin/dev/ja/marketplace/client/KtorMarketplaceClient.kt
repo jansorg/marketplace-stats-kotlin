@@ -425,7 +425,7 @@ open class KtorMarketplaceClient(
      * Loads the data of a date range in chunks of one month. The chunks are loaded concurrently,
      * the number of concurrent requests is limited by [chunkRequestLimiter].
      */
-    private suspend fun <T : Comparable<T>> loadMonthlyChunks(
+    protected suspend fun <T : Comparable<T>> loadMonthlyChunks(
         range: YearMonthDayRange,
         loader: suspend (YearMonthDayRange) -> List<T>
     ): List<T> = coroutineScope {

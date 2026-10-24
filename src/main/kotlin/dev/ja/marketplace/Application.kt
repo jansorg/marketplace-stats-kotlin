@@ -21,10 +21,13 @@ import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
 import dev.ja.marketplace.client.CaffeineCacheMarketplaceClient
 import dev.ja.marketplace.client.ClientLogLevel
+import dev.ja.marketplace.client.persistentCache.PersistentCacheStore
+import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.services.KtorJetBrainsServiceClient
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import java.nio.file.Files
+import java.nio.file.Path
 
 class Application(version: String) : CliktCommand(name = "marketplace-stats") {
     override fun help(context: Context): String {
@@ -38,11 +41,15 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
         }
     }
 
-    private val applicationConfig: ApplicationConfig? by argument("config.json file path")
+    /** The configuration and the path of its file, which is needed to resolve relative paths of the configuration. */
+    private val applicationConfigFile: Pair<ApplicationConfig, Path>? by argument("config.json file path")
         .help("Path to the application configuration JSON file. It's used as fallback for the other command line options. A template is available at https://github.com/jansorg/marketplace-stats-kotlin/blob/main/config-template.json.")
         .path(mustExist = true, canBeDir = false, mustBeReadable = true)
-        .convert { Json.decodeFromString<ApplicationConfig>(Files.readString(it)) }
+        .convert { Json.decodeFromString<ApplicationConfig>(Files.readString(it)) to it }
         .optional()
+
+    private val applicationConfig: ApplicationConfig?
+        get() = applicationConfigFile?.first
 
     private val apiKey: String? by option("-k", "--api-key", envvar = "MARKETPLACE_API_KEY")
         .help("API key for the JetBrains Marketplace. The key is used to find available plugins and to load the data needed to generate a plugin report.")
@@ -61,6 +68,9 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
     private val showResellerCharges: Boolean? by option("--show-reseller-charges", envvar = "MARKETPLACE_SHOW_RESELLER_CHARGES")
         .nullableFlag()
         .help("Show incorrect charges for sales through resellers.")
+
+    private val cacheDir: String? by option("--cache-dir", envvar = "MARKETPLACE_CACHE_DIR")
+        .help("Directory of the persistent cache. Sales, trials, prices and exchange rates are stored there to speed up restarts. The data is kept in memory only if no directory is set or if it's empty. A leading ~ is the home directory.")
 
     private val logging: ClientLogLevel by option(
         "-d",
@@ -83,9 +93,25 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
             ?: applicationConfig?.showResellerCharges
             ?: false
 
+        // an empty value, e.g. MARKETPLACE_CACHE_DIR= , disables the cache of the Docker image.
+        // Relative paths of the configuration file are relative to its directory, other paths to the working directory.
+        val cacheDir = when (val option = this.cacheDir) {
+            null -> applicationConfigFile?.let { (config, file) ->
+                config.cacheDir?.let { cacheDirectory(it, file.toAbsolutePath().parent) }
+            }
+
+            else -> cacheDirectory(option, baseDirectory = null)
+        }
+        if (cacheDir != null && Files.exists(cacheDir) && !Files.isDirectory(cacheDir)) {
+            throw BadParameterValue("The cache directory $cacheDir is a file.")
+        }
+        if (cacheDir != null) {
+            EcbExchangeRateData.Default.enablePersistentCache(PersistentCacheStore(cacheDir))
+        }
+
         runBlocking {
             val server = MarketplaceStatsServer(
-                CaffeineCacheMarketplaceClient(apiKey = apiKey, logLevel = logging),
+                CaffeineCacheMarketplaceClient(apiKey = apiKey, logLevel = logging, persistentCacheDirectory = cacheDir),
                 KtorJetBrainsServiceClient(logLevel = logging),
                 serverHostname,
                 serverPort,

@@ -13,7 +13,16 @@ services:
       - MARKETPLACE_SERVER_PORT=8080
         # none, normal or verbose
       - MARKETPLACE_LOG_LEVEL=none
+        # the image stores the persistent cache in /root/.cache/marketplace-stats, it speeds up restarts.
+        # An empty value disables it.
+      #- MARKETPLACE_CACHE_DIR=
         # language settings, change this to configure formatting of numbers and currency amounts
       - LANG=en_US.UTF-8
       - LANGUAGE=en_US:en
       - LC_ALL=en_US.UTF-8
+    # keeps the persistent cache when the container is replaced, e.g. by a new version
+    volumes:
+      - marketplace-stats-cache:/root/.cache/marketplace-stats
+
+volumes:
+  marketplace-stats-cache:

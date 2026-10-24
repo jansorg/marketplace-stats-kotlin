@@ -14,7 +14,7 @@ It's written in Kotlin and licensed under AGPL-3.0-or-later.
 
 | Module                | Purpose                                                                                                                                                                                                                                         |
 |-----------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `marketplace-client/` | Ktor-based HTTP client for the Marketplace API (`client/`), caching wrapper (`CaffeineCacheMarketplaceClient`), API models (`client/model/`), JetBrains product/release services (`services/`), currency handling and exchange rates (`exchangeRate/`). |
+| `marketplace-client/` | Ktor-based HTTP client for the Marketplace API (`client/`), caching wrapper (`CaffeineCacheMarketplaceClient`), persistent disk cache (`client/persistentCache/`), API models (`client/model/`), JetBrains product/release services (`services/`), currency handling and exchange rates (`exchangeRate/`). |
 | `marketplace-data/`   | Aggregation and analysis of marketplace data: report tables in `data/*` (overview, customers, licenses, trials, churn, funnel, countries, ...), trackers, formatting helpers.                                                                    |
 | root project (`src/`) | Ktor/Netty web server and CLI entry point (`dev.ja.marketplace.ApplicationKt`), page definitions, JTE templates (`src/main/resources/templates/*.kte`), CSS and JS assets.                                                                        |
 
@@ -50,6 +50,7 @@ Version constraints to keep in mind when upgrading:
   stays on Kotlin 2.3, and some dependencies are intentionally not on their latest version:
   - `kotlinx-serialization-json` 1.11.0 (1.12 requires Kotlin 2.4)
   - `dev.hsbrysk:caffeine-coroutines` 2.0.4 (2.0.5 requires Kotlin 2.4)
+  - `kotlinx-serialization-protobuf` (format of the persistent cache) must have the same version as `kotlinx-serialization-json`
 
   Before upgrading a Kotlin library, check the `kotlin-stdlib` version it requires, and afterwards check
   `./gradlew dependencyInsight --configuration runtimeClasspath --dependency org.jetbrains.kotlin:kotlin-stdlib`.
@@ -85,8 +86,8 @@ CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
 ./gradlew precompileJte run --args="-d normal --host 127.0.0.1 --port 18080 config.json"
 ```
 
-- `config.json` (git-ignored) holds the API key. Its supported keys are `apiKey`, `displayedCurrency` and
-  `showResellerCharges` (see `ApplicationConfig.kt`). The host and port can't be set in the config file. They come from
+- `config.json` (git-ignored) holds the API key. Its supported keys are `apiKey`, `displayedCurrency`,
+  `showResellerCharges` and `cacheDir` (see `ApplicationConfig.kt`). The host and port can't be set in the config file. They come from
   `--host`/`--port` or `MARKETPLACE_SERVER_HOSTNAME`/`MARKETPLACE_SERVER_PORT`, and default to `0.0.0.0:8080`.
 - Pass `--port` explicitly and use a port other than 8080, so the server doesn't collide with an instance the user
   is already running. Bind to `127.0.0.1`.
@@ -103,6 +104,24 @@ CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
   `MARKETPLACE_API_KEY` environment variable.
 - `config.json`, `config.*.json` and `.env` are git-ignored and may contain real API keys. Never commit them or print their contents.
 - See `README.md` for all CLI options and environment variables.
+
+## Persistent Cache
+
+- Optional, enabled with `--cache-dir`/`MARKETPLACE_CACHE_DIR`/`cacheDir`. Without it, or with an empty value, all data
+  is only cached in memory. The Docker image enables it with `MARKETPLACE_CACHE_DIR=/root/.cache/marketplace-stats`,
+  `docker-compose.yml` mounts a named volume there.
+- Code in `marketplace-client/.../client/persistentCache/`. `PersistentCacheStore` writes gzip-compressed ProtoBuf files
+  with a header (magic, format version, data version), atomically via a temporary file. Unreadable files and files of
+  another version are deleted and the data is fetched again.
+- Stored: sales and trials (`PersistentHistoryCache`, incremental fetches with an overlap of 45 days after each start,
+  for all plugins with stored data via `CaffeineCacheMarketplaceClient.updateStoredHistory`, and when a report needs
+  data older than 30 minutes, complete fetch weekly),
+  plugin prices by country (`PersistentPriceCache`) and the ECB exchange rates (`EcbExchangeRateData`).
+  The data of an account is stored in `accounts/account-<hash of API host and key>/`.
+- The stored classes (`CachedSalesModel.kt`, `CachedEcbRates`) are separate from the API model. After incompatible
+  changes, increment the data version (`HistoryKind`, `DATA_VERSION`). `CachedSalesModelCoverageTest` fails if a
+  property of the API model isn't stored.
+- The cache contains real sales data, delete test caches after use.
 
 ## Charts
 

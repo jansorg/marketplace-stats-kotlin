@@ -94,6 +94,12 @@ project("marketplace-client") {
         api("io.ktor:ktor-client-resources:$ktorVersion")
         api("io.ktor:ktor-client-content-negotiation:$ktorVersion")
         api("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
+
+        // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-serialization-protobuf-jvm
+        // format of the persistent cache, must have the same version as kotlinx-serialization-json
+        implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.11.0")
+
+        testImplementation("io.ktor:ktor-client-mock:$ktorVersion")
     }
 }
 

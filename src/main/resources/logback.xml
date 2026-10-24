@@ -9,6 +9,8 @@
         <appender-ref ref="CONSOLE"/>
     </logger>
 
+    <logger name="dev.ja.marketplace.client.persistentCache" level="info"/>
+
     <root level="warn">
         <appender-ref ref="CONSOLE"/>
     </root>

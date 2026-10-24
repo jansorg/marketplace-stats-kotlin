@@ -9,23 +9,40 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Expiry
 import dev.hsbrysk.caffeine.buildCoroutine
 import dev.ja.marketplace.client.model.*
+import dev.ja.marketplace.client.persistentCache.*
 import dev.ja.marketplace.services.JetBrainsProductCode
 import io.ktor.client.*
 import io.ktor.client.plugins.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
+import org.slf4j.LoggerFactory
+import java.nio.file.Path
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
 
+/**
+ * Client, which caches the API responses in memory.
+ *
+ * If a [persistentCache] is given, the history of sales and trials and the prices of plugins are also stored on disk.
+ * After a restart, the stored data is used and updated in the background, see [PersistentHistoryCache].
+ * The store must only be used for the data of a single account, see [PersistentCacheStore.accountStore].
+ */
 class CaffeineCacheMarketplaceClient(
     apiHost: String = Marketplace.HOSTNAME,
     apiPath: String = Marketplace.API_PATH,
     dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2),
     httpClient: HttpClient,
     private val unstableHistoricDataDays: Int = 45,
+    private val persistentCache: PersistentCacheStore? = null,
+    private val persistentHistorySettings: PersistentHistorySettings = PersistentHistorySettings(overlapDays = unstableHistoricDataDays),
 ) : KtorMarketplaceClient(apiHost, apiPath, dispatcher, httpClient), CacheAware {
     constructor(
         apiKey: String,
@@ -34,11 +51,13 @@ class CaffeineCacheMarketplaceClient(
         logLevel: ClientLogLevel = ClientLogLevel.None,
         enableHttpCaching: Boolean = false,
         dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2),
+        persistentCacheDirectory: Path? = null,
     ) : this(
         apiHost,
         apiPath,
         dispatcher,
-        KtorHttpClientFactory.createHttpClient(apiHost, apiKey, logLevel = logLevel, enableHttpCaching = enableHttpCaching)
+        KtorHttpClientFactory.createHttpClient(apiHost, apiKey, logLevel = logLevel, enableHttpCaching = enableHttpCaching),
+        persistentCache = persistentCacheDirectory?.let { PersistentCacheStore(it).accountStore(apiHost, apiKey) },
     )
 
     private val frequentlyModifiedCacheDuration = 30.minutes
@@ -50,8 +69,60 @@ class CaffeineCacheMarketplaceClient(
         .maximumSize(10_000)
         .buildCoroutine()
 
+    // background updates of the persistent cache
+    private val persistentCacheScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val persistentSales = ConcurrentHashMap<PluginId, PersistentHistoryCache<PluginSale, CachedSale>>()
+    private val persistentTrials = ConcurrentHashMap<PluginId, PersistentHistoryCache<PluginTrial, CachedTrial>>()
+    private val persistentPrices = persistentCache?.let { PersistentPriceCache(it, persistentCacheScope) }
+
+    // set after the cache was invalidated, data stored on disk is ignored afterward
+    @Volatile
+    private var isStoredDataIgnored = false
+
     override fun invalidateCache() {
         cache.synchronous().invalidateAll()
+
+        isStoredDataIgnored = true
+        persistentSales.values.forEach(PersistentHistoryCache<*, *>::invalidate)
+        persistentTrials.values.forEach(PersistentHistoryCache<*, *>::invalidate)
+        persistentPrices?.invalidate()
+    }
+
+    /**
+     * Loads the stored sales and trials of the plugins in the background, which also fetches their recent days again,
+     * see [PersistentHistoryCache]. This loads changes, e.g. refunds, after a start without a report being opened.
+     * Plugins without stored data aren't loaded, and nothing is loaded without a persistent cache.
+     */
+    fun updateStoredHistory(plugins: Iterable<PluginId>) {
+        val store = persistentCache ?: return
+        for (plugin in plugins) {
+            if (store.exists("plugin-$plugin-sales")) {
+                persistentCacheScope.launch { loadInBackground(plugin, "sales") { salesInfo(plugin) } }
+            }
+            if (store.exists("plugin-$plugin-trials")) {
+                persistentCacheScope.launch { loadInBackground(plugin, "trials") { trialsInfo(plugin) } }
+            }
+        }
+    }
+
+    /**
+     * Waits until the background updates of the persistent cache are done, for tests.
+     */
+    internal suspend fun awaitPersistentCacheUpdates() {
+        do {
+            persistentCacheScope.coroutineContext.job.children.toList().forEach { it.join() }
+            (persistentSales.values + persistentTrials.values).forEach { it.awaitBackgroundFetch() }
+        } while (persistentCacheScope.coroutineContext.job.children.any { it.isActive })
+    }
+
+    private suspend fun loadInBackground(plugin: PluginId, name: String, load: suspend () -> Unit) {
+        try {
+            load()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn("Updating the stored $name of plugin $plugin failed", e)
+        }
     }
 
     override suspend fun userInfo(): UserInfo {
@@ -79,8 +150,40 @@ class CaffeineCacheMarketplaceClient(
         }
     }
 
+    override suspend fun salesInfo(plugin: PluginId): List<PluginSale> {
+        val store = persistentCache ?: return super.salesInfo(plugin)
+        return persistentSales.computeIfAbsent(plugin) {
+            PersistentHistoryCache(
+                store,
+                HistoryKind.Sales,
+                "plugin-$plugin-sales",
+                persistentCacheScope,
+                persistentHistorySettings,
+                fetcher = { range -> loadMonthlyChunks(range) { super.loadSalesInfo(plugin, it) } },
+                // the licenses are derived from the sales
+                onBackgroundUpdate = { cache.synchronous().invalidate(licenseInfoKey(plugin)) },
+                ignoreStoredData = isStoredDataIgnored,
+            )
+        }.get()
+    }
+
+    override suspend fun trialsInfo(plugin: PluginId): List<PluginTrial> {
+        val store = persistentCache ?: return super.trialsInfo(plugin)
+        return persistentTrials.computeIfAbsent(plugin) {
+            PersistentHistoryCache(
+                store,
+                HistoryKind.Trials,
+                "plugin-$plugin-trials",
+                persistentCacheScope,
+                persistentHistorySettings,
+                fetcher = { range -> loadMonthlyChunks(range) { super.loadTrialsInfo(plugin, it) } },
+                ignoreStoredData = isStoredDataIgnored,
+            )
+        }.get()
+    }
+
     override suspend fun licenseInfo(plugin: PluginId): SalesWithLicensesInfo {
-        return loadCached("licenseInfo.$plugin", frequentlyModifiedCacheDuration) {
+        return loadCached(licenseInfoKey(plugin), frequentlyModifiedCacheDuration) {
             super.licenseInfo(plugin)
         }
     }
@@ -198,7 +301,10 @@ class CaffeineCacheMarketplaceClient(
 
     override suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo {
         return loadCached("priceInfo.$plugin.$isoCountryCode", mostlyStaticCacheDuration) {
-            super.priceInfo(plugin, isoCountryCode)
+            when (persistentPrices) {
+                null -> super.priceInfo(plugin, isoCountryCode)
+                else -> persistentPrices.get(plugin, isoCountryCode) { super.priceInfo(plugin, isoCountryCode) }
+            }
         }
     }
 
@@ -223,6 +329,8 @@ class CaffeineCacheMarketplaceClient(
             super.loadTrialsInfo(plugin, range)
         }
     }
+
+    private fun licenseInfoKey(plugin: PluginId): String = "licenseInfo.$plugin"
 
     @Suppress("UNCHECKED_CAST")
     private suspend fun <T> loadCached(key: String, expireAfterCreate: Duration, loader: suspend () -> T): T {
@@ -261,3 +369,5 @@ private class CacheExpiry : Expiry<String, CacheValue> {
         return currentDuration
     }
 }
+
+private val logger = LoggerFactory.getLogger(CaffeineCacheMarketplaceClient::class.java)
