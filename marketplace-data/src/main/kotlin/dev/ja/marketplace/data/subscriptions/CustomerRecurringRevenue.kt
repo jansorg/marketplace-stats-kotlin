@@ -61,11 +61,12 @@ class CustomerRecurringRevenue(
             customerTypes.put(license.sale.customer.code, license.sale.customer.type)
 
             // all months, which end within the validity of the license
-            var monthEnd = YearMonthDay.lastOfMonth(validity.start.year, validity.start.month)
-            while (monthEnd <= validity.end && monthKey(monthEnd) <= todayKey) {
-                latestLicenseSales.computeIfAbsent(monthKey(monthEnd)) { Object2ObjectOpenHashMap() }
+            val end = validity.end
+            val isEndOfMonth = end == YearMonthDay.lastOfMonth(end.year, end.month)
+            val lastKey = minOf(todayKey, if (isEndOfMonth) monthKey(end) else monthKey(end) - 1)
+            for (key in monthKey(validity.start)..lastKey) {
+                latestLicenseSales.computeIfAbsent(key) { Object2ObjectOpenHashMap() }
                     .merge(license.id, license) { old, new -> if (new.validity!!.end > old.validity!!.end) new else old }
-                monthEnd = monthEnd.add(0, 1, 0).let { YearMonthDay.lastOfMonth(it.year, it.month) }
             }
         }
 
