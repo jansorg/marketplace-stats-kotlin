@@ -94,7 +94,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         dailyChartSeries = OverviewDailyColumn.Licenses.id,
     )
     private val columnActiveLicensesPaying = DataTableColumn(
-        "customer-licenses-paid", "Paid", "num", tooltip = "Paid licenses at the end of month",
+        "customer-licenses-paid", "Paid", "num", tooltip = "Paid licenses at the end of month", chartTitle = "Paid licenses",
         dailyChartSeries = OverviewDailyColumn.PaidLicenses.id,
     )
     private val columnMonthlyRecurringRevenue = DataTableColumn(
