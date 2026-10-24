@@ -8,14 +8,16 @@
  */
 
 import {formatDate, SECONDS_PER_DAY, unitTitle} from "./format.js";
-import {alignSeries, availableComparisons, barLayout, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, zeroBasedRange} from "./model.js";
+import {alignSeries, availableComparisons, barLayout, extremeIndices, incompleteColor, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, zeroBasedRange} from "./model.js";
 
 export const CHART_STYLE = {
     axisColor: "#52514e",
     gridColor: "#e4e3df",
     surfaceColor: "#ffffff",
-    // values, which may still change, use the color of incomplete values in the tables
-    incompleteColor: "#6b6b6b",
+    lineWidth: 2,
+    // incomplete values: dotted lines, hollow points and striped bars in a lighter color of the series
+    incompleteDotSpacing: 5,
+    incompleteStripeSpacing: 5,
     // vertical lines: line color and dash pattern of each kind, the labels use the color of the axes
     markerWidth: 2,
     markers: {
@@ -24,9 +26,8 @@ export const CHART_STYLE = {
         ide: {color: "#6f74b8", dash: [8, 3]},
     },
     pointRadius: 3,
-    // series with more values, e.g. per day, only show the points of incomplete values, smaller and without a ring
+    // series with more values, e.g. per day, have no points, the lighter line marks their incomplete values
     maxPointsShown: 120,
-    densePointRadius: 2,
     pointRing: 2,
     // bars are thin, with a gap between neighbors and a rounded end at the value
     maxBarWidth: 24,
@@ -42,7 +43,7 @@ const legendData = new WeakMap();
  * Unlike the legend of uPlot, it shows no values.
  *
  * @param {uPlot} plot A chart created by {@link createLineChart}.
- * @return {{label: string, color: string, shape: "line"|"box"|"point"|"marker", dash?: number[]}[]}
+ * @return {{label: string, color: string, shape: "line"|"dotted"|"box"|"stripes"|"point"|"marker", dash?: number[]}[]}
  */
 export function lineChartLegend(plot) {
     const {chartSeries, markers, isBars} = legendData.get(plot);
@@ -55,7 +56,7 @@ export function lineChartLegend(plot) {
         shape: isBars ? "box" : "line",
     }));
     if (shown.some(series => [...series.incomplete].some(timestamp => timestamp >= min && timestamp <= max))) {
-        entries.push({label: "Incomplete values", color: CHART_STYLE.incompleteColor, shape: isBars ? "box" : "point"});
+        entries.push({label: "Incomplete values", color: incompleteColor(shown[0].color), shape: isBars ? "stripes" : "dotted"});
     }
     const kinds = new Set(markers.filter(marker => marker.timestamp >= min && marker.timestamp <= max).map(marker => marker.kind));
     for (const kind of kinds) {
@@ -73,6 +74,7 @@ function fonts(fontFamily) {
         ticks: "12px " + fontFamily,
         axisTitle: "12px " + fontFamily,
         releaseLabel: "11px " + fontFamily,
+        extremeLabel: "bold 11px " + fontFamily,
     };
 }
 
@@ -128,6 +130,61 @@ function drawMarkers(plot, markers, font) {
 }
 
 /**
+ * Draws the lines to incomplete values over the lines of uPlot in a lighter, less saturated color of the series.
+ */
+function drawIncompleteLines(plot, chartSeries) {
+    const context = plot.ctx;
+    const pixelRatio = uPlot.pxRatio;
+    const timestamps = plot.data[0];
+
+    context.save();
+    context.beginPath();
+    context.rect(plot.bbox.left, plot.bbox.top, plot.bbox.width, plot.bbox.height);
+    context.clip();
+    context.lineJoin = "round";
+
+    chartSeries.forEach((series, index) => {
+        const plotSeries = plot.series[index + 1];
+        if (!plotSeries.show || series.incomplete.size === 0) {
+            return;
+        }
+        const values = plot.data[index + 1];
+        // the line to an incomplete value starts at the previous value
+        const path = new Path2D();
+        let previous = null;
+        let wasIncomplete = false;
+        timestamps.forEach((timestamp, i) => {
+            if (values[i] === null || values[i] === undefined) {
+                return;
+            }
+            const point = [plot.valToPos(timestamp, "x", true), plot.valToPos(values[i], plotSeries.scale, true)];
+            const isIncomplete = series.incomplete.has(timestamp);
+            if (isIncomplete) {
+                if (!wasIncomplete) {
+                    path.moveTo(...(previous ?? point));
+                }
+                path.lineTo(...point);
+            }
+            wasIncomplete = isIncomplete;
+            previous = point;
+        });
+
+        // the solid line of uPlot is covered, the incomplete part is dotted: dashes of length 0 with round ends are dots
+        context.setLineDash([]);
+        context.lineCap = "round";
+        context.lineWidth = CHART_STYLE.lineWidth * pixelRatio + 2;
+        context.strokeStyle = CHART_STYLE.surfaceColor;
+        context.stroke(path);
+        context.setLineDash([0, CHART_STYLE.incompleteDotSpacing * pixelRatio]);
+        context.lineCap = "round";
+        context.lineWidth = CHART_STYLE.lineWidth * pixelRatio;
+        context.strokeStyle = incompleteColor(series.color);
+        context.stroke(path);
+    });
+    context.restore();
+}
+
+/**
  * Draws the points of all series with a ring in the surface color. Incomplete values are drawn in a different color.
  * Points at the edges of the plot are not cut off.
  */
@@ -149,30 +206,67 @@ function drawPoints(plot, chartSeries) {
         if (!plotSeries.show) {
             return;
         }
-        const isDense = series.points.size > CHART_STYLE.maxPointsShown;
+        // the lighter line marks the incomplete values of series with many values, e.g. per day
+        if (series.points.size > CHART_STYLE.maxPointsShown) {
+            return;
+        }
         const values = plot.data[index + 1];
         timestamps.forEach((timestamp, i) => {
             const isIncomplete = series.incomplete.has(timestamp);
-            if (values[i] === null || values[i] === undefined || (isDense && !isIncomplete)) {
+            if (values[i] === null || values[i] === undefined) {
                 return;
             }
             const x = plot.valToPos(timestamp, "x", true);
             const y = plot.valToPos(values[i], plotSeries.scale, true);
 
-            if (!isDense) {
-                context.beginPath();
-                context.arc(x, y, radius + ring, 0, 2 * Math.PI);
-                context.fillStyle = CHART_STYLE.surfaceColor;
-                context.fill();
-            }
+            context.beginPath();
+            context.arc(x, y, radius + ring, 0, 2 * Math.PI);
+            context.fillStyle = CHART_STYLE.surfaceColor;
+            context.fill();
 
             context.beginPath();
-            context.arc(x, y, isDense ? CHART_STYLE.densePointRadius * pixelRatio : radius, 0, 2 * Math.PI);
-            context.fillStyle = isIncomplete ? CHART_STYLE.incompleteColor : series.color;
-            context.fill();
+            if (isIncomplete) {
+                context.arc(x, y, radius - pixelRatio, 0, 2 * Math.PI);
+                context.lineWidth = 2 * pixelRatio;
+                context.strokeStyle = incompleteColor(series.color);
+                context.stroke();
+            } else {
+                context.arc(x, y, radius, 0, 2 * Math.PI);
+                context.fillStyle = series.color;
+                context.fill();
+            }
         });
     });
     context.restore();
+}
+
+const stripePatterns = new Map();
+
+/**
+ * @return {CanvasPattern} Diagonal stripes in the color on the surface color, for incomplete bars.
+ */
+function stripePattern(context, color, pixelRatio) {
+    const key = color + "/" + pixelRatio;
+    if (!stripePatterns.has(key)) {
+        const size = Math.round(CHART_STYLE.incompleteStripeSpacing * 2 * pixelRatio);
+        const tile = document.createElement("canvas");
+        tile.width = size;
+        tile.height = size;
+        const tileContext = tile.getContext("2d");
+        tileContext.fillStyle = CHART_STYLE.surfaceColor;
+        tileContext.fillRect(0, 0, size, size);
+        tileContext.strokeStyle = color;
+        tileContext.lineWidth = 2 * pixelRatio;
+        // three lines, so that the stripes continue across the edges of the tiles
+        for (const offset of [-size, 0, size]) {
+            tileContext.beginPath();
+            tileContext.moveTo(offset, size);
+            tileContext.lineTo(offset + size, 0);
+            tileContext.stroke();
+        }
+        stripePatterns.set(key, context.createPattern(tile, "repeat"));
+    }
+    return stripePatterns.get(key);
 }
 
 /**
@@ -204,22 +298,106 @@ function drawBar(context, left, width, valueY, baseY, radius) {
 }
 
 /**
+ * @return {{visible: {series: object, index: number}[], width: number, offsets: number[]}} The shown series, the width
+ *  of a bar and the offset of the left edge of the bar of each shown series to the date, in pixels of the canvas.
+ */
+function barGeometry(plot, chartSeries, interval) {
+    const timestamps = plot.data[0];
+    const visible = chartSeries.map((series, index) => ({series, index})).filter(({index}) => plot.series[index + 1].show);
+    if (visible.length === 0 || timestamps.length === 0) {
+        return {visible, width: 0, offsets: []};
+    }
+    const slotWidth = Math.abs(plot.valToPos(timestamps[0] + interval, "x", true) - plot.valToPos(timestamps[0], "x", true));
+    const {width, offsets} = barLayout(visible.length, slotWidth, {
+        maxBarWidth: CHART_STYLE.maxBarWidth * uPlot.pxRatio,
+        gap: CHART_STYLE.barGap * uPlot.pxRatio,
+    });
+    return {visible, width, offsets};
+}
+
+/**
+ * Marks the minimum and/or the maximum of each shown series with a ring and a label with the value.
+ * The label of the maximum is above the value, the label of the minimum below it.
+ */
+function drawExtremes(plot, chartSeries, {kinds, isBars, interval, formatter, font}) {
+    const context = plot.ctx;
+    const pixelRatio = uPlot.pxRatio;
+    const timestamps = plot.data[0];
+    const {visible, width, offsets} = isBars ? barGeometry(plot, chartSeries, interval) : {visible: [], width: 0, offsets: []};
+
+    context.save();
+    context.font = scaledFont(font, pixelRatio);
+    context.textAlign = "center";
+    context.lineWidth = 2 * pixelRatio;
+    // labels, which would overlap a label of another series, e.g. at the same minimum, are skipped
+    const placedLabels = [];
+
+    chartSeries.forEach((series, index) => {
+        const plotSeries = plot.series[index + 1];
+        if (!plotSeries.show) {
+            return;
+        }
+        const values = plot.data[index + 1];
+        const extremes = extremeIndices(timestamps, values, series.incomplete);
+        if (extremes === null) {
+            return;
+        }
+        const barPosition = visible.findIndex(entry => entry.index === index);
+
+        for (const kind of ["max", "min"].filter(kind => kinds.includes(kind))) {
+            const i = extremes[kind];
+            const x = plot.valToPos(timestamps[i], "x", true) + (isBars ? offsets[barPosition] + width / 2 : 0);
+            const y = plot.valToPos(values[i], plotSeries.scale, true);
+            const label = (kind === "max" ? "Max " : "Min ") + formatter.value(values[i], series.unit);
+
+            if (!isBars) {
+                context.beginPath();
+                context.arc(x, y, (CHART_STYLE.pointRadius + CHART_STYLE.pointRing + 3) * pixelRatio, 0, 2 * Math.PI);
+                context.strokeStyle = series.color;
+                context.stroke();
+            }
+
+            // the label is inside of the chart, the label of a negative maximum or a positive minimum is beside the bar
+            const halfWidth = context.measureText(label).width / 2;
+            const labelX = Math.min(Math.max(x, plot.bbox.left + halfWidth), plot.bbox.left + plot.bbox.width - halfWidth);
+            const distance = 10 * pixelRatio;
+            const isAbove = kind === "max" ? y - distance - 12 * pixelRatio > plot.bbox.top : y + distance + 12 * pixelRatio > plot.bbox.top + plot.bbox.height;
+            context.textBaseline = isAbove ? "bottom" : "top";
+            const labelY = isAbove ? y - distance : y + distance;
+
+            const box = {
+                left: labelX - halfWidth - 2 * pixelRatio,
+                top: isAbove ? labelY - 13 * pixelRatio : labelY - pixelRatio,
+                width: 2 * halfWidth + 4 * pixelRatio,
+                height: 14 * pixelRatio,
+            };
+            if (placedLabels.some(other => box.left < other.left + other.width && other.left < box.left + box.width
+                && box.top < other.top + other.height && other.top < box.top + box.height)) {
+                continue;
+            }
+            placedLabels.push(box);
+
+            // a background in the surface color keeps the label readable on lines and grid lines
+            context.fillStyle = CHART_STYLE.surfaceColor;
+            context.fillRect(box.left, box.top, box.width, box.height);
+            context.fillStyle = series.color;
+            context.fillText(label, labelX, labelY);
+        }
+    });
+    context.restore();
+}
+
+/**
  * Draws the values of all series as groups of bars. Incomplete values are drawn in a different color.
  */
 function drawBars(plot, chartSeries, interval) {
     const context = plot.ctx;
     const pixelRatio = uPlot.pxRatio;
     const timestamps = plot.data[0];
-    const visible = chartSeries.map((series, index) => ({series, index})).filter(({index}) => plot.series[index + 1].show);
+    const {visible, width, offsets} = barGeometry(plot, chartSeries, interval);
     if (visible.length === 0 || timestamps.length === 0) {
         return;
     }
-
-    const slotWidth = Math.abs(plot.valToPos(timestamps[0] + interval, "x", true) - plot.valToPos(timestamps[0], "x", true));
-    const {width, offsets} = barLayout(visible.length, slotWidth, {
-        maxBarWidth: CHART_STYLE.maxBarWidth * pixelRatio,
-        gap: CHART_STYLE.barGap * pixelRatio,
-    });
 
     context.save();
     context.beginPath();
@@ -233,8 +411,14 @@ function drawBars(plot, chartSeries, interval) {
                 return;
             }
             const x = plot.valToPos(timestamps[i], "x", true);
-            context.fillStyle = series.incomplete.has(timestamps[i]) ? CHART_STYLE.incompleteColor : series.color;
+            const isIncomplete = series.incomplete.has(timestamps[i]);
+            context.fillStyle = isIncomplete ? stripePattern(context, incompleteColor(series.color), pixelRatio) : series.color;
             drawBar(context, x + offsets[position], width, plot.valToPos(value, scale, true), baseY, CHART_STYLE.barRadius * pixelRatio);
+            if (isIncomplete) {
+                context.lineWidth = pixelRatio;
+                context.strokeStyle = incompleteColor(series.color);
+                context.stroke();
+            }
         });
     });
     context.restore();
@@ -303,7 +487,7 @@ function enableTooltip(plot, chartSeries, describe) {
  * the dates and a table below the chart shows the values and their changes. Without a cursor on the chart, the table
  * shows the latest values.
  */
-function enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, formatter}) {
+function enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, formatter, valueTable}) {
     // the values of each series without gaps, and the tolerance to find a value near a date
     const seriesPoints = chartSeries.map((series, index) => {
         const points = timestamps
@@ -330,7 +514,9 @@ function enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, f
 
     const table = document.createElement("table");
     table.className = "chart-comparison";
-    plot.root.after(table);
+    if (valueTable) {
+        plot.root.after(table);
+    }
 
     const latestIndex = timestamps.length - 1;
     let shownIndex = null;
@@ -355,7 +541,9 @@ function enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, f
         }
         shownIndex = index;
         shownSeries = visibleSeries;
-        renderComparisonTable(table, {plot, chartSeries, seriesPoints, comparisons, timestamp, datePeriod, formatter});
+        if (valueTable) {
+            renderComparisonTable(table, {plot, chartSeries, seriesPoints, comparisons, timestamp, datePeriod, formatter});
+        }
     };
     update();
     return update;
@@ -399,15 +587,27 @@ function renderComparisonTable(table, {plot, chartSeries, seriesPoints, comparis
 
     const body = document.createElement("tbody");
     chartSeries.forEach((series, index) => {
-        if (!plot.series[index + 1].show) {
-            return;
-        }
         const {points, tolerance} = seriesPoints[index];
         const found = columns.map(column => valueNear(points, column.timestamp, tolerance));
         const current = found[columns.findIndex(column => column.isCursor)];
 
+        // the table replaces the legend of uPlot: a click on the label shows or hides the series, hidden series are dimmed
+        const isShown = plot.series[index + 1].show;
         const row = document.createElement("tr");
+        row.classList.toggle("chart-comparison-hidden", !isShown);
         const label = cell("th", "chart-comparison-series");
+        label.tabIndex = 0;
+        label.setAttribute("role", "button");
+        label.setAttribute("aria-pressed", String(isShown));
+        label.title = isShown ? "Click to hide the line" : "Click to show the line";
+        const toggle = () => plot.setSeries(index + 1, {show: !plot.series[index + 1].show});
+        label.addEventListener("click", toggle);
+        label.addEventListener("keydown", event => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                toggle();
+            }
+        });
         const key = cell("span", "chart-tooltip-key");
         key.style.backgroundColor = series.color;
         label.append(key, series.isRightAxis ? series.label + " (right axis)" : series.label);
@@ -517,13 +717,15 @@ function yAxis(unit, scale, side, style) {
  * @param {string} options.syncKey Charts with the same key have synchronized cursors.
  * @param {"lines"|"bars"} options.chartStyle
  * @param {"month"|"week"|"day"} [options.granularity] Values per week or per day are labeled with their day.
+ * @param {("min"|"max")[]} [options.extremes] If the minimum or the maximum of each series are marked.
+ * @param {boolean} [options.valueTable] If a table compares the values at the cursor instead of the legend of uPlot.
  * @param {string} options.fontFamily
  * @param {number} options.width
  * @param {number} options.height
  * @param {HTMLElement} options.container
  * @return {uPlot}
  */
-export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, fontFamily, width, height, container}) {
+export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, fontFamily, width, height, container}) {
     const style = {formatter, fonts: fonts(fontFamily)};
     const scaleKeys = ["y", "y2"];
     const chartSeries = units.flatMap((unit, unitIndex) => series
@@ -581,8 +783,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         tzDate: timestamp => uPlot.tzDate(new Date(timestamp * 1000), "Etc/UTC"),
         scales,
         axes,
-        // the legend only shows and hides the series, the values are shown by the comparison table
-        legend: {show: true, live: false},
+        // the legend only shows and hides the series, the table of values replaces it
+        legend: {show: !valueTable, live: false},
         // space for the labels of the vertical lines above the plot, and for points and tick labels at the right edge
         padding: [markers.length > 0 ? 20 : null, units.length > 1 ? null : 28, null, null],
         cursor: {
@@ -596,7 +798,17 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         },
         hooks: {
             drawAxes: [plot => drawMarkers(plot, markers, style.fonts.releaseLabel)],
-            draw: [plot => isBars ? drawBars(plot, chartSeries, interval) : drawPoints(plot, chartSeries)],
+            draw: [plot => {
+                if (isBars) {
+                    drawBars(plot, chartSeries, interval);
+                } else {
+                    drawIncompleteLines(plot, chartSeries);
+                    drawPoints(plot, chartSeries);
+                }
+                if (extremes.length > 0) {
+                    drawExtremes(plot, chartSeries, {kinds: extremes, isBars, interval, formatter, font: style.fonts.extremeLabel});
+                }
+            }],
             // series are shown and hidden by a click on the legend
             setSeries: [() => updateComparisons?.()],
             setCursor: [plot => {
@@ -610,7 +822,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                 label: s.isRightAxis ? s.label + " (right axis)" : s.label,
                 scale: s.scale,
                 stroke: s.color,
-                width: 2,
+                width: CHART_STYLE.lineWidth,
                 spanGaps: true,
                 // points and bars are drawn by drawPoints and drawBars, to show incomplete values in a different color
                 points: {show: false},
@@ -623,7 +835,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     let updateComparisons = null;
     const plot = new uPlot(options, [timestamps, ...values], container);
     updateTooltip = enableTooltip(plot, chartSeries, describe);
-    updateComparisons = enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, formatter});
+    updateComparisons = enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, formatter, valueTable});
     enableTouchCursor(plot);
     legendData.set(plot, {chartSeries, markers, isBars});
     return plot;

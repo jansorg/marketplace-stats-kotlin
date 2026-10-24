@@ -551,6 +551,7 @@ th.highlighted, td.highlighted {
 .chart-marker-toggles {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 0.4rem 1.2rem;
     font-size: .8rem;
     margin: 0 0 0.75rem;
@@ -668,9 +669,15 @@ th.highlighted, td.highlighted {
 /* buttons above a chart: downloads and the style of line charts */
 .chart-toolbar {
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
     gap: 0.5rem;
     margin: 0 0 0.25rem;
+}
+
+/* the toolbar of the first chart is right-aligned in the row of the options, it wraps on small screens */
+.chart-marker-toggles .chart-toolbar {
+    margin: 0 0 0 auto;
 }
 
 .chart-button-group {
@@ -738,6 +745,25 @@ th.highlighted, td.highlighted {
 
 .chart-menu-items button:hover {
     background-color: #f4f4f2;
+}
+
+.chart-menu-items label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.8rem;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.chart-menu-items label:hover {
+    background-color: #f4f4f2;
+}
+
+/* the view options follow the options of the vertical lines, the items open to the right like the row */
+.chart-view-menu .chart-menu-items {
+    left: 0;
+    right: auto;
 }
 
 .chart-menu-items button[hidden] {
@@ -844,6 +870,17 @@ th.highlighted, td.highlighted {
     text-align: left;
     font-weight: 400;
     padding-left: 0;
+    cursor: pointer;
+}
+
+.chart-comparison .chart-comparison-series:focus-visible {
+    outline: 2px solid var(--link-color);
+    outline-offset: 1px;
+}
+
+/* hidden series stay in the table, so that they can be shown again */
+.chart-comparison-hidden {
+    opacity: .4;
 }
 
 .chart-comparison .chart-comparison-series .chart-tooltip-key {

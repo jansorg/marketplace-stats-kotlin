@@ -7,7 +7,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
-    alignSeries, availableComparisons, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, groupCharts, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
+    alignSeries, availableComparisons, extremeIndices, INCOMPLETE_GREY, incompleteColor, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, groupCharts, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
 } from "../../main/resources/js/charts/model.js";
 
@@ -154,6 +154,11 @@ test("dates are shifted by years and months, at most to the last day of the mont
     assert.equal(shiftDate(date("2025-03-31"), 0, -1), date("2025-02-28"));
     assert.equal(shiftDate(date("2025-01-31"), 0, -1), date("2024-12-31"));
     assert.equal(shiftDate(date("2025-12-15"), 0, 1), date("2026-01-15"));
+    // the last day of a month moves to the last day of the other month
+    assert.equal(shiftDate(date("2025-09-30"), 0, -1), date("2025-08-31"));
+    assert.equal(shiftDate(date("2025-02-28"), 0, 1), date("2025-03-31"));
+    assert.equal(shiftDate(date("2023-02-28"), 1, 0), date("2024-02-29"));
+    assert.equal(shiftDate(date("2025-09-29"), 0, -1), date("2025-08-29"));
 });
 
 test("comparisons need values at least as frequent as their distance", () => {
@@ -170,6 +175,45 @@ test("the value closest to a date is found within the tolerance", () => {
     assert.deepEqual(valueNear(points, 5, 5), {timestamp: 10, value: 1});
     assert.equal(valueNear(points, 30, 5), null);
     assert.equal(valueNear([], 30, 5), null);
+});
+
+test("incomplete values are removed from a series", () => {
+    const original = {label: "MRR", points: new Map([[1, 10], [2, 20], [3, 30]]), incomplete: new Set([3])};
+    const result = withoutIncomplete(original);
+    assert.deepEqual([...result.points.keys()], [1, 2]);
+    assert.equal(result.incomplete.size, 0);
+    assert.equal(result.label, "MRR");
+    // the original series is unchanged
+    assert.equal(original.points.size, 3);
+});
+
+test("the minimum and the maximum ignore missing and incomplete values", () => {
+    assert.deepEqual(extremeIndices([1, 2, 3, 4], [5, null, 9, 1], new Set([4])), {min: 0, max: 2});
+    assert.deepEqual(extremeIndices([1, 2, 3], [5, 9, 9], new Set()), {min: 0, max: 1});
+    assert.equal(extremeIndices([1, 2], [5, 5], new Set()), null);
+    assert.equal(extremeIndices([1], [5], new Set()), null);
+    assert.equal(extremeIndices([1, 2], [5, 9], new Set([1, 2])), null);
+});
+
+test("incomplete values have a lighter, less saturated color", () => {
+    const toHsl = hex => {
+        const [r, g, b] = [1, 3, 5].map(i => Number.parseInt(hex.substring(i, i + 2), 16) / 255);
+        const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2;
+        const s = max === min ? 0 : l > 0.5 ? (max - min) / (2 - max - min) : (max - min) / (max + min);
+        return {s, l};
+    };
+    for (const color of SERIES_COLORS.filter(color => incompleteColor(color) !== INCOMPLETE_GREY)) {
+        const original = toHsl(color);
+        const incomplete = toHsl(incompleteColor(color));
+        assert.match(incompleteColor(color), /^#[0-9a-f]{6}$/);
+        assert.ok(incomplete.s < original.s, color);
+        assert.ok(incomplete.l > original.l, color);
+    }
+    // colors with a lighter color, which is too similar, use grey
+    assert.equal(incompleteColor("#e87ba4"), INCOMPLETE_GREY);
+    assert.equal(incompleteColor("#808080"), INCOMPLETE_GREY);
+    assert.equal(incompleteColor("#2a78d6"), "#76a2d6");
+    assert.equal(incompleteColor("red"), "red");
 });
 
 test("changes of values are percentages, changes of percentages are percentage points", () => {

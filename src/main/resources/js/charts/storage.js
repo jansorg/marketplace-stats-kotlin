@@ -15,16 +15,25 @@ const VERSION = 1;
  * @typedef {{type: "line"|"pie", table: string, column: string, color?: string}} ChartEntry
  * @typedef {{combineUnits: boolean, maximized: boolean, preferredStyle: "lines"|"bars",
  *  chartStyles: Object<string, "lines"|"bars">, granularities: Object<string, "month"|"week"|"day">, shownMarkers: string[],
- *  entries: ChartEntry[]}} ChartSetup
+ *  shownExtremes: ("min"|"max")[], showIncomplete: boolean, showValueTable: boolean, entries: ChartEntry[]}} ChartSetup
  */
 
 /** @return {ChartSetup} */
 export function emptySetup() {
     // vertical lines are hidden by default
-    return {combineUnits: false, maximized: false, preferredStyle: "lines", chartStyles: {}, granularities: {}, shownMarkers: [], entries: []};
+    return {combineUnits: false, maximized: false, preferredStyle: "lines", chartStyles: {}, granularities: {}, shownMarkers: [], shownExtremes: [], showIncomplete: true, showValueTable: true, entries: []};
 }
 
 const STYLES = ["lines", "bars"];
+const EXTREMES = ["min", "max"];
+
+function validExtremes(setup) {
+    if (Array.isArray(setup.shownExtremes)) {
+        return EXTREMES.filter(kind => setup.shownExtremes.includes(kind));
+    }
+    // the option "Minimum and maximum" was split into two options
+    return setup.showExtremes === true ? [...EXTREMES] : [];
+}
 const GRANULARITIES = ["month", "week", "day"];
 const MARKER_KINDS = ["release", "price", "ide"];
 
@@ -63,6 +72,10 @@ export function createSetupStorage(storage) {
                     chartStyles: validValues(setup.chartStyles, STYLES),
                     granularities: validValues(setup.granularities, GRANULARITIES),
                     shownMarkers: Array.isArray(setup.shownMarkers) ? setup.shownMarkers.filter(kind => MARKER_KINDS.includes(kind)) : [],
+                    shownExtremes: validExtremes(setup),
+                    // shown by default, also with a setup stored before the option existed
+                    showIncomplete: setup.showIncomplete !== false,
+                    showValueTable: setup.showValueTable !== false,
                     entries: setup.entries.filter(isValidEntry),
                 };
             } catch (e) {

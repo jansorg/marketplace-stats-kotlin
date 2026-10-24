@@ -288,7 +288,8 @@ export function finerPoints(data, id) {
  * @param {number} years Number of years to add, negative to subtract.
  * @param {number} months Number of months to add, negative to subtract.
  * @return {number} The timestamp at the same day of the other month, at most at its last day, e.g. March 31 minus one
- *  month is the last day of February. The values of months are located at their last day.
+ *  month is the last day of February. The last day of a month moves to the last day of the other month, e.g.
+ *  September 30 minus one month is August 31, because the values of months are located at their last day.
  */
 export function shiftDate(timestamp, years, months) {
     const date = new Date(timestamp * 1000);
@@ -296,7 +297,8 @@ export function shiftDate(timestamp, years, months) {
     const year = Math.floor(totalMonths / 12);
     const month = totalMonths - year * 12;
     const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
-    const shifted = Date.UTC(year, month, Math.min(date.getUTCDate(), lastDay), date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds());
+    const isLastDay = date.getUTCDate() === new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+    const shifted = Date.UTC(year, month, isLastDay ? lastDay : Math.min(date.getUTCDate(), lastDay), date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds());
     return shifted / 1000;
 }
 
@@ -361,6 +363,85 @@ export function valueChange(earlier, later, unit) {
         return null;
     }
     return {value: (later - earlier) / Math.abs(earlier) * 100, unit: "%"};
+}
+
+/** Color of incomplete values of series, whose lighter color would be too similar to the color of the series. */
+export const INCOMPLETE_GREY = "#a8a7a2";
+
+/**
+ * @param {string} color A color like `#2a78d6`.
+ * @return {string} The color with slightly less saturation and more lightness, for incomplete values, which may still
+ *  change. If it's too similar to the color, {@link INCOMPLETE_GREY}. Other formats are returned unchanged.
+ */
+export function incompleteColor(color) {
+    const match = /^#([0-9a-f]{6})$/i.exec(color);
+    if (match === null) {
+        return color;
+    }
+    const [r, g, b] = [0, 2, 4].map(i => Number.parseInt(match[1].substring(i, i + 2), 16) / 255);
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const lightness = (max + min) / 2;
+    let hue = 0;
+    let saturation = 0;
+    if (max !== min) {
+        const delta = max - min;
+        saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+        hue = max === r ? (g - b) / delta + (g < b ? 6 : 0) : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+        hue /= 6;
+    }
+    const result = hslToHex(hue, saturation * 0.8, lightness + (1 - lightness) * 0.3);
+    // the distance of the RGB values, below about 70 the colors are hard to tell apart in thin lines and points
+    const distance = Math.hypot(...[0, 2, 4].map(i => Number.parseInt(match[1].substring(i, i + 2), 16) - Number.parseInt(result.substring(i + 1, i + 3), 16)));
+    return distance < 70 ? INCOMPLETE_GREY : result;
+}
+
+function hslToHex(hue, saturation, lightness) {
+    const a = saturation * Math.min(lightness, 1 - lightness);
+    const channel = n => {
+        const k = (n + hue * 12) % 12;
+        const value = lightness - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+        return Math.round(value * 255).toString(16).padStart(2, "0");
+    };
+    return "#" + channel(0) + channel(8) + channel(4);
+}
+
+/**
+ * Incomplete values are ignored, e.g. the sales of the current month are often the lowest value.
+ *
+ * @param {number[]} timestamps
+ * @param {(number|null)[]} values The values at the timestamps, null if there's no value.
+ * @param {Set<number>} incomplete The timestamps of incomplete values.
+ * @return {{min: number, max: number}|null} The indices of the first minimum and the first maximum,
+ *  or null if there are no two different values.
+ */
+export function extremeIndices(timestamps, values, incomplete) {
+    let min = null;
+    let max = null;
+    values.forEach((value, index) => {
+        if (value === null || value === undefined || incomplete.has(timestamps[index])) {
+            return;
+        }
+        if (min === null || value < values[min]) {
+            min = index;
+        }
+        if (max === null || value > values[max]) {
+            max = index;
+        }
+    });
+    return min === null || values[min] === values[max] ? null : {min, max};
+}
+
+/**
+ * @param {{points: Map<number, number>, incomplete: Set<number>}} series
+ * @return {object} The series without its incomplete values.
+ */
+export function withoutIncomplete(series) {
+    return {
+        ...series,
+        points: new Map([...series.points].filter(([timestamp]) => !series.incomplete.has(timestamp))),
+        incomplete: new Set(),
+    };
 }
 
 /** Kinds of vertical lines in the line charts. */

@@ -111,13 +111,18 @@ CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
   - `format.js`, `model.js`, `storage.js`: pure functions, tested with Node.js in `src/test/js/*.test.mjs`
     (`node --test src/test/js/`, or `./gradlew testJavascript`, which is part of `check` and skipped without Node.js)
   - `tableData.js`: reads the `data-chart-*` attributes of the tables
-  - `lineChart.js`, `pieChart.js`, `dialog.js`: rendering, `main.js`: state of the charts
+  - `lineChart.js`, `pieChart.js`, `dialog.js`, `menu.js` (dropdown menus): rendering, `main.js`: state of the charts
   - `exportImage.js`: images of the charts with title and legend, for downloads (PNG, pie charts also SVG) and
     printing. Printing adds the images to the page and `print.css` hides everything else (`body.print-charts`).
 - The key C shows and hides the chart dialog.
 - The cursor of a line chart snaps to the closest value. Dashed and dotted lines mark the dates one year and one month
   before and after it, the table below the chart compares the values at these dates (`enableComparisons` in
-  `lineChart.js`). The uPlot legend only shows and hides the series.
+  `lineChart.js`). The table replaces the uPlot legend, a click on the label of a series shows or hides it. Without
+  the option "Value table" of the View menu, the uPlot legend is shown instead, it only shows and hides the series.
+- Incomplete values are drawn as dotted lines, hollow points and striped bars in a lighter color of their series
+  (`incompleteColor` in `model.js`).
+  The option "Incomplete values" of the View menu of the chart dialog hides them, "Minimum" and "Maximum" mark the
+  lowest and highest complete value of each series.
 - In sortable tables (`sortable` CSS class), a click on the label of a column header opens the chart and a click on
   the rest of the header, e.g. the arrow, sorts the table.
 - Line charts of the overview table can show the values per week or per day. Columns with values per day set

@@ -16,14 +16,14 @@ test("a stored setup is loaded", () => {
     const storage = memoryStorage();
     const setupStorage = createSetupStorage(storage);
     const setup = {
-        combineUnits: true, maximized: false, preferredStyle: "bars", chartStyles: {"month/USD": "bars"}, granularities: {"month/USD": "day"}, shownMarkers: ["ide"],
+        combineUnits: true, maximized: false, preferredStyle: "bars", chartStyles: {"month/USD": "bars"}, granularities: {"month/USD": "day"}, shownMarkers: ["ide"], shownExtremes: ["max"], showIncomplete: false, showValueTable: false,
         entries: [{type: "line", table: "Overview", column: "MRR", color: "#2a78d6"}, {type: "pie", table: "Top Countries", column: "% of Sales"}],
     };
     setupStorage.save(setup);
     assert.deepEqual(setupStorage.load(), setup);
     // only the setup is stored, no values of the tables
     assert.deepEqual(Object.keys(JSON.parse(storage.values.get(STORAGE_KEY))).sort(),
-        ["chartStyles", "combineUnits", "entries", "granularities", "maximized", "preferredStyle", "shownMarkers", "version"]);
+        ["chartStyles", "combineUnits", "entries", "granularities", "maximized", "preferredStyle", "showIncomplete", "showValueTable", "shownExtremes", "shownMarkers", "version"]);
 });
 
 test("invalid data is ignored", () => {
@@ -40,6 +40,13 @@ test("invalid data is ignored", () => {
     assert.deepEqual(setup.granularities, {"a": "week"});
     assert.deepEqual(setup.shownMarkers, ["ide"]);
     assert.deepEqual(setup.entries, [{type: "line", table: "Overview", column: "MRR"}]);
+});
+
+test("the stored option of the minimum and maximum is shown as two options", () => {
+    const load = stored => createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 1, entries: [], ...stored})})).load();
+    assert.deepEqual(load({showExtremes: true}).shownExtremes, ["min", "max"]);
+    assert.deepEqual(load({showExtremes: false}).shownExtremes, []);
+    assert.deepEqual(load({shownExtremes: ["max", "other"]}).shownExtremes, ["max"]);
 });
 
 test("an unavailable storage doesn't fail", () => {
