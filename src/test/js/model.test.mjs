@@ -6,7 +6,7 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
 import {
-    alignSeries, barLayout, canCombineUnits, dateRange, exportFileName, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
+    alignSeries, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, groupCharts, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange,
 } from "../../main/resources/js/charts/model.js";
 
@@ -125,4 +125,31 @@ test("file names of exported charts contain only letters, digits and dashes", ()
     assert.equal(exportFileName(["My Plugin: Report", "Sales (USD)"], "png"), "my-plugin-report-sales-usd.png");
     assert.equal(exportFileName(["Übersicht – Café", "% of Sales"], "svg"), "ubersicht-cafe-of-sales.svg");
     assert.equal(exportFileName(["", "***"], "png"), "chart.png");
+});
+
+test("charts of monthly columns with values per day can be finer", () => {
+    assert.equal(hasFinerValues([{period: "month", daily: null}, {period: "month", daily: "mrr"}]), true);
+    assert.equal(hasFinerValues([{period: "month", daily: null}]), false);
+    assert.equal(hasFinerValues([{period: "year", daily: "mrr"}]), false);
+});
+
+test("values per day are read from the response of the server", () => {
+    const data = {
+        dates: ["2026-01-01", "2026-01-02", "2026-01-03"],
+        series: {mrr: {unit: "USD", values: [1, 2.5, 3], incompleteFrom: 2}},
+    };
+    const {points, incomplete} = finerPoints(data, "mrr");
+    assert.deepEqual([...points.entries()], [[1767225600, 1], [1767312000, 2.5], [1767398400, 3]]);
+    assert.deepEqual([...incomplete], [1767398400]);
+    assert.equal(finerPoints(data, "arr"), null);
+    assert.equal(finerPoints(null, "mrr"), null);
+});
+
+test("values per day start with the last zero before the first value", () => {
+    const data = {
+        dates: ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"],
+        series: {mrr: {values: [0, 0, 5, 0], incompleteFrom: 4}, arr: {values: [0, 0, 0, 0], incompleteFrom: 4}},
+    };
+    assert.deepEqual([...finerPoints(data, "mrr").points.values()], [0, 5, 0]);
+    assert.deepEqual([...finerPoints(data, "arr").points.values()], [0, 0, 0, 0]);
 });

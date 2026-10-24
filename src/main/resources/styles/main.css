@@ -766,6 +766,11 @@ th.highlighted, td.highlighted {
     border-radius: 0 4px 4px 0;
 }
 
+.chart-button-group button:disabled {
+    color: var(--text-color-disabled);
+    cursor: default;
+}
+
 .chart-button-group button[aria-pressed="true"] {
     background-color: #e9e9e6;
     font-weight: 700;

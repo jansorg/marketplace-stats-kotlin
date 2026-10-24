@@ -7,7 +7,7 @@
  * Pure functions for the data of the charts. They don't access the DOM and are tested with Node.js.
  */
 
-import {isAmountUnit, PERIODS, SECONDS_PER_DAY} from "./format.js";
+import {isAmountUnit, isoDateToTimestamp, PERIODS, SECONDS_PER_DAY} from "./format.js";
 
 /** Categorical palette, assigned in fixed order. */
 export const SERIES_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"];
@@ -240,6 +240,47 @@ export function smallestInterval(timestamps, fallback) {
  */
 export function lineChartKey(chart) {
     return chart.period + "/" + chart.units.join("+");
+}
+
+/**
+ * Granularities of the line charts of monthly values. Columns with values for each day, e.g. MRR, can be shown per
+ * week or per day. Their values have the scale of the monthly values, see OverviewDailyValues.kt.
+ */
+export const GRANULARITIES = ["month", "week", "day"];
+
+/**
+ * @param {{period: string, daily: string|null}[]} seriesList The series of a line chart.
+ * @return {boolean} If the chart can show the values per week or per day.
+ */
+export function hasFinerValues(seriesList) {
+    return seriesList.some(series => series.period === "month" && series.daily);
+}
+
+/**
+ * @param {{dates: string[], series: Object<string, {values: number[], incompleteFrom: number}>}} data
+ *  The values per day or per week, loaded from the server.
+ * @param {string} id The ID of the values of a column.
+ * @return {{points: Map<number, number>, incomplete: Set<number>}|null} The values of the column, or null if there are none.
+ *  The values start with the last zero before the first value, the data of all columns starts with the first activity.
+ */
+export function finerPoints(data, id) {
+    const series = data?.series?.[id];
+    if (!series) {
+        return null;
+    }
+    const points = new Map();
+    const incomplete = new Set();
+    const firstValue = series.values.findIndex(value => value !== 0);
+    const start = firstValue === -1 ? 0 : Math.max(0, firstValue - 1);
+    data.dates.slice(start).forEach((date, offset) => {
+        const index = start + offset;
+        const timestamp = isoDateToTimestamp(date);
+        points.set(timestamp, series.values[index]);
+        if (index >= series.incompleteFrom) {
+            incomplete.add(timestamp);
+        }
+    });
+    return {points, incomplete};
 }
 
 /** Kinds of vertical lines in the line charts. */

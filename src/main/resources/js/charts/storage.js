@@ -14,23 +14,26 @@ const VERSION = 1;
 /**
  * @typedef {{type: "line"|"pie", table: string, column: string, color?: string}} ChartEntry
  * @typedef {{combineUnits: boolean, maximized: boolean, preferredStyle: "lines"|"bars",
- *  chartStyles: Object<string, "lines"|"bars">, shownMarkers: string[], entries: ChartEntry[]}} ChartSetup
+ *  chartStyles: Object<string, "lines"|"bars">, granularities: Object<string, "month"|"week"|"day">, shownMarkers: string[],
+ *  entries: ChartEntry[]}} ChartSetup
  */
 
 /** @return {ChartSetup} */
 export function emptySetup() {
     // vertical lines are hidden by default
-    return {combineUnits: false, maximized: false, preferredStyle: "lines", chartStyles: {}, shownMarkers: [], entries: []};
+    return {combineUnits: false, maximized: false, preferredStyle: "lines", chartStyles: {}, granularities: {}, shownMarkers: [], entries: []};
 }
 
 const STYLES = ["lines", "bars"];
+const GRANULARITIES = ["month", "week", "day"];
 const MARKER_KINDS = ["release", "price", "ide"];
 
-function validStyles(chartStyles) {
-    if (chartStyles === null || typeof chartStyles !== "object") {
+/** @return {object} The entries of the map with valid values. */
+function validValues(map, values) {
+    if (map === null || typeof map !== "object") {
         return {};
     }
-    return Object.fromEntries(Object.entries(chartStyles).filter(([key, style]) => typeof key === "string" && STYLES.includes(style)));
+    return Object.fromEntries(Object.entries(map).filter(([key, value]) => typeof key === "string" && values.includes(value)));
 }
 
 function isValidEntry(entry) {
@@ -57,7 +60,8 @@ export function createSetupStorage(storage) {
                     combineUnits: setup.combineUnits === true,
                     maximized: setup.maximized === true,
                     preferredStyle: STYLES.includes(setup.preferredStyle) ? setup.preferredStyle : "lines",
-                    chartStyles: validStyles(setup.chartStyles),
+                    chartStyles: validValues(setup.chartStyles, STYLES),
+                    granularities: validValues(setup.granularities, GRANULARITIES),
                     shownMarkers: Array.isArray(setup.shownMarkers) ? setup.shownMarkers.filter(kind => MARKER_KINDS.includes(kind)) : [],
                     entries: setup.entries.filter(isValidEntry),
                 };

@@ -124,6 +124,11 @@ data class DataTableColumn(
      * which can be shown in a pie chart. The first column of each row must contain the name of the row.
      */
     val isShareOfTotal: Boolean = false,
+    /**
+     * ID of the values of this column for each day, which charts load from `/chart-series`,
+     * see [dev.ja.marketplace.data.overview.OverviewDailyValues].
+     */
+    val dailyChartSeries: String? = null,
 )
 
 data class SimpleTableSection(

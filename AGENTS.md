@@ -97,7 +97,7 @@ CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
   loaded lazily on the first request for a plugin and then cached in memory, so the first page load for a plugin is slow.
   For testing, prefer a plugin with few sales, because plugins with a long sales history take much longer to load.
 - Useful routes: `/` (plugin list, or report with `?pluginId=<id>`), `/licenses`, `/customers`, `/trials`, `/countries`,
-  `/pricing`, `/downloads/monthly`, all with `?pluginId=<id>`. `POST /refresh?pluginId=<id>&reload=true` drops cached data.
+  `/pricing`, `/downloads/monthly`, `/chart-series` (JSON), all with `?pluginId=<id>`. `POST /refresh?pluginId=<id>&reload=true` drops cached data.
   See the routing in `MarketplaceStatsServer.kt`.
 - A JetBrains Marketplace API key is required. Besides the config file, it can be passed via `--api-key` or the
   `MARKETPLACE_API_KEY` environment variable.
@@ -117,6 +117,10 @@ CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
 - The key C shows and hides the chart dialog.
 - In sortable tables (`sortable` CSS class), a click on the label of a column header opens the chart and a click on
   the rest of the header, e.g. the arrow, sorts the table.
+- Line charts of the overview table can show the values per week or per day. Columns with values per day set
+  `DataTableColumn.dailyChartSeries`, the charts load the values from `/chart-series?pluginId=<id>&granularity=day|week`
+  (`DailyChartSeries`, calculated by `OverviewDailyValues`). Sums, e.g. of sales, are the sums of the month before
+  each day, licenses, MRR and ARR the values at each day, so that the last day of a month has the value of the table.
 - Vertical lines in line charts: major releases of the plugin (`MajorReleases`, from the plugin's releases), changes of the
   annual base price (`PriceChanges`, derived from undiscounted new US sales, the API has no price history) and major
   releases of IntelliJ IDEA (`IdeReleaseProvider`, from the JetBrains product service, cached for a day).
