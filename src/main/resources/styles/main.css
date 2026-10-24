@@ -29,7 +29,7 @@
     --backdrop-color: rgba(28, 27, 34, 0.35);
 
     --text-color: #1c1b22;
-    --text-color-disabled: #5c5b62;
+    --text-color-disabled: #68676d;
     --future-color: #5c5b62;
     --heading-color: #1a237e;
     --now-color: #1a237e;
@@ -76,7 +76,7 @@
 
         /* off-white instead of white, light text on a dark background is tiring otherwise */
         --text-color: #e6e5eb;
-        --text-color-disabled: #a9a8b1;
+        --text-color-disabled: #94939c;
         --future-color: #a9a8b1;
         --heading-color: #b4bcff;
         --now-color: #b4bcff;
@@ -759,6 +759,15 @@ table .subheading, table .subheading h3 {
 
 .disabled {
     color: var(--text-color-disabled);
+}
+
+/* the links of disabled rows, e.g. of expired licenses, are gray like the rest of the row */
+tr.disabled a, tr.disabled a:visited {
+    color: var(--text-color-disabled);
+}
+
+tr.disabled a:hover {
+    color: var(--link-color-active);
 }
 
 .desc, .incomplete {
