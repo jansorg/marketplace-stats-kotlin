@@ -23,6 +23,16 @@ import {downloadCanvas, downloadSvg, lineChartImage, pieChartSvg, printImages, s
 
 const STYLE_LABELS = {lines: "Lines", bars: "Bars"};
 
+/**
+ * @return {HTMLElement} A new element with the content of the element, which is added to the element.
+ */
+function wrapContent(element) {
+    const wrapper = document.createElement("span");
+    wrapper.append(...element.childNodes);
+    element.append(wrapper);
+    return wrapper;
+}
+
 function isTextInput(element) {
     return element instanceof HTMLElement
         && (element.isContentEditable || element.matches("textarea, select, input:not([type=checkbox], [type=radio], [type=button])"));
@@ -112,12 +122,22 @@ class ChartController {
     makeClickable(column, table) {
         const {header, type, columnIndex} = column;
         const show = () => type === "pie" ? this.addPie(table, columnIndex) : this.addSeries(table, columnIndex);
-        header.classList.add("chartable");
-        header.tabIndex = 0;
-        header.setAttribute("role", "button");
-        header.title = (header.title ? header.title + "\n" : "") + (type === "pie" ? "Click to show in a pie chart" : "Click to show in a chart");
-        header.addEventListener("click", show);
-        header.addEventListener("keydown", event => {
+        // a click on the header of a sortable table sorts it, only a click on the label of the header opens the chart
+        const isSortable = table.classList.contains("sortable") && !header.classList.contains("no-sort");
+        const target = isSortable ? wrapContent(header) : header;
+        target.classList.add("chartable");
+        target.tabIndex = 0;
+        target.setAttribute("role", "button");
+        const hint = type === "pie" ? "Click to show in a pie chart" : "Click to show in a chart";
+        target.title = (header.title ? header.title + "\n" : "") + (isSortable ? "Click the label to show in a chart, click the arrow to sort" : hint);
+        target.addEventListener("click", event => {
+            // the sortable tables handle all clicks on the document
+            if (isSortable) {
+                event.stopPropagation();
+            }
+            show();
+        });
+        target.addEventListener("keydown", event => {
             if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
                 show();

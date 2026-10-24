@@ -115,6 +115,8 @@ CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
   - `exportImage.js`: images of the charts with title and legend, for downloads (PNG, pie charts also SVG) and
     printing. Printing adds the images to the page and `print.css` hides everything else (`body.print-charts`).
 - The key C shows and hides the chart dialog.
+- In sortable tables (`sortable` CSS class), a click on the label of a column header opens the chart and a click on
+  the rest of the header, e.g. the arrow, sorts the table.
 - Vertical lines in line charts: major releases of the plugin (`MajorReleases`, from the plugin's releases), changes of the
   annual base price (`PriceChanges`, derived from undiscounted new US sales, the API has no price history) and major
   releases of IntelliJ IDEA (`IdeReleaseProvider`, from the JetBrains product service, cached for a day).
