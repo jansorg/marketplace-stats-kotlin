@@ -116,8 +116,10 @@ class AllPluginsMonthTable(
                     columnSalesPaid to sales.paidAmount,
                     columnMrr to mrrByDay.getValue(day).getTotalAmount(),
                     columnArr to arrByDay.getValue(day).getTotalAmount(),
-                    columnDownloads to downloadsByDay.getValue(day).toBigInteger(),
+                    // the downloads of a day are reported on the next day at the earliest
+                    columnDownloads to if (day < today) downloadsByDay.getValue(day).toBigInteger() else NoValue,
                 ),
+                tooltips = mapOf(columnDownloads to IncompleteDownloadsTooltip.takeIf { day == today }),
                 cssClass = if (day == today) "today" else null,
             )
         }
