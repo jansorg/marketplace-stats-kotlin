@@ -126,4 +126,45 @@ interface MarketplaceClient : MarketplaceUrlSupport, MarketplaceClientPublic {
      */
     @PaidPluginAPI
     suspend fun volumeDiscounts(plugin: PluginId): VolumeDiscountResponse
+
+    /**
+     * @return The release dates of the versions of the plugin, which the Marketplace uses for perpetual fallback licenses.
+     */
+    @PaidPluginAPI
+    suspend fun releaseDates(plugin: PluginId): List<PluginReleaseDate>
+
+    /**
+     * @return The special offers of the plugin, which are redeemed with coupons.
+     */
+    @PaidPluginAPI
+    suspend fun offers(plugin: PluginId): List<PluginOffer>
+
+    @PaidPluginAPI
+    suspend fun offer(plugin: PluginId, offer: PluginOfferId): PluginOffer
+
+    /**
+     * @return The coupons of a special offer of the plugin.
+     */
+    @PaidPluginAPI
+    suspend fun offerCoupons(plugin: PluginId, offer: PluginOfferId): List<PluginOfferCoupon>
+
+    /**
+     * @return The monetization settings of the plugin, e.g. its product code and pricing model.
+     */
+    @PaidPluginAPI
+    suspend fun monetization(plugin: PluginId): PluginMonetization
+
+    /**
+     * @return The sales analytics report: the sales of each day, grouped by customer type, license type and billing period.
+     * The Marketplace creates the report as a CSV file, which is downloaded from a temporary URL.
+     */
+    @PaidPluginAPI
+    suspend fun salesAnalyticsReport(plugin: PluginId): List<SalesAnalyticsReportRow>
+
+    /**
+     * @return The full sales report: each license of each sale, including free licenses, e.g. for trials.
+     * The Marketplace creates the report as a CSV file, which is downloaded from a temporary URL.
+     */
+    @PaidPluginAPI
+    suspend fun fullSalesReport(plugin: PluginId): List<FullSalesReportRow>
 }

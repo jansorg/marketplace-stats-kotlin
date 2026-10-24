@@ -304,6 +304,48 @@ class CaffeineCacheMarketplaceClient(
         }
     }
 
+    override suspend fun releaseDates(plugin: PluginId): List<PluginReleaseDate> {
+        return loadCached("releaseDates.$plugin", rarelyModifiedCacheDuration) {
+            super.releaseDates(plugin)
+        }
+    }
+
+    override suspend fun offers(plugin: PluginId): List<PluginOffer> {
+        return loadCached("offers.$plugin", frequentlyModifiedCacheDuration) {
+            super.offers(plugin)
+        }
+    }
+
+    override suspend fun offer(plugin: PluginId, offer: PluginOfferId): PluginOffer {
+        return loadCached("offer.$plugin.$offer", frequentlyModifiedCacheDuration) {
+            super.offer(plugin, offer)
+        }
+    }
+
+    override suspend fun offerCoupons(plugin: PluginId, offer: PluginOfferId): List<PluginOfferCoupon> {
+        return loadCached("offerCoupons.$plugin.$offer", frequentlyModifiedCacheDuration) {
+            super.offerCoupons(plugin, offer)
+        }
+    }
+
+    override suspend fun monetization(plugin: PluginId): PluginMonetization {
+        return loadCached("monetization.$plugin", rarelyModifiedCacheDuration) {
+            super.monetization(plugin)
+        }
+    }
+
+    override suspend fun salesAnalyticsReport(plugin: PluginId): List<SalesAnalyticsReportRow> {
+        return loadCached("salesAnalyticsReport.$plugin", frequentlyModifiedCacheDuration) {
+            super.salesAnalyticsReport(plugin)
+        }
+    }
+
+    override suspend fun fullSalesReport(plugin: PluginId): List<FullSalesReportRow> {
+        return loadCached("fullSalesReport.$plugin", frequentlyModifiedCacheDuration) {
+            super.fullSalesReport(plugin)
+        }
+    }
+
     override suspend fun marketplacePluginInfo(plugin: PluginId, fullInfo: Boolean): MarketplacePluginInfo {
         return loadCached("marketplacePluginInfo.$plugin.$fullInfo", rarelyModifiedCacheDuration) {
             super.marketplacePluginInfo(plugin, fullInfo)
