@@ -63,6 +63,27 @@ interface McpDataProvider {
      */
     suspend fun pluginChannels(plugin: PluginInfoSummary): List<PluginChannel>
 
+    /**
+     * @return The special offers of a paid or freemium plugin, which customers redeem with coupons.
+     */
+    suspend fun offers(plugin: PluginInfoSummary): List<PluginOffer>
+
+    /**
+     * @return The coupons of a special offer of the plugin.
+     */
+    suspend fun offerCoupons(plugin: PluginInfoSummary, offer: PluginOfferId): List<PluginOfferCoupon>
+
+    /**
+     * @return The monetization settings of a paid or freemium plugin, e.g. its product code.
+     */
+    suspend fun monetization(plugin: PluginInfoSummary): PluginMonetization
+
+    /**
+     * @return The full sales report of the Marketplace, with each license of each sale, including free licenses.
+     * The Marketplace creates the report on demand, the first call is slow.
+     */
+    suspend fun fullSalesReport(plugin: PluginInfoSummary): List<FullSalesReportRow>
+
     suspend fun productReleases(product: JetBrainsProductCode, type: ProductReleaseType): List<ProductRelease>
 
     suspend fun products(): Products
@@ -262,7 +283,8 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
         McpToolDefinition(
             "list_plugins",
             "Plugins",
-            "The Marketplace account of the server's API key and its plugins. Sales, licenses and trials exist only for paid and freemium plugins.",
+            "The Marketplace account of the server's API key and its plugins. Sales, licenses and trials exist only for paid and freemium plugins. " +
+                    "Paid and freemium plugins have their monetization settings: product code, pricing model and the requirements confirmed by the vendor.",
             JsonObject(emptyMap()),
             emptyList(),
         ) { listPlugins() },
@@ -386,6 +408,30 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
             listOf("pluginId"),
         ) { arguments -> listPluginReleases(arguments) },
         McpToolDefinition(
+            "list_offers",
+            "Special offers",
+            "Special offers of the plugin, which customers redeem with coupons, newest first: name, start date, " +
+                    "discount in percent or free months, license periods, and the number of coupons, active coupons " +
+                    "and coupons marked as sent to customers. The coupon codes aren't returned.",
+            buildJsonObject {
+                put("pluginId", pluginIdProperty)
+            },
+            listOf("pluginId"),
+        ) { arguments -> listOffers(arguments) },
+        McpToolDefinition(
+            "get_free_licenses",
+            "Free licenses",
+            "Licenses without payment by month and license type, e.g. open source licenses, trials and licenses with " +
+                    "a discount of 100%, from the full sales report of the Marketplace. The sales and the other tools " +
+                    "only contain paid licenses. Slow on the first call, the Marketplace creates the report.",
+            buildJsonObject {
+                put("pluginId", pluginIdProperty)
+                put("startDate", startDateProperty)
+                put("endDate", endDateProperty)
+            },
+            listOf("pluginId"),
+        ) { arguments -> getFreeLicenses(arguments) },
+        McpToolDefinition(
             "list_jetbrains_product_releases",
             "Releases of JetBrains products",
             "Versions of a JetBrains product with release date and build number, newest first. " +
@@ -461,13 +507,22 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
 
     private suspend fun listPlugins(): JsonObject {
         val user = provider.userInfo()
+        val plugins = provider.plugins()
+        val monetizations = coroutineScope {
+            plugins.map { plugin ->
+                async {
+                    // the plugins are listed even if the settings of a plugin can't be loaded
+                    if (plugin.isPaidOrFreemium) runCatching { provider.monetization(plugin) }.getOrNull() else null
+                }
+            }.awaitAll()
+        }
         return buildJsonObject {
             put("account", buildJsonObject {
                 put("id", user.id)
                 put("name", user.name)
             })
             put("plugins", buildJsonArray {
-                for (plugin in provider.plugins()) {
+                for ((plugin, monetization) in plugins.zip(monetizations)) {
                     add(buildJsonObject {
                         put("id", plugin.id)
                         put("xmlId", plugin.xmlId)
@@ -477,6 +532,13 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
                         put("downloads", plugin.downloads)
                         put("rating", plugin.rating)
                         put("link", plugin.link)
+                        if (monetization != null) {
+                            put("monetization", buildJsonObject {
+                                put("productCode", monetization.productCode)
+                                put("pricingModel", monetization.pricingModel)
+                                put("confirmedRequirements", JsonArray(monetization.confirmedRequirements.map(::JsonPrimitive)))
+                            })
+                        }
                     })
                 }
             })
@@ -748,6 +810,60 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
             put("majorReleases", JsonArray(majorReleases.map(McpReleasesJson::majorRelease)))
             put("releaseCount", releasesInRange.size)
             put("releases", JsonArray(releasesInRange.map(McpReleasesJson::pluginRelease)))
+        }
+    }
+
+    private suspend fun listOffers(arguments: JsonObject): JsonObject {
+        val plugin = provider.findPlugin(arguments)
+        require(plugin.isPaidOrFreemium) { "Plugin ${plugin.id} has no special offers, it's not a paid or freemium plugin" }
+        val offers = provider.offers(plugin).sortedByDescending { it.startDate }
+        val coupons = coroutineScope { offers.map { offer -> async { provider.offerCoupons(plugin, offer.id) } }.awaitAll() }
+        return buildJsonObject {
+            putPlugin(plugin)
+            put("offers", JsonArray(offers.zip(coupons) { offer, offerCoupons ->
+                buildJsonObject {
+                    put("id", offer.id)
+                    put("name", offer.name)
+                    put("startDate", offer.startDate.asIsoString)
+                    put("discountPercent", offer.discountPercent)
+                    put("freeMonths", offer.freePeriodInMonths)
+                    put("licensePeriods", JsonArray(offer.licensePeriods.map { JsonPrimitive(it.toolName) }))
+                    // the codes of the coupons aren't returned, they are valid discounts
+                    put("coupons", offerCoupons.size)
+                    put("activeCoupons", offerCoupons.count(PluginOfferCoupon::isActive))
+                    put("sentCoupons", offerCoupons.count(PluginOfferCoupon::isSent))
+                }
+            }))
+        }
+    }
+
+    private suspend fun getFreeLicenses(arguments: JsonObject): JsonObject {
+        val plugin = provider.findPlugin(arguments)
+        require(plugin.isPaidOrFreemium) { "Plugin ${plugin.id} has no sales report, it's not a paid or freemium plugin" }
+        val dateRange = McpDateRange.parse(arguments.stringArgument("startDate"), arguments.stringArgument("endDate"))
+        val range = dateRange.toRange()
+
+        val rows = provider.fullSalesReport(plugin).filter { it.amountUSD.isZero && it.date in range }
+        fun licenseTypes(rows: List<FullSalesReportRow>): JsonObject = buildJsonObject {
+            for ((type, typeRows) in rows.groupBy { it.licenseType?.toolName ?: "unknown" }.toSortedMap()) {
+                put(type, buildJsonObject {
+                    put("licenses", typeRows.sumOf(FullSalesReportRow::quantity))
+                    put("customers", typeRows.map(FullSalesReportRow::customerId).distinct().size)
+                })
+            }
+        }
+
+        return buildJsonObject {
+            putPlugin(plugin)
+            put("startDate", dateRange.start?.asIsoString)
+            put("endDate", dateRange.end?.asIsoString)
+            put("total", licenseTypes(rows))
+            put("months", JsonArray(rows.groupBy { String.format("%04d-%02d", it.date.year, it.date.month) }.toSortedMap().map { (month, monthRows) ->
+                buildJsonObject {
+                    put("month", month)
+                    put("licenseTypes", licenseTypes(monthRows))
+                }
+            }))
         }
     }
 
