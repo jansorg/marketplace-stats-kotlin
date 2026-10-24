@@ -38,6 +38,47 @@ object McpTestData {
     private val individualUS = CustomerInfo(3, Country.UNITED_STATES, CustomerType.Individual, "Individual US")
     private val individualFR = CustomerInfo(4, "France", CustomerType.Individual, "Individual FR")
 
+    val offers = listOf(
+        PluginOffer(1, "Launch offer", PLUGIN_ID, YearMonthDay(2025, 3, 1), listOf("Annual"), discountPercent = 50),
+        PluginOffer(2, "Free months", PLUGIN_ID, YearMonthDay(2025, 9, 1), listOf("Monthly", "Annual"), freePeriodInMonths = 3),
+    )
+
+    val offerCoupons = mapOf(
+        1 to listOf(
+            PluginOfferCoupon("CODE-1", isActive = true, isSent = true),
+            PluginOfferCoupon("CODE-2", isActive = false, isSent = true),
+            PluginOfferCoupon("CODE-3", isActive = true, isSent = false),
+        ),
+    )
+
+    /** Free licenses of the full sales report and one paid license, which isn't a free license. */
+    val fullSalesReport: List<FullSalesReportRow> = listOf(
+        reportRow(YearMonthDay(2025, 8, 3), SalesReportLicenseType.OpenSource, quantity = 1, amountUSD = 0, customerId = 10),
+        reportRow(YearMonthDay(2025, 8, 20), SalesReportLicenseType.OpenSource, quantity = 2, amountUSD = 0, customerId = 10),
+        reportRow(YearMonthDay(2025, 8, 21), SalesReportLicenseType.Trial, quantity = 1, amountUSD = 0, customerId = 11),
+        reportRow(YearMonthDay(2025, 9, 5), SalesReportLicenseType.Trial, quantity = 1, amountUSD = 0, customerId = 12),
+        reportRow(YearMonthDay(2025, 9, 6), SalesReportLicenseType.Commercial, quantity = 1, amountUSD = 100, customerId = 13),
+    )
+
+    private fun reportRow(date: YearMonthDay, type: SalesReportLicenseType, quantity: Int, amountUSD: Int, customerId: Int): FullSalesReportRow {
+        return FullSalesReportRow(
+            productCode = "PTEST",
+            date = date,
+            customerType = CustomerType.Individual,
+            customerName = "Customer $customerId",
+            customerCountryIsoCode = "DE",
+            isViaReseller = false,
+            licenseType = type,
+            billingPeriod = LicensePeriod.Annual,
+            quantity = quantity,
+            amountUSD = FastMoney.of(amountUSD, MarketplaceCurrencies.USD),
+            isDiscounted = false,
+            customerId = customerId,
+            orderRef = "R-$customerId",
+            purchaseId = "P-$customerId",
+        )
+    }
+
     val plugin = PluginInfoSummary(
         id = PLUGIN_ID,
         xmlId = "dev.ja.test",
@@ -128,6 +169,18 @@ object McpTestData {
         }
 
         override suspend fun pluginChannels(plugin: PluginInfoSummary): List<PluginChannel> = listOf("", "eap")
+
+        override suspend fun offers(plugin: PluginInfoSummary): List<PluginOffer> = offers
+
+        override suspend fun offerCoupons(plugin: PluginInfoSummary, offer: PluginOfferId): List<PluginOfferCoupon> {
+            return offerCoupons[offer] ?: emptyList()
+        }
+
+        override suspend fun monetization(plugin: PluginInfoSummary): PluginMonetization {
+            return PluginMonetization("PTEST", "PAID", listOf("OBFUSCATE"))
+        }
+
+        override suspend fun fullSalesReport(plugin: PluginInfoSummary): List<FullSalesReportRow> = fullSalesReport
 
         override suspend fun productReleases(product: JetBrainsProductCode, type: ProductReleaseType): List<ProductRelease> {
             return productReleases.filter { product == JetBrainsProductCode.IntelliJIDEAUltimate && it.type == type }

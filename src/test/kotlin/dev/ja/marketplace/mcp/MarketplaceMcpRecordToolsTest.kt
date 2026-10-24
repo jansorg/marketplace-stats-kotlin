@@ -436,6 +436,53 @@ class MarketplaceMcpRecordToolsTest {
         assertFalse(tools.tools.single { it.name == "refresh_data" }.readOnly)
     }
 
+    @Test
+    suspend fun offersWithTheNumberOfCouponsWithoutTheirCodes() {
+        val result = tools.call("list_offers", arguments())
+        val offers = result["offers"]!!.jsonArray.map { it.jsonObject }
+        // newest first
+        assertEquals(listOf("Free months", "Launch offer"), offers.map { it["name"]!!.jsonPrimitive.content })
+
+        val launch = offers[1]
+        assertEquals(50, launch["discountPercent"]!!.jsonPrimitive.int)
+        assertEquals(JsonNull, launch["freeMonths"])
+        assertEquals(listOf("annual"), launch["licensePeriods"]!!.jsonArray.map { it.jsonPrimitive.content })
+        assertEquals(3, launch["coupons"]!!.jsonPrimitive.int)
+        assertEquals(2, launch["activeCoupons"]!!.jsonPrimitive.int)
+        assertEquals(2, launch["sentCoupons"]!!.jsonPrimitive.int)
+        assertEquals(3, offers[0]["freeMonths"]!!.jsonPrimitive.int)
+        assertEquals(0, offers[0]["coupons"]!!.jsonPrimitive.int)
+
+        assertFalse(result.toString().contains("CODE-"), "the coupon codes must not be returned")
+    }
+
+    @Test
+    suspend fun freeLicensesByMonthAndLicenseType() {
+        val result = tools.call("get_free_licenses", arguments())
+        val total = result["total"]!!.jsonObject
+        assertEquals(setOf("openSource", "trial"), total.keys, "the paid license isn't a free license")
+        assertEquals(3, total["openSource"]!!.jsonObject["licenses"]!!.jsonPrimitive.int)
+        assertEquals(1, total["openSource"]!!.jsonObject["customers"]!!.jsonPrimitive.int)
+        assertEquals(2, total["trial"]!!.jsonObject["licenses"]!!.jsonPrimitive.int)
+
+        val months = result["months"]!!.jsonArray.map { it.jsonObject }
+        assertEquals(listOf("2025-08", "2025-09"), months.map { it["month"]!!.jsonPrimitive.content })
+        assertEquals(setOf("trial"), months[1]["licenseTypes"]!!.jsonObject.keys)
+
+        val september = tools.call("get_free_licenses", arguments { put("startDate", "2025-09-01") })
+        assertEquals(1, september["total"]!!.jsonObject["trial"]!!.jsonObject["licenses"]!!.jsonPrimitive.int)
+        assertNull(september["total"]!!.jsonObject["openSource"])
+    }
+
+    @Test
+    suspend fun monetizationOfPaidPlugins() {
+        val plugin = tools.call("list_plugins", JsonObject(emptyMap()))["plugins"]!!.jsonArray[0].jsonObject
+        val monetization = plugin["monetization"]!!.jsonObject
+        assertEquals("PTEST", monetization["productCode"]!!.jsonPrimitive.content)
+        assertEquals("PAID", monetization["pricingModel"]!!.jsonPrimitive.content)
+        assertEquals(listOf("OBFUSCATE"), monetization["confirmedRequirements"]!!.jsonArray.map { it.jsonPrimitive.content })
+    }
+
     private fun arguments(builder: JsonObjectBuilder.() -> Unit = {}): JsonObject {
         return buildJsonObject {
             put("pluginId", McpTestData.PLUGIN_ID)

@@ -240,6 +240,16 @@ class MarketplaceStatsServer(
             return client.channels(plugin.id)
         }
 
+        override suspend fun offers(plugin: PluginInfoSummary): List<PluginOffer> = client.offers(plugin.id)
+
+        override suspend fun offerCoupons(plugin: PluginInfoSummary, offer: PluginOfferId): List<PluginOfferCoupon> {
+            return client.offerCoupons(plugin.id, offer)
+        }
+
+        override suspend fun monetization(plugin: PluginInfoSummary): PluginMonetization = client.monetization(plugin.id)
+
+        override suspend fun fullSalesReport(plugin: PluginInfoSummary): List<FullSalesReportRow> = client.fullSalesReport(plugin.id)
+
         // cached by the services client
         override suspend fun productReleases(product: JetBrainsProductCode, type: ProductReleaseType): List<ProductRelease> {
             return servicesClient.productReleases(product, type)
