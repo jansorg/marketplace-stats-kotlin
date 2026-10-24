@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -20,6 +20,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.builtins.serializer
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
@@ -75,6 +77,9 @@ class CaffeineCacheMarketplaceClient(
     private val persistentTrials = ConcurrentHashMap<PluginId, PersistentHistoryCache<PluginTrial, CachedTrial>>()
     private val persistentPrices = persistentCache?.let { PersistentPriceCache(it, persistentCacheScope) }
 
+    // downloads are stored for a day, the monthly, daily and per-product values are requested via downloads()
+    private val persistentDownloads = persistentCache?.let { PersistentResponseCache(it, persistentCacheScope, maxAge = 1.days) }
+
     // set after the cache was invalidated, data stored on disk is ignored afterward
     @Volatile
     private var isStoredDataIgnored = false
@@ -86,6 +91,20 @@ class CaffeineCacheMarketplaceClient(
         persistentSales.values.forEach(PersistentHistoryCache<*, *>::invalidate)
         persistentTrials.values.forEach(PersistentHistoryCache<*, *>::invalidate)
         persistentPrices?.invalidate()
+        persistentDownloads?.invalidate()
+    }
+
+    /**
+     * Drops the cached data of a single plugin, e.g. its sales, trials, downloads and releases.
+     * The sales and trials of the plugin are fetched again completely, the prices of all plugins are kept.
+     */
+    fun invalidatePlugin(plugin: PluginId) {
+        // the keys of the data of a plugin have the plugin ID as second segment, e.g. "downloads.<id>..."
+        val segment = plugin.toString()
+        cache.synchronous().asMap().keys.removeIf { it.split('.').getOrNull(1) == segment }
+        persistentSales[plugin]?.invalidate()
+        persistentTrials[plugin]?.invalidate()
+        persistentDownloads?.invalidate(downloadsFileName(plugin))
     }
 
     /**
@@ -190,8 +209,9 @@ class CaffeineCacheMarketplaceClient(
 
     override suspend fun downloadsTotal(plugin: PluginId, vararg filters: DownloadFilter): Long {
         val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
-        return loadCached("downloadsTotal.$plugin.$filterString", frequentlyModifiedCacheDuration) {
-            super.downloadsTotal(plugin, *filters)
+        val key = "downloadsTotal.$plugin.$filterString"
+        return loadCached(key, frequentlyModifiedCacheDuration) {
+            storedDownloads(plugin, key, Long.serializer()) { super.downloadsTotal(plugin, *filters) }
         }
     }
 
@@ -203,8 +223,44 @@ class CaffeineCacheMarketplaceClient(
         vararg filters: DownloadFilter
     ): DownloadResponse {
         val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
-        return loadCached("downloads.$plugin.$groupType.$countType.$startDate.$filterString", frequentlyModifiedCacheDuration) {
-            super.downloads(plugin, groupType, countType, startDate, *filters)
+        val key = "downloads.$plugin.$groupType.$countType.$startDate.$filterString"
+        return loadCached(key, frequentlyModifiedCacheDuration) {
+            storedDownloads(plugin, key, DownloadResponse.serializer()) { super.downloads(plugin, groupType, countType, startDate, *filters) }
+        }
+    }
+
+    override suspend fun groupedDownloads(
+        plugin: PluginId,
+        dimension: DownloadRequestDimension,
+        groupType: DownloadRequestDimension,
+        countType: DownloadCountType,
+        startDate: YearMonthDay?,
+        vararg filters: DownloadFilter,
+    ): GroupedDownloadResponse {
+        val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
+        val key = "groupedDownloads.$plugin.$dimension.$groupType.$countType.$startDate.$filterString"
+        return loadCached(key, frequentlyModifiedCacheDuration) {
+            storedDownloads(plugin, key, GroupedDownloadResponse.serializer()) {
+                super.groupedDownloads(plugin, dimension, groupType, countType, startDate, *filters)
+            }
+        }
+    }
+
+    /**
+     * @return The downloads of the persistent cache, which are fetched again after a day, or the loaded downloads without a persistent cache.
+     */
+    private suspend fun <T> storedDownloads(plugin: PluginId, key: String, serializer: KSerializer<T>, loader: suspend () -> T): T {
+        return when (val store = persistentDownloads) {
+            null -> loader()
+            else -> store.get(downloadsFileName(plugin), key, serializer, loader)
+        }
+    }
+
+    private fun downloadsFileName(plugin: PluginId): String = "plugin-$plugin-downloads"
+
+    override suspend fun pageAnalytics(plugin: PluginId, timeFrame: PageAnalyticsTimeFrame): PluginPageAnalytics {
+        return loadCached("pageAnalytics.$plugin.$timeFrame", frequentlyModifiedCacheDuration) {
+            super.pageAnalytics(plugin, timeFrame)
         }
     }
 

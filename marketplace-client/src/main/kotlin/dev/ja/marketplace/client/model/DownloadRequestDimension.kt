@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -14,4 +14,7 @@ enum class DownloadRequestDimension(val requestPathSegment: String) {
 
     // downloads grouped by day
     Day("day"),
+
+    // downloads grouped by release of the plugin, the name of a group is the ID of the release
+    Update("update"),
 }

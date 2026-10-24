@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -44,7 +44,9 @@ data class ChurnResult<T>(
             previousPeriodMarkerDate,
             currentPeriodMarkerDate,
             period,
-            pluginId
+            pluginId,
+            churnedCount = churnedItemCount,
+            previousActiveCount = previousActiveItemCount,
         )
         return when {
             isIncomplete -> IncompleteValue(linkedChurnRate)

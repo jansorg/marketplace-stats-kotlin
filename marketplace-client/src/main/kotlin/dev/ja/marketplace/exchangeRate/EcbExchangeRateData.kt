@@ -92,7 +92,10 @@ class EcbRateTable internal constructor(
         }
     }
 
-    private val currencies: List<String>
+    /**
+     * The codes of the currencies with rates, without EUR. Discontinued currencies have no rates for recent dates.
+     */
+    val currencies: List<String>
         get() = currencyIndex.object2IntEntrySet().sortedBy { it.intValue }.map { it.key }
 
     /**

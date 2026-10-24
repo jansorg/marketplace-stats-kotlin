@@ -23,6 +23,9 @@ import dev.ja.marketplace.client.CaffeineCacheMarketplaceClient
 import dev.ja.marketplace.client.ClientLogLevel
 import dev.ja.marketplace.client.persistentCache.PersistentCacheStore
 import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
+import dev.ja.marketplace.mcp.McpDefaultAllowedHosts
+import dev.ja.marketplace.mcp.normalizeMcpAllowedHost
+import dev.ja.marketplace.services.CachingJetBrainsServiceClient
 import dev.ja.marketplace.services.KtorJetBrainsServiceClient
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -72,6 +75,15 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
     private val cacheDir: String? by option("--cache-dir", envvar = "MARKETPLACE_CACHE_DIR")
         .help("Directory of the persistent cache. Sales, trials, prices and exchange rates are stored there to speed up restarts. The data is kept in memory only if no directory is set or if it's empty. A leading ~ is the home directory.")
 
+    private val mcpEnabled: Boolean by option("--mcp", envvar = "MARKETPLACE_MCP")
+        .flag("--no-mcp", default = true, defaultForHelp = "enabled")
+        .help("Serve the MCP server for AI agents at /mcp of the integrated webserver.")
+
+    private val mcpAllowedHosts: List<String> by option("--mcp-allowed-hosts", envvar = "MARKETPLACE_MCP_ALLOWED_HOSTS")
+        .split(",")
+        .default(emptyList(), defaultForHelp = "none")
+        .help("Comma-separated hostnames, which are accepted in the Host and Origin headers of requests to the MCP server, in addition to localhost, 127.0.0.1, [::1] and the hostname of --host. Protects against DNS rebinding attacks.")
+
     private val logging: ClientLogLevel by option(
         "-d",
         "--debug",
@@ -108,14 +120,21 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
         if (cacheDir != null) {
             EcbExchangeRateData.Default.enablePersistentCache(PersistentCacheStore(cacheDir))
         }
+        // the wildcard addresses accept connections for any hostname, they can't be used to validate the Host header
+        val mcpAllowedHosts = (McpDefaultAllowedHosts + serverHostname.takeUnless { it == "0.0.0.0" || it == "::" } + mcpAllowedHosts)
+            .filterNotNull()
+            .mapNotNull(::normalizeMcpAllowedHost)
+            .distinct()
 
         runBlocking {
             val server = MarketplaceStatsServer(
                 CaffeineCacheMarketplaceClient(apiKey = apiKey, logLevel = logging, persistentCacheDirectory = cacheDir),
-                KtorJetBrainsServiceClient(logLevel = logging),
+                // the products of JetBrains are the same for all accounts, they're stored outside the directory of the account
+                CachingJetBrainsServiceClient(KtorJetBrainsServiceClient(logLevel = logging), cacheDir?.let { PersistentCacheStore(it).subStore("jetbrains") }),
                 serverHostname,
                 serverPort,
-                ServerConfiguration(displayCurrencyCode, showResellerCharges)
+                ServerConfiguration(displayCurrencyCode, showResellerCharges),
+                mcpAllowedHosts.takeIf { mcpEnabled },
             )
 
             server.start()

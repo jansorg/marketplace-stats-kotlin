@@ -31,6 +31,7 @@ Dependency direction: root → `marketplace-data` → `marketplace-client`. All 
   kotlinx-datetime 0.8 (the `0.6.x-compat` variant, which Ktor requires)
 - JTE 3.2.4 templates (`.kte`, Kotlin syntax), precompiled at build time
 - Clikt 5 for the CLI (`Application.kt`)
+- MCP Kotlin SDK (`io.modelcontextprotocol:kotlin-sdk-server`) for the MCP server at `/mcp`
 - Moneta (JSR 354, `moneta-core` only) for monetary amounts. Currency conversion uses the ECB reference rates, loaded
   lazily by our own `EcbExchangeRateData` (`marketplace-client/.../exchangeRate/`), not by Moneta's ECB providers.
 - fastutil for collections on hot paths (per-license sets and maps), Caffeine for caching, Logback for logging
@@ -51,6 +52,8 @@ Version constraints to keep in mind when upgrading:
   - `kotlinx-serialization-json` 1.11.0 (1.12 requires Kotlin 2.4)
   - `dev.hsbrysk:caffeine-coroutines` 2.0.4 (2.0.5 requires Kotlin 2.4)
   - `kotlinx-serialization-protobuf` (format of the persistent cache) must have the same version as `kotlinx-serialization-json`
+  - `io.modelcontextprotocol:kotlin-sdk-server` 0.14.0 (0.15 requires Kotlin 2.4). It depends on older Ktor modules,
+    the `ktor-bom` platform aligns them with the Ktor version of the project.
 
   Before upgrading a Kotlin library, check the `kotlin-stdlib` version it requires, and afterwards check
   `./gradlew dependencyInsight --configuration runtimeClasspath --dependency org.jetbrains.kotlin:kotlin-stdlib`.
@@ -59,7 +62,7 @@ Version constraints to keep in mind when upgrading:
   classes loaded afterwards fail with `NoClassDefFoundError`. To test changes while such a server is running, copy the
   working tree (without `build/` and `.gradle/`) to a temporary directory and build there.
 - The fat JAR is built with Shadow's `minimize` (`shadowJar` in `build.gradle.kts`). Libraries, which load classes by
-  name or via `ServiceLoader` (Logback, Ktor, Mordant, Caffeine, Moneta, JTE), are excluded from minimizing. The root
+  name or via `ServiceLoader` (Logback, Ktor, Mordant, Caffeine, Moneta, JTE, MCP SDK, kotlin-logging), are excluded from minimizing. The root
   project depends on the modules with `api`, so that classes only used by the JTE templates are kept. After adding or
   upgrading a dependency, run the fat JAR and open the report pages. Shadow's build cache doesn't notice changes of the
   `minimize` settings, use `./gradlew shadowJar --no-build-cache --rerun-tasks`.
@@ -100,6 +103,10 @@ CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
 - Useful routes: `/` (plugin list, or report with `?pluginId=<id>`), `/licenses`, `/customers`, `/trials`, `/countries`,
   `/pricing`, `/downloads/monthly`, `/chart-series` (JSON), all with `?pluginId=<id>`. `POST /refresh?pluginId=<id>&reload=true` drops cached data.
   See the routing in `MarketplaceStatsServer.kt`.
+- The MCP server is served at `/mcp` (Streamable HTTP, `src/main/kotlin/dev/ja/marketplace/mcp/`, see README.md).
+  It's disabled with `--no-mcp`. Requests must use one of the allowed hostnames (`localhost`, `127.0.0.1`, `[::1]`, `--host`,
+  `--mcp-allowed-hosts`) in the `Host` header. A tool call needs a session: `initialize` returns the `Mcp-Session-Id` header,
+  send it with all later requests, together with `Accept: application/json, text/event-stream`.
 - A JetBrains Marketplace API key is required. Besides the config file, it can be passed via `--api-key` or the
   `MARKETPLACE_API_KEY` environment variable.
 - `config.json`, `config.*.json` and `.env` are git-ignored and may contain real API keys. Never commit them or print their contents.
@@ -116,7 +123,10 @@ CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
 - Stored: sales and trials (`PersistentHistoryCache`, incremental fetches with an overlap of 45 days after each start,
   for all plugins with stored data via `CaffeineCacheMarketplaceClient.updateStoredHistory`, and when a report needs
   data older than 30 minutes, complete fetch weekly),
-  plugin prices by country (`PersistentPriceCache`) and the ECB exchange rates (`EcbExchangeRateData`).
+  plugin prices by country (`PersistentPriceCache`), the ECB exchange rates (`EcbExchangeRateData`), downloads
+  (`PersistentResponseCache`, responses of `downloads`, `downloadsTotal` and `groupedDownloads` as JSON, fetched again after
+  a day) and the products and releases of JetBrains (`CachingJetBrainsServiceClient`, in `jetbrains/`, shared by all
+  accounts, fetched again after a day).
   The data of an account is stored in `accounts/account-<hash of API host and key>/`.
 - The stored classes (`CachedSalesModel.kt`, `CachedEcbRates`) are separate from the API model. After incompatible
   changes, increment the data version (`HistoryKind`, `DATA_VERSION`). `CachedSalesModelCoverageTest` fails if a

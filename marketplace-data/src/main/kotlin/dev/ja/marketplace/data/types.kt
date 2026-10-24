@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -90,6 +90,10 @@ data class LinkedChurnRate(
     val currentPeriodMarkerDate: YearMonthDay,
     val period: LicensePeriod,
     val pluginId: PluginId,
+    /** Number of licenses or customers, which were active in the previous period and churned. */
+    val churnedCount: Int = 0,
+    /** Number of licenses or customers, which were active in the previous period. */
+    val previousActiveCount: Int = 0,
 )
 
 const val NoValue: String = "—"

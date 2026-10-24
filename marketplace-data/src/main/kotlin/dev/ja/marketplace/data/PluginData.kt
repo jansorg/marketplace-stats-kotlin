@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -9,6 +9,7 @@ import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.*
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import dev.ja.marketplace.services.Countries
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 
 data class PluginData(
@@ -63,5 +64,24 @@ data class PluginData(
 
     suspend fun getTrials(): List<PluginTrial>? {
         return trialsDeferred?.await()
+    }
+
+    /**
+     * @return The first day with a sale, a trial or a download, or `null` if there's no such day.
+     */
+    suspend fun getFirstActivityDate(): YearMonthDay? {
+        return listOfNotNull(
+            getSales()?.minOfOrNull { it.date },
+            getTrials()?.minOfOrNull { it.date },
+            getDownloadsDaily().filter { it.downloads > 0 }.minOfOrNull { it.day },
+        ).minOrNull()
+    }
+
+    /**
+     * @return A copy of this data, which only contains the trials matching [predicate].
+     */
+    suspend fun filterTrials(predicate: (PluginTrial) -> Boolean): PluginData {
+        val trials = trialsDeferred?.await() ?: return this
+        return copy(trialsDeferred = CompletableDeferred(trials.filter(predicate)))
     }
 }
