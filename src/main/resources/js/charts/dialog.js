@@ -7,6 +7,8 @@
  * The dialog, which shows the charts.
  */
 
+import {MARKER_LABELS} from "./model.js";
+
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
 /** Arrows pointing to the corners to maximize, and to the center to restore. */
@@ -26,8 +28,6 @@ function icon(name) {
     return svg;
 }
 
-/** Labels of the kinds of vertical lines. */
-const MARKER_LABELS = {release: "Product version", price: "Price changes", ide: "IntelliJ IDEA releases"};
 
 function button(text, onClick, className) {
     const result = document.createElement("button");
@@ -75,7 +75,7 @@ export class ChartDialog {
 
         const hint = document.createElement("p");
         hint.className = "chart-dialog-hint";
-        hint.textContent = "Close the dialog and click another column header to add it. "
+        hint.textContent = "Close the dialog and click another column header to add it. The key C shows and hides the charts. "
             + "Grey points are incomplete values, which may still change.";
 
         // toggles of the vertical lines, with a sample of each line as key
@@ -105,10 +105,15 @@ export class ChartDialog {
 
         this.element.append(header, hint, this.markerToggles, this.message, this.panels);
         this.setMaximized(false);
-        // a click on the backdrop closes the dialog
+        // a click on the backdrop closes the dialog, a click outside of an open menu closes the menu
         this.element.addEventListener("click", event => {
             if (event.target === this.element) {
                 this.close();
+            }
+            for (const menu of this.element.querySelectorAll("details[open]")) {
+                if (!menu.contains(event.target)) {
+                    menu.open = false;
+                }
             }
         });
         document.body.append(this.element);

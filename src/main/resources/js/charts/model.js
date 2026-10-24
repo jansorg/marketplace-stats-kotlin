@@ -245,10 +245,48 @@ export function lineChartKey(chart) {
 /** Kinds of vertical lines in the line charts. */
 export const MARKER_KINDS = ["release", "price", "ide"];
 
+/** Labels of the kinds of vertical lines. */
+export const MARKER_LABELS = {release: "Product version", price: "Price changes", ide: "IntelliJ IDEA releases"};
+
 /**
  * @param {string[]} shownKinds The kinds of vertical lines to show, they are hidden by default.
  * @return {object[]} The markers of the shown kinds, sorted by date, as needed to place their labels.
  */
 export function visibleMarkers(markers, shownKinds) {
     return markers.filter(marker => shownKinds.includes(marker.kind)).sort((a, b) => a.timestamp - b.timestamp);
+}
+
+/**
+ * Places the entries of a legend in rows, an entry moves to the next row if it doesn't fit into the width.
+ *
+ * @param {number[]} widths Widths of the entries.
+ * @param {number} maxWidth Available width of a row.
+ * @param {number} gap Horizontal space between the entries of a row.
+ * @return {{x: number, row: number}[]} The position of each entry.
+ */
+export function layoutLegend(widths, maxWidth, gap) {
+    let x = 0;
+    let row = 0;
+    return widths.map(width => {
+        if (x > 0 && x + width > maxWidth) {
+            x = 0;
+            row++;
+        }
+        const position = {x, row};
+        x += width + gap;
+        return position;
+    });
+}
+
+/**
+ * @param {string[]} parts Parts of the name, e.g. the title of the page and the title of the chart.
+ * @param {string} extension File extension without the dot.
+ * @return {string} A file name of only letters, digits and dashes.
+ */
+export function exportFileName(parts, extension) {
+    const name = parts
+        .map(part => part.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""))
+        .filter(part => part.length > 0)
+        .join("-");
+    return (name || "chart") + "." + extension;
 }

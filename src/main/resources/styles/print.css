@@ -7,6 +7,27 @@
     display: none;
 }
 
+/* printing the charts of the chart dialog shows only the charts, see js/charts/exportImage.js */
+body.print-charts > :not(.chart-print) {
+    display: none !important;
+}
+
+body.print-charts .chart-print {
+    display: block;
+}
+
+.chart-print figure {
+    margin: 0 0 0.5cm;
+    break-inside: avoid;
+}
+
+.chart-print img, .chart-print svg {
+    display: block;
+    max-width: 100%;
+    max-height: 18cm;
+    height: auto;
+}
+
 .noprintlink {
     color: var(--text-color);
 }

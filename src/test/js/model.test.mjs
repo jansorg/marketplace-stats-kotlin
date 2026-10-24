@@ -6,7 +6,7 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
 import {
-    alignSeries, barLayout, canCombineUnits, dateRange, groupCharts, groupUnits, layoutLabels, MAX_PIE_SLICES,
+    alignSeries, barLayout, canCombineUnits, dateRange, exportFileName, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange,
 } from "../../main/resources/js/charts/model.js";
 
@@ -111,4 +111,18 @@ test("only the shown kinds of vertical lines are drawn, sorted by date", () => {
     assert.deepEqual(visibleMarkers(markers, ["ide", "release"]).map(m => m.timestamp), [10, 30]);
     // hidden by default
     assert.deepEqual(visibleMarkers(markers, []), []);
+});
+
+test("legend entries move to the next row if they don't fit", () => {
+    assert.deepEqual(layoutLegend([], 100, 10), []);
+    assert.deepEqual(layoutLegend([40, 40, 40], 100, 10), [{x: 0, row: 0}, {x: 50, row: 0}, {x: 0, row: 1}]);
+    // an entry wider than the row gets its own row
+    assert.deepEqual(layoutLegend([150, 20], 100, 10), [{x: 0, row: 0}, {x: 0, row: 1}]);
+    assert.deepEqual(layoutLegend([20, 150], 100, 10), [{x: 0, row: 0}, {x: 0, row: 1}]);
+});
+
+test("file names of exported charts contain only letters, digits and dashes", () => {
+    assert.equal(exportFileName(["My Plugin: Report", "Sales (USD)"], "png"), "my-plugin-report-sales-usd.png");
+    assert.equal(exportFileName(["Übersicht – Café", "% of Sales"], "svg"), "ubersicht-cafe-of-sales.svg");
+    assert.equal(exportFileName(["", "***"], "png"), "chart.png");
 });
