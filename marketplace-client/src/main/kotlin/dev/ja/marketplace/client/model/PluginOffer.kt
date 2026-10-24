@@ -37,6 +37,12 @@ data class PluginOffer(
     /** Number of free months, if the offer has a free period. */
     @SerialName("freePeriodInMonths")
     val freePeriodInMonths: Int? = null,
+    /** The last day of the offer, `null` if it has no end. */
+    @SerialName("endDate")
+    @Serializable(YearMonthDateSerializer::class)
+    val endDate: YearMonthDay? = null,
+    @SerialName("description")
+    val description: String? = null,
 ) {
     /** The billing periods as [LicensePeriod], values unknown to this client are ignored. */
     val licensePeriods: List<LicensePeriod>

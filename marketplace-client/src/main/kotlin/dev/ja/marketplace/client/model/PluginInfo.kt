@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -70,6 +70,15 @@ data class PluginInfo(
     val isHidden: Boolean,
     @SerialName("isMonetizationAvailable")
     val isMonetizationAvailable: Boolean? = null,
+    @SerialName("isBlocked")
+    val isBlocked: Boolean? = null,
+    @SerialName("isModificationAllowed")
+    val isModificationAllowed: Boolean? = null,
+    @SerialName("preserveUIEdits")
+    val preserveUIEdits: Boolean? = null,
+    /** If the versions of the releases must follow semantic versioning. */
+    @SerialName("semverOnly")
+    val semverOnly: Boolean? = null,
 ) : PluginInfoExtended {
     override val tagNames: List<PluginTagName>
         get() = tags.map(PluginTag::name)

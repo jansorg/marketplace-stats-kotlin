@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -41,4 +41,28 @@ data class PluginVendor(
     val servicesDescription: List<String>? = null,
     @SerialName("id")
     val id: Int? = null,
+    @SerialName("marketplaceVendorId")
+    val marketplaceVendorId: Int? = null,
+    @SerialName("showEmail")
+    val showEmail: Boolean? = null,
+    /** The postal address and phone of the vendor, only for the vendor's own plugins. */
+    @SerialName("details")
+    val details: PluginVendorDetails? = null,
 ) : PluginVendorInformation
+
+/**
+ * The contact details of a vendor.
+ */
+@Serializable
+data class PluginVendorDetails(
+    @SerialName("address")
+    val address: String? = null,
+    @SerialName("city")
+    val city: String? = null,
+    @SerialName("state")
+    val state: String? = null,
+    @SerialName("zip")
+    val zip: String? = null,
+    @SerialName("phone")
+    val phone: String? = null,
+)
