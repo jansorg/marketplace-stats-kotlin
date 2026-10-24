@@ -38,6 +38,10 @@ class McpRecordsJson(private val exchangeRates: ExchangeRates) {
             putAmounts(sale.date, sale.amountUSD, sale.amount, withFee = true)
             put("lineItems", buildJsonArray {
                 for (item in sale.lineItems) {
+                    // Special sales, e.g. with manual changes by JetBrains, can have a total of 0 but line items with the
+                    // regular amounts. Like the amounts of the licenses, the amounts are limited to the amounts of the sale.
+                    val itemAmountUSD = item.amountUSD.coerceAtMost(sale.amountUSD)
+                    val itemAmount = item.amount.coerceAtMost(sale.amount)
                     add(buildJsonObject {
                         put("type", item.type.toolName)
                         put("licenseIds", buildJsonArray { item.licenseIds.forEach { add(it) } })
@@ -47,9 +51,9 @@ class McpRecordsJson(private val exchangeRates: ExchangeRates) {
                         }
                         // the amounts of a single line item are the amounts of the sale
                         if (sale.lineItems.size > 1) {
-                            putAmounts(sale.date, item.amountUSD, item.amount)
+                            putAmounts(sale.date, itemAmountUSD, itemAmount)
                         }
-                        if (item.isFreeLicense) {
+                        if (item.isFreeLicense || itemAmountUSD.isZero) {
                             put("isFreeLicense", true)
                         }
                         if (item.discountDescriptions.isNotEmpty()) {
