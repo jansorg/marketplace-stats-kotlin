@@ -26,6 +26,10 @@ abstract class RecurringRevenueTable(
     override val isChartable: Boolean = true
     override val chartPeriod: ChartPeriod = ChartPeriod.Month
 
+    // tables of months show the last year, the other months on demand
+    override val collapsedRowCount: Int?
+        get() = if (chartPeriod == ChartPeriod.Month) 12 else null
+
     override suspend fun init(data: PluginData) {
         super.init(data)
         this.data = data
