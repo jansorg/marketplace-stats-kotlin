@@ -28,8 +28,9 @@ class CustomerTable(
     private val nowDate: YearMonthDay = YearMonthDay.now(),
 ) : SimpleDataTable("Customers", cssClass = "table-column-wide sortable"), MarketplaceDataSink {
     private val columnValidSince = DataTableColumn("customer-since", if (isChurnedStyling) "Licensed since" else "Since")
-    private val columnValidUntil = DataTableColumn("customer-until", "Licensed Until")
-    private val columnChurnedAt = DataTableColumn("customer-churn-date", "Churn date")
+    // the rows are sorted by the end of the latest license, the sortable table shows its arrow
+    private val columnValidUntil = DataTableColumn("customer-until", "Licensed Until", preSorted = AriaSortOrder.Descending)
+    private val columnChurnedAt = DataTableColumn("customer-churn-date", "Churn date", preSorted = AriaSortOrder.Descending)
     private val columnName = DataTableColumn("customer-name", "Name", cssStyle = "width:20%")
     private val columnCountry = DataTableColumn("customer-country", "Country")
     private val columnType = DataTableColumn("customer-type", "Type")
