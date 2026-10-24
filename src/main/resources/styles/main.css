@@ -337,6 +337,27 @@ button {
     color: var(--text-color-disabled);
 }
 
+/* the hint opens the charts with a click, it looks like text */
+.keyboard-hint-button {
+    padding: 0.1rem 0.4rem;
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.keyboard-hint-button:hover {
+    color: var(--link-color);
+    background-color: var(--button-bgcolor);
+}
+
+.keyboard-hint-button:focus-visible {
+    outline: 2px solid var(--link-color);
+    outline-offset: 1px;
+}
+
 kbd {
     display: inline-block;
     min-width: 1.2em;

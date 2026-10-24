@@ -28,7 +28,7 @@
 
 <h1>Available Plugins</h1>
 @if(summaryTables.isNotEmpty())
-    <p class="keyboard-hint noprint">Press <kbd>C</kbd> to show the charts</p>
+    <p class="keyboard-hint noprint"><button type="button" class="keyboard-hint-button" data-show-charts>Press <kbd>C</kbd> to show the charts</button></p>
 @endif
 <p>Please choose one of the available plugins.</p>
 <br>

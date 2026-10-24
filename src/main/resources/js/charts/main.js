@@ -99,6 +99,7 @@ class ChartController {
         });
         this.restore(columns);
         this.makeLogoClickable();
+        this.makeHintsClickable();
         if (columns.length > 0) {
             this.enableShortcut();
         }
@@ -125,6 +126,15 @@ class ChartController {
                 this.openDialog(null);
             }
         });
+    }
+
+    /**
+     * A click on a hint of the shortcut, e.g. "Press C to show the charts", opens the charts.
+     */
+    makeHintsClickable() {
+        for (const hint of document.querySelectorAll("[data-show-charts]")) {
+            hint.addEventListener("click", () => this.openDialog(null));
+        }
     }
 
     /**
