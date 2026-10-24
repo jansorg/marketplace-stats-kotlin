@@ -26,7 +26,6 @@
     --button-hover-bgcolor: #e4e4df;
     --shadow-color: rgba(28, 27, 34, 0.06);
     --popup-shadow-color: rgba(28, 27, 34, 0.15);
-    --sticky-shadow-color: rgba(28, 27, 34, 0.14);
     --backdrop-color: rgba(28, 27, 34, 0.35);
 
     --text-color: #1c1b22;
@@ -73,7 +72,6 @@
         --button-hover-bgcolor: #35353e;
         --shadow-color: rgba(0, 0, 0, 0.3);
         --popup-shadow-color: rgba(0, 0, 0, 0.5);
-        --sticky-shadow-color: rgba(0, 0, 0, 0.55);
         --backdrop-color: rgba(0, 0, 0, 0.55);
 
         /* off-white instead of white, light text on a dark background is tiring otherwise */
@@ -317,7 +315,7 @@ button {
     max-width: 100%;
     /* no horizontal padding: scrolled columns would show through it next to the sticky first column.
        The first and the last cells have the padding instead, the stripes and highlighted rows extend to the border. */
-    padding: 0.75rem 0;
+    padding: 0.4rem 0 0.75rem;
     overflow-x: auto;
     background-color: var(--surface-color);
     border: 1px solid var(--separator-light-color);
@@ -351,39 +349,6 @@ button {
     background-color: var(--surface-color);
 }
 
-/* a shadow on the right of the first column, while the table is scrolled horizontally. It's a gradient next to each
-   cell, so that it has no gaps between the rows. Browsers without scroll-driven animations show no shadow. */
-@supports (animation-timeline: scroll()) {
-    .table-card {
-        scroll-timeline: --table-card-scroll x;
-    }
-
-    /* the headers of sortable tables use ::after for the arrows of the sorting */
-    .table-card > table > :is(tbody, tfoot) > tr > :first-child::after,
-    .table-card > table:not(.sortable) > thead > tr > :first-child::after {
-        content: "";
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        left: 100%;
-        width: 8px;
-        pointer-events: none;
-        background: linear-gradient(to right, var(--sticky-shadow-color), transparent);
-        animation: sticky-column-shadow linear both;
-        animation-timeline: --table-card-scroll;
-        animation-range: 0 1rem;
-    }
-}
-
-@keyframes sticky-column-shadow {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
 .table-card > .table-striped > tbody > tr:nth-child(even) > :first-child {
     background-color: var(--stripe-bgcolor);
 }
@@ -395,7 +360,7 @@ button {
 /* more columns fit on small screens */
 @media (max-width: 900px) {
     .table-card {
-        padding: 0.6rem 0;
+        padding: 0.3rem 0 0.6rem;
     }
 
     th, td {
