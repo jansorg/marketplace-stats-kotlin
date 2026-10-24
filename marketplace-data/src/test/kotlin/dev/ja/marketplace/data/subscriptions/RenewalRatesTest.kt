@@ -44,5 +44,10 @@ class RenewalRatesTest {
             ).sorted(),
             summary.sorted(),
         )
+
+        val monthlyRates = RenewalRates.of(licenses, today = YearMonthDay(2026, 6, 1), byMonth = true)
+            .filter { it.licensePeriod == monthly }
+            .map { "${it.year}-${it.month} ${it.previousRenewals}: ${it.renewed}/${it.due} ${it.isIncomplete}" }
+        assertEquals(listOf("2026-1 0: 1/1 false", "2026-3 1: 0/0 true"), monthlyRates)
     }
 }
