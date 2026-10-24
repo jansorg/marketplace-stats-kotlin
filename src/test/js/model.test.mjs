@@ -129,10 +129,11 @@ test("file names of exported charts contain only letters, digits and dashes", ()
     assert.equal(exportFileName(["", "***"], "png"), "chart.png");
 });
 
-test("charts of monthly columns with values per day can be finer", () => {
+test("charts of monthly and yearly columns with values per day can be finer", () => {
     assert.equal(hasFinerValues([{period: "month", daily: null}, {period: "month", daily: "mrr"}]), true);
     assert.equal(hasFinerValues([{period: "month", daily: null}]), false);
-    assert.equal(hasFinerValues([{period: "year", daily: "mrr"}]), false);
+    assert.equal(hasFinerValues([{period: "year", daily: "all-plugins-sales"}]), true);
+    assert.equal(hasFinerValues([{period: "day", daily: "mrr"}]), false);
 });
 
 test("values per day are read from the response of the server", () => {

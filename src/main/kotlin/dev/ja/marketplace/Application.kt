@@ -79,6 +79,10 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
         .flag("--no-mcp", default = true, defaultForHelp = "enabled")
         .help("Serve the MCP server for AI agents at /mcp of the integrated webserver.")
 
+    private val allPluginsSummary: Boolean by option("--all-plugins-summary", envvar = "MARKETPLACE_ALL_PLUGINS_SUMMARY")
+        .flag("--no-all-plugins-summary", default = true, defaultForHelp = "enabled")
+        .help("Show the sales and downloads of all plugins above the list of plugins. The data of all plugins is loaded at the start, or taken from the persistent cache.")
+
     private val mcpAllowedHosts: List<String> by option("--mcp-allowed-hosts", envvar = "MARKETPLACE_MCP_ALLOWED_HOSTS")
         .split(",")
         .default(emptyList(), defaultForHelp = "none")
@@ -133,7 +137,7 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
                 CachingJetBrainsServiceClient(KtorJetBrainsServiceClient(logLevel = logging), cacheDir?.let { PersistentCacheStore(it).subStore("jetbrains") }),
                 serverHostname,
                 serverPort,
-                ServerConfiguration(displayCurrencyCode, showResellerCharges),
+                ServerConfiguration(displayCurrencyCode, showResellerCharges, allPluginsSummary),
                 mcpAllowedHosts.takeIf { mcpEnabled },
             )
 

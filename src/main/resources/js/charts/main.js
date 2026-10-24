@@ -24,8 +24,12 @@ import {downloadCanvas, downloadSvg, lineChartImage, pieChartSvg, printImages, s
 
 const STYLE_LABELS = {lines: "Lines", bars: "Bars"};
 const GRANULARITY_LABELS = {month: "Month", week: "Week", day: "Day"};
-const GRANULARITY_HINT = "Week and Day show the sums of the month before each date, e.g. the sales of the last month, "
-    + "and the licenses, MRR and ARR at each date. Columns without values per day are shown per month.";
+const GRANULARITY_HINTS = {
+    month: "Week and Day show the sums of the month before each date, e.g. the sales of the last month, "
+        + "and the licenses, MRR and ARR at each date. Columns without values per day are shown per month.",
+    year: "Week and Day show the sums of the year before each date, e.g. the sales of the last 12 months. "
+        + "Columns without values per day are shown per year.",
+};
 
 /**
  * @return {HTMLElement} A new element with the content of the element, which is added to the element.
@@ -414,7 +418,7 @@ class ChartController {
             this.exports.push(chartExport);
             toolbar.append(this.exportMenu(chartExport));
             if (canBeFiner) {
-                toolbar.append(this.granularitySwitch(key, granularity));
+                toolbar.append(this.granularitySwitch(key, granularity, chart.period));
             }
             // disabled instead of hidden, so that the buttons don't move
             toolbar.append(this.styleSwitch(key, chartStyle, granularity !== "month"));
@@ -527,18 +531,19 @@ class ChartController {
     }
 
     /**
-     * @return {HTMLElement} Buttons to show a line chart per month, week or day.
+     * @param {"month"|"year"} period The period of the values of the table, the first button shows them.
+     * @return {HTMLElement} Buttons to show a line chart per month or year, per week or per day.
      */
-    granularitySwitch(key, current) {
+    granularitySwitch(key, current, period) {
         const group = document.createElement("div");
         group.className = "chart-button-group";
         group.setAttribute("role", "group");
         group.setAttribute("aria-label", "Values per");
-        group.title = GRANULARITY_HINT;
+        group.title = GRANULARITY_HINTS[period];
         for (const granularity of GRANULARITIES) {
             const button = document.createElement("button");
             button.type = "button";
-            button.textContent = GRANULARITY_LABELS[granularity];
+            button.textContent = granularity === "month" && period === "year" ? "Year" : GRANULARITY_LABELS[granularity];
             button.setAttribute("aria-pressed", String(granularity === current));
             button.addEventListener("click", () => {
                 this.granularities = {...this.granularities, [key]: granularity};
