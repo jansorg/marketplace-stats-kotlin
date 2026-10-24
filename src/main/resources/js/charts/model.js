@@ -283,6 +283,86 @@ export function finerPoints(data, id) {
     return {points, incomplete};
 }
 
+/**
+ * @param {number} timestamp Seconds since the epoch.
+ * @param {number} years Number of years to add, negative to subtract.
+ * @param {number} months Number of months to add, negative to subtract.
+ * @return {number} The timestamp at the same day of the other month, at most at its last day, e.g. March 31 minus one
+ *  month is the last day of February. The values of months are located at their last day.
+ */
+export function shiftDate(timestamp, years, months) {
+    const date = new Date(timestamp * 1000);
+    const totalMonths = date.getUTCFullYear() * 12 + date.getUTCMonth() + years * 12 + months;
+    const year = Math.floor(totalMonths / 12);
+    const month = totalMonths - year * 12;
+    const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    const shifted = Date.UTC(year, month, Math.min(date.getUTCDate(), lastDay), date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds());
+    return shifted / 1000;
+}
+
+/**
+ * The comparisons of the values at the cursor of a line chart with earlier and later values, in chronological order.
+ * The cursor is between the earlier and the later comparisons.
+ */
+export const COMPARISONS = [
+    {label: "−1 year", years: -1, months: 0},
+    {label: "−1 month", years: 0, months: -1},
+    {label: "+1 month", years: 0, months: 1},
+    {label: "+1 year", years: 1, months: 0},
+];
+
+/**
+ * A comparison needs values at least as frequent as its distance, e.g. yearly values can't be compared with the
+ * previous month.
+ *
+ * @param {number} interval The smallest distance between the values in seconds.
+ * @return {object[]} The comparisons of {@link COMPARISONS}, which are possible for the values.
+ */
+export function availableComparisons(interval) {
+    // the shortest month has 28 days, the values of months are located at their last day
+    return COMPARISONS.filter(({years, months}) => (Math.abs(years) * 365 + Math.abs(months) * 28) * SECONDS_PER_DAY >= interval * 0.9);
+}
+
+/**
+ * @param {{timestamp: number, value: number}[]} points The values of a series, sorted by date.
+ * @param {number} timestamp
+ * @param {number} tolerance The maximum distance between the timestamp and the timestamp of the value.
+ * @return {{timestamp: number, value: number}|null} The value closest to the timestamp.
+ */
+export function valueNear(points, timestamp, tolerance) {
+    let low = 0;
+    let high = points.length - 1;
+    while (low < high) {
+        const middle = (low + high) >> 1;
+        if (points[middle].timestamp < timestamp) {
+            low = middle + 1;
+        } else {
+            high = middle;
+        }
+    }
+    const candidates = [points[low - 1], points[low]].filter(point => point !== undefined);
+    const closest = candidates.reduce((best, point) => best === null
+        || Math.abs(point.timestamp - timestamp) < Math.abs(best.timestamp - timestamp) ? point : best, null);
+    return closest !== null && Math.abs(closest.timestamp - timestamp) <= tolerance ? closest : null;
+}
+
+/**
+ * @return {{value: number, unit: "%"|"pp"}|null} The change from the earlier to the later value. Percentages change by
+ *  percentage points, other values by percent. Null if a value is missing or the change of 0 can't be expressed in percent.
+ */
+export function valueChange(earlier, later, unit) {
+    if (earlier === null || earlier === undefined || later === null || later === undefined) {
+        return null;
+    }
+    if (unit === "%") {
+        return {value: later - earlier, unit: "pp"};
+    }
+    if (earlier === 0) {
+        return null;
+    }
+    return {value: (later - earlier) / Math.abs(earlier) * 100, unit: "%"};
+}
+
 /** Kinds of vertical lines in the line charts. */
 export const MARKER_KINDS = ["release", "price", "ide"];
 

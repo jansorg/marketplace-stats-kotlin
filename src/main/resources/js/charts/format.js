@@ -72,6 +72,9 @@ export function formatDate(timestamp, period) {
 export function createFormatter(locale) {
     const numberFormat = new Intl.NumberFormat(locale, {maximumFractionDigits: 2});
     const compactNumberFormat = new Intl.NumberFormat(locale, {notation: "compact", maximumFractionDigits: 1});
+    // a fixed number of decimals aligns the values in tables
+    const fixedFormat = new Intl.NumberFormat(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const changeFormat = new Intl.NumberFormat(locale, {minimumFractionDigits: 1, maximumFractionDigits: 1});
     const dayFormat = new Intl.DateTimeFormat(locale, {day: "numeric", month: "short", timeZone: "UTC"});
 
     return {
@@ -88,6 +91,26 @@ export function createFormatter(locale) {
                 default:
                     return numberFormat.format(value) + " " + unit;
             }
+        },
+
+        /**
+         * Value with its unit and a fixed number of decimals, which aligns the values of a column,
+         * e.g. `12.50 %`, `1,234.00 USD` or `17`. Counts have no decimals, unless the value has decimals.
+         */
+        fixedValue(value, unit) {
+            if (value === null || value === undefined || Number.isNaN(value)) {
+                return NO_VALUE;
+            }
+            if (unit === "count") {
+                return numberFormat.format(value);
+            }
+            return fixedFormat.format(value) + " " + unit;
+        },
+
+        /** Change of a value with its sign, e.g. `+12.5 %` or `−0.4 pp` (percentage points). */
+        change({value, unit}) {
+            const sign = value > 0 ? "+" : value < 0 ? "−" : "±";
+            return sign + changeFormat.format(Math.abs(value)) + (unit === "pp" ? " pp" : " %");
         },
 
         /** Short number for the ticks of an axis, e.g. `1.2K`. */

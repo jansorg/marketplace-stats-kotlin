@@ -5,9 +5,10 @@
 
 import {test} from "node:test";
 import assert from "node:assert/strict";
+import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
-    alignSeries, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, groupCharts, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
-    nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange,
+    alignSeries, availableComparisons, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, groupCharts, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
+    nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
 } from "../../main/resources/js/charts/model.js";
 
 function series(period, unit, points) {
@@ -143,6 +144,40 @@ test("values per day are read from the response of the server", () => {
     assert.deepEqual([...incomplete], [1767398400]);
     assert.equal(finerPoints(data, "arr"), null);
     assert.equal(finerPoints(null, "mrr"), null);
+});
+
+test("dates are shifted by years and months, at most to the last day of the month", () => {
+    const date = isoDateToTimestamp;
+    assert.equal(shiftDate(date("2025-03-15"), 1, 0), date("2026-03-15"));
+    assert.equal(shiftDate(date("2025-03-15"), -1, 0), date("2024-03-15"));
+    assert.equal(shiftDate(date("2024-02-29"), 1, 0), date("2025-02-28"));
+    assert.equal(shiftDate(date("2025-03-31"), 0, -1), date("2025-02-28"));
+    assert.equal(shiftDate(date("2025-01-31"), 0, -1), date("2024-12-31"));
+    assert.equal(shiftDate(date("2025-12-15"), 0, 1), date("2026-01-15"));
+});
+
+test("comparisons need values at least as frequent as their distance", () => {
+    const labels = interval => availableComparisons(interval).map(c => c.label);
+    assert.deepEqual(labels(SECONDS_PER_DAY), ["−1 year", "−1 month", "+1 month", "+1 year"]);
+    assert.deepEqual(labels(31 * SECONDS_PER_DAY), ["−1 year", "−1 month", "+1 month", "+1 year"]);
+    assert.deepEqual(labels(365 * SECONDS_PER_DAY), ["−1 year", "+1 year"]);
+});
+
+test("the value closest to a date is found within the tolerance", () => {
+    const points = [10, 20, 40].map(timestamp => ({timestamp, value: timestamp / 10}));
+    assert.deepEqual(valueNear(points, 21, 5), {timestamp: 20, value: 2});
+    assert.deepEqual(valueNear(points, 33, 10), {timestamp: 40, value: 4});
+    assert.deepEqual(valueNear(points, 5, 5), {timestamp: 10, value: 1});
+    assert.equal(valueNear(points, 30, 5), null);
+    assert.equal(valueNear([], 30, 5), null);
+});
+
+test("changes of values are percentages, changes of percentages are percentage points", () => {
+    assert.deepEqual(valueChange(50, 75, "USD"), {value: 50, unit: "%"});
+    assert.deepEqual(valueChange(-50, -25, "count"), {value: 50, unit: "%"});
+    assert.deepEqual(valueChange(10, 7.5, "%"), {value: -2.5, unit: "pp"});
+    assert.equal(valueChange(0, 10, "USD"), null);
+    assert.equal(valueChange(null, 10, "USD"), null);
 });
 
 test("values per day start with the last zero before the first value", () => {

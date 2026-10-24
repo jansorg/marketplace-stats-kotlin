@@ -7,8 +7,8 @@
  * Line charts rendered with uPlot, which is loaded as a global script before this module.
  */
 
-import {formatDate, unitTitle} from "./format.js";
-import {alignSeries, barLayout, layoutLabels, MARKER_LABELS, shortestPeriod, smallestInterval, zeroBasedRange} from "./model.js";
+import {formatDate, SECONDS_PER_DAY, unitTitle} from "./format.js";
+import {alignSeries, availableComparisons, barLayout, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, zeroBasedRange} from "./model.js";
 
 export const CHART_STYLE = {
     axisColor: "#52514e",
@@ -299,6 +299,151 @@ function enableTooltip(plot, chartSeries, describe) {
 }
 
 /**
+ * Compares the values at the cursor with the values one month and one year before and after it: vertical lines mark
+ * the dates and a table below the chart shows the values and their changes. Without a cursor on the chart, the table
+ * shows the latest values.
+ */
+function enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, formatter}) {
+    // the values of each series without gaps, and the tolerance to find a value near a date
+    const seriesPoints = chartSeries.map((series, index) => {
+        const points = timestamps
+            .map((timestamp, i) => ({timestamp, value: values[index][i]}))
+            .filter(point => point.value !== null && point.value !== undefined);
+        return {points, tolerance: smallestInterval(points.map(point => point.timestamp), SECONDS_PER_DAY) / 2};
+    });
+    const shortestInterval = Math.min(...seriesPoints.map(({tolerance}) => tolerance * 2));
+    const comparisons = availableComparisons(shortestInterval);
+
+    const lines = comparisons.map(comparison => {
+        const line = document.createElement("div");
+        // the labels are outside of the lines, away from the cursor, labels of months below the labels of years
+        line.className = "chart-compare-line "
+            + (comparison.years + comparison.months < 0 ? "chart-compare-before" : "chart-compare-after")
+            + (comparison.months !== 0 ? " chart-compare-month" : "");
+        line.hidden = true;
+        const label = document.createElement("span");
+        label.textContent = comparison.label;
+        line.append(label);
+        plot.over.append(line);
+        return {comparison, line};
+    });
+
+    const table = document.createElement("table");
+    table.className = "chart-comparison";
+    plot.root.after(table);
+
+    const latestIndex = timestamps.length - 1;
+    let shownIndex = null;
+    let shownSeries = null;
+
+    const update = () => {
+        const isActive = plot.cursor.left !== undefined && plot.cursor.left >= 0 && plot.cursor.idx !== null && plot.cursor.idx !== undefined;
+        const index = isActive ? plot.cursor.idx : latestIndex;
+        const timestamp = timestamps[index];
+
+        for (const {comparison, line} of lines) {
+            const position = isActive ? plot.valToPos(shiftDate(timestamp, comparison.years, comparison.months), "x") : -1;
+            line.hidden = position < 0 || position > plot.over.clientWidth;
+            if (!line.hidden) {
+                line.style.left = position + "px";
+            }
+        }
+
+        const visibleSeries = chartSeries.map((series, i) => plot.series[i + 1].show).join();
+        if (index === shownIndex && visibleSeries === shownSeries) {
+            return;
+        }
+        shownIndex = index;
+        shownSeries = visibleSeries;
+        renderComparisonTable(table, {plot, chartSeries, seriesPoints, comparisons, timestamp, datePeriod, formatter});
+    };
+    update();
+    return update;
+}
+
+function cell(tagName, className, text) {
+    const result = document.createElement(tagName);
+    if (className) {
+        result.className = className;
+    }
+    if (text !== undefined) {
+        result.textContent = text;
+    }
+    return result;
+}
+
+/**
+ * The columns are in chronological order, the values at the cursor in the middle. Each other value shows the change
+ * between its date and the date of the cursor, e.g. the change since the previous year.
+ */
+function renderComparisonTable(table, {plot, chartSeries, seriesPoints, comparisons, timestamp, datePeriod, formatter}) {
+    if (timestamp === undefined) {
+        table.replaceChildren();
+        return;
+    }
+    const columns = [
+        ...comparisons.filter(c => c.years + c.months < 0),
+        {label: "Cursor", years: 0, months: 0, isCursor: true},
+        ...comparisons.filter(c => c.years + c.months > 0),
+    ].map(column => ({...column, timestamp: shiftDate(timestamp, column.years, column.months)}));
+
+    const headerRow = document.createElement("tr");
+    headerRow.append(cell("th"));
+    for (const column of columns) {
+        const header = cell("th", column.isCursor ? "chart-comparison-cursor" : null);
+        header.append(cell("span", "chart-comparison-label", column.label), cell("span", "chart-comparison-date", formatDate(column.timestamp, datePeriod)));
+        headerRow.append(header);
+    }
+    const head = document.createElement("thead");
+    head.append(headerRow);
+
+    const body = document.createElement("tbody");
+    chartSeries.forEach((series, index) => {
+        if (!plot.series[index + 1].show) {
+            return;
+        }
+        const {points, tolerance} = seriesPoints[index];
+        const found = columns.map(column => valueNear(points, column.timestamp, tolerance));
+        const current = found[columns.findIndex(column => column.isCursor)];
+
+        const row = document.createElement("tr");
+        const label = cell("th", "chart-comparison-series");
+        const key = cell("span", "chart-tooltip-key");
+        key.style.backgroundColor = series.color;
+        label.append(key, series.isRightAxis ? series.label + " (right axis)" : series.label);
+        row.append(label);
+
+        columns.forEach((column, i) => {
+            const point = found[i];
+            const isIncomplete = point !== null && series.incomplete.has(point.timestamp);
+            const valueCell = cell("td", column.isCursor ? "chart-comparison-cursor" : null);
+            valueCell.append(cell("span", "chart-comparison-value" + (isIncomplete ? " incomplete" : ""), formatter.fixedValue(point?.value, series.unit)));
+            if (isIncomplete) {
+                valueCell.title = "Incomplete value, which may still change";
+            }
+            // every cell has the line of the change, so that the height of the table doesn't change with the cursor
+            const changeText = cell("span", "chart-comparison-change", "\u00a0");
+            const isEarlier = column.years + column.months < 0;
+            const change = column.isCursor ? null : isEarlier
+                ? valueChange(point?.value, current?.value, series.unit)
+                : valueChange(current?.value, point?.value, series.unit);
+            if (change !== null) {
+                // an increase of a percentage may be bad, e.g. of the churn rate, it isn't colored
+                const changeClass = change.unit === "pp" ? "" : change.value > 0 ? "positive" : change.value < 0 ? "negative" : "";
+                changeText.className = "chart-comparison-change " + changeClass;
+                changeText.textContent = formatter.change(change);
+                const [from, to] = isEarlier ? [point, current] : [current, point];
+                changeText.title = `Change from ${formatDate(from.timestamp, datePeriod)} to ${formatDate(to.timestamp, datePeriod)}`;
+            }
+            valueCell.append(changeText);
+            row.append(valueCell);
+        });
+        body.append(row);
+    });
+    table.replaceChildren(head, body);
+}
+
+/**
  * uPlot moves the cursor only with a mouse. On touch devices, the cursor follows the finger.
  * Vertical swipes still scroll the dialog.
  */
@@ -314,15 +459,6 @@ function enableTouchCursor(plot) {
     };
     over.addEventListener("touchstart", moveCursor, {passive: true});
     over.addEventListener("touchmove", moveCursor, {passive: true});
-}
-
-function lastIndex(values) {
-    for (let i = values.length - 1; i >= 0; i--) {
-        if (values[i] !== null && values[i] !== undefined) {
-            return i;
-        }
-    }
-    return null;
 }
 
 const DAY = 24 * 60 * 60;
@@ -397,9 +533,6 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     const {timestamps, values} = alignSeries(chartSeries);
     const period = shortestPeriod(chartSeries);
     const datePeriod = granularity === "week" || granularity === "day" ? "day" : period;
-    const lastIndices = values.map(lastIndex);
-    // without a cursor on the chart, the legend shows the latest values
-    const latestTimestamp = timestamps.length > 0 ? timestamps[timestamps.length - 1] : null;
 
     const isBars = chartStyle === "bars";
     // bars at the first and last date need space beside the date
@@ -448,21 +581,32 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         tzDate: timestamp => uPlot.tzDate(new Date(timestamp * 1000), "Etc/UTC"),
         scales,
         axes,
-        legend: {show: true},
+        // the legend only shows and hides the series, the values are shown by the comparison table
+        legend: {show: true, live: false},
         // space for the labels of the vertical lines above the plot, and for points and tick labels at the right edge
         padding: [markers.length > 0 ? 20 : null, units.length > 1 ? null : 28, null, null],
-        cursor: {points: {size: 8}, sync: {key: syncKey}},
+        cursor: {
+            points: {size: 8},
+            sync: {key: syncKey},
+            // the vertical line of the cursor is at the closest value, the comparisons start at its date
+            move: (plot, left, top) => {
+                const index = left >= 0 ? plot.posToIdx(left) : null;
+                return [index === null || plot.data[0][index] === undefined ? left : plot.valToPos(plot.data[0][index], "x"), top];
+            },
+        },
         hooks: {
             drawAxes: [plot => drawMarkers(plot, markers, style.fonts.releaseLabel)],
             draw: [plot => isBars ? drawBars(plot, chartSeries, interval) : drawPoints(plot, chartSeries)],
-            setCursor: [plot => updateTooltip?.(plot)],
+            // series are shown and hidden by a click on the legend
+            setSeries: [() => updateComparisons?.()],
+            setCursor: [plot => {
+                updateComparisons?.(plot);
+                updateTooltip?.(plot);
+            }],
         },
         series: [
-            {
-                label: "Date",
-                value: (plot, value) => formatDate(value ?? latestTimestamp, datePeriod),
-            },
-            ...chartSeries.map((s, index) => ({
+            {label: "Date"},
+            ...chartSeries.map(s => ({
                 label: s.isRightAxis ? s.label + " (right axis)" : s.label,
                 scale: s.scale,
                 stroke: s.color,
@@ -471,21 +615,15 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                 // points and bars are drawn by drawPoints and drawBars, to show incomplete values in a different color
                 points: {show: false},
                 ...(isBars ? {paths: () => null} : {}),
-                value: (plot, value, seriesIndex, dataIndex) => {
-                    const i = dataIndex ?? lastIndices[index];
-                    if (i === null) {
-                        return formatter.value(null, s.unit);
-                    }
-                    const formatted = formatter.value(values[index][i], s.unit);
-                    return values[index][i] !== null && s.incomplete.has(timestamps[i]) ? formatted + " (incomplete)" : formatted;
-                },
             })),
         ],
     };
 
     let updateTooltip = null;
+    let updateComparisons = null;
     const plot = new uPlot(options, [timestamps, ...values], container);
     updateTooltip = enableTooltip(plot, chartSeries, describe);
+    updateComparisons = enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, formatter});
     enableTouchCursor(plot);
     legendData.set(plot, {chartSeries, markers, isBars});
     return plot;

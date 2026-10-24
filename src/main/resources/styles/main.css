@@ -781,6 +781,114 @@ th.highlighted, td.highlighted {
     outline-offset: 1px;
 }
 
+/* lines one month and one year before and after the cursor of a line chart, see enableComparisons in lineChart.js */
+.chart-compare-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    border-left: 1px dashed #8a8984;
+    pointer-events: none;
+}
+
+.chart-compare-line.chart-compare-month {
+    border-left-style: dotted;
+}
+
+.chart-compare-line[hidden] {
+    display: none;
+}
+
+.chart-compare-line span {
+    position: absolute;
+    top: 2px;
+    font-size: .7rem;
+    color: #6b6b6b;
+    white-space: nowrap;
+}
+
+/* the labels of the months are below the labels of the years, they may be close to each other */
+.chart-compare-month span {
+    top: 16px;
+}
+
+.chart-compare-after span {
+    left: 4px;
+}
+
+.chart-compare-before span {
+    right: 4px;
+}
+
+/* values at the cursor, compared with the values one month and one year before and after it */
+.chart-comparison {
+    width: auto;
+    margin: 0.5rem 0 0;
+    font-size: .8rem;
+    border-collapse: collapse;
+}
+
+.chart-comparison th, .chart-comparison td {
+    padding: 0.2rem 0.8rem;
+    text-align: right;
+    vertical-align: top;
+    white-space: nowrap;
+}
+
+.chart-comparison thead th {
+    font-weight: 400;
+    border-bottom: 1px solid var(--separator-light-color);
+}
+
+.chart-comparison .chart-comparison-series {
+    text-align: left;
+    font-weight: 400;
+    padding-left: 0;
+}
+
+.chart-comparison .chart-comparison-series .chart-tooltip-key {
+    display: inline-block;
+    margin-right: 0.4rem;
+    vertical-align: middle;
+}
+
+.chart-comparison-label, .chart-comparison-date, .chart-comparison-value, .chart-comparison-change {
+    display: block;
+}
+
+.chart-comparison-date {
+    color: var(--future-color);
+    font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* the column of the cursor is highlighted */
+.chart-comparison .chart-comparison-cursor {
+    background-color: #f4f4f2;
+    font-weight: 700;
+}
+
+.chart-comparison-value {
+    font-variant-numeric: tabular-nums lining-nums;
+}
+
+.chart-comparison-value.incomplete {
+    color: var(--future-color);
+}
+
+.chart-comparison-change {
+    font-size: .7rem;
+    font-variant-numeric: tabular-nums lining-nums;
+    color: var(--future-color);
+}
+
+.chart-comparison-change.positive {
+    color: var(--positive-color);
+}
+
+.chart-comparison-change.negative {
+    color: var(--negative-color);
+}
+
 .chart-line-tooltip {
     max-width: none;
     white-space: nowrap;
