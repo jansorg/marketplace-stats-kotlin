@@ -43,9 +43,8 @@ class LicenseTable(
     private val columnLicenseRenewalType = DataTableColumn("license-type", "Type")
     private val columnReseller = DataTableColumn("reseller", "Reseller")
     private val columnFallbackVersion = DataTableColumn(
-        "license-fallback-version", "Fallback Version",
-        tooltip = "The version, which the perpetual fallback license covers, if the license isn't renewed. " +
-                "It's shown for the latest purchase of each license."
+        "license-fallback-version", "Fallback Version", "num",
+        tooltip = "The version, which the perpetual fallback license covers, if the license isn't renewed"
     )
 
     private val data = mutableListOf<LicenseInfo>()
@@ -167,9 +166,8 @@ class LicenseTable(
 
                             else -> validityEnd
                         },
-                        columnFallbackVersion to fallbackVersions
-                            .takeIf { validityEnd == filteredLicenseMaxValidity[license.id] }
-                            ?.remove(license.id),
+                        // the version of the license, all purchases of a license show it
+                        columnFallbackVersion to fallbackVersions[license.id],
                         columnCustomerName to (license.sale.customer.name ?: NoValue),
                         columnCustomerId to LinkedCustomer(license.sale.customer.code, pluginId = pluginId!!),
                         columnLocalAmount to license.amount,
@@ -225,16 +223,15 @@ class LicenseTable(
     }
 
     /**
-     * @return The fallback versions of the shown licenses. The caller removes the version of a license,
-     *  when it's shown for the latest purchase of the license.
+     * @return The fallback versions of the shown licenses.
      */
-    private fun fallbackVersions(): MutableMap<LicenseId, FallbackVersion> {
-        val releases = fallbackReleases ?: return mutableMapOf()
+    private fun fallbackVersions(): Map<LicenseId, FallbackVersion> {
+        val releases = fallbackReleases ?: return emptyMap()
         return allSubscriptionLicenses
             .filter { it.id in filteredLicenseMaxValidity }
             .groupBy { it.id }
-            .mapNotNullTo(mutableListOf()) { (licenseId, licenses) -> FallbackVersion.of(licenseId, licenses, releases) }
-            .associateByTo(mutableMapOf()) { it.licenseId }
+            .mapNotNull { (licenseId, licenses) -> FallbackVersion.of(licenseId, licenses, releases) }
+            .associateBy { it.licenseId }
     }
 }
 
