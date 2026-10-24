@@ -39,6 +39,7 @@ import dev.ja.marketplace.data.topTrialCountries.TopTrialCountriesFactory
 import dev.ja.marketplace.data.trials.TrialsTable
 import dev.ja.marketplace.data.trials.TrialsTableFactory
 import dev.ja.marketplace.data.yearSummary.AllPluginsDailyValues
+import dev.ja.marketplace.data.yearSummary.AllPluginsMonthTable
 import dev.ja.marketplace.data.yearSummary.AllPluginsSummaryTable
 import dev.ja.marketplace.data.yearSummary.YearlySummaryFactory
 import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
@@ -403,7 +404,8 @@ class MarketplaceStatsServer(
                             mapOf(
                                 "plugins" to allPlugins,
                                 "urls" to client as MarketplaceUrlSupport,
-                                "summary" to allPluginsSummary(),
+                                "summaryTables" to allPluginsSummary(),
+                                "ideReleases" to if (serverConfiguration.showAllPluginsSummary) ideReleases.majorReleases() else emptyList(),
                             )
                         )
                     )
@@ -642,20 +644,23 @@ class MarketplaceStatsServer(
     }
 
     /**
-     * The sales and downloads of all paid and freemium plugins, shown above the list of plugins.
+     * The sales and downloads of all paid and freemium plugins by year and the sales of the current month,
+     * shown above the list of plugins.
      *
-     * @return The table, or `null` if it's disabled or there are no paid plugins.
+     * @return The tables, empty if the summary is disabled or there are no paid plugins.
      */
-    private suspend fun allPluginsSummary(): RenderedDataTable? {
+    private suspend fun allPluginsSummary(): List<RenderedDataTable> {
         if (!serverConfiguration.showAllPluginsSummary || allPlugins.none(PluginInfoSummary::isPaidOrFreemium)) {
-            return null
+            return emptyList()
         }
 
-        val table = AllPluginsSummaryTable(exchangeRates)
+        val years = AllPluginsSummaryTable(exchangeRates)
+        val month = AllPluginsMonthTable(exchangeRates)
         for (data in loadAllPluginsData()) {
-            table.add(data.sales, data.licenses, data.monthlyDownloads)
+            years.add(data.sales, data.licenses, data.monthlyDownloads)
+            month.add(data.sales)
         }
-        return table.renderTable()
+        return listOf(years.renderTable(), month.renderTable()).filterNot(RenderedDataTable::isEmpty)
     }
 
     private fun getDataLoader(plugin: PluginInfoSummary): PluginDataLoader {
