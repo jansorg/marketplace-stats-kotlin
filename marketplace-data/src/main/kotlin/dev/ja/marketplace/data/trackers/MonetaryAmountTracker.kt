@@ -29,6 +29,14 @@ class MonetaryAmountTracker(private val exchangeRates: ExchangeRates) {
         }
     }
 
+    /**
+     * Adds the amounts of another tracker with the same target currency, e.g. of another plugin.
+     */
+    fun add(other: MonetaryAmountTracker) {
+        sumUSD += other.getTotalAmountUSD()
+        sumTargetCurrency += other.getTotalAmount()
+    }
+
     fun getTotalAmountUSD(): MonetaryAmount {
         return sumUSD.amount
     }

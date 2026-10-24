@@ -5,12 +5,15 @@
 
 package dev.ja.marketplace.data.yearSummary
 
+import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.model.DailyDownload
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.customer
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.sale
+import dev.ja.marketplace.data.trackers.AnnualRecurringRevenueTracker
+import dev.ja.marketplace.data.trackers.MonthlyRecurringRevenueTracker
 import dev.ja.marketplace.data.trackers.PaymentAmountTracker
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import kotlinx.coroutines.runBlocking
@@ -31,7 +34,8 @@ class AllPluginsDailyValuesTest {
     }
     private val downloads = (0..1000).map { DailyDownload(YearMonthDay(2023, 1, 1).add(0, 0, it), (it % 9).toLong()) }
 
-    private val values = AllPluginsDailyValues.create(sales, downloads, exchangeRates, today)
+    private val licenses = LicenseInfo.createFrom(sales)
+    private val values = AllPluginsDailyValues.create(sales, downloads, listOf(licenses), exchangeRates, today)
 
     @Test
     fun valuesAtTheEndOfAYearAreTheSumsOfTheYear() = runBlocking {
@@ -46,6 +50,13 @@ class AllPluginsDailyValuesTest {
             BigDecimal.valueOf(downloads.filter { it.day.year == 2024 }.sumOf { it.downloads }),
             value(AllPluginsDailyValues.DOWNLOADS, index),
         )
+
+        // the recurring revenue at the end of the year, like the table
+        val mrr = MonthlyRecurringRevenueTracker(YearMonthDayRange.ofYear(2024), exchangeRates)
+        val arr = AnnualRecurringRevenueTracker(YearMonthDayRange.ofYear(2024), exchangeRates)
+        licenses.forEach { mrr.processLicenseSale(it); arr.processLicenseSale(it) }
+        assertEquals(amount(mrr.getResult().amounts.getTotalAmount()), value(AllPluginsDailyValues.MRR, index))
+        assertEquals(amount(arr.getResult().amounts.getTotalAmount()), value(AllPluginsDailyValues.ARR, index))
     }
 
     @Test
@@ -61,12 +72,18 @@ class AllPluginsDailyValuesTest {
     fun daysFromTheFirstYearUntilToday() {
         assertEquals(YearMonthDay(2023, 1, 1), values.days.first())
         assertEquals(today, values.days.last())
-        assertTrue(values.series.values.all { it.values.size == values.days.size && it.incompleteFrom == values.days.lastIndex })
+        assertTrue(values.series.values.all { it.values.size == values.days.size })
+        // the sums of today and the recurring revenue of the current month may still change
+        val sums = listOf(AllPluginsDailyValues.SALES, AllPluginsDailyValues.FEES, AllPluginsDailyValues.PAID, AllPluginsDailyValues.DOWNLOADS)
+        assertTrue(sums.all { values.series.getValue(it).incompleteFrom == values.days.lastIndex })
+        val firstOfMonth = (values.days.first() daysUntil YearMonthDay(2025, 9, 1)).toInt()
+        assertEquals(firstOfMonth, values.series.getValue(AllPluginsDailyValues.MRR).incompleteFrom)
+        assertEquals(firstOfMonth, values.series.getValue(AllPluginsDailyValues.ARR).incompleteFrom)
     }
 
     @Test
     fun noData() {
-        assertTrue(AllPluginsDailyValues.create(emptyList(), emptyList(), exchangeRates, today).days.isEmpty())
+        assertTrue(AllPluginsDailyValues.create(emptyList(), emptyList(), emptyList(), exchangeRates, today).days.isEmpty())
     }
 
     private fun value(id: String, index: Int): BigDecimal? = values.series.getValue(id).values[index]
