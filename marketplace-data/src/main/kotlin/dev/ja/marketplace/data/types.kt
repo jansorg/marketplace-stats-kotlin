@@ -98,3 +98,6 @@ data class LinkedChurnRate(
 )
 
 const val NoValue: String = "—"
+
+/** Tooltip of downloads, which may still change. */
+const val IncompleteDownloadsTooltip: String = "The downloads of a day are reported on the next day at the earliest"

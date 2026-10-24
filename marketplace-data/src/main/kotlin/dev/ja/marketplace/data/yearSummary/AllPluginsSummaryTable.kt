@@ -111,11 +111,15 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
                     // because licenses renewed later in the year are not included yet
                     columnMrr to recurringRevenue(mrrByYear[year], year == now.year),
                     columnArr to recurringRevenue(arrByYear[year], year == now.year),
-                    columnDownloads to (downloadsByYear[year] ?: BigInteger.ZERO),
+                    // the downloads of a day are reported on the next day at the earliest
+                    columnDownloads to (downloadsByYear[year] ?: BigInteger.ZERO).let {
+                        if (year == now.year) IncompleteValue(it) else it
+                    },
                 ),
                 tooltips = mapOf(
                     columnMrr to IncompleteRecurringRevenueTooltip.takeIf { year == now.year },
                     columnArr to IncompleteRecurringRevenueTooltip.takeIf { year == now.year },
+                    columnDownloads to IncompleteDownloadsTooltip.takeIf { year == now.year },
                 ),
                 cssClass = if (year == now.year) "today" else null,
             )
