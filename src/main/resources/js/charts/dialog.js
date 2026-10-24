@@ -155,9 +155,33 @@ export class ChartDialog {
             }
         });
         document.body.append(this.element);
-        window.addEventListener("resize", () => {
-            if (this.isOpen) {
+        this.followSize(onResize);
+    }
+
+    /**
+     * The charts follow the size of the dialog. The resize event of the window isn't enough: on tablets, it's fired
+     * before the layout of the rotated screen is complete, and the toolbars of mobile browsers change the size of the
+     * dialog without it. A page, which is shown again, e.g. after switching apps, is measured again.
+     */
+    followSize(onResize) {
+        let lastSize = null;
+        const resize = force => {
+            if (!this.isOpen) {
+                return;
+            }
+            const size = `${this.element.clientWidth}x${this.element.clientHeight}`;
+            if (force || size !== lastSize) {
+                lastSize = size;
                 onResize();
+            }
+        };
+        // called after the layout, also for hidden pages
+        new ResizeObserver(() => resize(false)).observe(this.element);
+        // measured after the layout of the page, which is shown again
+        window.addEventListener("pageshow", () => requestAnimationFrame(() => resize(true)));
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "visible") {
+                requestAnimationFrame(() => resize(true));
             }
         });
     }
