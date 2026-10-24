@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -14,6 +14,9 @@ import dev.ja.marketplace.services.Countries
 import dev.ja.marketplace.services.CountryWithCurrency
 import dev.ja.marketplace.services.Currency
 import dev.ja.marketplace.util.sortValue
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import org.javamoney.moneta.Money
 import java.math.BigDecimal
 import java.text.Collator
@@ -67,11 +70,13 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
             Collator.getInstance()
         )
 
-        val currencyToPricing = MarketplaceCurrencies.associate { currency ->
-            currency to countries.byCurrencyIsoCode(currency.currencyCode)!!.mapNotNull { countryWithCurrency ->
-                val pricing = pluginPricing.getCountryPricing(countryWithCurrency.country.isoCode) ?: return@mapNotNull null
-                countryWithCurrency to pricing
-            }
+        // the prices of each country are a request, they're loaded concurrently
+        val currencyToPricing = coroutineScope {
+            MarketplaceCurrencies.map { currency ->
+                currency to countries.byCurrencyIsoCode(currency.currencyCode)!!.map { countryWithCurrency ->
+                    async { pluginPricing.getCountryPricing(countryWithCurrency.country.isoCode)?.let { countryWithCurrency to it } }
+                }
+            }.associate { (currency, prices) -> currency to prices.awaitAll().filterNotNull() }
         }
 
         val currencySections = currencyToPricing
