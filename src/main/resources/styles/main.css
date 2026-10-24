@@ -24,6 +24,7 @@
     --row-hover-bgcolor: #e9eaf6;
     --button-bgcolor: #f0f0ec;
     --button-hover-bgcolor: #e4e4df;
+    --nav-active-bgcolor: #dadcf0;
     --shadow-color: rgba(28, 27, 34, 0.06);
     --popup-shadow-color: rgba(28, 27, 34, 0.15);
     --backdrop-color: rgba(28, 27, 34, 0.35);
@@ -70,6 +71,7 @@
         --row-hover-bgcolor: #2a2b3d;
         --button-bgcolor: #2a2a32;
         --button-hover-bgcolor: #35353e;
+        --nav-active-bgcolor: #2a2a32;
         --shadow-color: rgba(0, 0, 0, 0.3);
         --popup-shadow-color: rgba(0, 0, 0, 0.5);
         --backdrop-color: rgba(0, 0, 0, 0.55);
@@ -723,7 +725,7 @@ footer.menu form {
 .navbar a[aria-current="page"] {
     color: var(--text-color);
     font-weight: 700;
-    background-color: var(--button-bgcolor);
+    background-color: var(--nav-active-bgcolor);
 }
 
 .navbar a + a:before {
