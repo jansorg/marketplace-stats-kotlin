@@ -91,7 +91,8 @@ class TransferredLicensesTest {
         val table = render(CustomerTable(nowDate = today))
         assertTrue(table.columns.any { it.id == "customer-licenses-transferred" })
 
-        val rowsByCustomer = table.rows().associateBy { (table.value(it, "customer-id") as dev.ja.marketplace.data.LinkedCustomer).id }
+        // the names link to the customers, the IDs of customers with a name aren't linked
+        val rowsByCustomer = table.rows().associateBy { table.value(it, "customer-id") as Int }
         val previous = rowsByCustomer.getValue(previousOwner.code)
         assertEquals(BigInteger.ZERO, table.value(previous, "customer-licenses-active"))
         assertEquals(BigInteger.ONE, table.value(previous, "customer-licenses-churned"))
