@@ -303,12 +303,20 @@ button {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 0.4rem 1.25rem;
+    gap: 0.4rem 0.5rem;
     margin-top: 3rem;
     padding-top: 1rem;
     font-size: 0.8rem;
     color: var(--text-color-disabled);
     border-top: 1px solid var(--separator-light-color);
+}
+
+/* the items of the footer are separated by a middle dot */
+.site-footer > * + *::before {
+    content: "·";
+    display: inline-block;
+    margin-right: 0.5rem;
+    color: var(--text-color-disabled);
 }
 
 /*
