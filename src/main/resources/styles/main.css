@@ -315,7 +315,7 @@ button {
     max-width: 100%;
     /* no horizontal padding: scrolled columns would show through it next to the sticky first column.
        The first and the last cells have the padding instead, the stripes and highlighted rows extend to the border. */
-    padding: 0.4rem 0 0.75rem;
+    padding: 0.2rem 0;
     overflow-x: auto;
     background-color: var(--surface-color);
     border: 1px solid var(--separator-light-color);
@@ -360,7 +360,7 @@ button {
 /* more columns fit on small screens */
 @media (max-width: 900px) {
     .table-card {
-        padding: 0.3rem 0 0.6rem;
+        padding: 0.15rem 0;
     }
 
     th, td {
