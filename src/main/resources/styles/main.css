@@ -438,6 +438,11 @@ table.small {
     white-space: nowrap;
 }
 
+/* space between the tables and the footer */
+footer.menu {
+    margin-top: 2rem;
+}
+
 /* the refresh button is shown next to the links of the footer */
 footer.menu form {
     display: inline;
