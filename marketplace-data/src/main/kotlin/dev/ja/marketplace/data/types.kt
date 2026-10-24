@@ -18,7 +18,7 @@ import javax.money.MonetaryAmount
 
 data class PercentageValue(val value: BigDecimal) {
     override fun toString(): String {
-        return String.format("%,.2f %%", value)
+        return Formatters.formatPercentage(value)
     }
 
     companion object {

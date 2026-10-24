@@ -62,6 +62,6 @@ class FormattersTest {
         for (value in listOf(-0.0, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, 1234.5)) {
             assertEquals(String.format("%,.2f", value), Formatters.formatDecimal(value), "$value")
         }
-        assertEquals(String.format("%,.2f %%", BigDecimal("12.345")), Formatters.formatPercentage(BigDecimal("12.345")))
+        assertEquals(String.format("%,.2f\u2009%%", BigDecimal("12.345")), Formatters.formatPercentage(BigDecimal("12.345")))
     }
 }
