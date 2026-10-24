@@ -44,6 +44,33 @@ function drawSwatch(context, entry, x, centerY) {
             context.roundRect(x + 2, centerY - 5, 10, 10, 2);
             context.fill();
             break;
+        case "stripes":
+            context.beginPath();
+            context.roundRect(x + 2.5, centerY - 4.5, 9, 9, 2);
+            context.save();
+            context.clip();
+            context.lineWidth = 1.5;
+            for (let offset = -10; offset <= 10; offset += 4) {
+                context.beginPath();
+                context.moveTo(x + 2 + offset, centerY + 5);
+                context.lineTo(x + 12 + offset, centerY - 5);
+                context.stroke();
+            }
+            context.restore();
+            context.lineWidth = 1;
+            context.beginPath();
+            context.roundRect(x + 2.5, centerY - 4.5, 9, 9, 2);
+            context.stroke();
+            break;
+        case "dotted":
+            context.lineWidth = CHART_STYLE.lineWidth;
+            context.lineCap = "round";
+            context.setLineDash([0, 4]);
+            context.beginPath();
+            context.moveTo(x, centerY);
+            context.lineTo(x + SWATCH_WIDTH, centerY);
+            context.stroke();
+            break;
         case "point":
             context.beginPath();
             context.arc(x + SWATCH_WIDTH / 2, centerY, CHART_STYLE.pointRadius + 1, 0, 2 * Math.PI);

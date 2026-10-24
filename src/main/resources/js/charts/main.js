@@ -12,13 +12,14 @@
 import {createFormatter} from "./format.js";
 import {
     canCombineUnits, CHART_STYLES, dateRange, exportFileName, finerPoints, GRANULARITIES, groupCharts, hasFinerValues, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES, nextColor, pieSlices,
-    visibleMarkers,
+    visibleMarkers, withoutIncomplete,
 } from "./model.js";
 import {browserStorage, createSetupStorage} from "./storage.js";
 import {chartColumns, readLineSeries, readMarkers, readPieRows} from "./tableData.js";
 import {ChartDialog} from "./dialog.js";
 import {createLineChart} from "./lineChart.js";
 import {renderPie} from "./pieChart.js";
+import {createMenu} from "./menu.js";
 import {downloadCanvas, downloadSvg, lineChartImage, pieChartSvg, printImages, svgCanvas} from "./exportImage.js";
 
 const STYLE_LABELS = {lines: "Lines", bars: "Bars"};
@@ -52,6 +53,13 @@ class ChartController {
         this.markers = readMarkers(document);
         // the vertical lines are hidden by default
         this.shownMarkers = [];
+        // the marked extremes of the line charts, "min" and "max"
+        this.shownExtremes = [];
+        // if incomplete values, e.g. of the current month, are shown in the line charts
+        this.showIncomplete = true;
+        // if a table with the values at the cursor replaces the legend of the line charts
+        this.showValueTable = true;
+        this.hasLineCharts = false;
         this.storage = createSetupStorage(browserStorage());
 
         this.series = [];
@@ -78,6 +86,7 @@ class ChartController {
         const columns = [...document.querySelectorAll("table[data-chart-title]")].flatMap(table => {
             const tableColumns = chartColumns(table).filter(column => column.type === "pie" || this.lineChartsAvailable);
             tableColumns.forEach(column => this.makeClickable(column, table));
+            this.hasLineCharts ||= tableColumns.some(column => column.type === "line");
             return tableColumns.map(column => ({...column, element: table}));
         });
         this.restore(columns);
@@ -226,6 +235,9 @@ class ChartController {
         this.granularities = setup.granularities;
         this.preferredStyle = setup.preferredStyle;
         this.shownMarkers = setup.shownMarkers;
+        this.shownExtremes = setup.shownExtremes;
+        this.showIncomplete = setup.showIncomplete;
+        this.showValueTable = setup.showValueTable;
 
         for (const entry of setup.entries) {
             const column = columns.find(c => c.type === entry.type && c.table === entry.table && c.column === entry.column);
@@ -254,6 +266,9 @@ class ChartController {
             chartStyles: this.chartStyles,
             granularities: this.granularities,
             shownMarkers: this.shownMarkers,
+            shownExtremes: this.shownExtremes,
+            showIncomplete: this.showIncomplete,
+            showValueTable: this.showValueTable,
             entries: [
                 ...this.series.map(s => ({type: "line", table: s.table, column: s.column, color: s.color})),
                 ...this.pies.map(p => ({type: "pie", table: p.table, column: p.column})),
@@ -282,7 +297,22 @@ class ChartController {
                     this.save();
                     this.render();
                 },
-            }, MARKER_KINDS.filter(kind => this.markers.some(marker => marker.kind === kind)));
+                onExtremeVisibilityChange: (kind, visible) => {
+                    this.shownExtremes = visible ? [...new Set([...this.shownExtremes, kind])] : this.shownExtremes.filter(k => k !== kind);
+                    this.save();
+                    this.render();
+                },
+                onValueTableVisibilityChange: visible => {
+                    this.showValueTable = visible;
+                    this.save();
+                    this.render();
+                },
+                onIncompleteVisibilityChange: visible => {
+                    this.showIncomplete = visible;
+                    this.save();
+                    this.render();
+                },
+            }, MARKER_KINDS.filter(kind => this.markers.some(marker => marker.kind === kind)), this.hasLineCharts);
         }
         return this.dialog;
     }
@@ -303,6 +333,9 @@ class ChartController {
         dialog.setMaximized(this.maximized);
         dialog.setCombineUnits(this.combineUnits, canCombineUnits(this.series));
         dialog.setShownMarkers(this.shownMarkers);
+        dialog.setShownExtremes(this.shownExtremes);
+        dialog.setShowIncomplete(this.showIncomplete);
+        dialog.setShowValueTable(this.showValueTable);
         const markers = visibleMarkers(this.markers, this.shownMarkers);
 
         const charts = groupCharts(this.series, this.combineUnits);
@@ -318,6 +351,9 @@ class ChartController {
             if (finerValues !== null) {
                 chartSeries = chartSeries.map(s => ({...s, ...(s.daily ? finerPoints(finerValues, s.daily) : null)}));
             }
+            if (!this.showIncomplete) {
+                chartSeries = chartSeries.map(withoutIncomplete);
+            }
             // bars of every day would be too thin
             const chartStyle = granularity === "month" ? this.chartStyles[key] ?? this.preferredStyle : "lines";
             this.shownStyles[key] = this.chartStyles[key] ?? this.preferredStyle;
@@ -326,13 +362,17 @@ class ChartController {
             const plot = createLineChart({
                 units: chart.units,
                 series: chartSeries,
-                // charts per week or day have their own date range, it starts with the first month
-                dateRange: finerValues === null ? chart.dateRange : dateRange(chartSeries.filter(s => chart.units.includes(s.unit))),
+                // charts per week or day and charts without incomplete values have their own date range
+                dateRange: finerValues === null && this.showIncomplete
+                    ? chart.dateRange
+                    : dateRange(chartSeries.filter(s => chart.units.includes(s.unit))) ?? chart.dateRange,
                 markers,
                 formatter: this.formatter,
                 syncKey: "marketplace-charts-" + chart.period + "-" + granularity,
                 chartStyle,
                 granularity,
+                extremes: this.shownExtremes,
+                valueTable: this.showValueTable,
                 fontFamily: this.fontFamily,
                 width: dialog.chartWidth,
                 height,
@@ -437,10 +477,16 @@ class ChartController {
         return group;
     }
 
+    /**
+     * The toolbar of the first chart is shown in the row of the options of the dialog to save space,
+     * the toolbars of the other charts above them.
+     */
     toolbar(panel) {
         const toolbar = document.createElement("div");
         toolbar.className = "chart-toolbar";
-        panel.append(toolbar);
+        if (panel.previousElementSibling !== null || !this.dialog.showToolbar(toolbar)) {
+            panel.append(toolbar);
+        }
         return toolbar;
     }
 
@@ -459,13 +505,7 @@ class ChartController {
             items.push({label: "Download SVG", run: async () => downloadSvg(chartExport.svg(), chartExport.fileName("svg"))});
         }
 
-        const menu = document.createElement("details");
-        menu.className = "chart-menu";
-        const summary = document.createElement("summary");
-        summary.textContent = "Export";
-        const list = document.createElement("div");
-        list.className = "chart-menu-items";
-        list.setAttribute("role", "menu");
+        const {menu, items: list} = createMenu("Export");
         for (const item of items) {
             const button = document.createElement("button");
             button.type = "button";
@@ -480,47 +520,7 @@ class ChartController {
                 menu.addEventListener("toggle", () => button.hidden = !item.isShown());
             }
         }
-        menu.append(summary, list);
-        this.openOnHover(menu, summary);
-        // Escape closes the menu, but not the dialog
-        menu.addEventListener("keydown", event => {
-            if (event.key === "Escape" && menu.open) {
-                event.preventDefault();
-                event.stopPropagation();
-                menu.open = false;
-                summary.focus();
-            }
-        });
         return menu;
-    }
-
-    /**
-     * A mouse opens the menu on hover. Touch devices and keyboards open it with a tap or Enter on the summary.
-     */
-    openOnHover(menu, summary) {
-        let closeTimer = null;
-        let pointerType = null;
-        menu.addEventListener("pointerenter", event => {
-            pointerType = event.pointerType;
-            if (event.pointerType === "mouse") {
-                clearTimeout(closeTimer);
-                menu.open = true;
-            }
-        });
-        // a short delay allows to move the mouse across the gap between the summary and the items
-        menu.addEventListener("pointerleave", event => {
-            if (event.pointerType === "mouse") {
-                closeTimer = setTimeout(() => menu.open = false, 250);
-            }
-        });
-        summary.addEventListener("pointerdown", event => pointerType = event.pointerType);
-        // the menu is already open, a click with the mouse must not close it
-        summary.addEventListener("click", event => {
-            if (event.detail > 0 && pointerType === "mouse") {
-                event.preventDefault();
-                menu.open = true;
-            }
-        });
     }
 
     /**

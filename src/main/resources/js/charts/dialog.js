@@ -7,6 +7,7 @@
  * The dialog, which shows the charts.
  */
 
+import {createMenu} from "./menu.js";
 import {MARKER_LABELS} from "./model.js";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
@@ -48,9 +49,13 @@ export class ChartDialog {
      * @param {(maximized: boolean) => void} callbacks.onMaximizedChange
      * @param {() => void} callbacks.onResize
      * @param {(kind: string, visible: boolean) => void} callbacks.onMarkerVisibilityChange
+     * @param {(kind: "min"|"max", visible: boolean) => void} callbacks.onExtremeVisibilityChange
+     * @param {(visible: boolean) => void} callbacks.onIncompleteVisibilityChange
+     * @param {(visible: boolean) => void} callbacks.onValueTableVisibilityChange
      * @param {string[]} markerKinds The kinds of vertical lines, which are available on this page.
+     * @param {boolean} hasLineCharts If the page has columns, which can be shown in line charts.
      */
-    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange}, markerKinds) {
+    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange, onExtremeVisibilityChange, onIncompleteVisibilityChange, onValueTableVisibilityChange}, markerKinds, hasLineCharts) {
         this.element = document.createElement("dialog");
         this.element.className = "chart-dialog noprint";
         this.element.setAttribute("aria-labelledby", "chart-dialog-title");
@@ -76,12 +81,12 @@ export class ChartDialog {
         const hint = document.createElement("p");
         hint.className = "chart-dialog-hint";
         hint.textContent = "Close the dialog and click another column header to add it. The key C shows and hides the charts. "
-            + "Grey points are incomplete values, which may still change.";
+            + "Dotted lines, hollow points and striped bars mark incomplete values, which may still change.";
 
-        // toggles of the vertical lines, with a sample of each line as key
+        // toggles of the vertical lines, with a sample of each line as key, and of the minimum and maximum
         this.markerToggles = document.createElement("div");
         this.markerToggles.className = "chart-marker-toggles";
-        this.markerToggles.hidden = markerKinds.length === 0;
+        this.markerToggles.hidden = !hasLineCharts;
         this.markerCheckboxes = {};
         for (const kind of markerKinds) {
             const checkbox = document.createElement("input");
@@ -95,6 +100,21 @@ export class ChartDialog {
             this.markerToggles.append(label);
             this.markerCheckboxes[kind] = checkbox;
         }
+        // options of the line charts
+        const {menu: viewMenu, items: viewOptions} = createMenu("View");
+        viewMenu.classList.add("chart-view-menu");
+        this.extremeCheckboxes = {
+            min: this.addToggle(viewOptions, "Minimum", "Mark the lowest value of each line, incomplete values are ignored",
+                visible => onExtremeVisibilityChange("min", visible)),
+            max: this.addToggle(viewOptions, "Maximum", "Mark the highest value of each line, incomplete values are ignored",
+                visible => onExtremeVisibilityChange("max", visible)),
+        };
+        this.incompleteCheckbox = this.addToggle(viewOptions, "Incomplete values",
+            "Show the values, which may still change, e.g. of the current month", onIncompleteVisibilityChange);
+        this.valueTableCheckbox = this.addToggle(viewOptions, "Value table",
+            "Show a table with the values at the cursor and one month and one year before and after it instead of the legend",
+            onValueTableVisibilityChange);
+        this.markerToggles.append(viewMenu);
 
         this.message = document.createElement("p");
         this.message.className = "chart-dialog-message";
@@ -156,6 +176,34 @@ export class ChartDialog {
     }
 
     /** @param {string[]} shownKinds */
+    /** @return {HTMLInputElement} The checkbox of a new option of the line charts. */
+    addToggle(container, text, title, onChange) {
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.addEventListener("change", () => onChange(checkbox.checked));
+        const label = document.createElement("label");
+        label.title = title;
+        label.setAttribute("role", "menuitemcheckbox");
+        label.append(checkbox, text);
+        container.append(label);
+        return checkbox;
+    }
+
+    setShowValueTable(visible) {
+        this.valueTableCheckbox.checked = visible;
+    }
+
+    setShowIncomplete(visible) {
+        this.incompleteCheckbox.checked = visible;
+    }
+
+    /** @param {("min"|"max")[]} shownKinds */
+    setShownExtremes(shownKinds) {
+        for (const [kind, checkbox] of Object.entries(this.extremeCheckboxes)) {
+            checkbox.checked = shownKinds.includes(kind);
+        }
+    }
+
     setShownMarkers(shownKinds) {
         for (const [kind, checkbox] of Object.entries(this.markerCheckboxes)) {
             checkbox.checked = shownKinds.includes(kind);
@@ -180,6 +228,20 @@ export class ChartDialog {
 
     clearPanels() {
         this.panels.replaceChildren();
+        this.markerToggles.querySelector(".chart-toolbar")?.remove();
+    }
+
+    /**
+     * Shows the toolbar of the first chart at the end of the row of the options, right-aligned.
+     *
+     * @return {boolean} If the toolbar is shown, the row is hidden on pages without line charts.
+     */
+    showToolbar(toolbar) {
+        if (this.markerToggles.hidden) {
+            return false;
+        }
+        this.markerToggles.append(toolbar);
+        return true;
     }
 
     showEmptyHint() {
