@@ -216,6 +216,8 @@ project(":") {
 
     application {
         mainClass.set("dev.ja.marketplace.ApplicationKt")
+        // Netty loads its native transport library, the JVM warns about this without native access
+        applicationDefaultJvmArgs = listOf("--enable-native-access=ALL-UNNAMED")
     }
 
     buildConfig {
@@ -243,6 +245,11 @@ project(":") {
             archiveBaseName.set("marketplace-stats-all")
             archiveClassifier.set("")
             archiveVersion.set("")
+
+            // allows Netty's native libraries without a warning when started with "java -jar"
+            manifest {
+                attributes("Enable-Native-Access" to "ALL-UNNAMED")
+            }
 
             from(precompileJte.map { fileTree(it.targetDirectory) { include("**/*.class") } })
 
