@@ -1,27 +1,105 @@
 /*
- * Copyright (c) 2023 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 /* Default font */
-@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;0,900;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;1,400&display=swap');
 /* Chinese fallback */
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC&display=swap');
 
+/*
+ * Colors of the light and the dark mode. All text colors have a contrast of at least 4.5:1 on the page, the tables,
+ * their stripes and the highlighted rows, the body text more than 13:1. The separators of headers and totals have at
+ * least 3:1, the borders of the tables and the stripes are decorative and lighter.
+ */
+/* printed pages always use the light colors, see the dark mode below */
 :root {
-    --heading-color: #00008b;
-    --now-color: #00008b;
-    --future-color: #6b6b6b;
-    --link-color: #4545e6;
-    --link-color-active: #c8102e;
-    --stripe-bgcolor: #f2f2f2;
-    --separator-light-color: hsl(0, 0%, 85%);
-    --separator-color: #808080;
-    --positive-color: #0b7a2b;
-    --negative-color: #c8102e;
+    color-scheme: light dark;
+
+    --page-bgcolor: #f5f5f2;
+    --surface-color: #fdfdfc;
+    --raised-surface-color: #fefefd;
+    --stripe-bgcolor: #f0f0ec;
+    --row-hover-bgcolor: #e9eaf6;
+    --button-bgcolor: #f0f0ec;
+    --button-hover-bgcolor: #e4e4df;
+    --shadow-color: rgba(28, 27, 34, 0.06);
+    --popup-shadow-color: rgba(28, 27, 34, 0.15);
+    --backdrop-color: rgba(28, 27, 34, 0.35);
+
     --text-color: #1c1b22;
-    --text-color-disabled: #6b6b6b;
-    --background-highlighted-color: rgba(255, 255, 0, 0.1);
+    --text-color-disabled: #5c5b62;
+    --future-color: #5c5b62;
+    --heading-color: #1a237e;
+    --now-color: #1a237e;
+    --link-color: #3838c9;
+    --link-color-active: #b00d27;
+    --positive-color: #0a7228;
+    --negative-color: #c00f2c;
+    --separator-light-color: #dcdcd5;
+    --separator-color: #86858c;
+    --background-highlighted-color: rgba(255, 214, 0, 0.14);
+
+    --badge-new-bgcolor: #f3d3d3;
+    --badge-new-color: #5c0d0d;
+    --badge-churned-bgcolor: #b3001b;
+    --badge-churned-color: #fdfdfc;
+    --badge-free-bgcolor: #3f5f88;
+    --badge-free-color: #fdfdfc;
+
+    /* vertical lines of the charts, see CHART_THEMES in js/charts/lineChart.js */
+    --chart-release-color: #7d7c77;
+    --chart-price-color: #c27c0e;
+    --chart-ide-color: #6f74b8;
+    --chart-compare-color: #8a8984;
+}
+
+@media print {
+    :root {
+        color-scheme: light;
+    }
+}
+
+@media screen and (prefers-color-scheme: dark) {
+    :root {
+        --page-bgcolor: #121217;
+        --surface-color: #1b1b21;
+        --raised-surface-color: #24242b;
+        --stripe-bgcolor: #222229;
+        --row-hover-bgcolor: #2a2b3d;
+        --button-bgcolor: #2a2a32;
+        --button-hover-bgcolor: #35353e;
+        --shadow-color: rgba(0, 0, 0, 0.3);
+        --popup-shadow-color: rgba(0, 0, 0, 0.5);
+        --backdrop-color: rgba(0, 0, 0, 0.55);
+
+        /* off-white instead of white, light text on a dark background is tiring otherwise */
+        --text-color: #e6e5eb;
+        --text-color-disabled: #a9a8b1;
+        --future-color: #a9a8b1;
+        --heading-color: #b4bcff;
+        --now-color: #b4bcff;
+        --link-color: #a2aaff;
+        --link-color-active: #ff9aa8;
+        --positive-color: #63d391;
+        --negative-color: #ff8593;
+        --separator-light-color: #34343d;
+        --separator-color: #787781;
+        --background-highlighted-color: rgba(255, 214, 0, 0.12);
+
+        --badge-new-bgcolor: #5a2a2e;
+        --badge-new-color: #ffd9dc;
+        --badge-churned-bgcolor: #c4283c;
+        --badge-churned-color: #fdfdfc;
+        --badge-free-bgcolor: #3b5a86;
+        --badge-free-color: #f2f4fa;
+
+        --chart-release-color: #9a99a2;
+        --chart-price-color: #e0a040;
+        --chart-ide-color: #9ea3ec;
+        --chart-compare-color: #8a8993;
+    }
 }
 
 .today {
@@ -43,23 +121,34 @@ html, body, h1, h2, h3, h4, h5, p, div, table, tr, th, td, svg, img, dl, dt, dd 
 html {
     font-family: 'Lato', 'Noto Sans SC', sans-serif;
     color: var(--text-color);
+    background-color: var(--page-bgcolor);
     font-kerning: normal;
     /* render missing weights and styles with the closest loaded font instead of faking them */
     font-synthesis: none;
+    -webkit-text-size-adjust: 100%;
+}
+
+@media screen and (prefers-color-scheme: dark) {
+    html {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
 }
 
 body {
-    max-width: 940px;
-    margin: 2rem auto;
+    box-sizing: border-box;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 2rem clamp(0.75rem, 3vw, 2rem);
 }
 
 body.wide {
-    max-width: 1280px;
+    max-width: 1440px;
 }
 
 h1, h2, h3, h4 {
     color: var(--heading-color);
-    font-weight: 900;
+    font-weight: 700;
     margin: 0 0 0.5em 0;
 }
 
@@ -71,6 +160,7 @@ h1 {
     font-size: 2.5rem;
     line-height: 1.15;
     text-align: center;
+    letter-spacing: -0.01em;
 }
 
 h1, h2, h3, h4 {
@@ -85,8 +175,18 @@ h3, h4 {
     font-size: 1rem;
 }
 
-h2, h3, b, strong {
+b, strong {
     font-weight: 700;
+}
+
+@media (max-width: 640px) {
+    h1 {
+        font-size: 1.75rem;
+    }
+
+    h2 {
+        font-size: 1.25rem;
+    }
 }
 
 a, a:visited {
@@ -113,8 +213,10 @@ svg {
     height: auto;
 }
 
+/* the separate border model, the borders of the rows are drawn by the cells */
 table {
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     margin: 1rem 0 2rem 0;
 }
 
@@ -124,7 +226,7 @@ th {
 }
 
 th, td {
-    padding: .1rem .45rem;
+    padding: .3rem .6rem;
 }
 
 th:last-child, td:last-child {
@@ -135,8 +237,18 @@ th:first-child, td:first-child {
     padding-left: 0;
 }
 
-thead th, .row-border-bottom {
+thead th, .row-border-bottom > th, .row-border-bottom > td {
     border-bottom: 1px solid var(--separator-color);
+}
+
+/* the labels of the columns are secondary to the title of the table and to the values */
+thead th, tbody th {
+    color: var(--future-color);
+    font-weight: 700;
+}
+
+thead th h2, tbody th h2 {
+    color: var(--heading-color);
 }
 
 table h2, table h3, table h4 {
@@ -145,7 +257,7 @@ table h2, table h3, table h4 {
     display: inline-block;
 }
 
-tfoot th, .row-border-top {
+tfoot th, .row-border-top > th, .row-border-top > td {
     border-top: 1px solid var(--separator-color);
 }
 
@@ -153,12 +265,22 @@ tfoot tr {
     vertical-align: text-top;
 }
 
-.row-border-light-bottom {
+/* the totals below the rows */
+tfoot td {
+    font-weight: 700;
+}
+
+.row-border-light-bottom > th, .row-border-light-bottom > td {
     border-bottom: 1px solid var(--separator-light-color);
 }
 
-.row-border-light-top {
+.row-border-light-top > th, .row-border-light-top > td {
     border-top: 1px solid var(--separator-light-color);
+}
+
+/* the totals have a stronger separator than the rows of a section */
+tfoot .row-border-light-top > td, tfoot .row-border-light-top > th {
+    border-top-color: var(--separator-color);
 }
 
 dt {
@@ -170,28 +292,100 @@ dd {
     max-width: 50%;
 }
 
+button {
+    font: inherit;
+}
+
 /* custom */
+
+/*
+ * The tables of a page are cards, which flow in rows. Narrow tables share a row and grow to fill it, wide tables use
+ * a row of their own and scroll horizontally if they are wider than the page.
+ */
 .tables {
     display: flex;
-    align-items: flex-start;
-    flex-direction: row;
     flex-wrap: wrap;
-    justify-content: space-between;
-    column-gap: 1rem;
-    row-gap: 1rem;
+    /* the cards of a row have the same height */
+    align-items: stretch;
+    gap: 1rem;
 }
 
-.tables table, .tables .table-centered {
-    margin: 0 0 1rem;
-}
-
-.tables .tables-row {
-    width: 100%;
-}
-
-.tables .table-column-wide {
+.table-card {
+    flex: 1 1 auto;
     box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0.75rem 1rem;
+    overflow-x: auto;
+    background-color: var(--surface-color);
+    border: 1px solid var(--separator-light-color);
+    border-radius: 10px;
+    box-shadow: 0 1px 3px var(--shadow-color);
+}
+
+.tables > .table-card:has(> .tables-row, > .table-column-wide), .tables > .table-card:only-child {
+    flex-basis: 100%;
+}
+
+/* the card defines the width and the spacing of its table */
+.table-card > table {
     width: 100%;
+    margin: 0;
+}
+
+/* the first column, usually the date, stays visible, when a wide table is scrolled horizontally */
+.table-card > table > * > tr > :first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background-color: var(--surface-color);
+}
+
+.table-card > .table-striped > tbody > tr:nth-child(even) > :first-child {
+    background-color: var(--stripe-bgcolor);
+}
+
+.table-card > table > tbody > tr:hover > :first-child {
+    background-color: var(--row-hover-bgcolor);
+}
+
+/* more columns fit on small screens */
+@media (max-width: 900px) {
+    .table-card {
+        padding: 0.6rem 0.75rem;
+    }
+
+    th, td {
+        padding-left: .4rem;
+        padding-right: .4rem;
+    }
+}
+
+.table-card button, footer.menu button {
+    padding: 0.2rem 0.75rem;
+    color: var(--text-color);
+    background-color: var(--button-bgcolor);
+    border: 1px solid var(--separator-light-color);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.table-card button:hover, footer.menu button:hover {
+    background-color: var(--button-hover-bgcolor);
+}
+
+.sections .table-card {
+    margin: 1rem 0 2rem;
+}
+
+/* the title of a table is in its first header cell */
+.table-card h2 {
+    font-size: 1rem;
+    margin: 0;
+}
+
+table.small {
+    font-size: .875rem;
 }
 
 .subtitle {
@@ -201,6 +395,21 @@ dd {
     line-height: 1.5rem;
     color: var(--future-color);
     margin: 0 0 2rem 0;
+}
+
+/* date, downloads and rating of the plugin */
+.plugin-stats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.25rem 0.5rem;
+    margin-bottom: 1.25rem;
+    font-variant-numeric: tabular-nums lining-nums;
+}
+
+.plugin-stats > * + *::before {
+    content: "·";
+    margin-right: 0.5rem;
 }
 
 .centered {
@@ -215,10 +424,7 @@ dd {
 .menu {
     position: sticky;
     top: 0;
-}
-
-.menu a {
-    background-color: rgba(255, 255, 255, .8);
+    z-index: 3;
 }
 
 .menu a {
@@ -238,8 +444,48 @@ footer.menu form {
     color: var(--text-color-disabled);
 }
 
+/* the navigation of the report pages: a bar of links, which stays at the top of the window */
+.navbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.25rem;
+    margin: 0 calc(-1 * clamp(0.75rem, 3vw, 2rem)) 1.5rem;
+    padding: 0.4rem clamp(0.75rem, 3vw, 2rem);
+    background-color: color-mix(in srgb, var(--page-bgcolor) 88%, transparent);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--separator-light-color);
+}
+
+.navbar a {
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    transition: color .15s, background-color .15s;
+}
+
+.navbar a:hover {
+    text-decoration: none;
+    background-color: var(--row-hover-bgcolor);
+}
+
+.navbar a[aria-current="page"] {
+    color: var(--text-color);
+    font-weight: 700;
+    background-color: var(--button-bgcolor);
+}
+
+.navbar a + a:before {
+    content: none;
+}
+
 .table-striped tbody tr:nth-child(even) {
     background-color: var(--stripe-bgcolor);
+}
+
+/* the row under the pointer, stripes make it hard to follow a row of a wide table */
+.table-card tbody tr:hover {
+    background-color: var(--row-hover-bgcolor);
 }
 
 table .subheading, table .subheading h3 {
@@ -282,18 +528,18 @@ table .subheading, table .subheading h3 {
 }
 
 .badge-new {
-    background-color: #e6b8b8;
-    color: #000;
+    background-color: var(--badge-new-bgcolor);
+    color: var(--badge-new-color);
 }
 
 .badge-churned {
-    background-color: #cc0000;
-    color: #fff;
+    background-color: var(--badge-churned-bgcolor);
+    color: var(--badge-churned-color);
 }
 
 .badge-free {
-    background-color: #476a95;
-    color: #fff;
+    background-color: var(--badge-free-bgcolor);
+    color: var(--badge-free-color);
 }
 
 .filter-hidden {
@@ -311,6 +557,8 @@ table .subheading, table .subheading h3 {
 
 .desc {
     font-size: .8rem;
+    max-width: 75ch;
+    text-wrap: pretty;
 }
 
 .table-even {
@@ -378,7 +626,7 @@ th.highlighted, td.highlighted {
 }
 
 .term p {
-    max-width: 50%;
+    max-width: 66ch;
     margin-left: 2rem;
     line-height: 1.25;
 }
@@ -438,6 +686,7 @@ th.highlighted, td.highlighted {
 .margin-bottom {
     margin-bottom: 0.5rem;
 }
+
 /* charts of table columns, see js/charts/ */
 .chart-opener {
     cursor: pointer;
@@ -473,6 +722,7 @@ th.highlighted, td.highlighted {
     border: 1px solid var(--separator-light-color);
     border-radius: 6px;
     color: var(--text-color);
+    background-color: var(--surface-color);
 }
 
 /* modal dialogs are centered by default, show the dialog near the top of the page */
@@ -495,7 +745,7 @@ th.highlighted, td.highlighted {
 }
 
 .chart-dialog::backdrop {
-    background-color: rgba(28, 27, 34, 0.35);
+    background-color: var(--backdrop-color);
 }
 
 .chart-dialog-header {
@@ -516,14 +766,14 @@ th.highlighted, td.highlighted {
     font-size: .8rem;
     padding: 0 0.6rem;
     color: var(--text-color);
-    background-color: #f4f4f2;
+    background-color: var(--button-bgcolor);
     border: 1px solid var(--separator-light-color);
     border-radius: 4px;
     cursor: pointer;
 }
 
 .chart-dialog-header button:hover {
-    background-color: #e9e9e6;
+    background-color: var(--button-hover-bgcolor);
 }
 
 .chart-dialog-header button:focus-visible {
@@ -588,15 +838,15 @@ th.highlighted, td.highlighted {
 }
 
 .chart-marker-release {
-    background: repeating-linear-gradient(to bottom, #7d7c77 0 4px, transparent 4px 8px);
+    background: repeating-linear-gradient(to bottom, var(--chart-release-color) 0 4px, transparent 4px 8px);
 }
 
 .chart-marker-price {
-    background: repeating-linear-gradient(to bottom, #c27c0e 0 2px, transparent 2px 5px);
+    background: repeating-linear-gradient(to bottom, var(--chart-price-color) 0 2px, transparent 2px 5px);
 }
 
 .chart-marker-ide {
-    background: repeating-linear-gradient(to bottom, #6f74b8 0 8px, transparent 8px 11px);
+    background: repeating-linear-gradient(to bottom, var(--chart-ide-color) 0 8px, transparent 8px 11px);
 }
 
 .chart-dialog-hint, .chart-dialog-message {
@@ -619,6 +869,11 @@ th.highlighted, td.highlighted {
 
 .chart-panel .uplot {
     font-family: inherit;
+}
+
+/* the selected date range, uPlot's default is too dark in the dark mode */
+.chart-panel .u-select {
+    background-color: color-mix(in srgb, var(--text-color) 8%, transparent);
 }
 
 /* on touch devices, the cursor follows the finger and vertical swipes scroll the dialog, see enableTouchCursor.
@@ -714,7 +969,7 @@ th.highlighted, td.highlighted {
 .chart-menu summary {
     list-style: none;
     padding: 0.1rem 0.6rem;
-    background-color: #fff;
+    background-color: var(--raised-surface-color);
     border: 1px solid var(--separator-light-color);
     border-radius: 4px;
     cursor: pointer;
@@ -731,7 +986,7 @@ th.highlighted, td.highlighted {
 }
 
 .chart-menu[open] summary {
-    background-color: #e9e9e6;
+    background-color: var(--button-hover-bgcolor);
 }
 
 .chart-menu summary:focus-visible, .chart-menu-items button:focus-visible {
@@ -748,10 +1003,10 @@ th.highlighted, td.highlighted {
     min-width: 10rem;
     margin-top: 0.2rem;
     padding: 0.25rem 0;
-    background-color: #fff;
+    background-color: var(--raised-surface-color);
     border: 1px solid var(--separator-light-color);
     border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(28, 27, 34, 0.15);
+    box-shadow: 0 2px 8px var(--popup-shadow-color);
 }
 
 .chart-menu-items button {
@@ -765,7 +1020,7 @@ th.highlighted, td.highlighted {
 }
 
 .chart-menu-items button:hover {
-    background-color: #f4f4f2;
+    background-color: var(--button-bgcolor);
 }
 
 .chart-menu-items label {
@@ -791,7 +1046,7 @@ th.highlighted, td.highlighted {
 }
 
 .chart-menu-items label:hover {
-    background-color: #f4f4f2;
+    background-color: var(--button-bgcolor);
 }
 
 /* the view options follow the options of the vertical lines, the items open to the right like the row */
@@ -809,7 +1064,7 @@ th.highlighted, td.highlighted {
     font-size: .75rem;
     padding: 0.1rem 0.6rem;
     color: var(--text-color);
-    background-color: #fff;
+    background-color: var(--raised-surface-color);
     border: 1px solid var(--separator-light-color);
     cursor: pointer;
 }
@@ -832,7 +1087,7 @@ th.highlighted, td.highlighted {
 }
 
 .chart-button-group button[aria-pressed="true"] {
-    background-color: #e9e9e6;
+    background-color: var(--button-hover-bgcolor);
     font-weight: 700;
 }
 
@@ -847,7 +1102,7 @@ th.highlighted, td.highlighted {
     top: 0;
     bottom: 0;
     width: 0;
-    border-left: 1px dashed #8a8984;
+    border-left: 1px dashed var(--chart-compare-color);
     pointer-events: none;
 }
 
@@ -863,7 +1118,7 @@ th.highlighted, td.highlighted {
     position: absolute;
     top: 2px;
     font-size: .7rem;
-    color: #6b6b6b;
+    color: var(--future-color);
     white-space: nowrap;
 }
 
@@ -938,7 +1193,7 @@ th.highlighted, td.highlighted {
 
 /* the column of the cursor is highlighted */
 .chart-comparison .chart-comparison-cursor {
-    background-color: #f4f4f2;
+    background-color: var(--button-bgcolor);
     font-weight: 700;
 }
 
@@ -1064,9 +1319,9 @@ th.highlighted, td.highlighted {
     max-width: 22rem;
     padding: 0.4rem 0.6rem;
     font-size: .8rem;
-    background-color: #fff;
+    background-color: var(--raised-surface-color);
     border: 1px solid var(--separator-light-color);
     border-radius: 4px;
-    box-shadow: 0 2px 6px rgba(28, 27, 34, 0.15);
+    box-shadow: 0 2px 6px var(--popup-shadow-color);
     pointer-events: none;
 }

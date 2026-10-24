@@ -3,7 +3,7 @@
 @param plugin: PluginInfo
 @param showResellerCharges: Boolean
 
-<div class="subtitle menu small">
+<nav class="subtitle menu small navbar">
     <a href="/?pluginId=${plugin.id}">Overview</a>
     @if(plugin.isPaidOrFreemium)
         <a href="/licenses?pluginId=${plugin.id}&rows=1000">Licenses</a>
@@ -20,4 +20,12 @@
         <a href="/charges?pluginId=${plugin.id}">Charges</a>
         @endif
     @endif
-</div>
+    <script>
+        // marks the link of the current page
+        for (const link of document.currentScript.parentElement.querySelectorAll("a")) {
+            if (new URL(link.href).pathname === location.pathname) {
+                link.setAttribute("aria-current", "page");
+            }
+        }
+    </script>
+</nav>

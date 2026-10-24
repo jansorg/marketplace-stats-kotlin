@@ -154,7 +154,11 @@ CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
   the values per week or day are already sums of the month before each day. Options without effect on the shown
   charts are dimmed in the menu.
 - Incomplete values are drawn as dotted lines, hollow points and striped bars in a lighter color of their series
-  (`incompleteColor` in `model.js`).
+  (`incompleteColor` in `model.js`, darker in the dark mode).
+- Colors of the dark mode: `CHART_THEMES` in `lineChart.js` (axes, grid, surface, vertical lines) and
+  `DARK_SERIES_COLORS` in `model.js`. The stored chart setup always uses the light series colors, `displayColor` maps
+  them when the charts are drawn. Exported and printed images always use the light colors, a dark chart is drawn again
+  with the light colors for the image.
   The option "Incomplete values" of the View menu of the chart dialog hides them, "Minimum" and "Maximum" mark the
   lowest and highest complete value of each series.
 - In sortable tables (`sortable` CSS class), a click on the label of a column header opens the chart and a click on
@@ -182,7 +186,13 @@ CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
 - Pages are server-side rendered from JTE templates in `src/main/resources/templates/`. `main.kte` is the layout of the
   report pages; `dataTable.kte`, `dataTableSection.kte`, `dataRowGroup.kte` and `tableColumnsRow.kte` render the data tables.
 - All styling is in `src/main/resources/styles/main.css`, served at `/styles/main.css`. It defines colors as CSS custom
-  properties in `:root` and loads the Lato font from Google Fonts.
+  properties in `:root` and loads the Lato font from Google Fonts. Use these properties instead of fixed colors.
+- Dark mode: `@media screen and (prefers-color-scheme: dark)` redefines the custom properties. Printing always uses the
+  light colors. Text colors need a contrast of at least 4.5:1 on the page, the tables, their stripes and the hovered rows
+  in both modes.
+- `dataTable.kte` wraps each table in a `.table-card`. The cards of `.tables` flow in rows: narrow tables share a row,
+  tables with `tables-row` or `table-column-wide` use a full row, wide tables scroll horizontally with a sticky first
+  column.
 - `src/main/resources/js/sortable.css` and `sortable.min.js` provide the sortable tables (third-party, don't edit).
 - `src/main/resources/styles/print.css` contains the print-only rules (`.noprint`, `.noprintlink`, A4 landscape `@page`).
   Templates link it with `media="print"`.

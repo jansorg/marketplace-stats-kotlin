@@ -17,7 +17,7 @@ import {
 import {browserStorage, createSetupStorage} from "./storage.js";
 import {chartColumns, readLineSeries, readMarkers, readPieRows} from "./tableData.js";
 import {ChartDialog} from "./dialog.js";
-import {createLineChart} from "./lineChart.js";
+import {createLineChart, lineChartTheme} from "./lineChart.js";
 import {renderPie} from "./pieChart.js";
 import {createMenu} from "./menu.js";
 import {downloadCanvas, downloadSvg, lineChartImage, pieChartSvg, printImages, svgCanvas} from "./exportImage.js";
@@ -96,6 +96,12 @@ class ChartController {
         if (columns.length > 0) {
             this.enableShortcut();
         }
+        // the colors of the charts follow the color scheme of the browser
+        window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener("change", () => {
+            if (this.dialog?.isOpen) {
+                this.render();
+            }
+        });
     }
 
     /**
@@ -383,7 +389,7 @@ class ChartController {
                 : dateRange(chartSeries.filter(s => chart.units.includes(s.unit))) ?? chart.dateRange;
             const panel = dialog.addPanel("chart-panel");
             const toolbar = this.toolbar(panel);
-            const plot = createLineChart({
+            const chartOptions = {
                 units: chart.units,
                 series: chartSeries,
                 overlays,
@@ -396,16 +402,14 @@ class ChartController {
                 extremes: this.shownExtremes,
                 valueTable: this.showValueTable,
                 fontFamily: this.fontFamily,
-                width: dialog.chartWidth,
-                height,
-                container: panel,
-            });
+            };
+            const plot = createLineChart({...chartOptions, width: dialog.chartWidth, height, container: panel});
             this.plots.push(plot);
             const title = document.title;
             const labels = chartSeries.filter(s => chart.units.includes(s.unit)).map(s => s.label);
             const chartExport = {
                 fileName: extension => exportFileName([title, ...labels], extension),
-                image: () => lineChartImage(plot, {title, fontFamily: this.fontFamily}),
+                image: () => this.lightLineChartImage(plot, chartOptions, title),
             };
             this.exports.push(chartExport);
             toolbar.append(this.exportMenu(chartExport));
@@ -568,6 +572,37 @@ class ChartController {
             }
         }
         return menu;
+    }
+
+    /**
+     * Exported and printed images use the light colors. A chart in the dark mode is drawn again with the light colors
+     * for the image, outside the visible area of the page.
+     *
+     * @return {Promise<HTMLCanvasElement>}
+     */
+    async lightLineChartImage(plot, chartOptions, title) {
+        if (lineChartTheme(plot) === "light") {
+            return lineChartImage(plot, {title, fontFamily: this.fontFamily});
+        }
+        const container = document.createElement("div");
+        container.style.cssText = "position: fixed; left: -10000px; top: 0;";
+        document.body.append(container);
+        const lightPlot = createLineChart({...chartOptions, theme: "light", width: plot.width, height: plot.height, container});
+        try {
+            // the same date range and the same hidden series as the shown chart
+            lightPlot.setScale("x", {min: plot.scales.x.min, max: plot.scales.x.max});
+            plot.series.forEach((series, index) => {
+                if (index > 0 && lightPlot.series[index].show !== series.show) {
+                    lightPlot.setSeries(index, {show: series.show});
+                }
+            });
+            // uPlot draws asynchronously
+            await new Promise(resolve => setTimeout(resolve));
+            return lineChartImage(lightPlot, {title, fontFamily: this.fontFamily});
+        } finally {
+            lightPlot.destroy();
+            container.remove();
+        }
     }
 
     /**

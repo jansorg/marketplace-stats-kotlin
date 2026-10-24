@@ -7,7 +7,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
-    alignSeries, availableComparisons, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
+    alignSeries, availableComparisons, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, groupCharts, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
 } from "../../main/resources/js/charts/model.js";
@@ -215,6 +215,29 @@ test("incomplete values have a lighter, less saturated color", () => {
     assert.equal(incompleteColor("#808080"), INCOMPLETE_GREY);
     assert.equal(incompleteColor("#2a78d6"), "#76a2d6");
     assert.equal(incompleteColor("red"), "red");
+});
+
+test("incomplete values of the dark mode are faded towards the dark surface", () => {
+    for (const color of DARK_SERIES_COLORS) {
+        const incomplete = incompleteColor(color, true);
+        assert.match(incomplete, /^#[0-9a-f]{6}$/);
+        if (incomplete !== DARK_INCOMPLETE_GREY) {
+            const lightness = hex => Math.max(...[1, 3, 5].map(i => Number.parseInt(hex.substring(i, i + 2), 16)));
+            assert.ok(lightness(incomplete) < lightness(color), color);
+        }
+    }
+    // dark colors, whose darker color is too similar, use grey
+    assert.equal(incompleteColor("#303030", true), DARK_INCOMPLETE_GREY);
+});
+
+test("the colors of the dark mode replace the colors of the light mode", () => {
+    assert.equal(DARK_SERIES_COLORS.length, SERIES_COLORS.length);
+    SERIES_COLORS.forEach((color, index) => {
+        assert.equal(displayColor(color, false), color);
+        assert.equal(displayColor(color, true), DARK_SERIES_COLORS[index]);
+    });
+    assert.equal(displayColor(OTHER_SLICE_COLOR, true), DARK_OTHER_SLICE_COLOR);
+    assert.equal(displayColor("#123456", true), "#123456");
 });
 
 test("changes of values are percentages, changes of percentages are percentage points", () => {
