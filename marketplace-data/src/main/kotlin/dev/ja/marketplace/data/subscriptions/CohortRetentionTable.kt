@@ -15,11 +15,14 @@ import dev.ja.marketplace.data.SimpleTableSection
 /**
  * The share of customers of each year, who still have recurring revenue after one, two, ... years.
  */
-class CohortRetentionTable : RecurringRevenueTable("Customer Cohorts", "customer-cohorts", "table-striped table-column-medium") {
+class CohortRetentionTable : RecurringRevenueTable("Cohorts", "customer-cohorts", "table-striped table-column-medium") {
     private val columnYear = DataTableColumn(
-        "cohort", null, tooltip = "Year of the first month with recurring revenue of the customers"
+        "cohort", null,
+        tooltip = "Customer cohorts: the customers grouped by the year of their first month with recurring revenue"
     )
-    private val columnCustomers = DataTableColumn("customers", "Customers", "num")
+    private val columnCustomers = DataTableColumn(
+        "customers", "Customers", "num", tooltip = "Customers with their first month with recurring revenue in this year"
+    )
     private val columnInitialMrr = DataTableColumn(
         "initial-mrr", "Initial MRR", "num", tooltip = "MRR of the customers in their first month"
     )
@@ -40,14 +43,15 @@ class CohortRetentionTable : RecurringRevenueTable("Customer Cohorts", "customer
             DataTableColumn(
                 "year-$years", "Year $years", "num num-percentage",
                 tooltip = "Share of the customers with recurring revenue $years ${if (years == 1) "year" else "years"} " +
-                        "after their first month. The tooltips of the values show the share of the initial MRR."
+                        "after their first month. Customers, whose anniversary is still in the future, aren't counted. " +
+                        "The tooltips of the values show the share of the initial MRR."
             )
         }
 
         val rows = cohorts.reversed().map { cohort ->
             val values = mutableMapOf<DataTableColumn, Any?>(
                 columnYear to cohort.year,
-                columnCustomers to cohort.customers,
+                columnCustomers to cohort.customers.toBigInteger(),
                 columnInitialMrr to revenue.toAmount(cohort.initialMrr),
             )
             val tooltips = mutableMapOf<DataTableColumn, String?>()

@@ -55,7 +55,7 @@ class RealizedLifetimeValueTable : RecurringRevenueTable(
         val rows = cohorts.reversed().map { cohort ->
             val values = mutableMapOf<DataTableColumn, Any?>(
                 columnYear to cohort.year,
-                columnCustomers to cohort.customers,
+                columnCustomers to cohort.customers.toBigInteger(),
             )
             val tooltips = mutableMapOf<DataTableColumn, String?>()
             cohort.years.forEachIndexed { index, year ->

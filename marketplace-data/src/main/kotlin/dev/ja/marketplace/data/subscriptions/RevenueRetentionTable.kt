@@ -53,7 +53,7 @@ class RevenueRetentionTable : RecurringRevenueTable("Revenue Retention", "revenu
             with(revenue) {
                 SimpleDateTableRow(
                     columnMonth to monthLabel(index),
-                    columnCustomers to retention.previousCustomers,
+                    columnCustomers to retention.previousCustomers.toBigInteger(),
                     columnCustomerRetention to valueOf(index, retention.customerRetention),
                     columnGrr to valueOf(index, retention.grossRevenueRetention),
                     columnNrr to valueOf(index, retention.netRevenueRetention),
