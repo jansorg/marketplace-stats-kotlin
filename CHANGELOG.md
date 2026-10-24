@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.41.0
+
+- Dark mode, which follows the setting of the system. Its colors are chosen for a contrast of at least 4.5:1 for all text.
+  Charts have their own colors in dark mode, exported and printed charts stay light.
+- Tables are shown as cards in a grid: narrow tables share a row, wide tables use a full row. Tables wider than the
+  screen scroll horizontally with a fixed first column. The navigation is a sticky bar, which marks the current page.
+- Typography: lighter headings, larger table text, column labels in a secondary color and bold totals.
+- The chart dialog is usable on tablets: the page behind it doesn't scroll, maximized charts fit the screen, and the
+  charts keep the size of the dialog after rotating the device or returning to the page.
+- The MCP server at `/mcp` doesn't use sessions anymore. Clients don't need the `Mcp-Session-Id` header, and memory
+  is no longer retained for each session.
+- Faster rendering of the overview, subscription metrics, customers, countries and pricing pages with fewer allocations.
+
 ## 0.40.0
 
 - Add an MCP server for AI agents at `/mcp` (Streamable HTTP), enabled by default. Its tools provide the report tables,
