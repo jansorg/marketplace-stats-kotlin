@@ -20,23 +20,27 @@ class RevenueRetentionTable : RecurringRevenueTable("Revenue Retention", "revenu
         "customers", "Customers a Year Ago", "num",
         tooltip = "Customers with recurring revenue at the end of the same month in the previous year",
         chartMeasure = ChartMeasure.Stock,
+        dailyChartSeries = SubscriptionDailyColumn.CustomersYearAgo.id,
     )
     private val columnCustomerRetention = DataTableColumn(
         "customer-retention", "Customer Retention", "num num-percentage",
         tooltip = "Share of these customers, who still have recurring revenue",
         chartMeasure = ChartMeasure.Ratio,
+        dailyChartSeries = SubscriptionDailyColumn.CustomerRetention.id,
     )
     private val columnGrr = DataTableColumn(
         "grr", "GRR", "num num-percentage", chartTitle = "Gross Revenue Retention",
         tooltip = "Gross revenue retention: current MRR of the customers of a year ago, without expansion, " +
                 "compared to their MRR a year ago. It's at most 100%.",
         chartMeasure = ChartMeasure.Ratio,
+        dailyChartSeries = SubscriptionDailyColumn.GrossRevenueRetention.id,
     )
     private val columnNrr = DataTableColumn(
         "nrr", "NRR", "num num-percentage", chartTitle = "Net Revenue Retention",
         tooltip = "Net revenue retention: current MRR of the customers of a year ago, including expansion, " +
                 "compared to their MRR a year ago. Above 100% the existing customers pay more than a year ago.",
         chartMeasure = ChartMeasure.Ratio,
+        dailyChartSeries = SubscriptionDailyColumn.NetRevenueRetention.id,
     )
 
     override val columns: List<DataTableColumn> = listOf(

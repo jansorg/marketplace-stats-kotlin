@@ -22,10 +22,10 @@ import javax.money.MonetaryAmount
  * The values of a column of the overview table for each day.
  *
  * @param unit The currency code for amounts and `count` for numbers, like [dev.ja.marketplace.data.ChartValue.unit].
- * @param values The value of each day of [OverviewDailyValues.days].
+ * @param values The value of each day of [OverviewDailyValues.days], `null` if there is no value, e.g. no average without customers.
  * @param incompleteFrom Index of the first day, whose value may still change.
  */
-data class DailySeries(val unit: String, val values: List<BigDecimal>, val incompleteFrom: Int)
+data class DailySeries(val unit: String, val values: List<BigDecimal?>, val incompleteFrom: Int)
 
 /**
  * The columns of the overview table, which have values for each day. The [id] is used by the charts.

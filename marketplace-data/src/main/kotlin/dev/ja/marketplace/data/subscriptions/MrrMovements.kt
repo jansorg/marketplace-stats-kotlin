@@ -5,6 +5,8 @@
 
 package dev.ja.marketplace.data.subscriptions
 
+import dev.ja.marketplace.client.CustomerId
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap
 import java.math.BigDecimal
 import java.math.RoundingMode
 
@@ -42,9 +44,22 @@ data class MrrMovements(
 
     companion object {
         fun of(revenue: CustomerRecurringRevenue, monthIndex: Int): MrrMovements {
-            val current = revenue.customers(monthIndex)
-            val previous = revenue.customers(monthIndex - 1)
+            return of(revenue.customers(monthIndex), revenue.customers(monthIndex - 1)) { customer ->
+                revenue.firstPaidMonthIndex(customer) == monthIndex
+            }
+        }
 
+        /**
+         * @param current The MRR of each customer at the end of the period.
+         * @param previous The MRR of each customer at the end of the previous period.
+         * @param isFirstPaidPeriod If the customer had recurring revenue for the first time in the period.
+         */
+        fun of(
+            current: Int2ObjectMap<BigDecimal>,
+            previous: Int2ObjectMap<BigDecimal>,
+            isFirstPaidPeriod: (CustomerId) -> Boolean,
+        ): MrrMovements {
+            var total = BigDecimal.ZERO
             var new = BigDecimal.ZERO
             var expansion = BigDecimal.ZERO
             var contraction = BigDecimal.ZERO
@@ -55,8 +70,9 @@ data class MrrMovements(
                 val customer = entry.intKey
                 val mrr = entry.value
                 val previousMrr = previous.get(customer)
+                total += mrr
                 when {
-                    previousMrr == null && revenue.firstPaidMonthIndex(customer) == monthIndex -> new += mrr
+                    previousMrr == null && isFirstPaidPeriod(customer) -> new += mrr
                     previousMrr == null -> reactivation += mrr
                     mrr > previousMrr -> expansion += mrr - previousMrr
                     mrr < previousMrr -> contraction += previousMrr - mrr
@@ -69,7 +85,7 @@ data class MrrMovements(
                 }
             }
 
-            return MrrMovements(revenue.totalMrr(monthIndex), new, expansion, contraction, churned, reactivation)
+            return MrrMovements(total, new, expansion, contraction, churned, reactivation)
         }
     }
 }

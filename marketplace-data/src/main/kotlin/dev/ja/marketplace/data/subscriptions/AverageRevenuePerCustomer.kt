@@ -5,7 +5,9 @@
 
 package dev.ja.marketplace.data.subscriptions
 
+import dev.ja.marketplace.client.CustomerId
 import dev.ja.marketplace.client.model.CustomerType
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap
 import java.math.BigDecimal
 import java.math.RoundingMode
 
@@ -34,16 +36,24 @@ data class AverageRevenuePerCustomer(
 
     companion object {
         fun of(revenue: CustomerRecurringRevenue, monthIndex: Int): AverageRevenuePerCustomer {
-            val customers = revenue.customers(monthIndex)
+            return of(revenue.customers(monthIndex), revenue::customerType)
+        }
+
+        /**
+         * @param customers The MRR of each customer at the end of the period.
+         */
+        fun of(customers: Int2ObjectMap<BigDecimal>, customerType: (CustomerId) -> CustomerType?): AverageRevenuePerCustomer {
+            var mrr = BigDecimal.ZERO
             val customersByType = mutableMapOf<CustomerType, Int>()
             val mrrByType = mutableMapOf<CustomerType, BigDecimal>()
             for (entry in customers.int2ObjectEntrySet()) {
-                val type = revenue.customerType(entry.intKey) ?: continue
+                mrr += entry.value
+                val type = customerType(entry.intKey) ?: continue
                 customersByType.merge(type, 1, Int::plus)
                 mrrByType.merge(type, entry.value, BigDecimal::add)
             }
 
-            return AverageRevenuePerCustomer(customers.size, revenue.totalMrr(monthIndex), customersByType, mrrByType)
+            return AverageRevenuePerCustomer(customers.size, mrr, customersByType, mrrByType)
         }
     }
 }

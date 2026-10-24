@@ -174,7 +174,7 @@ class OverviewDailyValuesTest {
     }
 
     private fun value(column: OverviewDailyColumn, index: Int): BigDecimal {
-        return values.series.getValue(column).values[index]
+        return values.series.getValue(column).values[index]!!
     }
 
     private fun assertAmount(expected: MonetaryAmount, actual: BigDecimal, message: String) {

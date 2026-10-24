@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -8,12 +8,16 @@ package dev.ja.marketplace.data.downloads
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.model.MonthlyDownload
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.overview.OverviewDailyColumn
 
 class DownloadsTable : SimpleDataTable("", "downloads"), MarketplaceDataSink {
     private lateinit var data: List<MonthlyDownload>
 
     private val columnMonth = DataTableColumn("month", null)
-    private val columnDownloads = DataTableColumn("downloads", "Downloads", "num", chartMeasure = ChartMeasure.Flow)
+    private val columnDownloads = DataTableColumn(
+        "downloads", "Downloads", "num", chartMeasure = ChartMeasure.Flow,
+        dailyChartSeries = OverviewDailyColumn.Downloads.id,
+    )
 
     override val isChartable: Boolean = true
     override val chartPeriod: ChartPeriod = ChartPeriod.Month
