@@ -125,6 +125,9 @@ object McpTestData {
         review(2, "2025-01-20T10:00:00Z", 3),
         review(3, "2025-06-01T10:00:00Z", 1),
         review(4, "2025-06-02T10:00:00Z", 1, spam = true),
+        // don't count for the rating: a resolved review and a comment without rating
+        review(5, "2025-01-25T10:00:00Z", 1, resolveState = "RESOLVED"),
+        review(6, "2025-01-26T10:00:00Z", 0, subRating = mapOf("PERFORMANCE" to 4)),
     )
 
     /** Number of calls of [McpDataProvider.dropCachedData]. */
@@ -368,7 +371,14 @@ object McpTestData {
         return DownloadResponseGroup(name, comment, values.map { (date, value) -> DownloadResponseItem(date, value) })
     }
 
-    private fun review(id: Long, timestamp: String, rating: Int, spam: Boolean = false): PluginReviewComment {
+    private fun review(
+        id: Long,
+        timestamp: String,
+        rating: Int,
+        spam: Boolean = false,
+        resolveState: String = "INIT",
+        subRating: Map<String, Int>? = null,
+    ): PluginReviewComment {
         return PluginReviewComment(
             id = id,
             createdTimestamp = Instant.parse(timestamp),
@@ -379,6 +389,8 @@ object McpTestData {
             vendor = false,
             markedAsSpam = spam,
             author = JetBrainsAccountInfo("author-$id", "Author $id"),
+            resolveState = resolveState,
+            subRating = subRating,
         )
     }
 }

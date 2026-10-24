@@ -129,11 +129,21 @@ class McpAnalysisToolsTest {
     @Test
     suspend fun reviews() {
         val result = tools.call("list_reviews", arguments())
-        assertEquals(3, result["reviewCount"]!!.jsonPrimitive.int)
+        assertEquals(5, result["reviewCount"]!!.jsonPrimitive.int)
 
         val months = result["byMonth"]!!.jsonArray.map { it.jsonObject }
         assertEquals(listOf("2025-01", "2025-06"), months.map { it["month"]!!.jsonPrimitive.content })
+        // the resolved review and the comment without rating don't count
+        assertEquals(4, months[0]["reviews"]!!.jsonPrimitive.int)
+        assertEquals(2, months[0]["countedReviews"]!!.jsonPrimitive.int)
         assertEquals(BigDecimal("4.00"), months[0]["averageRating"]!!.jsonPrimitive.content.toBigDecimal())
+
+        val byId = result["reviews"]!!.jsonArray.associateBy { it.jsonObject["id"]!!.jsonPrimitive.int }.mapValues { it.value.jsonObject }
+        assertTrue(byId.getValue(1)["countsForRating"]!!.jsonPrimitive.boolean)
+        assertFalse(byId.getValue(5)["countsForRating"]!!.jsonPrimitive.boolean)
+        assertEquals("RESOLVED", byId.getValue(5)["resolveState"]!!.jsonPrimitive.content)
+        assertFalse(byId.getValue(6)["countsForRating"]!!.jsonPrimitive.boolean)
+        assertEquals(4, byId.getValue(6)["subRatings"]!!.jsonObject["PERFORMANCE"]!!.jsonPrimitive.int)
 
         val review = result["reviews"]!!.jsonArray.first().jsonObject
         assertEquals("2025-01-10", review["date"]!!.jsonPrimitive.content)
