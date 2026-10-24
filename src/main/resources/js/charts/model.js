@@ -266,8 +266,8 @@ export function lineChartKey(chart) {
 }
 
 /**
- * Granularities of the line charts of monthly and yearly values. "month" is the period of the table, i.e. also the
- * years of yearly values. Columns with values for each day, e.g. MRR, can be shown per week or per day. Their values
+ * Granularities of the line charts of the values of tables. "month" is the period of the table, i.e. also the years of
+ * yearly values and the days of tables like the days of the current month. Columns with values for each day, e.g. MRR, can be shown per week or per day. Their values
  * have the scale of the values of the table, see OverviewDailyValues.kt.
  */
 export const GRANULARITIES = ["month", "week", "day"];
@@ -277,7 +277,7 @@ export const GRANULARITIES = ["month", "week", "day"];
  * @return {boolean} If the chart can show the values per week or per day.
  */
 export function hasFinerValues(seriesList) {
-    return seriesList.some(series => (series.period === "month" || series.period === "year") && series.daily);
+    return seriesList.some(series => series.daily && ["day", "month", "year"].includes(series.period));
 }
 
 /**

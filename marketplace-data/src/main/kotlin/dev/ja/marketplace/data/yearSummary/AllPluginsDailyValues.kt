@@ -23,10 +23,11 @@ import java.math.RoundingMode
 import javax.money.MonetaryAmount
 
 /**
- * The values of [AllPluginsSummaryTable] for each day, for charts with a finer resolution than the years of the table.
+ * The values of [AllPluginsSummaryTable] and [AllPluginsMonthTable] for each day, for charts with a finer resolution.
  *
- * The sales and downloads are the sums of the year before each day, i.e. from the day after the same day of the
- * previous year until the day. At the last day of a year, it's the sum of the calendar year like in the table.
+ * The sales and downloads of the summary of the years are the sums of the year before each day, i.e. from the day after
+ * the same day of the previous year until the day. At the last day of a year, it's the sum of the calendar year like in
+ * the table. The sums of [AllPluginsMonthTable] are the sums of the month before each day, like [OverviewDailyValues].
  * MRR and ARR are the sums of the values of the plugins at each day, see [OverviewDailyValues].
  *
  * @param days The days from the first year with data until today.
@@ -40,6 +41,12 @@ class AllPluginsDailyValues private constructor(val days: List<YearMonthDay>, va
         const val DOWNLOADS = "all-plugins-downloads"
         const val MRR = "all-plugins-mrr"
         const val ARR = "all-plugins-arr"
+
+        /** The sums of the month before each day, for [AllPluginsMonthTable]. */
+        const val MONTH_SALES = "all-plugins-month-sales"
+        const val MONTH_FEES = "all-plugins-month-fees"
+        const val MONTH_PAID = "all-plugins-month-paid"
+        const val MONTH_DOWNLOADS = "all-plugins-month-downloads"
 
         /**
          * @param sales The sales of all paid plugins.
@@ -75,6 +82,15 @@ class AllPluginsDailyValues private constructor(val days: List<YearMonthDay>, va
                     else -> day.add(-1, 0, 1)
                 }
                 maxOf(0, index(yearStart))
+            }
+            // index of the first day of the month before each day
+            val monthStartIndices = IntArray(dayCount) { index ->
+                val day = days[index]
+                val monthStart = when (day) {
+                    YearMonthDay.lastOfMonth(day.year, day.month) -> YearMonthDay.firstOfMonth(day.year, day.month)
+                    else -> day.add(0, -1, 1)
+                }
+                maxOf(0, index(monthStart))
             }
 
             // the amounts in the displayed currency, like MonetaryAmountTracker
@@ -113,14 +129,20 @@ class AllPluginsDailyValues private constructor(val days: List<YearMonthDay>, va
                 fees[index] += fees[index - 1]
                 downloadCounts[index] += downloadCounts[index - 1]
             }
-            fun <T> sumOfYear(index: Int, sums: (Int) -> T, minus: (T, T) -> T, zero: T): T {
-                val start = yearStartIndices[index]
-                return if (start == 0) sums(index) else minus(sums(index), sums(start - 1))
+            /** The sum from the start index of each day until the day, using the running sums. */
+            fun <T> sumsOf(startIndices: IntArray, sums: (Int) -> T, minus: (T, T) -> T): List<T> {
+                return List(dayCount) { index ->
+                    val start = startIndices[index]
+                    if (start == 0) sums(index) else minus(sums(index), sums(start - 1))
+                }
             }
 
-            val totalsOfYear = List(dayCount) { sumOfYear(it, totals::get, { a, b -> a - b }, zero) }
-            val feesOfYear = List(dayCount) { sumOfYear(it, fees::get, { a, b -> a - b }, zero) }
-            val downloadsOfYear = List(dayCount) { sumOfYear(it, downloadCounts::get, Long::minus, 0L) }
+            val totalsOfYear = sumsOf(yearStartIndices, totals::get) { a, b -> a - b }
+            val feesOfYear = sumsOf(yearStartIndices, fees::get) { a, b -> a - b }
+            val downloadsOfYear = sumsOf(yearStartIndices, downloadCounts::get, Long::minus)
+            val totalsOfMonth = sumsOf(monthStartIndices, totals::get) { a, b -> a - b }
+            val feesOfMonth = sumsOf(monthStartIndices, fees::get) { a, b -> a - b }
+            val downloadsOfMonth = sumsOf(monthStartIndices, downloadCounts::get, Long::minus)
 
             fun amounts(values: List<MonetaryAmount>): List<BigDecimal?> {
                 return values.map { it.number.numberValue(BigDecimal::class.java).setScale(2, RoundingMode.HALF_UP) }
@@ -157,6 +179,10 @@ class AllPluginsDailyValues private constructor(val days: List<YearMonthDay>, va
                     DOWNLOADS to DailySeries("count", downloadsOfYear.map(BigDecimal::valueOf), incompleteFrom),
                     MRR to DailySeries(currency, mrr.toList(), incompleteRecurringRevenue),
                     ARR to DailySeries(currency, arr.toList(), incompleteRecurringRevenue),
+                    MONTH_SALES to DailySeries(currency, amounts(totalsOfMonth), incompleteFrom),
+                    MONTH_FEES to DailySeries(currency, amounts(feesOfMonth), incompleteFrom),
+                    MONTH_PAID to DailySeries(currency, amounts(totalsOfMonth.zip(feesOfMonth) { total, fee -> total - fee }), incompleteFrom),
+                    MONTH_DOWNLOADS to DailySeries("count", downloadsOfMonth.map(BigDecimal::valueOf), incompleteFrom),
                 )
             )
         }

@@ -29,6 +29,8 @@ const GRANULARITY_HINTS = {
         + "and the licenses, MRR and ARR at each date. Columns without values per day are shown per month.",
     year: "Week and Day show the sums of the year before each date, e.g. the sales of the last 12 months. "
         + "Columns without values per day are shown per year.",
+    day: "Month shows the days of the table. Week and Day show the whole history, the sums of the month before each "
+        + "date, e.g. the sales of the last month, and the MRR and ARR at each date.",
 };
 
 /**
@@ -531,7 +533,8 @@ class ChartController {
     }
 
     /**
-     * @param {"month"|"year"} period The period of the values of the table, the first button shows them.
+     * @param {"day"|"month"|"year"} period The period of the values of the table, the first button shows them.
+     *  Tables of days, e.g. the days of the current month, show them with the first button "Month".
      * @return {HTMLElement} Buttons to show a line chart per month or year, per week or per day.
      */
     granularitySwitch(key, current, period) {

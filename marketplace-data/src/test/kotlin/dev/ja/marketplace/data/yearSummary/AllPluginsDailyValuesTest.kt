@@ -69,12 +69,32 @@ class AllPluginsDailyValuesTest {
     }
 
     @Test
+    fun monthSumsAreTheSumsOfTheMonthBeforeTheDay() = runBlocking {
+        // the end of a month is the calendar month
+        val endOfMonth = (values.days.first() daysUntil YearMonthDay(2024, 2, 29)).toInt()
+        val february = PaymentAmountTracker(YearMonthDayRange(YearMonthDay(2024, 2, 1), YearMonthDay(2024, 2, 29)), exchangeRates)
+        sales.forEach { february.add(it.date, it.amountUSD, it.amount) }
+        assertEquals(amount(february.totalAmount), value(AllPluginsDailyValues.MONTH_SALES, endOfMonth))
+        assertEquals(amount(february.paidAmount), value(AllPluginsDailyValues.MONTH_PAID, endOfMonth))
+
+        // within a month, from the day after the same day of the previous month
+        val day = YearMonthDay(2024, 5, 10)
+        val index = (values.days.first() daysUntil day).toInt()
+        val expected = downloads.filter { it.day > YearMonthDay(2024, 4, 10) && it.day <= day }.sumOf { it.downloads }
+        assertEquals(BigDecimal.valueOf(expected), value(AllPluginsDailyValues.MONTH_DOWNLOADS, index))
+    }
+
+    @Test
     fun daysFromTheFirstYearUntilToday() {
         assertEquals(YearMonthDay(2023, 1, 1), values.days.first())
         assertEquals(today, values.days.last())
         assertTrue(values.series.values.all { it.values.size == values.days.size })
         // the sums of today and the recurring revenue of the current month may still change
-        val sums = listOf(AllPluginsDailyValues.SALES, AllPluginsDailyValues.FEES, AllPluginsDailyValues.PAID, AllPluginsDailyValues.DOWNLOADS)
+        val sums = listOf(
+            AllPluginsDailyValues.SALES, AllPluginsDailyValues.FEES, AllPluginsDailyValues.PAID, AllPluginsDailyValues.DOWNLOADS,
+            AllPluginsDailyValues.MONTH_SALES, AllPluginsDailyValues.MONTH_FEES, AllPluginsDailyValues.MONTH_PAID,
+            AllPluginsDailyValues.MONTH_DOWNLOADS,
+        )
         assertTrue(sums.all { values.series.getValue(it).incompleteFrom == values.days.lastIndex })
         val firstOfMonth = (values.days.first() daysUntil YearMonthDay(2025, 9, 1)).toInt()
         assertEquals(firstOfMonth, values.series.getValue(AllPluginsDailyValues.MRR).incompleteFrom)
