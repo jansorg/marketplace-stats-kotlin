@@ -13,6 +13,7 @@ import dev.ja.marketplace.data.overview.OverviewDailyValues
 import dev.ja.marketplace.data.subscriptions.SubscriptionDailyValues
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.time.DayOfWeek
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -84,25 +85,34 @@ class DailyChartSeries {
         return values
     }
 
+    private fun toJson(values: Values, granularity: Granularity): String {
+        return toJson(values.overview.days, values.series, granularity)
+    }
+
     /**
      * Example: `{"dates": ["2026-01-01", ...], "series": {"mrr": {"unit": "USD", "values": [12.50, ...], "incompleteFrom": 42}}}`.
      * Values at the index `incompleteFrom` and later may still change, values without data are `null`.
+     *
+     * @param days The days of the values of the series, without gaps.
+     * @param series The values of each day by the ID of their column.
      */
-    private fun toJson(values: Values, granularity: Granularity): String {
-        val days = values.overview.days
+    fun toJson(days: List<YearMonthDay>, series: Map<String, DailySeries>, granularity: Granularity): String {
         val indices = when (granularity) {
             Granularity.Day -> days.indices.toList()
-            Granularity.Week -> values.overview.weekEndIndices()
+            // the last day of each week, i.e. each Sunday, and today
+            Granularity.Week -> days.indices.filter { index ->
+                index == days.lastIndex || days[index].toLocalDate().dayOfWeek == DayOfWeek.SUNDAY
+            }
         }
 
         return buildString {
             append("""{"dates":[""")
             indices.joinTo(this, ",") { "\"${days[it].asIsoString}\"" }
             append("""],"series":{""")
-            values.series.entries.joinTo(this, ",") { (id, series) ->
-                val incompleteFrom = indices.indexOfFirst { it >= series.incompleteFrom }.takeIf { it >= 0 } ?: indices.size
-                val seriesValues = indices.joinToString(",") { series.values[it]?.toPlainString() ?: "null" }
-                """"$id":{"unit":"${series.unit}","values":[$seriesValues],"incompleteFrom":$incompleteFrom}"""
+            series.entries.joinTo(this, ",") { (id, values) ->
+                val incompleteFrom = indices.indexOfFirst { it >= values.incompleteFrom }.takeIf { it >= 0 } ?: indices.size
+                val seriesValues = indices.joinToString(",") { values.values[it]?.toPlainString() ?: "null" }
+                """"$id":{"unit":"${values.unit}","values":[$seriesValues],"incompleteFrom":$incompleteFrom}"""
             }
             append("}}")
         }

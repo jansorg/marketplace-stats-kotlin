@@ -16,6 +16,9 @@ services:
         # the image stores the persistent cache in /root/.cache/marketplace-stats, it speeds up restarts.
         # An empty value disables it.
       #- MARKETPLACE_CACHE_DIR=
+        # the sales and downloads of all plugins are shown above the list of plugins, which needs the data of all plugins.
+        # It's loaded at the start, or taken from the persistent cache. Set to false to disable it.
+      #- MARKETPLACE_ALL_PLUGINS_SUMMARY=true
         # the MCP server for AI agents at /mcp, e.g. http://localhost:8080/mcp, is enabled by default.
         # It has no authentication, like the web interface. Set to false to disable it.
       #- MARKETPLACE_MCP=true

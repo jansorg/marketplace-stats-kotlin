@@ -53,6 +53,9 @@ Options:
                                      restarts. The data is kept in memory only if no directory is set or if it's empty. A leading ~ is the
                                      home directory.
   --show-reseller-charges            Show incorrect charges for sales through resellers.
+  --all-plugins-summary / --no-all-plugins-summary
+                                     Show the sales and downloads of all plugins above the list of plugins. The data of all plugins is loaded at
+                                     the start, or taken from the persistent cache. (default: enabled)
   --mcp / --no-mcp                   Serve the MCP server for AI agents at /mcp of the integrated webserver. (default: enabled)
   --mcp-allowed-hosts=<text>         Comma-separated hostnames, which are accepted in the Host and Origin headers of requests to the MCP server, in
                                      addition to localhost, 127.0.0.1, [::1] and the hostname of --host. Ports are ignored. Protects against DNS
@@ -93,6 +96,8 @@ Instead of options, you can use the following environment variables:
 --debug:             MARKETPLACE_LOG_LEVEL
 --cache-dir:         MARKETPLACE_CACHE_DIR
 --mcp, --no-mcp:     MARKETPLACE_MCP (true or false)
+--all-plugins-summary, --no-all-plugins-summary:
+                     MARKETPLACE_ALL_PLUGINS_SUMMARY (true or false)
 --mcp-allowed-hosts: MARKETPLACE_MCP_ALLOWED_HOSTS
 ```
 

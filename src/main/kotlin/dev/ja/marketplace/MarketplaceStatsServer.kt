@@ -12,6 +12,7 @@ import dev.ja.marketplace.client.model.*
 import dev.ja.marketplace.data.PluginData
 import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.MarketplaceDataTableFactory
+import dev.ja.marketplace.data.RenderedDataTable
 import dev.ja.marketplace.data.chargeOverview.ChargeOverviewTableFactory
 import dev.ja.marketplace.data.customerType.CustomerTypeFactory
 import dev.ja.marketplace.data.customers.ActiveCustomerTableFactory
@@ -37,6 +38,8 @@ import dev.ja.marketplace.data.topCountries.TopCountriesFactory
 import dev.ja.marketplace.data.topTrialCountries.TopTrialCountriesFactory
 import dev.ja.marketplace.data.trials.TrialsTable
 import dev.ja.marketplace.data.trials.TrialsTableFactory
+import dev.ja.marketplace.data.yearSummary.AllPluginsDailyValues
+import dev.ja.marketplace.data.yearSummary.AllPluginsSummaryTable
 import dev.ja.marketplace.data.yearSummary.YearlySummaryFactory
 import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.exchangeRate.EcbRateTable
@@ -64,11 +67,21 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.*
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
+
+private val logger = LoggerFactory.getLogger(MarketplaceStatsServer::class.java)
 
 class MarketplaceStatsServer(
     private val client: MarketplaceClient,
@@ -87,6 +100,9 @@ class MarketplaceStatsServer(
     private val ideReleases = IdeReleaseProvider(servicesClient)
 
     private val dailyChartSeries = DailyChartSeries()
+
+    /** Work in the background, e.g. loading the data of all plugins after the start. */
+    private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val faviconIco: ByteArray by lazy {
         MarketplaceStatsServer::class.java.getResourceAsStream("/favicon/favicon.ico")!!.use { it.readBytes() }
@@ -343,14 +359,26 @@ class MarketplaceStatsServer(
 
             // values of the overview table for each day or week, loaded by the charts
             get("/chart-series") {
-                val loader = getDataLoader()
-                    ?: allPlugins.singleOrNull()?.let(::getDataLoader)
-                    ?: throw IllegalStateException("Unable to find plugin")
                 val granularity = when (call.request.queryParameters["granularity"]) {
                     "week" -> DailyChartSeries.Granularity.Week
                     else -> DailyChartSeries.Granularity.Day
                 }
-                call.respondText(dailyChartSeries.json(loader.load(), granularity), io.ktor.http.ContentType.Application.Json)
+                val loader = getDataLoader()
+                    ?: allPlugins.singleOrNull()?.let(::getDataLoader)
+                val json = when {
+                    loader != null -> dailyChartSeries.json(loader.load(), granularity)
+                    // the summary of all plugins on the list of plugins
+                    serverConfiguration.showAllPluginsSummary -> {
+                        val data = loadAllPluginsData()
+                        val values = withContext(Dispatchers.Default) {
+                            AllPluginsDailyValues.create(data.flatMap { it.sales }, data.flatMap { it.dailyDownloads }, exchangeRates)
+                        }
+                        dailyChartSeries.toJson(values.days, values.series, granularity)
+                    }
+
+                    else -> throw IllegalStateException("Unable to find plugin")
+                }
+                call.respondText(json, io.ktor.http.ContentType.Application.Json)
             }
 
             get("/") {
@@ -367,7 +395,11 @@ class MarketplaceStatsServer(
                     call.respond(
                         JteContent(
                             "plugins.kte",
-                            mapOf("plugins" to allPlugins, "urls" to client as MarketplaceUrlSupport)
+                            mapOf(
+                                "plugins" to allPlugins,
+                                "urls" to client as MarketplaceUrlSupport,
+                                "summary" to allPluginsSummary(),
+                            )
                         )
                     )
                 }
@@ -536,6 +568,18 @@ class MarketplaceStatsServer(
         exchangeRates = ExchangeRates(serverConfiguration.userDisplayCurrencyCode)
         // stored data is updated after the start, also without a report being opened
         (client as? CaffeineCacheMarketplaceClient)?.updateStoredHistory(allPlugins.filter(PluginInfoSummary::isPaidOrFreemium).map(PluginInfoSummary::id))
+        if (serverConfiguration.showAllPluginsSummary) {
+            // the summary of all plugins needs their data, it's loaded in the background, so that the list is fast
+            backgroundScope.launch {
+                try {
+                    loadAllPluginsData()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.warn("Unable to load the data of all plugins", e)
+                }
+            }
+        }
 
         println("Launching web server: http://$host:$port/")
         if (mcpAllowedHosts != null) {
@@ -551,6 +595,58 @@ class MarketplaceStatsServer(
             client.invalidateCache()
         }
         (servicesClient as? CacheAware)?.invalidateCache()
+    }
+
+    private class AllPluginsData(
+        val sales: List<PluginSale>,
+        val monthlyDownloads: List<MonthlyDownload>,
+        val dailyDownloads: List<DailyDownload>,
+    )
+
+    /**
+     * The sales and downloads of all plugins for their summary. The client caches the data of the plugins,
+     * also in the persistent cache. Plugins, whose data can't be loaded, are left out.
+     */
+    private suspend fun loadAllPluginsData(): List<AllPluginsData> {
+        val requests = Semaphore(4)
+        return coroutineScope {
+            allPlugins.map { plugin ->
+                async(Dispatchers.IO) {
+                    requests.withPermit {
+                        try {
+                            AllPluginsData(
+                                if (plugin.isPaidOrFreemium) client.salesInfo(plugin.id) else emptyList(),
+                                client.downloadsMonthly(plugin.id, DownloadCountType.Downloads),
+                                client.downloadsDaily(plugin.id, DownloadCountType.Downloads),
+                            )
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            // the summary is shown without the plugin, the list of plugins is more important
+                            logger.warn("Unable to load the data of plugin ${plugin.id} for the summary of all plugins", e)
+                            null
+                        }
+                    }
+                }
+            }.awaitAll().filterNotNull()
+        }
+    }
+
+    /**
+     * The sales and downloads of all plugins, shown above the list of plugins.
+     *
+     * @return The table, or `null` if it's disabled or there are no plugins.
+     */
+    private suspend fun allPluginsSummary(): RenderedDataTable? {
+        if (!serverConfiguration.showAllPluginsSummary || allPlugins.isEmpty()) {
+            return null
+        }
+
+        val table = AllPluginsSummaryTable(exchangeRates)
+        for (data in loadAllPluginsData()) {
+            table.add(data.sales, data.monthlyDownloads)
+        }
+        return table.renderTable()
     }
 
     private fun getDataLoader(plugin: PluginInfoSummary): PluginDataLoader {
