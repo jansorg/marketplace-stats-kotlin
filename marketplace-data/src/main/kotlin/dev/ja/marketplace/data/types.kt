@@ -88,6 +88,18 @@ data class LinkedRefNum(val refNum: String, val pluginId: PluginId)
  */
 data class ExpiredLicenseEnd(val date: YearMonthDay, val expiryDate: YearMonthDay)
 
+/**
+ * The end of the latest purchase of a license by a customer, when another customer renewed the license,
+ * e.g. after it was transferred to an organization. It's rendered with a link to the other customer.
+ * @param licenseEnd The end of the latest purchase of the license.
+ */
+data class TransferredLicenseEnd(
+    val date: YearMonthDay,
+    val customer: LinkedCustomer,
+    val customerName: String?,
+    val licenseEnd: YearMonthDay,
+)
+
 data class LinkedChurnRate(
     val churnRate: Any,
     /**

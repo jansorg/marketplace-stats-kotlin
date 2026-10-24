@@ -194,6 +194,11 @@ object DataTableJson {
                 put("fallbackDate", value.fallbackDate.asIsoString)
             }
 
+            is TransferredLicenseEnd -> buildJsonObject {
+                put("value", value.date.asIsoString)
+                put("transferredTo", value.customer.id)
+            }
+
             is ExpiredLicenseEnd -> buildJsonObject {
                 put("value", value.date.asIsoString)
                 put("expired", true)

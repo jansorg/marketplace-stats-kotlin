@@ -15,14 +15,13 @@ import dev.ja.marketplace.data.MarketplaceDataTableFactory
 import dev.ja.marketplace.data.RenderedDataTable
 import dev.ja.marketplace.data.chargeOverview.ChargeOverviewTableFactory
 import dev.ja.marketplace.data.customerType.CustomerTypeFactory
-import dev.ja.marketplace.data.customers.ActiveCustomerTableFactory
-import dev.ja.marketplace.data.customers.ChurnedCustomerTableFactory
 import dev.ja.marketplace.data.customers.CustomerTableFactory
 import dev.ja.marketplace.data.daySummary.DaySummaryFactory
 import dev.ja.marketplace.data.downloads.MonthlyDownloadsFactory
 import dev.ja.marketplace.data.funnel.FunnelTableFactory
 import dev.ja.marketplace.data.licenses.FallbackVersion
 import dev.ja.marketplace.data.licenses.LicenseTable
+import dev.ja.marketplace.data.licenses.LicenseStatus
 import dev.ja.marketplace.data.licenses.LicenseTableFactory
 import dev.ja.marketplace.data.lineItems.LineItemsTable
 import dev.ja.marketplace.data.overview.OverviewTableFactory
@@ -136,6 +135,22 @@ class MarketplaceStatsServer(
         pageTitle = "Licenses",
     )
 
+    private val activeLicensesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+        client,
+        listOf(LicenseTableFactory(LicenseStatus.Active)),
+        pageCssClasses = "wide",
+        pageTitle = "Active Licenses",
+    )
+
+    private val churnedLicensesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+        client,
+        listOf(LicenseTableFactory(LicenseStatus.Churned)),
+        pageCssClasses = "wide",
+        pageTitle = "Churned Licenses",
+        pageDescription = "Licenses, which ended and weren't renewed by any customer. " +
+                "Licenses renewed by another customer, e.g. after a transfer to an organization, are active.",
+    )
+
     private val countriesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
         client,
         listOf(TopCountriesFactory(smallSpace = false, maxCountries = null, showTrials = true)),
@@ -146,21 +161,7 @@ class MarketplaceStatsServer(
         client,
         listOf(CustomerTableFactory()),
         pageCssClasses = "wide",
-        pageTitle = "Customers (all)",
-    )
-
-    private val activeCustomersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client,
-        listOf(ActiveCustomerTableFactory()),
-        pageCssClasses = "wide",
-        pageTitle = "Customers With Active Licenses",
-    )
-
-    private val churnedCustomersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
-        client,
-        listOf(ChurnedCustomerTableFactory()),
-        pageCssClasses = "wide",
-        pageTitle = "Churned Customers",
+        pageTitle = "Customers",
     )
 
     private val trialsPageData: PluginPageDefinition = DefaultPluginPageDefinition(
@@ -417,6 +418,16 @@ class MarketplaceStatsServer(
                     ?: throw IllegalStateException("Unable to find plugin")
                 call.respond(JteContent("main.kte", licensePageData.createTemplateParameters(loader, call.request, serverConfiguration)))
             }
+            get("/licenses/active") {
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", activeLicensesPageData.createTemplateParameters(loader, call.request, serverConfiguration)))
+            }
+            get("/licenses/churned") {
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", churnedLicensesPageData.createTemplateParameters(loader, call.request, serverConfiguration)))
+            }
             get("/countries") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
@@ -440,31 +451,12 @@ class MarketplaceStatsServer(
                     )
                 )
             }
+            // the customers are on a single page, customers aren't churned, only licenses
             get("/customers/active") {
-                val loader = getDataLoader()
-                    ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(
-                    JteContent(
-                        "main.kte", activeCustomersPageData.createTemplateParameters(
-                            loader,
-                            call.request,
-                            serverConfiguration
-                        )
-                    )
-                )
+                call.respondRedirect("/customers?${call.request.queryString()}")
             }
             get("/customers/churned") {
-                val loader = getDataLoader()
-                    ?: throw IllegalStateException("Unable to find plugin")
-                call.respond(
-                    JteContent(
-                        "main.kte", churnedCustomersPageData.createTemplateParameters(
-                            loader,
-                            call.request,
-                            serverConfiguration
-                        )
-                    )
-                )
+                call.respondRedirect("/licenses/churned?${call.request.queryString()}")
             }
             get("/trials") {
                 val loader = getDataLoader()
