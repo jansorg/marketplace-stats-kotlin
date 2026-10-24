@@ -24,6 +24,9 @@ export const CHART_STYLE = {
         ide: {color: "#6f74b8", dash: [8, 3]},
     },
     pointRadius: 3,
+    // series with more values, e.g. per day, only show the points of incomplete values, smaller and without a ring
+    maxPointsShown: 120,
+    densePointRadius: 2,
     pointRing: 2,
     // bars are thin, with a gap between neighbors and a rounded end at the value
     maxBarWidth: 24,
@@ -146,22 +149,26 @@ function drawPoints(plot, chartSeries) {
         if (!plotSeries.show) {
             return;
         }
+        const isDense = series.points.size > CHART_STYLE.maxPointsShown;
         const values = plot.data[index + 1];
         timestamps.forEach((timestamp, i) => {
-            if (values[i] === null || values[i] === undefined) {
+            const isIncomplete = series.incomplete.has(timestamp);
+            if (values[i] === null || values[i] === undefined || (isDense && !isIncomplete)) {
                 return;
             }
             const x = plot.valToPos(timestamp, "x", true);
             const y = plot.valToPos(values[i], plotSeries.scale, true);
 
-            context.beginPath();
-            context.arc(x, y, radius + ring, 0, 2 * Math.PI);
-            context.fillStyle = CHART_STYLE.surfaceColor;
-            context.fill();
+            if (!isDense) {
+                context.beginPath();
+                context.arc(x, y, radius + ring, 0, 2 * Math.PI);
+                context.fillStyle = CHART_STYLE.surfaceColor;
+                context.fill();
+            }
 
             context.beginPath();
-            context.arc(x, y, radius, 0, 2 * Math.PI);
-            context.fillStyle = series.incomplete.has(timestamp) ? CHART_STYLE.incompleteColor : series.color;
+            context.arc(x, y, isDense ? CHART_STYLE.densePointRadius * pixelRatio : radius, 0, 2 * Math.PI);
+            context.fillStyle = isIncomplete ? CHART_STYLE.incompleteColor : series.color;
             context.fill();
         });
     });
@@ -373,13 +380,14 @@ function yAxis(unit, scale, side, style) {
  * @param {{value: Function, compact: Function}} options.formatter
  * @param {string} options.syncKey Charts with the same key have synchronized cursors.
  * @param {"lines"|"bars"} options.chartStyle
+ * @param {"month"|"week"|"day"} [options.granularity] Values per week or per day are labeled with their day.
  * @param {string} options.fontFamily
  * @param {number} options.width
  * @param {number} options.height
  * @param {HTMLElement} options.container
  * @return {uPlot}
  */
-export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, fontFamily, width, height, container}) {
+export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, fontFamily, width, height, container}) {
     const style = {formatter, fonts: fonts(fontFamily)};
     const scaleKeys = ["y", "y2"];
     const chartSeries = units.flatMap((unit, unitIndex) => series
@@ -388,6 +396,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
 
     const {timestamps, values} = alignSeries(chartSeries);
     const period = shortestPeriod(chartSeries);
+    const datePeriod = granularity === "week" || granularity === "day" ? "day" : period;
     const lastIndices = values.map(lastIndex);
     // without a cursor on the chart, the legend shows the latest values
     const latestTimestamp = timestamps.length > 0 ? timestamps[timestamps.length - 1] : null;
@@ -398,7 +407,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     const xPadding = isBars ? interval / 2 : 0;
     // the tooltip lists the series, which are shown, series can be hidden by a click on the legend
     const describe = (plot, index) => ({
-        date: formatDate(timestamps[index], period),
+        date: formatDate(timestamps[index], datePeriod),
         rows: chartSeries
             .map((s, seriesIndex) => ({s, seriesIndex}))
             .filter(({seriesIndex}) => plot.series[seriesIndex + 1].show)
@@ -451,7 +460,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         series: [
             {
                 label: "Date",
-                value: (plot, value) => formatDate(value ?? latestTimestamp, period),
+                value: (plot, value) => formatDate(value ?? latestTimestamp, datePeriod),
             },
             ...chartSeries.map((s, index) => ({
                 label: s.isRightAxis ? s.label + " (right axis)" : s.label,

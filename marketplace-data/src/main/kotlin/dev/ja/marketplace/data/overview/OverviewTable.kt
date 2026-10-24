@@ -86,20 +86,24 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     private val years = TreeMap<Int, YearData>(Comparator.reverseOrder())
 
     private val columnYearMonth = DataTableColumn("month", null, "month")
-    private val columnAmountTotal = DataTableColumn("sales", "Total Sales", "num")
+    private val columnAmountTotal = DataTableColumn("sales", "Total Sales", "num", dailyChartSeries = OverviewDailyColumn.Sales.id)
     private val columnAmountFees = DataTableColumn("sales", "Fees", "num")
-    private val columnAmountPaid = DataTableColumn("sales", "Invoice", "num")
+    private val columnAmountPaid = DataTableColumn("sales", "Invoice", "num", dailyChartSeries = OverviewDailyColumn.Invoice.id)
     private val columnActiveLicenses = DataTableColumn(
-        "customer-licenses", "Licenses", "num", tooltip = "Licenses at the end of month"
+        "customer-licenses", "Licenses", "num", tooltip = "Licenses at the end of month",
+        dailyChartSeries = OverviewDailyColumn.Licenses.id,
     )
     private val columnActiveLicensesPaying = DataTableColumn(
-        "customer-licenses-paid", "Paid", "num", tooltip = "Paid licenses at the end of month"
+        "customer-licenses-paid", "Paid", "num", tooltip = "Paid licenses at the end of month",
+        dailyChartSeries = OverviewDailyColumn.PaidLicenses.id,
     )
     private val columnMonthlyRecurringRevenue = DataTableColumn(
-        "customer-mrr", "MRR", "num", tooltip = "Average monthly recurring revenue (MRR)"
+        "customer-mrr", "MRR", "num", tooltip = "Average monthly recurring revenue (MRR)",
+        dailyChartSeries = OverviewDailyColumn.Mrr.id,
     )
     private val columnAnnualRecurringRevenue = DataTableColumn(
-        "customer-mrr", "ARR", "num", tooltip = "Average annual recurring revenue (MRR)"
+        "customer-mrr", "ARR", "num", tooltip = "Average annual recurring revenue (MRR)",
+        dailyChartSeries = OverviewDailyColumn.Arr.id,
     )
 
     private val columnLicenseChurnAnnual = DataTableColumn(
@@ -110,10 +114,12 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         "churn-monthly-paid", "Churn (monthly)", "num num-percentage", tooltip = "Churn of paid monthly licenses"
     )
     private val columnDownloads = DataTableColumn(
-        "downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Number of downloads in the month"
+        "downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Number of downloads in the month",
+        dailyChartSeries = OverviewDailyColumn.Downloads.id,
     )
     private val columnTrials = DataTableColumn(
-        "trials", "Trials", "num", tooltip = "Number of new trials at the end of the month"
+        "trials", "Trials", "num", tooltip = "Number of new trials at the end of the month",
+        dailyChartSeries = OverviewDailyColumn.Trials.id,
     )
     private val columnTrialsConverted = DataTableColumn(
         "trials-converted-length", "Conv.", "num",

@@ -11,7 +11,7 @@
 
 import {createFormatter} from "./format.js";
 import {
-    canCombineUnits, CHART_STYLES, exportFileName, groupCharts, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES, nextColor, pieSlices,
+    canCombineUnits, CHART_STYLES, dateRange, exportFileName, finerPoints, GRANULARITIES, groupCharts, hasFinerValues, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES, nextColor, pieSlices,
     visibleMarkers,
 } from "./model.js";
 import {browserStorage, createSetupStorage} from "./storage.js";
@@ -22,6 +22,9 @@ import {renderPie} from "./pieChart.js";
 import {downloadCanvas, downloadSvg, lineChartImage, pieChartSvg, printImages, svgCanvas} from "./exportImage.js";
 
 const STYLE_LABELS = {lines: "Lines", bars: "Bars"};
+const GRANULARITY_LABELS = {month: "Month", week: "Week", day: "Day"};
+const GRANULARITY_HINT = "Week and Day show the sums of the month before each date, e.g. the sales of the last month, "
+    + "and the licenses, MRR and ARR at each date. Columns without values per day are shown per month.";
 
 /**
  * @return {HTMLElement} A new element with the content of the element, which is added to the element.
@@ -63,6 +66,10 @@ class ChartController {
         // style of each line chart, the last selected style is used for new charts
         this.chartStyles = {};
         this.preferredStyle = "lines";
+        // granularity of each line chart with values per day, e.g. "day"
+        this.granularities = {};
+        // values per week and per day, loaded from the server when they're shown first
+        this.finerValues = {};
         this.shownStyles = {};
         this.dialog = null;
     }
@@ -216,6 +223,7 @@ class ChartController {
         this.combineUnits = setup.combineUnits;
         this.maximized = setup.maximized;
         this.chartStyles = setup.chartStyles;
+        this.granularities = setup.granularities;
         this.preferredStyle = setup.preferredStyle;
         this.shownMarkers = setup.shownMarkers;
 
@@ -244,6 +252,7 @@ class ChartController {
             maximized: this.maximized,
             preferredStyle: this.preferredStyle,
             chartStyles: this.chartStyles,
+            granularities: this.granularities,
             shownMarkers: this.shownMarkers,
             entries: [
                 ...this.series.map(s => ({type: "line", table: s.table, column: s.column, color: s.color})),
@@ -302,19 +311,28 @@ class ChartController {
         this.shownStyles = {};
         for (const chart of charts) {
             const key = lineChartKey(chart);
-            const chartStyle = this.chartStyles[key] ?? this.preferredStyle;
-            this.shownStyles[key] = chartStyle;
+            let chartSeries = this.series.filter(s => s.period === chart.period);
+            const canBeFiner = hasFinerValues(chartSeries.filter(s => chart.units.includes(s.unit)));
+            const granularity = canBeFiner ? this.granularities[key] ?? "month" : "month";
+            const finerValues = granularity === "month" ? null : this.loadFinerValues(granularity);
+            if (finerValues !== null) {
+                chartSeries = chartSeries.map(s => ({...s, ...(s.daily ? finerPoints(finerValues, s.daily) : null)}));
+            }
+            // bars of every day would be too thin
+            const chartStyle = granularity === "month" ? this.chartStyles[key] ?? this.preferredStyle : "lines";
+            this.shownStyles[key] = this.chartStyles[key] ?? this.preferredStyle;
             const panel = dialog.addPanel("chart-panel");
             const toolbar = this.toolbar(panel);
-            const chartSeries = this.series.filter(s => s.period === chart.period);
             const plot = createLineChart({
                 units: chart.units,
                 series: chartSeries,
-                dateRange: chart.dateRange,
+                // charts per week or day have their own date range, it starts with the first month
+                dateRange: finerValues === null ? chart.dateRange : dateRange(chartSeries.filter(s => chart.units.includes(s.unit))),
                 markers,
                 formatter: this.formatter,
-                syncKey: "marketplace-charts-" + chart.period,
+                syncKey: "marketplace-charts-" + chart.period + "-" + granularity,
                 chartStyle,
+                granularity,
                 fontFamily: this.fontFamily,
                 width: dialog.chartWidth,
                 height,
@@ -328,7 +346,12 @@ class ChartController {
                 image: () => lineChartImage(plot, {title, fontFamily: this.fontFamily}),
             };
             this.exports.push(chartExport);
-            toolbar.append(this.exportMenu(chartExport), this.styleSwitch(key, chartStyle));
+            toolbar.append(this.exportMenu(chartExport));
+            if (canBeFiner) {
+                toolbar.append(this.granularitySwitch(key, granularity));
+            }
+            // disabled instead of hidden, so that the buttons don't move
+            toolbar.append(this.styleSwitch(key, chartStyle, granularity !== "month"));
         }
 
         for (const pie of this.pies) {
@@ -349,6 +372,69 @@ class ChartController {
         }
         // measured after the browser has laid out the charts
         requestAnimationFrame(() => dialog.fitChartHeights(this.plots));
+    }
+
+    /**
+     * @return {object|null} The values per week or per day, or null if they're still loading or couldn't be loaded.
+     * The charts are shown again when the values are loaded.
+     */
+    loadFinerValues(granularity) {
+        const values = this.finerValues[granularity];
+        if (values !== undefined) {
+            return values;
+        }
+        this.finerValues[granularity] = null;
+        this.dialog.showMessage("Loading the values per " + GRANULARITY_LABELS[granularity].toLowerCase() + "…");
+
+        const url = new URL("/chart-series", window.location.href);
+        const pluginId = new URLSearchParams(window.location.search).get("pluginId");
+        if (pluginId !== null) {
+            url.searchParams.set("pluginId", pluginId);
+        }
+        url.searchParams.set("granularity", granularity);
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("HTTP status " + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                this.finerValues[granularity] = data;
+                this.dialog.showMessage(null);
+                this.render();
+            })
+            .catch(error => {
+                console.error("Loading the values per " + granularity + " failed", error);
+                // loaded again when the charts are shown the next time
+                delete this.finerValues[granularity];
+                this.dialog.showMessage("The values per " + GRANULARITY_LABELS[granularity].toLowerCase() + " couldn't be loaded.");
+            });
+        return null;
+    }
+
+    /**
+     * @return {HTMLElement} Buttons to show a line chart per month, week or day.
+     */
+    granularitySwitch(key, current) {
+        const group = document.createElement("div");
+        group.className = "chart-button-group";
+        group.setAttribute("role", "group");
+        group.setAttribute("aria-label", "Values per");
+        group.title = GRANULARITY_HINT;
+        for (const granularity of GRANULARITIES) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.textContent = GRANULARITY_LABELS[granularity];
+            button.setAttribute("aria-pressed", String(granularity === current));
+            button.addEventListener("click", () => {
+                this.granularities = {...this.granularities, [key]: granularity};
+                this.save();
+                this.render();
+            });
+            group.append(button);
+        }
+        return group;
     }
 
     toolbar(panel) {
@@ -446,9 +532,10 @@ class ChartController {
     }
 
     /**
+     * @param {boolean} disabled Values per week or per day are only shown as lines.
      * @return {HTMLElement} Buttons to switch a line chart between lines and bars.
      */
-    styleSwitch(key, currentStyle) {
+    styleSwitch(key, currentStyle, disabled) {
         const group = document.createElement("div");
         group.className = "chart-button-group chart-style-switch";
         group.setAttribute("role", "group");
@@ -458,6 +545,10 @@ class ChartController {
             button.type = "button";
             button.textContent = STYLE_LABELS[style];
             button.setAttribute("aria-pressed", String(style === currentStyle));
+            button.disabled = disabled;
+            if (disabled) {
+                button.title = "Values per week or per day are shown as lines";
+            }
             button.addEventListener("click", () => {
                 // only this chart changes, the other charts keep their current style
                 this.chartStyles = {...this.chartStyles, ...this.shownStyles, [key]: style};

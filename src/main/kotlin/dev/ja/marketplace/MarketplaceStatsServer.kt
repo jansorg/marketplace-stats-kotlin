@@ -71,6 +71,8 @@ class MarketplaceStatsServer(
     private lateinit var exchangeRates: ExchangeRates
     private val ideReleases = IdeReleaseProvider(servicesClient)
 
+    private val dailyChartSeries = DailyChartSeries()
+
     private val indexPageData: PluginPageDefinition = DefaultPluginPageDefinition(
         client,
         listOf(
@@ -247,6 +249,18 @@ class MarketplaceStatsServer(
                         parameters["pluginId"] = pluginId.toString()
                     }
                 }
+            }
+
+            // values of the overview table for each day or week, loaded by the charts
+            get("/chart-series") {
+                val loader = getDataLoader()
+                    ?: allPlugins.singleOrNull()?.let(::getDataLoader)
+                    ?: throw IllegalStateException("Unable to find plugin")
+                val granularity = when (call.request.queryParameters["granularity"]) {
+                    "week" -> DailyChartSeries.Granularity.Week
+                    else -> DailyChartSeries.Granularity.Day
+                }
+                call.respondText(dailyChartSeries.json(loader.load(), granularity), io.ktor.http.ContentType.Application.Json)
             }
 
             get("/") {
