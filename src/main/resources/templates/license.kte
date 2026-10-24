@@ -4,11 +4,13 @@
 @import dev.ja.marketplace.client.model.PluginInfo
 @import dev.ja.marketplace.client.model.PluginTrial
 @import dev.ja.marketplace.client.LicenseId
+@import dev.ja.marketplace.data.licenses.FallbackVersion
 
 @param cssClass: String?
 @param plugin: PluginInfo
 @param licenseId: LicenseId
 @param licenseTable: RenderedDataTable
+@param fallbackVersion: FallbackVersion?
 @param settings: ServerConfiguration
 
 <!DOCTYPE html>
@@ -32,6 +34,11 @@
         <dl>
             <dt>ID</dt>
             <dd>${licenseId}</dd>
+
+            @if(fallbackVersion != null)
+                <dt>Fallback Version</dt>
+                <dd>@template.fallbackVersion(version = fallbackVersion)</dd>
+            @endif
         </dl>
     </div>
 

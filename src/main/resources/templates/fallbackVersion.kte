@@ -1,0 +1,17 @@
+@import dev.ja.marketplace.data.licenses.FallbackVersion
+
+@param version: FallbackVersion
+
+<%-- The fallback version of a license. The latest version of the plugin is regular text, earlier versions and
+     licenses without fallback version are gray. --%>
+!{val release = version.release}
+!{val subscription = "${version.subscriptionStart} until ${version.subscriptionEnd}"}
+!{val fallbackDate = "the fallback date ${version.fallbackDate}, 12 months before the subscription ends"}
+@if(!version.isEligible)
+    <span class="disabled" title="A fallback license requires a paid subscription without interruptions for the 12 months before it expires. The latest subscription is valid from ${subscription}.">Not eligible</span>
+@elseif(release == null)
+    <span class="disabled" title="No version was released before ${fallbackDate}. The latest subscription is valid from ${subscription}.">No version</span>
+@else
+    !{val latest = if (version.isLatestVersion) " It's the latest version of the plugin." else ""}
+    <span class="${if (version.isLatestVersion) null else "disabled"}" title="The latest version released before ${fallbackDate}, with the release date ${release.date.toString()}.${latest} The latest subscription is valid from ${subscription}.">${release.version}</span>
+@endif
