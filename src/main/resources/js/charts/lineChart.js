@@ -791,7 +791,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     const overlayValues = allValues.slice(chartSeries.length);
     const overlayIndex = index => chartSeries.length + index + 1;
     const period = shortestPeriod(chartSeries);
-    const datePeriod = granularity === "week" || granularity === "day" ? "day" : period;
+    const isFiner = granularity === "week" || granularity === "day";
+    const datePeriod = isFiner ? "day" : period;
 
     const isBars = chartStyle === "bars";
     // bars at the first and last date need space beside the date
@@ -828,7 +829,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
             stroke: theme.axisColor,
             grid: {stroke: theme.gridColor, width: 1},
             ticks: {stroke: theme.gridColor, width: 1},
-            ...xAxisTicks(period, formatter),
+            // the values per week or per day of a table of days span years, they use the default ticks of uPlot
+            ...xAxisTicks(period === "day" && isFiner ? "month" : period, formatter),
         },
         yAxis(units[0], "y", 3, style),
     ];
