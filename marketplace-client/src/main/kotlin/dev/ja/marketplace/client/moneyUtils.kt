@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -20,6 +20,10 @@ operator fun MonetaryAmount.minus(other: MonetaryAmount): MonetaryAmount {
 
 operator fun MonetaryAmount.times(other: Number): MonetaryAmount {
     require(this is FastMoney)
+    // e.g. the factor of annual licenses for the ARR and of monthly licenses for the MRR
+    if (other is BigDecimal && other.compareTo(BigDecimal.ONE) == 0) {
+        return this
+    }
     val result = (other as? BigDecimal ?: BigDecimal(other.toString()))
         .multiply(this.number.numberValue(BigDecimal::class.java))
         .setScale(this.scale, RoundingMode.HALF_UP)
