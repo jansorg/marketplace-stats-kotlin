@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -12,9 +12,10 @@ import dev.ja.marketplace.data.MarketplaceDataTableFactory
 class TopCountriesFactory(
     private val smallSpace: Boolean = true,
     private val maxCountries: Int? = 10,
-    private val showTrials: Boolean = false
+    private val showTrials: Boolean = false,
+    private val showChurn: Boolean = false,
 ) : MarketplaceDataTableFactory {
     override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable {
-        return TopCountriesTable(smallSpace, maxCountries, showTrials)
+        return TopCountriesTable(smallSpace, maxCountries, showTrials, showChurn)
     }
 }
