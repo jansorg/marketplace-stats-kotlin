@@ -327,6 +327,12 @@ button {
     grid-column: 1 / -1;
 }
 
+/* tables with several columns don't fit into the columns of the grid, e.g. on the page of the subscription metrics.
+   The grid of a page with such tables has wider columns. */
+.tables:has(> .table-card > .table-column-medium) {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 42rem), 1fr));
+}
+
 .table-card th:first-child, .table-card td:first-child {
     padding-left: 1rem;
 }

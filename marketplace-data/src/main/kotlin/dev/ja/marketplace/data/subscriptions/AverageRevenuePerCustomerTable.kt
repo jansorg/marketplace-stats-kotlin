@@ -16,7 +16,7 @@ import dev.ja.marketplace.data.SimpleTableSection
  * The average MRR per paying customer of each month, also for organizations and individuals.
  */
 class AverageRevenuePerCustomerTable : RecurringRevenueTable(
-    "Average Revenue per Customer", "average-revenue-per-customer", "table-striped"
+    "Average Revenue per Customer", "average-revenue-per-customer", "table-striped table-column-medium"
 ) {
     private val columnMonth = DataTableColumn("month", null)
     private val columnCustomers = DataTableColumn(

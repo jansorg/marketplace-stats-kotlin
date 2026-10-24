@@ -15,7 +15,7 @@ import dev.ja.marketplace.data.SimpleTableSection
 /**
  * The share of customers of each year, who still have recurring revenue after one, two, ... years.
  */
-class CohortRetentionTable : RecurringRevenueTable("Customer Cohorts", "customer-cohorts", "table-striped") {
+class CohortRetentionTable : RecurringRevenueTable("Customer Cohorts", "customer-cohorts", "table-striped table-column-medium") {
     private val columnYear = DataTableColumn(
         "cohort", null, tooltip = "Year of the first month with recurring revenue of the customers"
     )
