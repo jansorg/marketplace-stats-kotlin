@@ -14,6 +14,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.ConcurrentHashMap
 
 data class PluginData(
     // JetBrains Services
@@ -75,11 +76,23 @@ data class PluginData(
     /**
      * The recurring revenue of each customer, calculated from all licenses.
      * It's calculated once and shared by the tables of a page, because the calculation is expensive.
+     * The data of each request is new, but the client returns the same licenses until it loads them again,
+     * the result is reused by the next requests of the same day.
      */
     suspend fun getCustomerRecurringRevenue(): CustomerRecurringRevenue {
         return customerRecurringRevenueLock.withLock {
-            customerRecurringRevenue
-                ?: CustomerRecurringRevenue(getLicenses() ?: emptyList(), exchangeRates).also { customerRecurringRevenue = it }
+            customerRecurringRevenue ?: run {
+                val licenses = getLicenses() ?: emptyList()
+                val today = YearMonthDay.now()
+                val cached = recurringRevenueCache[pluginId]
+                val revenue = when {
+                    cached != null && cached.licenses === licenses && cached.today == today && cached.exchangeRates === exchangeRates -> cached.revenue
+                    else -> CustomerRecurringRevenue(licenses, exchangeRates, today).also {
+                        recurringRevenueCache[pluginId] = CachedRecurringRevenue(licenses, exchangeRates, today, it)
+                    }
+                }
+                revenue.also { customerRecurringRevenue = it }
+            }
         }
     }
 
@@ -100,5 +113,17 @@ data class PluginData(
     suspend fun filterTrials(predicate: (PluginTrial) -> Boolean): PluginData {
         val trials = trialsDeferred?.await() ?: return this
         return copy(trialsDeferred = CompletableDeferred(trials.filter(predicate)))
+    }
+
+    private class CachedRecurringRevenue(
+        val licenses: List<LicenseInfo>,
+        val exchangeRates: ExchangeRates,
+        val today: YearMonthDay,
+        val revenue: CustomerRecurringRevenue,
+    )
+
+    private companion object {
+        /** The recurring revenue of the latest licenses of each plugin, see [getCustomerRecurringRevenue]. */
+        val recurringRevenueCache = ConcurrentHashMap<PluginId, CachedRecurringRevenue>()
     }
 }
