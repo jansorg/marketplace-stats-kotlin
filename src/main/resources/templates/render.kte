@@ -9,6 +9,7 @@
 @import dev.ja.marketplace.data.LinkedRefNum
 @import dev.ja.marketplace.data.PercentageValue
 @import dev.ja.marketplace.data.format.Formatters
+@import dev.ja.marketplace.data.licenses.FallbackVersion
 @import javax.money.MonetaryAmount
 
 @param value: Any?
@@ -25,6 +26,7 @@
 --%>@elseif(value is Double)${Formatters.formatDecimal(value)}<%--
 --%>@elseif(value is Float)${Formatters.formatDecimal(value.toDouble())}<%--
 --%>@elseif(value is ExpiredLicenseEnd)${value.date.toString()}<span class="expired-marker" title="Expired license, it ended on ${value.expiryDate.toString()}" role="img" aria-label="expired">⊘</span><%--
+--%>@elseif(value is FallbackVersion)@template.fallbackVersion(version = value)<%--
 --%>@elseif(value is IncompleteValue)<span class="incomplete">@template.render(value.value)</span><%--
 --%>@elseif(value is LinkedCustomer)<a class="noprint" href="/customer/${value.id}?pluginId=${value.pluginId}">${value.id}</a><%--
 --%>@elseif(value is LinkedLicense)<a class="noprint" href="/license/${value.id}?pluginId=${value.pluginId}">${value.id}</a><%--

@@ -6,6 +6,7 @@
 package dev.ja.marketplace.data.licenses
 
 import dev.ja.marketplace.client.*
+import dev.ja.marketplace.client.model.PluginReleaseDate
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.PaymentAmountTracker
 import dev.ja.marketplace.util.sortValue
@@ -23,6 +24,8 @@ class LicenseTable(
     private val supportedChurnStyling: Boolean = true,
     private val showOnlyLatestLicenseInfo: Boolean = false,
     private val showReseller: Boolean = false,
+    /** The release dates for the fallback licenses, the table shows the fallback versions if they're available. */
+    private val fallbackReleases: List<PluginReleaseDate>? = null,
     private val licenseFilter: (LicenseInfo) -> Boolean = { true },
 ) : SimpleDataTable("Licenses", "licenses", "table-column-wide"), MarketplaceDataSink {
     private val columnLicenseId = DataTableColumn("license-id", "License ID", "col-right")
@@ -38,10 +41,17 @@ class LicenseTable(
     private val columnLicenseType = DataTableColumn("license-type", "Period")
     private val columnLicenseRenewalType = DataTableColumn("license-type", "Type")
     private val columnReseller = DataTableColumn("reseller", "Reseller")
+    private val columnFallbackVersion = DataTableColumn(
+        "license-fallback-version", "Fallback Version",
+        tooltip = "The version, which the perpetual fallback license covers, if the license isn't renewed. " +
+                "It's shown for the latest purchase of each license."
+    )
 
     private val data = mutableListOf<LicenseInfo>()
     private val licenseMaxValidity = Object2ObjectOpenHashMap<LicenseId, YearMonthDay>()
     private val filteredLicenseMaxValidity = Object2ObjectOpenHashMap<LicenseId, YearMonthDay>()
+    // all purchases of the licenses, a fallback license depends on all of them, e.g. of the purchases of other customers
+    private val allSubscriptionLicenses = mutableListOf<LicenseInfo>()
     private var pluginId: PluginId? = null
 
     override val isLimitedRendering: Boolean
@@ -53,6 +63,7 @@ class LicenseTable(
         columnPurchaseDate.takeIf { showPurchaseColumn },
         columnValidityStart,
         columnValidityEnd,
+        columnFallbackVersion.takeIf { fallbackReleases != null },
         columnCustomerName.takeIf { showDetails },
         columnAmount,
         columnLocalAmount.takeIf { showDetails },
@@ -78,6 +89,9 @@ class LicenseTable(
 
         val licenseId = licenseInfo.id
         licenseMaxValidity[licenseId] = maxOfNullable(licenseMaxValidity[licenseId], licenseInfo.validity!!.end)
+        if (fallbackReleases != null) {
+            allSubscriptionLicenses += licenseInfo
+        }
 
         if (licenseFilter(licenseInfo)) {
             data += licenseInfo
@@ -97,6 +111,7 @@ class LicenseTable(
         val shownLicenseInfos = if (showOnlyLatestLicenseInfo) ObjectOpenHashSet<LicenseId>() else null
         // any date because the consumed data is already filtered
         val amountTracker = PaymentAmountTracker(YearMonthDayRange.MAX, exchangeRates)
+        val fallbackVersions = fallbackVersions()
         val rows = data
             .sortedWith(comparator)
             .takeNullable(maxTableRows)
@@ -129,6 +144,9 @@ class LicenseTable(
                         columnPurchaseDate to if (showPurchaseDate) purchaseDate else null,
                         columnValidityStart to license.validity!!.start,
                         columnValidityEnd to if (isExpired) ExpiredLicenseEnd(validityEnd, licenseEnd) else validityEnd,
+                        columnFallbackVersion to fallbackVersions
+                            .takeIf { validityEnd == filteredLicenseMaxValidity[license.id] }
+                            ?.remove(license.id),
                         columnCustomerName to (license.sale.customer.name ?: NoValue),
                         columnCustomerId to LinkedCustomer(license.sale.customer.code, pluginId = pluginId!!),
                         columnLocalAmount to license.amount,
@@ -175,6 +193,19 @@ class LicenseTable(
         }
 
         return listOf(SimpleTableSection(rows, null, footer = footer))
+    }
+
+    /**
+     * @return The fallback versions of the shown licenses. The caller removes the version of a license,
+     *  when it's shown for the latest purchase of the license.
+     */
+    private fun fallbackVersions(): MutableMap<LicenseId, FallbackVersion> {
+        val releases = fallbackReleases ?: return mutableMapOf()
+        return allSubscriptionLicenses
+            .filter { it.id in filteredLicenseMaxValidity }
+            .groupBy { it.id }
+            .mapNotNullTo(mutableListOf()) { (licenseId, licenses) -> FallbackVersion.of(licenseId, licenses, releases) }
+            .associateByTo(mutableMapOf()) { it.licenseId }
     }
 }
 

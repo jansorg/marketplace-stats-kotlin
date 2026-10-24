@@ -742,24 +742,18 @@ class MarketplaceStatsServer(
         val licenses = data.getLicenses() ?: emptyList()
         val trials = data.getTrials()?.filter { it.customer.code == customerId } ?: emptyList()
 
-        val licenseTableMonthly = LicenseTable(showDetails = false, showReseller = true, showFooter = true) {
+        // only for plugins with fallback licenses
+        val fallbackReleases = loader.fallbackReleases()
+
+        val licenseTableMonthly = LicenseTable(showDetails = false, showReseller = true, showFooter = true, fallbackReleases = fallbackReleases) {
             it.sale.licensePeriod == LicensePeriod.Monthly && it.sale.customer.code == customerId
         }
 
-        val licenseTableAnnual = LicenseTable(showDetails = false, showReseller = true, showFooter = true) {
+        val licenseTableAnnual = LicenseTable(showDetails = false, showReseller = true, showFooter = true, fallbackReleases = fallbackReleases) {
             it.sale.licensePeriod == LicensePeriod.Annual && it.sale.customer.code == customerId
         }
 
         val trialsTable = TrialsTable(showDetails = false) { trial -> trial.customer.code == customerId }
-
-        val fallbackReleases = loader.fallbackReleases()
-        val fallbackVersions = when (fallbackReleases) {
-            null -> emptyList()
-            else -> licenses.filter { it.sale.customer.code == customerId }
-                .mapTo(LinkedHashSet()) { it.id }
-                .mapNotNull { FallbackVersion.of(it, licenses, fallbackReleases) }
-                .sortedByDescending { it.subscriptionEnd }
-        }
 
         for (table in listOf(licenseTableMonthly, licenseTableAnnual, trialsTable)) {
             table.init(data)
@@ -781,7 +775,6 @@ class MarketplaceStatsServer(
                     "licenseTableAnnual" to licenseTableAnnual.renderTable(),
                     "trials" to trials,
                     "trialTable" to trialsTable.renderTable(),
-                    "fallbackVersions" to fallbackVersions,
                     "settings" to serverConfiguration,
                 )
             )
