@@ -10,6 +10,9 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import dev.ja.marketplace.client.YearMonthDay
+import dev.ja.marketplace.client.currency.MarketplaceCurrencies
+import dev.ja.marketplace.client.model.*
+import org.javamoney.moneta.FastMoney
 import java.math.BigDecimal
 
 /**
@@ -121,13 +124,15 @@ class MarketplaceMcpRecordToolsTest {
 
         val organization = customers[0]
         assertEquals("organization", organization["type"]!!.jsonPrimitive.content)
-        assertEquals("churned", organization["status"]!!.jsonPrimitive.content)
+        assertEquals("inactive", organization["status"]!!.jsonPrimitive.content)
         assertEquals("2024-11-05", organization["since"]!!.jsonPrimitive.content)
-        assertEquals("2025-11-05", organization["churnDate"]!!.jsonPrimitive.content)
+        assertEquals("2025-11-04", organization["until"]!!.jsonPrimitive.content)
+        assertEquals(1, organization["churnedLicenses"]!!.jsonPrimitive.int)
+        assertNull(organization["transferredLicenses"])
         assertEquals(BigDecimal("300.00"), organization["totalSales"]!!.jsonPrimitive.content.toBigDecimal())
 
-        val churned = tools.call("list_customers", arguments { put("churnedFrom", "2025-03-01"); put("churnedTo", "2025-03-31") })
-        assertEquals(listOf(3, 1), churned["customers"]!!.jsonArray.map { it.jsonObject["id"]!!.jsonPrimitive.int }.sortedDescending())
+        val ended = tools.call("list_customers", arguments { put("untilFrom", "2025-02-28"); put("untilTo", "2025-03-31") })
+        assertEquals(listOf(3, 1), ended["customers"]!!.jsonArray.map { it.jsonObject["id"]!!.jsonPrimitive.int }.sortedDescending())
 
         val bySince = tools.call("list_customers", arguments { put("sortBy", "since"); put("country", "US") })
         assertEquals(listOf(2, 3), bySince["customers"]!!.jsonArray.map { it.jsonObject["id"]!!.jsonPrimitive.int })
@@ -454,6 +459,36 @@ class MarketplaceMcpRecordToolsTest {
         assertEquals(0, offers[0]["coupons"]!!.jsonPrimitive.int)
 
         assertFalse(result.toString().contains("CODE-"), "the coupon codes must not be returned")
+    }
+
+    @Test
+    suspend fun customersWithTransferredLicensesAreNotChurned() {
+        // the tool uses today, the license of the previous owner ended half a year ago and was renewed by the new owner
+        val today = YearMonthDay.now()
+        val previousOwner = CustomerInfo(10, "Canada", CustomerType.Organization, "Previous owner")
+        val newOwner = CustomerInfo(11, "Canada", CustomerType.Organization, "New owner")
+        fun sale(ref: String, license: String, customer: CustomerInfo, start: YearMonthDay, type: PluginSaleItemType): PluginSale {
+            val amount = FastMoney.of(100, MarketplaceCurrencies.USD)
+            val lineItem = SubscriptionPluginSaleItem(type, listOf(license), amount, amount, emptyList(), start.rangeTo(start.add(1, 0, -1)))
+            return PluginSale(ref, start, amount, amount, LicensePeriod.Annual, customer, null, listOf(lineItem))
+        }
+
+        val sales = listOf(
+            sale("R-1", "transferred", previousOwner, today.add(-1, -6, 0), PluginSaleItemType.New),
+            sale("R-2", "transferred", newOwner, today.add(0, -6, 0), PluginSaleItemType.Renew),
+            sale("R-3", "churned", previousOwner, today.add(-3, 0, 0), PluginSaleItemType.New),
+        )
+        val result = MarketplaceMcpTools(McpTestData.providerWithSales(sales)).call("list_customers", arguments())
+        val customers = result["customers"]!!.jsonArray.map { it.jsonObject }.associateBy { it["id"]!!.jsonPrimitive.int }
+
+        val previous = customers.getValue(previousOwner.code)
+        assertEquals("inactive", previous["status"]!!.jsonPrimitive.content)
+        assertEquals(1, previous["churnedLicenses"]!!.jsonPrimitive.int)
+        assertEquals(1, previous["transferredLicenses"]!!.jsonPrimitive.int)
+
+        val new = customers.getValue(newOwner.code)
+        assertEquals("active", new["status"]!!.jsonPrimitive.content)
+        assertEquals(0, new["churnedLicenses"]!!.jsonPrimitive.int)
     }
 
     @Test

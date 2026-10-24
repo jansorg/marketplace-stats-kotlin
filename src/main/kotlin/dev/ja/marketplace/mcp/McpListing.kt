@@ -66,15 +66,21 @@ internal enum class CustomerSorting(val id: String, val comparator: Comparator<C
 /**
  * A customer and the summary of the customer's licenses.
  *
- * @param churnDate The day after the end of the last license, `null` for active customers.
+ * Customers aren't churned, only licenses: a license can be renewed by another customer, e.g. after it was transferred
+ * to an organization.
+ *
+ * @param isActive `true` if the customer holds a license today.
+ * @param churnedLicenses Licenses, which ended and weren't renewed by any customer.
+ * @param transferredLicenses Licenses, which another customer renewed and still holds.
  */
 internal class CustomerSummary(
     val customer: CustomerInfo,
     val firstLicenseStart: YearMonthDay?,
     val lastLicenseEnd: YearMonthDay?,
     val isActive: Boolean,
-    val churnDate: YearMonthDay?,
     val activeLicenses: Int,
+    val churnedLicenses: Int,
+    val transferredLicenses: Int,
     val totalLicenses: Int,
     /** Sales in the displayed currency. */
     val totalSales: BigDecimal,

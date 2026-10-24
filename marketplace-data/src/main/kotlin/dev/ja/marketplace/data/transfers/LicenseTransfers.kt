@@ -17,7 +17,7 @@ import dev.ja.marketplace.client.model.CustomerInfo
  * @param date The date of the sale of the new customer.
  * @param previousValidUntil The end of the last subscription of the previous customer, `null` for perpetual licenses.
  * @param isFromCustomerActive `true` if the previous customer still has an active license.
- *  If `false`, the previous customer appears as churned, although the license is still used.
+ *  If `false`, the previous customer holds no license anymore, although the license is still used.
  */
 data class LicenseTransfer(
     val licenseId: LicenseId,

@@ -197,7 +197,7 @@ claude mcp add --transport http marketplace-stats http://localhost:8080/mcp
 | Tool                               | Data                                                                                                    |
 |------------------------------------|---------------------------------------------------------------------------------------------------------|
 | `list_sales`                       | Sales with customer, amounts and line items, with filters, totals and grouping                          |
-| `list_customers`                   | Customers with status (active or churned), churn date, licenses and total sales                         |
+| `list_customers`                   | Customers with status (active or inactive), active, churned and transferred licenses and total sales    |
 | `list_licenses`                    | Licenses with status, validity and renewals, e.g. licenses expiring in a month                          |
 | `list_customer_licenses`           | Licenses of a customer with their status and purchases                                                  |
 | `list_trials`                      | Single trials with customer and conversion, and a summary per month                                     |

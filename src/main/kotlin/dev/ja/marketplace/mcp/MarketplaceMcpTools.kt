@@ -321,13 +321,15 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
         McpToolDefinition(
             "list_customers",
             "Customers",
-            "Customers with type, country, first and last day of their licenses, churn date, active and total licenses and total sales. " +
-                    "A customer is active if a license is valid today, churned customers have the day after their last license as churn date.",
+            "Customers with type, country, first and last day of their licenses, active, churned, transferred and total licenses " +
+                    "and total sales. A customer is active if the customer holds a license today. Customers don't churn, licenses do: " +
+                    "a license is churned if it ended and no customer renewed it. A transferred license was renewed by another customer, " +
+                    "e.g. an organization, and is still valid.",
             buildJsonObject {
                 put("pluginId", pluginIdProperty)
-                put("status", enumProperty(listOf("all", "active", "churned"), "Default: all"))
-                put("churnedFrom", dateProperty("First churn date, only churned customers"))
-                put("churnedTo", dateProperty("Last churn date, only churned customers"))
+                put("status", enumProperty(listOf("all", "active", "inactive"), "Default: all"))
+                put("untilFrom", dateProperty("First last day of the licenses of the customers"))
+                put("untilTo", dateProperty("Last last day of the licenses of the customers"))
                 put("country", stringProperty("Country, name or ISO code"))
                 put("customerType", enumProperty(CustomerType.entries.map { it.toolName }, "Type of the customers"))
                 put("sortBy", enumProperty(CustomerSorting.entries.map { it.id }, "Default: sales, descending"))
@@ -625,8 +627,8 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
 
     private suspend fun listCustomers(arguments: JsonObject): JsonObject {
         val plugin = provider.findPlugin(arguments)
-        val status = arguments.choiceArgument("status", listOf("all", "active", "churned")) ?: "all"
-        val churnRange = McpDateRange.parse(arguments.stringArgument("churnedFrom"), arguments.stringArgument("churnedTo"))
+        val status = arguments.choiceArgument("status", listOf("all", "active", "inactive")) ?: "all"
+        val untilRange = McpDateRange.parse(arguments.stringArgument("untilFrom"), arguments.stringArgument("untilTo"))
         val customerType = arguments.enumArgument<CustomerType>("customerType")
         val sorting = arguments.choiceArgument("sortBy", CustomerSorting.entries.map { it.id })
             ?.let { id -> CustomerSorting.entries.first { it.id == id } } ?: CustomerSorting.Sales
@@ -638,7 +640,7 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
         val customers = json.customerSummaries(data.getLicenses() ?: emptyList(), YearMonthDay.now())
             .filter { customer ->
                 (status == "all" || (status == "active") == customer.isActive)
-                        && (churnRange.isUnbounded || (customer.churnDate != null && customer.churnDate in churnRange.toRange()))
+                        && (untilRange.isUnbounded || (customer.lastLicenseEnd != null && customer.lastLicenseEnd in untilRange.toRange()))
                         && (customerType == null || customer.customer.type == customerType)
                         && (country == null || customer.customer.country.equals(country, ignoreCase = true))
             }

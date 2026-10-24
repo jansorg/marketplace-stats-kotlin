@@ -125,7 +125,7 @@ class McpAnalysisTools(private val provider: McpDataProvider) {
             "list_license_transfers",
             "License transfers",
             "Licenses bought by another customer than the previous purchase, e.g. an individual moving to an employer, with counts " +
-                    "by customer types. isFromCustomerActive=false means the previous customer looks churned, although the license is used.",
+                    "by customer types. isFromCustomerActive=false means the previous customer holds no license anymore, although the license is used.",
             buildJsonObject {
                 put("pluginId", pluginIdProperty)
                 put("fromCustomerType", enumProperty(CustomerType.entries.map { it.toolName }))
