@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.43.0
+
+- Licenses churn, not customers: a license, which another customer renewed, e.g. after a transfer to an organization,
+  isn't churned. The navigation has a menu "Licenses" with all, active and churned licenses. "Customers" is a single
+  page with the total, active, transferred and churned licenses of each customer, the names link to the customers.
+  The license tables of a customer show, which customer renewed a transferred license. `/customers/active` and
+  `/customers/churned` redirect to the new pages.
+- Fallback versions: for plugins with perpetual fallback licenses, the license tables of a customer and the license
+  page show the version, which the fallback license covers, formatted like JetBrains, with its release date.
+  Earlier versions than the latest version of the plugin are gray.
+- The purchases of a license in the same sale are a single row of the license tables. The pages of active and churned
+  licenses show one row per license, the row limit counts the shown licenses.
+- Expired licenses are clearly gray and marked with a symbol.
+- The page of countries shows the churn of annual and monthly licenses of each country in the last 12 months.
+- The page of a sale shows all its details, e.g. the customer type and country, the reseller and a section for each
+  line item with its subscription, amounts, paid amounts, discounts and licenses. Unknown refnums return 404.
+- The cohort table of the subscription metrics has a shorter title and tooltips, the customer counts of the
+  subscription tables have thousands separators. The tables of months show the last 12 months, the other months on
+  demand.
+- Sortable tables show faint arrows on all sortable columns, the current page in the navigation bar has a visible
+  background.
+- MCP server: `list_customers` returns the counts of churned and transferred licenses instead of a churn date, the
+  status of a customer is active or inactive, the filters `churnedFrom` and `churnedTo` are replaced by `untilFrom`
+  and `untilTo`. `list_reviews` returns the resolve state, sub-ratings and versions of reviews.
+- The Marketplace client supports properties of the API responses, which it ignored before.
+- Fix: the bundled JavaScript libraries were not updated after changes of their files, e.g. the arrows of the sortable
+  tables were missing.
+
 ## 0.42.1
 
 - Faster pages: the summary of all plugins on the list of plugins and its values per week and per day, and the
