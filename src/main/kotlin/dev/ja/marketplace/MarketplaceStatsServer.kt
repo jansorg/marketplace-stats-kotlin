@@ -153,7 +153,7 @@ class MarketplaceStatsServer(
 
     private val countriesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
         client,
-        listOf(TopCountriesFactory(smallSpace = false, maxCountries = null, showTrials = true)),
+        listOf(TopCountriesFactory(smallSpace = false, maxCountries = null, showTrials = true, showChurn = true)),
         pageTitle = "Countries and Trials",
     )
 

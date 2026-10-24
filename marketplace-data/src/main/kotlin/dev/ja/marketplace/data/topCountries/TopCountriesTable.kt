@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -8,7 +8,9 @@ package dev.ja.marketplace.data.topCountries
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.model.PluginSale
+import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
+import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
@@ -16,6 +18,7 @@ import dev.ja.marketplace.data.trackers.TrialTracker
 import dev.ja.marketplace.data.trackers.getResultWithinConversionPeriod
 import dev.ja.marketplace.data.trackers.trialConversionDays
 import dev.ja.marketplace.util.sortValue
+import java.math.BigDecimal
 import java.util.*
 
 private data class CountryData(
@@ -27,13 +30,29 @@ private data class CountryData(
 class TopCountriesTable(
     smallSpace: Boolean,
     private val maxItems: Int?,
-    private val showTrials: Boolean
+    private val showTrials: Boolean,
+    private val showChurn: Boolean = false,
 ) : SimpleDataTable(
     if (maxItems == null) "" else "Top Countries",
     "top-countries",
     if (maxItems != null) "table-centered" else "table-centered sortable",
 ), MarketplaceDataSink {
     private fun String.orEmptyCountry(): String = ifEmpty { NoValue }
+
+    private fun String.fromEmptyCountry(): String = if (this == NoValue) "" else this
+
+    private fun CountryChurn.Result.renderedChurnRate(): Any {
+        val rate = churnRate ?: return NoValue
+        // PercentageValue.ZERO is rendered as "no value", but no churn is a valid result
+        return if (churned == 0) PercentageValue(BigDecimal.ZERO).toString() else rate
+    }
+
+    // countries without licenses a year ago are sorted after the countries without churn
+    private fun CountryChurn.Result.sortValue(): Long = churnRate?.value?.movePointRight(2)?.toLong() ?: -1L
+
+    private fun CountryChurn.Result.tooltip(): String? {
+        return if (previouslyActive == 0) null else "$churned of $previouslyActive licenses churned"
+    }
 
     private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
 
@@ -55,7 +74,19 @@ class TopCountriesTable(
         tooltip = "Percentage of trials which turned into a subscription after the trial started"
     )
 
+    private val columnChurnAnnual = DataTableColumn(
+        "churn-annual-paid", "Churn (annual)", "num num-percentage",
+        tooltip = "Churn of paid annual licenses in the 12 months before today: " +
+                "the share of the licenses of the country, which were active a year ago and aren't active today"
+    )
+    private val columnChurnMonthly = DataTableColumn(
+        "churn-monthly-paid", "Churn (monthly)", "num num-percentage",
+        tooltip = "Churn of paid monthly licenses in the 12 months before today: " +
+                "the share of the licenses of the country, which were active a year ago and aren't active today"
+    )
+
     private val countries = TreeMap<String, CountryData>()
+    private var churn: CountryChurn? = null
     private val allTrialsTracker: TrialTracker = SimpleTrialTracker()
     private lateinit var allSalesTracker: MonetaryAmountTracker
 
@@ -66,6 +97,8 @@ class TopCountriesTable(
         columnTrialsPercentage.takeIf { showTrials },
         columnTrialCount.takeIf { showTrials },
         columnTrialConversion.takeIf { showTrials },
+        columnChurnAnnual.takeIf { showChurn },
+        columnChurnMonthly.takeIf { showChurn },
     )
 
     override suspend fun init(data: PluginData) {
@@ -73,6 +106,9 @@ class TopCountriesTable(
 
         allSalesTracker = MonetaryAmountTracker(data.exchangeRates)
         maxTrialDays = data.getPluginInfo().purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
+        if (showChurn) {
+            churn = CountryChurn(data.getLicenses() ?: emptyList(), YearMonthDay.now())
+        }
 
         val pluginTrials = data.getTrials() ?: emptyList()
         allTrialsTracker.init(pluginTrials)
@@ -118,6 +154,8 @@ class TopCountriesTable(
                 val trialConversionRate = countryTrialsTrialDuration.convertedTrialsPercentage
 
                 val totalAmount = totalSales?.getTotalAmount()
+                val churnAnnual = churn?.result(country.fromEmptyCountry(), LicensePeriod.Annual)
+                val churnMonthly = churn?.result(country.fromEmptyCountry(), LicensePeriod.Monthly)
                 SimpleDateTableRow(
                     values = mapOf(
                         columnCountry to country,
@@ -126,6 +164,8 @@ class TopCountriesTable(
                         columnTrialCount to (countryTrialsAnyDuration.totalTrials.takeUnless { it == 0 }?.toBigInteger() ?: NoValue),
                         columnTrialsPercentage to trialPercentage,
                         columnTrialConversion to trialConversionRate,
+                        columnChurnAnnual to churnAnnual?.renderedChurnRate(),
+                        columnChurnMonthly to churnMonthly?.renderedChurnRate(),
                     ),
                     sortValues = mapOf(
                         columnSales to (totalAmount?.sortValue() ?: -1L),
@@ -133,8 +173,12 @@ class TopCountriesTable(
                         columnTrialCount to countryTrialsAnyDuration.totalTrials.toLong(),
                         columnTrialsPercentage to trialPercentage.value.toLong(),
                         columnTrialConversion to trialConversionRate.value.toLong(),
+                        columnChurnAnnual to churnAnnual?.sortValue(),
+                        columnChurnMonthly to churnMonthly?.sortValue(),
                     ),
                     tooltips = mapOf(
+                        columnChurnAnnual to churnAnnual?.tooltip(),
+                        columnChurnMonthly to churnMonthly?.tooltip(),
                         columnTrialConversion to countryTrialsAnyDuration.getTooltipConverted() +
                                 "\n" +
                                 countryTrialsTrialDuration.getTooltipConverted(trialConversionDays(maxTrialDays))
