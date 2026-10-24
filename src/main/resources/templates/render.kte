@@ -29,11 +29,13 @@
         ${String.format("%,.2f %%", value.value)}
     @endif
 @elseif(value is BigInteger)
-    ${String.format("%,d", value)}
+    ${Formatters.formatInteger(value)}
 @elseif(value is BigDecimal)
-    ${String.format("%,.2f", value)}
-@elseif(value is Double || value is Float)
-    ${String.format("%,.2f", value)}
+    ${Formatters.formatDecimal(value)}
+@elseif(value is Double)
+    ${Formatters.formatDecimal(value)}
+@elseif(value is Float)
+    ${Formatters.formatDecimal(value.toDouble())}
 @elseif(value is IncompleteValue)
     <span class="incomplete">@template.render(value.value)</span>
 @elseif(value is LinkedCustomer)
