@@ -247,7 +247,7 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
         TableTool(
             "get_monthly_renewal_rates",
             "Renewal rates of monthly licenses",
-            "Experimental. Per year of the end of the subscriptions: share of monthly subscriptions renewed, by number of previous renewals.",
+            "Experimental. Per month of the end of the subscriptions: share of monthly subscriptions renewed, by number of previous renewals.",
             DateRangeFilter.Rows,
         ) { _, _, _ -> RenewalRateTable(LicensePeriod.Monthly) },
         TableTool(

@@ -184,7 +184,7 @@ claude mcp add --transport http marketplace-stats http://localhost:8080/mcp
 | `get_customer_cohorts`             | Customer and revenue retention of the customers by the year of their first payment (experimental)       |
 | `get_lifetime_value`               | Realized lifetime value per cohort year (experimental)                                                  |
 | `get_annual_renewal_rates`         | Renewal rates of annual subscriptions per year (experimental)                                           |
-| `get_monthly_renewal_rates`        | Renewal rates of monthly subscriptions per year (experimental)                                          |
+| `get_monthly_renewal_rates`        | Renewal rates of monthly subscriptions per month (experimental)                                         |
 | `get_average_revenue_per_customer` | Paying customers and average recurring revenue per customer (experimental)                              |
 
 #### Sales, customers, licenses and trials
