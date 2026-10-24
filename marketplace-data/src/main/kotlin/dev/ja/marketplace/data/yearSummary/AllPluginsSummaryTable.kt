@@ -38,7 +38,10 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
         "arr", "ARR", "num", tooltip = "Annual recurring revenue at the end of the year",
         chartMeasure = ChartMeasure.Stock, dailyChartSeries = AllPluginsDailyValues.ARR,
     )
-    private val columnDownloads = DataTableColumn("downloads", "Downloads", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.DOWNLOADS)
+    private val columnDownloads = DataTableColumn(
+        "downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Downloads",
+        chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.DOWNLOADS,
+    )
 
     private val totalSales = PaymentAmountTracker(YearMonthDayRange.MAX, displayExchangeRates)
     private val salesByYear = TreeMap<Int, PaymentAmountTracker>(Comparator.reverseOrder())
