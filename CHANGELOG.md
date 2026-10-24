@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.42.0
+
+- The list of plugins shows a summary of all paid and freemium plugins: sales, fees, invoiced amounts, MRR, ARR and
+  downloads by year, and the same values for each day of the current month. Both tables show their latest rows and the
+  others on demand. The data of the plugins is loaded at the start, `--no-all-plugins-summary` disables the summary.
+  The plugins are shown as cards.
+- Report pages have a menu next to the name of the plugin to switch to another paid plugin or to the list of plugins.
+- Charts per week and per day for the subscription metrics (MRR movements, revenue retention, average revenue per
+  customer), the monthly downloads and the summary of all plugins. Moving averages are available per week and per day.
+- The renewal rates of monthly licenses are shown by month.
+- MCP server: a new tool `list_offers` lists the special offers and the number of their coupons, `list_plugins` returns
+  the monetization settings of paid plugins, and `list_sales` marks line items of sales with a total of 0 as free
+  licenses.
+- The Marketplace client supports the requests for special offers, coupons, release dates, monetization settings and
+  the sales reports.
+- Favicons and a footer with the version and links to the project.
+- Long table titles have their own row, so that they don't widen the first column.
+- The sortable tables use sortable-tablesort 4.1.7, which is downloaded at build time.
+- Fix scrolling of the page behind the chart dialog on iPadOS, closing of the chart dialog by a click on its padding,
+  and the labels of the date axis of charts per week and per day.
+- `docker-compose.yml` explains how to store the persistent cache in a directory of the host.
+
 ## 0.41.0
 
 - Dark mode, which follows the setting of the system. Its colors are chosen for a contrast of at least 4.5:1 for all text.
