@@ -38,6 +38,12 @@
             <dt>Customer</dt>
             <dd>@template.render(value = LinkedCustomer(sale.customer.code, plugin.id)) @if (!sale.customer.name.isNullOrEmpty()) (${sale.customer.name})@endif</dd>
 
+            <dt>Customer Type</dt>
+            <dd>${sale.customer.type.name}</dd>
+
+            <dt>Customer Country</dt>
+            <dd>${sale.customer.country}</dd>
+
             @if (sale.amount.currency != sale.amountUSD.currency)
                 <dt>Amount</dt>
                 <dd>@template.render(value = sale.amount)</dd>
@@ -49,8 +55,13 @@
             <dt>License Type</dt>
             <dd>${sale.licensePeriod}</dd>
 
+            !{val reseller = sale.reseller}
             <dt>Reseller</dt>
-            <dd>${sale.reseller?.name ?: "-"}</dd>
+            @if (reseller == null)
+                <dd>—</dd>
+            @else
+                <dd>${reseller.name} (${reseller.type.displayString}, ${reseller.country}, ID: ${reseller.code})</dd>
+            @endif
         </dl>
     </div>
 
