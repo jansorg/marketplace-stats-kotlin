@@ -48,9 +48,9 @@ object Formatters {
         return integerFormat.get().format(value)
     }
 
-    /** Same output as `String.format("%,.2f %%", value)`. */
+    /** Same output as `String.format("%,.2f %%", value)`, with a thin space before the percent sign. */
     fun formatPercentage(value: BigDecimal): String {
-        return formatDecimal(value) + " %"
+        return formatDecimal(value) + "\u2009%"
     }
 
     private val NEGATIVE_ZERO_BITS = (-0.0).toRawBits()
