@@ -664,7 +664,8 @@ class MarketplaceStatsServer(
     }
 
     private fun getDataLoader(plugin: PluginInfoSummary): PluginDataLoader {
-        return PluginDataLoader(client, plugin, countries, exchangeRates, ideReleases)
+        val otherPaidPlugins = allPlugins.filter { it.isPaidOrFreemium && it.id != plugin.id }
+        return PluginDataLoader(client, plugin, countries, exchangeRates, ideReleases, otherPaidPlugins)
     }
 
     private fun RoutingContext.getDataLoader(): PluginDataLoader? {

@@ -70,6 +70,7 @@ class DefaultPluginPageDefinition(
             "pageDescription" to pageDescription,
             "today" to YearMonthDay.now(),
             "plugin" to data.getPluginInfo(),
+            "otherPlugins" to dataLoader.otherPaidPlugins,
             "rating" to data.getPluginRating(),
             "tables" to dataSinks,
             "cssClass" to pageCssClasses,
