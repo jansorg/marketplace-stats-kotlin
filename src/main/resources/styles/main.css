@@ -96,6 +96,8 @@ a, a:visited {
 
 a:hover {
     color: var(--link-color-active);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
 }
 
 a {
