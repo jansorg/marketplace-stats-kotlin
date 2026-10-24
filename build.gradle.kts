@@ -139,16 +139,31 @@ project(":") {
     dependencies {
         // https://www.npmjs.com/package/uplot, used for the charts
         javascriptLibraries("npm:uplot:1.6.32@tgz")
+        // https://www.npmjs.com/package/sortable-tablesort, used for the sortable tables
+        javascriptLibraries("npm:sortable-tablesort:4.1.7@tgz")
     }
 
     // Extracts the files of the JavaScript libraries, which are served from the "js" directory of the resources.
     // ArchiveOperations instead of Project.tarTree is compatible with the configuration cache.
     val archives = objects.newInstance<InjectedArchiveOperations>().archiveOperations
+    // the files of a library, the packages of npm contain their files in the directory "package"
+    fun library(name: String) = javascriptLibraries.elements.map { files ->
+        files.filter { it.asFile.name.startsWith("$name-") }.map { archives.tarTree(archives.gzip(it.asFile)) }
+    }
+
     val bundleJavascriptLibraries by tasks.registering(Sync::class) {
-        from(javascriptLibraries.elements.map { files -> files.map { archives.tarTree(archives.gzip(it.asFile)) } }) {
+        from(library("uplot")) {
             include("package/dist/uPlot.iife.min.js", "package/dist/uPlot.min.css", "package/LICENSE")
             eachFile {
                 val fileName = if (name == "LICENSE") "uPlot.LICENSE.txt" else name
+                relativePath = RelativePath(true, "js", fileName)
+            }
+            includeEmptyDirs = false
+        }
+        from(library("sortable-tablesort")) {
+            include("package/dist/sortable.min.js", "package/dist/sortable.min.css", "package/LICENSE")
+            eachFile {
+                val fileName = if (name == "LICENSE") "sortable.LICENSE.txt" else name
                 relativePath = RelativePath(true, "js", fileName)
             }
             includeEmptyDirs = false
