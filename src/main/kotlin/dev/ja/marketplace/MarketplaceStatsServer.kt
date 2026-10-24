@@ -816,13 +816,15 @@ class MarketplaceStatsServer(
         serverConfiguration: ServerConfiguration
     ) {
         val data = loader.load()
-        val sale = data.getSales()?.single { it.ref == refNum }
+        val sale = data.getSales()?.firstOrNull { it.ref == refNum }
+        if (sale == null) {
+            call.respondText("Sale $refNum not found", status = HttpStatusCode.NotFound)
+            return
+        }
 
         val lineItemsTable = LineItemsTable()
-        for (table in listOf(lineItemsTable)) {
-            table.init(data)
-            table.process(sale!!)
-        }
+        lineItemsTable.init(data)
+        lineItemsTable.process(sale)
 
         call.respond(
             JteContent(
