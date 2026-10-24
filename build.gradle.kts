@@ -198,6 +198,12 @@ project(":") {
         implementation("io.ktor:ktor-server-jte:$ktorVersion")
         implementation("io.ktor:ktor-server-status-pages:$ktorVersion")
 
+        // https://github.com/modelcontextprotocol/kotlin-sdk, MCP server at /mcp
+        // 0.15 requires kotlin-stdlib 2.4, which breaks precompileJte (see AGENTS.md)
+        implementation("io.modelcontextprotocol:kotlin-sdk-server:0.14.0")
+        // the MCP SDK depends on older Ktor modules, e.g. ktor-server-sse, align them with the Ktor version of the project
+        implementation(platform("io.ktor:ktor-bom:$ktorVersion"))
+
         // https://mvnrepository.com/artifact/gg.jte/jte
         implementation("gg.jte:jte:3.2.4")
     }
@@ -274,6 +280,8 @@ project(":") {
                 exclude(dependency("org.javamoney.moneta:.*:.*"))
                 exclude(dependency("gg.jte:.*:.*"))
                 exclude(dependency("org.jetbrains.kotlin:kotlin-reflect:.*"))
+                exclude(dependency("io.modelcontextprotocol:.*:.*"))
+                exclude(dependency("io.github.oshai:.*:.*"))
             }
         }
 

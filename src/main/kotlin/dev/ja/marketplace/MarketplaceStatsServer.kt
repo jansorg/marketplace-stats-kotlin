@@ -8,8 +8,8 @@ package dev.ja.marketplace
 import dev.ja.marketplace.churn.ChurnValidities
 import dev.ja.marketplace.churn.LicenseChurnProcessor
 import dev.ja.marketplace.client.*
-import dev.ja.marketplace.client.model.LicensePeriod
-import dev.ja.marketplace.client.model.PluginInfoSummary
+import dev.ja.marketplace.client.model.*
+import dev.ja.marketplace.data.PluginData
 import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.MarketplaceDataTableFactory
 import dev.ja.marketplace.data.chargeOverview.ChargeOverviewTableFactory
@@ -38,9 +38,18 @@ import dev.ja.marketplace.data.topTrialCountries.TopTrialCountriesFactory
 import dev.ja.marketplace.data.trials.TrialsTable
 import dev.ja.marketplace.data.trials.TrialsTableFactory
 import dev.ja.marketplace.data.yearSummary.YearlySummaryFactory
+import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
+import dev.ja.marketplace.exchangeRate.EcbRateTable
 import dev.ja.marketplace.exchangeRate.ExchangeRates
+import dev.ja.marketplace.mcp.MarketplaceMcpTools
+import dev.ja.marketplace.mcp.McpDataProvider
+import dev.ja.marketplace.mcp.marketplaceMcp
 import dev.ja.marketplace.services.Countries
-import dev.ja.marketplace.services.KtorJetBrainsServiceClient
+import dev.ja.marketplace.services.JetBrainsProductCode
+import dev.ja.marketplace.services.ProductRelease
+import dev.ja.marketplace.services.ProductReleaseType
+import dev.ja.marketplace.services.Products
+import dev.ja.marketplace.services.JetBrainsServiceClient
 import gg.jte.ContentType
 import gg.jte.TemplateEngine
 import io.ktor.http.*
@@ -58,13 +67,19 @@ import io.ktor.util.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 
 class MarketplaceStatsServer(
     private val client: MarketplaceClient,
-    private val servicesClient: KtorJetBrainsServiceClient,
+    private val servicesClient: JetBrainsServiceClient,
     private val host: String = "0.0.0.0",
     private val port: Int = 8080,
     private val serverConfiguration: ServerConfiguration,
+    /**
+     * Hostnames accepted by the MCP endpoint at `/mcp`, the endpoint is disabled if `null`.
+     */
+    private val mcpAllowedHosts: List<String>? = null,
 ) {
     private lateinit var allPlugins: List<PluginInfoSummary>
     private lateinit var countries: Countries
@@ -189,6 +204,71 @@ class MarketplaceStatsServer(
         pageTitle = "Incorrect Plugin Charges",
     )
 
+    private val mcpDataProvider = object : McpDataProvider {
+        override suspend fun userInfo(): UserInfo = client.userInfo()
+
+        override fun plugins(): List<PluginInfoSummary> = allPlugins
+
+        override suspend fun pluginData(plugin: PluginInfoSummary): PluginData = getDataLoader(plugin).load()
+
+        override suspend fun pluginReleases(plugin: PluginInfoSummary, channel: PluginChannel): List<PluginReleaseInfo> {
+            return client.releases(plugin.id, channel, pageSize = 100)
+        }
+
+        override suspend fun pluginChannels(plugin: PluginInfoSummary): List<PluginChannel> {
+            return client.channels(plugin.id)
+        }
+
+        // cached by the services client
+        override suspend fun productReleases(product: JetBrainsProductCode, type: ProductReleaseType): List<ProductRelease> {
+            return servicesClient.productReleases(product, type)
+        }
+
+        override suspend fun products(): Products = servicesClient.products()
+
+        override fun dropCachedData(plugin: PluginInfoSummary?) {
+            when (plugin) {
+                null -> this@MarketplaceStatsServer.dropCachedData()
+                else -> (client as? CaffeineCacheMarketplaceClient)?.invalidatePlugin(plugin.id)
+            }
+        }
+
+        override fun exchangeRates(currencyCode: String?): ExchangeRates {
+            return when (currencyCode) {
+                null, exchangeRates.targetCurrency.currencyCode -> exchangeRates
+                else -> mcpExchangeRates.computeIfAbsent(currencyCode) { ExchangeRates(it) }
+            }
+        }
+
+        override suspend fun exchangeRateTable(): EcbRateTable {
+            return withContext(Dispatchers.IO) { EcbExchangeRateData.Default.get() }
+        }
+
+        override suspend fun groupedDownloads(
+            plugin: PluginInfoSummary,
+            dimension: DownloadRequestDimension,
+            groupType: DownloadRequestDimension,
+            countType: DownloadCountType,
+            startDate: YearMonthDay?,
+            vararg filters: DownloadFilter,
+        ): GroupedDownloadResponse {
+            return client.groupedDownloads(plugin.id, dimension, groupType, countType, startDate, *filters)
+        }
+
+        override suspend fun reviews(plugin: PluginInfoSummary): List<PluginReviewComment> {
+            return client.reviewComments(plugin.id, pageSize = 100)
+        }
+
+        override suspend fun pageAnalytics(plugin: PluginInfoSummary, timeFrame: PageAnalyticsTimeFrame): PluginPageAnalytics {
+            return client.pageAnalytics(plugin.id, timeFrame)
+        }
+    }
+
+    // exchange rates into other currencies than the displayed currency, requested by MCP tools
+    private val mcpExchangeRates = ConcurrentHashMap<String, ExchangeRates>()
+
+
+
     private val httpServer = embeddedServer(Netty, host = host, port = port) {
         install(Compression) {
             gzip()
@@ -212,6 +292,10 @@ class MarketplaceStatsServer(
             }
         }
 
+        if (mcpAllowedHosts != null) {
+            marketplaceMcp(MarketplaceMcpTools(mcpDataProvider), mcpAllowedHosts)
+        }
+
         routing {
             staticResources("/styles", "styles")
             staticResources("/js", "js")
@@ -226,10 +310,7 @@ class MarketplaceStatsServer(
 
                 val dropCachedData = call.request.queryParameters["reload"]?.toBooleanStrictOrNull() == true
                 if (dropCachedData) {
-                    exchangeRates.invalidateCache()
-                    if (client is CacheAware) {
-                        client.invalidateCache()
-                    }
+                    dropCachedData()
                 }
 
                 val whitelistedParamsNames = setOf("rows")
@@ -448,7 +529,19 @@ class MarketplaceStatsServer(
         (client as? CaffeineCacheMarketplaceClient)?.updateStoredHistory(allPlugins.filter(PluginInfoSummary::isPaidOrFreemium).map(PluginInfoSummary::id))
 
         println("Launching web server: http://$host:$port/")
+        if (mcpAllowedHosts != null) {
+            println("MCP server: http://$host:$port/mcp")
+        }
         httpServer.start(true)
+    }
+
+    private fun dropCachedData() {
+        exchangeRates.invalidateCache()
+        mcpExchangeRates.values.forEach(ExchangeRates::invalidateCache)
+        if (client is CacheAware) {
+            client.invalidateCache()
+        }
+        (servicesClient as? CacheAware)?.invalidateCache()
     }
 
     private fun getDataLoader(plugin: PluginInfoSummary): PluginDataLoader {

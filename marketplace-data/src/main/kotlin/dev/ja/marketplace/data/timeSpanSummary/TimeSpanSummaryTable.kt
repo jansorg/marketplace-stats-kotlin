@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -13,8 +13,17 @@ import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import java.util.*
 
-class TimeSpanSummaryTable(maxDays: Int, title: String) : SimpleDataTable(title, cssClass = "small table-striped"),
-    MarketplaceDataSink {
+/**
+ * Sales, downloads and trials per day of [dateRange].
+ */
+class TimeSpanSummaryTable(
+    private val dateRange: YearMonthDayRange,
+    title: String,
+) : SimpleDataTable(title, cssClass = "small table-striped"), MarketplaceDataSink {
+    constructor(maxDays: Int, title: String) : this(
+        YearMonthDay.now().let { YearMonthDayRange(it.add(0, 0, -maxDays), it) },
+        title
+    )
 
     private data class DaySummary(
         var sales: MonetaryAmountTracker,
@@ -28,7 +37,6 @@ class TimeSpanSummaryTable(maxDays: Int, title: String) : SimpleDataTable(title,
     private val columnTrials = DataTableColumn("total", "Trials", "num")
 
     private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
-    private val dateRange = YearMonthDay.now().let { YearMonthDayRange(it.add(0, 0, -maxDays), it) }
     private val daySummaries = TreeMap<YearMonthDay, DaySummary>()
     private lateinit var totalSales: MonetaryAmountTracker
 
@@ -49,9 +57,12 @@ class TimeSpanSummaryTable(maxDays: Int, title: String) : SimpleDataTable(title,
         this.totalSales = MonetaryAmountTracker(exchangeRates)
         this.maxTrialDays = data.getPluginInfo().purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
 
+        val downloadsByDay = data.getDownloadsDaily().associate { it.day to it.downloads }
+        val trialsByDay = data.getTrials()?.groupingBy { it.date }?.eachCount() ?: emptyMap()
+
         dateRange.days().forEach { day ->
-            val downloads = data.getDownloadsDaily().firstOrNull { it.day == day }?.downloads ?: 0
-            val trials = data.getTrials()?.filter { it.date == day }?.size ?: 0
+            val downloads = downloadsByDay[day] ?: 0
+            val trials = trialsByDay[day] ?: 0
             this.daySummaries[day] = DaySummary(MonetaryAmountTracker(data.exchangeRates), downloads, trials)
         }
     }

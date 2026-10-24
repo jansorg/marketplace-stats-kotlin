@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -14,10 +14,15 @@ import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import java.math.BigInteger
 
+/**
+ * Sales by license period and customer type and trials by country of the days of [dateRange].
+ */
 class DaySummaryTable(
-    val date: YearMonthDay,
+    val dateRange: YearMonthDayRange,
     title: String
 ) : SimpleDataTable(title, cssClass = "small table-striped"), MarketplaceDataSink {
+    constructor(date: YearMonthDay, title: String) : this(YearMonthDayRange.of(date), title)
+
     private lateinit var totalSales: MonetaryAmountTracker
     private val sales = linkedMapOf<Pair<CustomerType, LicensePeriod>, MonetaryAmountTracker>()
     private lateinit var trials: List<PluginTrial>
@@ -43,13 +48,13 @@ class DaySummaryTable(
         }
 
         trials = data.getTrials()
-            ?.filter { it.date == date }
+            ?.filter { it.date in dateRange }
             ?.sortedBy { it.customer.country }
             ?: emptyList()
     }
 
     override suspend fun process(sale: PluginSale) {
-        if (sale.date == date) {
+        if (sale.date in dateRange) {
             totalSales.add(sale.date, sale.amountUSD, sale.amount)
 
             val tracker = sales[sale.customer.type to sale.licensePeriod]
@@ -71,16 +76,14 @@ class DaySummaryTable(
             )
         }
 
+        // one row per country, the customer type isn't shown
         val trialRows = trials
-            .groupBy { it.customer.type }
-            .mapValues { it.value.groupBy { it.customer.country } }
-            .flatMap { (_, countryTrials) ->
-                countryTrials.map { (country, trials) ->
-                    SimpleDateTableRow(
-                        columnTrialCountry to (country.takeIf(String::isNotEmpty) ?: NoValue),
-                        columnTrialCount to trials.size.toBigInteger()
-                    )
-                }
+            .groupBy { it.customer.country }
+            .map { (country, trials) ->
+                SimpleDateTableRow(
+                    columnTrialCountry to (country.takeIf(String::isNotEmpty) ?: NoValue),
+                    columnTrialCount to trials.size.toBigInteger()
+                )
             }
             .sortedByDescending { it.values[columnTrialCount] as BigInteger }
 

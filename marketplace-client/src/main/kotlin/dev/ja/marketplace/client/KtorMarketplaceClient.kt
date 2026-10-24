@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -138,6 +138,29 @@ open class KtorMarketplaceClient(
             }
             addDownloadFilters(filters)
         }.body<DownloadResponse>()
+    }
+
+    override suspend fun groupedDownloads(
+        plugin: PluginId,
+        dimension: DownloadRequestDimension,
+        groupType: DownloadRequestDimension,
+        countType: DownloadCountType,
+        startDate: YearMonthDay?,
+        vararg filters: DownloadFilter,
+    ): GroupedDownloadResponse = withContext(dispatcher) {
+        httpClient.get("/statistic/${countType.requestPathSegment}/${dimension.requestPathSegment}/${groupType.requestPathSegment}") {
+            parameter("plugin", plugin)
+            if (startDate != null) {
+                parameter("startDate", startDate.asIsoString)
+            }
+            addDownloadFilters(filters)
+        }.body<GroupedDownloadResponse>()
+    }
+
+    override suspend fun pageAnalytics(plugin: PluginId, timeFrame: PageAnalyticsTimeFrame): PluginPageAnalytics = withContext(dispatcher) {
+        httpClient.get("${apiPath}/plugins/${plugin}/ga") {
+            parameter("timeFrame", timeFrame.requestParameter)
+        }.body<PluginPageAnalytics>()
     }
 
     override suspend fun downloadsMonthly(

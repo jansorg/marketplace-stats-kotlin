@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -72,6 +72,29 @@ interface MarketplaceClient : MarketplaceUrlSupport, MarketplaceClientPublic {
         startDate: YearMonthDay? = null,
         vararg filters: DownloadFilter,
     ): DownloadResponse
+
+    /**
+     * @param dimension [DownloadRequestDimension.Month] or [DownloadRequestDimension.Day], the dimension of the series of each group
+     * @param groupType The dimension of the groups, e.g. [DownloadRequestDimension.ProductCode] or [DownloadRequestDimension.Update]
+     * @param filters The API applies the filters by product ([DownloadFilter.productCode]) and by release ([DownloadFilter.update]),
+     *  filters by country and by major version are ignored. Grouping by product and release in one request isn't supported by the API,
+     *  but the downloads per release can be requested for each product.
+     * @return Downloads grouped by two dimensions, e.g. the downloads per month of each product.
+     */
+    suspend fun groupedDownloads(
+        plugin: PluginId,
+        dimension: DownloadRequestDimension,
+        groupType: DownloadRequestDimension,
+        countType: DownloadCountType,
+        startDate: YearMonthDay? = null,
+        vararg filters: DownloadFilter,
+    ): GroupedDownloadResponse
+
+    /**
+     * Visitors of the plugin's page on the Marketplace, from Google Analytics. Requires the API key of a developer of the plugin.
+     * The data is sampled and may be inaccurate, see [PluginPageAnalytics.isReliable].
+     */
+    suspend fun pageAnalytics(plugin: PluginId, timeFrame: PageAnalyticsTimeFrame): PluginPageAnalytics
 
     /**
      * Helper method to retrieve downloads grouped by month.
