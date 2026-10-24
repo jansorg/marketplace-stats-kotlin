@@ -319,6 +319,11 @@ button {
     color: var(--text-color-disabled);
 }
 
+/* the description of the summary of all plugins on the list of plugins, above its table */
+.summary-description {
+    margin: 0.75rem 0 1.25rem;
+}
+
 /*
  * The tables of a page are cards, which flow in rows. Narrow tables share a row and grow to fill it, wide tables use
  * a row of their own and scroll horizontally if they are wider than the page.
