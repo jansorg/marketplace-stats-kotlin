@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.mcp
 
+import dev.ja.marketplace.client.LicenseId
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.YearMonthDay
@@ -145,18 +146,25 @@ class McpRecordsJson(private val exchangeRates: ExchangeRates) {
      * @return The customers of the licenses with the summary of their licenses.
      */
     internal fun customerSummaries(licenses: List<LicenseInfo>, today: YearMonthDay): List<CustomerSummary> {
+        // the status of a license depends on the purchases of all customers
+        val licenseLatestEnd = HashMap<LicenseId, YearMonthDay>()
+        for (license in licenses) {
+            val end = license.validity?.end ?: continue
+            licenseLatestEnd.merge(license.id, end, ::maxOf)
+        }
+
         return licenses.groupBy { it.sale.customer.code }.values.map { purchases ->
             val customer = purchases.maxBy { it.sale.date }.sale.customer
             val activeLicenses = purchases.filter { it.validity == null || it.validity!!.end >= today }.mapTo(HashSet()) { it.id }
-            val lastEnd = purchases.mapNotNull { it.validity?.end }.maxOrNull()
-            val isActive = activeLicenses.isNotEmpty()
+            val subscriptionLicenses = purchases.filter { it.validity != null }.mapTo(HashSet()) { it.id }
             CustomerSummary(
                 customer = customer,
                 firstLicenseStart = purchases.mapNotNull { it.validity?.start }.minOrNull(),
-                lastLicenseEnd = lastEnd,
-                isActive = isActive,
-                churnDate = lastEnd?.takeIf { !isActive }?.add(0, 0, 1),
+                lastLicenseEnd = purchases.mapNotNull { it.validity?.end }.maxOrNull(),
+                isActive = activeLicenses.isNotEmpty(),
                 activeLicenses = activeLicenses.size,
+                churnedLicenses = subscriptionLicenses.count { licenseLatestEnd.getValue(it) < today },
+                transferredLicenses = subscriptionLicenses.count { it !in activeLicenses && licenseLatestEnd.getValue(it) >= today },
                 totalLicenses = purchases.mapTo(HashSet()) { it.id }.size,
                 totalSales = sum(purchases.map { displayedAmount(it.sale.date, it.amountUSD, it.amount) }),
             )
@@ -166,11 +174,14 @@ class McpRecordsJson(private val exchangeRates: ExchangeRates) {
     internal fun customerSummary(summary: CustomerSummary): JsonObject {
         return buildJsonObject {
             customer(summary.customer).forEach { (key, value) -> put(key, value) }
-            put("status", if (summary.isActive) "active" else "churned")
+            put("status", if (summary.isActive) "active" else "inactive")
             summary.firstLicenseStart?.let { put("since", it.asIsoString) }
             summary.lastLicenseEnd?.let { put("until", it.asIsoString) }
-            summary.churnDate?.let { put("churnDate", it.asIsoString) }
             put("activeLicenses", summary.activeLicenses)
+            put("churnedLicenses", summary.churnedLicenses)
+            if (summary.transferredLicenses > 0) {
+                put("transferredLicenses", summary.transferredLicenses)
+            }
             put("licenses", summary.totalLicenses)
             put("totalSales", summary.totalSales)
         }
