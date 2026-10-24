@@ -52,6 +52,9 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
     override val isChartable: Boolean = true
     override val chartPeriod: ChartPeriod = ChartPeriod.Year
 
+    // the last three years, the earlier years are shown on demand
+    override val collapsedRowCount: Int = 3
+
     override val columns: List<DataTableColumn> = listOf(
         columnYear, columnSalesTotal, columnSalesFees, columnSalesPaid, columnMrr, columnArr, columnDownloads,
     )
