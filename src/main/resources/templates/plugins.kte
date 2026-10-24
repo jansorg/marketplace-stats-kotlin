@@ -30,7 +30,7 @@
 
 <h2>Paid or Freemium Plugins</h2>
 @if(summary != null && !summary.isEmpty)
-    <p>The sales and downloads of all paid and freemium plugins.</p>
+    <p class="summary-description">The sales and downloads of all paid and freemium plugins.</p>
     <section class="tables">
         @template.dataTable(null, summary)
     </section>
