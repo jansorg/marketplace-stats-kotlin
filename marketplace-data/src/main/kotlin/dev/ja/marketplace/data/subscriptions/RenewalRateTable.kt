@@ -47,6 +47,9 @@ class RenewalRateTable(private val licensePeriod: LicensePeriod) : SimpleDataTab
     override val isChartable: Boolean = true
     override val chartPeriod: ChartPeriod = if (isByMonth) ChartPeriod.Month else ChartPeriod.Year
 
+    // the renewal rates of months show the last year, the other months on demand
+    override val collapsedRowCount: Int? = if (isByMonth) 12 else null
+
     override val columns: List<DataTableColumn> = listOf(columnYear, columnFirst, columnSecond, columnLater, columnAll)
 
     override suspend fun process(licenseInfo: LicenseInfo) {
