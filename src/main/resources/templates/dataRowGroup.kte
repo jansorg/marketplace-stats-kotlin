@@ -11,27 +11,14 @@
 @for((rowIndex, row) in group.rows.withIndex())
     !{val rowClass = if (rowIndex == 0) row.cssClass ?: cssClass else row.cssClass}
     !{var tagName = if (renderHeader) "th" else "td"}
-    <tr class="${rowClass}" id="${row.htmlId}">
-        @for((columnIndex, column) in columns.withIndex())
-            @if(renderHeader)
-                <th colspan="${column.columnSpan}" title="${row.getTooltip(column)}" class="${column.cssClass}" style="${column.cssStyle}">
-                    !{val value = row.getValue(column)}
-                    @if(value == null && rowIndex == 0 && columnIndex == 0 && group.title != null)
-                        <h2>${group.title}</h2>
-                    @elseif (value != null)
-                        @template.render(value)
-                    @endif
-                </th>
-            @else
-                <td colspan="${column.columnSpan}" title="${row.getTooltip(column)}" class="${column.cssClass}" style="${column.cssStyle}">
-                    !{val value = row.getValue(column)}
-                    @if(value == null && rowIndex == 0 && columnIndex == 0 && group.title != null)
-                        <h2>${group.title}</h2>
-                    @elseif (value != null)
-                        @template.render(value)
-                    @endif
-                </td>
-            @endif
-        @endfor
-    </tr>
+    <%-- no whitespace between and in the cells, see dataTableSection.kte --%>
+    <tr class="${rowClass}" id="${row.htmlId}"><%--
+    --%>@for((columnIndex, column) in columns.withIndex())<%--
+        --%>!{val value = row.getValue(column)}<%--
+        --%>@if(renderHeader)<th colspan="${column.columnSpan}" title="${row.getTooltip(column)}" class="${column.cssClass}" style="${column.cssStyle}"><%--
+            --%>@if(value == null && rowIndex == 0 && columnIndex == 0 && group.title != null)<h2>${group.title}</h2>@elseif (value != null)@template.render(value)@endif</th><%--
+        --%>@else<td colspan="${column.columnSpan}" title="${row.getTooltip(column)}" class="${column.cssClass}" style="${column.cssStyle}"><%--
+            --%>@if(value == null && rowIndex == 0 && columnIndex == 0 && group.title != null)<h2>${group.title}</h2>@elseif (value != null)@template.render(value)@endif</td><%--
+        --%>@endif<%--
+    --%>@endfor</tr>
 @endfor
