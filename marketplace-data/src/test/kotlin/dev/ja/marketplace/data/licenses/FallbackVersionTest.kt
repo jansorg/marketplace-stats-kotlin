@@ -113,6 +113,15 @@ class FallbackVersionTest {
     }
 
     @Test
+    fun releaseVersionsAreFormattedLikeJetBrains() {
+        assertEquals("50.0", FallbackVersion.formatReleaseVersion("500"))
+        assertEquals("2024.1", FallbackVersion.formatReleaseVersion("20241"))
+        assertEquals("1.0", FallbackVersion.formatReleaseVersion("10"))
+        assertEquals("5", FallbackVersion.formatReleaseVersion("5"))
+        assertEquals("1.2.0", FallbackVersion.formatReleaseVersion("1.2.0"))
+    }
+
+    @Test
     fun noVersionBeforeTheFallbackDate() {
         val version = fallbackVersion(annual(YearMonthDay(2023, 1, 1)))!!
         assertTrue(version.isEligible)

@@ -41,7 +41,22 @@ data class FallbackVersion(
     /** `true` if the fallback version is the latest version of the plugin. */
     val isLatestVersion: Boolean,
 ) {
+    /** The fallback version like JetBrains shows it, e.g. "50.0" for the `release-version` 500. */
+    val displayVersion: String?
+        get() = release?.version?.let(::formatReleaseVersion)
+
     companion object {
+        /**
+         * Formats a `release-version` like JetBrains: the last digit is the release of the year, e.g. "2024.1" for 20241.
+         * Values, which aren't numbers with at least 2 digits, are returned unchanged.
+         */
+        fun formatReleaseVersion(version: String): String {
+            return when {
+                version.length >= 2 && version.all { it.isDigit() } -> "${version.dropLast(1)}.${version.last()}"
+                else -> version
+            }
+        }
+
         /**
          * @param licenses The licenses of all sales, only the paid subscriptions of [licenseId] are used.
          * @param releases The release dates of the versions of the plugin, which the Marketplace uses for fallback licenses.
