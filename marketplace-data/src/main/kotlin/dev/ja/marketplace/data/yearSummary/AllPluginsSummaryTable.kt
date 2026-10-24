@@ -17,7 +17,7 @@ import java.math.BigInteger
 import java.util.*
 
 /**
- * The sales and downloads of all plugins of the account by year, like the first columns of [YearlySummaryTable].
+ * The sales and downloads of all paid plugins of the account by year, like the first columns of [YearlySummaryTable].
  * The data of the plugins is added with [add], it doesn't use the data of a single plugin.
  */
 class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : SimpleDataTable("Years", "all-plugins", "table-column-wide") {
@@ -39,7 +39,7 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
     )
 
     /**
-     * Adds the sales and the downloads of a plugin. Free plugins have downloads, but no sales.
+     * Adds the sales and the downloads of a plugin.
      */
     suspend fun add(sales: List<PluginSale>, downloads: List<MonthlyDownload>) {
         for (sale in sales) {

@@ -100,7 +100,7 @@ CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
 - Before printing that line, the server loads the plugin list and the countries from the JetBrains APIs. Plugin data is
   loaded lazily on the first request for a plugin and then cached in memory, so the first page load for a plugin is slow.
   For testing, prefer a plugin with few sales, because plugins with a long sales history take much longer to load.
-- Useful routes: `/` (plugin list with the summary of all plugins, `--no-all-plugins-summary` disables it, or report with `?pluginId=<id>`), `/licenses`, `/customers`, `/trials`, `/countries`,
+- Useful routes: `/` (plugin list with the summary of all paid plugins, `--no-all-plugins-summary` disables it, or report with `?pluginId=<id>`), `/licenses`, `/customers`, `/trials`, `/countries`,
   `/pricing`, `/downloads/monthly`, `/chart-series` (JSON), all with `?pluginId=<id>`. `POST /refresh?pluginId=<id>&reload=true` drops cached data.
   See the routing in `MarketplaceStatsServer.kt`.
 - The MCP server is served at `/mcp` (Streamable HTTP, `src/main/kotlin/dev/ja/marketplace/mcp/`, see README.md).
