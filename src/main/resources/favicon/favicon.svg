@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3838c9"/>
+      <stop offset="1" stop-color="#1a237e"/>
+    </linearGradient>
+  </defs>
+  <!-- the bars are on a grid of 4 units, so that they are sharp at 16, 32 and 48 pixels -->
+  <rect width="64" height="64" rx="14" fill="url(#background)"/>
+  <rect x="12" y="36" width="8" height="16" rx="2" fill="#fdfdfc"/>
+  <rect x="28" y="24" width="8" height="28" rx="2" fill="#fdfdfc"/>
+  <rect x="44" y="12" width="8" height="40" rx="2" fill="#ffc940"/>
+</svg>

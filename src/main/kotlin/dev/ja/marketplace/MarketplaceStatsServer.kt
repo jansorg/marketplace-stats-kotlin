@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -87,6 +87,10 @@ class MarketplaceStatsServer(
     private val ideReleases = IdeReleaseProvider(servicesClient)
 
     private val dailyChartSeries = DailyChartSeries()
+
+    private val faviconIco: ByteArray by lazy {
+        MarketplaceStatsServer::class.java.getResourceAsStream("/favicon/favicon.ico")!!.use { it.readBytes() }
+    }
 
     private val indexPageData: PluginPageDefinition = DefaultPluginPageDefinition(
         client,
@@ -299,6 +303,11 @@ class MarketplaceStatsServer(
         routing {
             staticResources("/styles", "styles")
             staticResources("/js", "js")
+            staticResources("/favicon", "favicon")
+            // browsers request /favicon.ico, also for pages without a link to it
+            get("/favicon.ico") {
+                call.respondBytes(faviconIco, ContentType("image", "x-icon"))
+            }
 
             post("/refresh") {
                 val refererUrl = call.request.header("Referer")

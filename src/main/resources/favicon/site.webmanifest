@@ -1,0 +1,13 @@
+{
+  "name": "Marketplace Stats",
+  "short_name": "Marketplace Stats",
+  "icons": [
+    {"src": "/favicon/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "/favicon/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "/favicon/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#f5f5f2",
+  "theme_color": "#1a237e"
+}
