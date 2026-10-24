@@ -378,15 +378,7 @@ class MarketplaceStatsServer(
                     loader != null -> dailyChartSeries.json(loader.load(), granularity)
                     // the summary of all plugins on the list of plugins
                     serverConfiguration.showAllPluginsSummary -> {
-                        val data = loadAllPluginsData()
-                        val values = withContext(Dispatchers.Default) {
-                            AllPluginsDailyValues.create(
-                                data.flatMap { it.sales },
-                                data.flatMap { it.dailyDownloads },
-                                data.map { it.licenses },
-                                exchangeRates,
-                            )
-                        }
+                        val values = allPluginsDailyValues()
                         dailyChartSeries.toJson(values.days, values.series, granularity)
                     }
 
@@ -617,7 +609,28 @@ class MarketplaceStatsServer(
         val licenses: List<LicenseInfo>,
         val monthlyDownloads: List<MonthlyDownload>,
         val dailyDownloads: List<DailyDownload>,
-    )
+    ) {
+        /** The client returns the same lists, until it loads the data again. */
+        fun isSameData(other: AllPluginsData): Boolean {
+            return sales === other.sales && licenses === other.licenses
+                    && monthlyDownloads === other.monthlyDownloads && dailyDownloads === other.dailyDownloads
+        }
+    }
+
+    /**
+     * A value calculated from the data of all plugins, which is reused while the data and the day don't change.
+     */
+    private class AllPluginsCache<T>(val data: List<AllPluginsData>, val today: YearMonthDay, val value: T) {
+        fun isValid(data: List<AllPluginsData>, today: YearMonthDay): Boolean {
+            return today == this.today && data.size == this.data.size && data.zip(this.data).all { (a, b) -> a.isSameData(b) }
+        }
+    }
+
+    @Volatile
+    private var allPluginsSummaryCache: AllPluginsCache<List<RenderedDataTable>>? = null
+
+    @Volatile
+    private var allPluginsDailyValuesCache: AllPluginsCache<AllPluginsDailyValues>? = null
 
     /**
      * The sales and downloads of all paid and freemium plugins for their summary. Free plugins are left out.
@@ -662,13 +675,40 @@ class MarketplaceStatsServer(
             return emptyList()
         }
 
+        val allData = loadAllPluginsData()
+        val today = YearMonthDay.now()
+        allPluginsSummaryCache?.takeIf { it.isValid(allData, today) }?.let { return it.value }
+
         val years = AllPluginsSummaryTable(exchangeRates)
-        val month = AllPluginsMonthTable(exchangeRates)
-        for (data in loadAllPluginsData()) {
+        val month = AllPluginsMonthTable(exchangeRates, today)
+        for (data in allData) {
             years.add(data.sales, data.licenses, data.monthlyDownloads)
             month.add(data.sales, data.licenses, data.dailyDownloads)
         }
-        return listOf(years.renderTable(), month.renderTable()).filterNot(RenderedDataTable::isEmpty)
+        val tables = listOf(years.renderTable(), month.renderTable()).filterNot(RenderedDataTable::isEmpty)
+        allPluginsSummaryCache = AllPluginsCache(allData, today, tables)
+        return tables
+    }
+
+    /**
+     * The values of the summary of all plugins for each day, for the charts of the list of plugins.
+     */
+    private suspend fun allPluginsDailyValues(): AllPluginsDailyValues {
+        val allData = loadAllPluginsData()
+        val today = YearMonthDay.now()
+        allPluginsDailyValuesCache?.takeIf { it.isValid(allData, today) }?.let { return it.value }
+
+        val values = withContext(Dispatchers.Default) {
+            AllPluginsDailyValues.create(
+                allData.flatMap { it.sales },
+                allData.flatMap { it.dailyDownloads },
+                allData.map { it.licenses },
+                exchangeRates,
+                today,
+            )
+        }
+        allPluginsDailyValuesCache = AllPluginsCache(allData, today, values)
+        return values
     }
 
     private fun getDataLoader(plugin: PluginInfoSummary): PluginDataLoader {
