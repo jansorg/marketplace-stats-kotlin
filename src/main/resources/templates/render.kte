@@ -1,6 +1,7 @@
 @import gg.jte.support.ForSupport
 @import java.math.BigDecimal
 @import java.math.BigInteger
+@import dev.ja.marketplace.data.ExpiredLicenseEnd
 @import dev.ja.marketplace.data.IncompleteValue
 @import dev.ja.marketplace.data.LinkedChurnRate
 @import dev.ja.marketplace.data.LinkedCustomer
@@ -23,6 +24,7 @@
 --%>@elseif(value is BigDecimal)${Formatters.formatDecimal(value)}<%--
 --%>@elseif(value is Double)${Formatters.formatDecimal(value)}<%--
 --%>@elseif(value is Float)${Formatters.formatDecimal(value.toDouble())}<%--
+--%>@elseif(value is ExpiredLicenseEnd)${value.date.toString()}<span class="expired-marker" title="Expired license, it ended on ${value.expiryDate.toString()}" role="img" aria-label="expired">⊘</span><%--
 --%>@elseif(value is IncompleteValue)<span class="incomplete">@template.render(value.value)</span><%--
 --%>@elseif(value is LinkedCustomer)<a class="noprint" href="/customer/${value.id}?pluginId=${value.pluginId}">${value.id}</a><%--
 --%>@elseif(value is LinkedLicense)<a class="noprint" href="/license/${value.id}?pluginId=${value.pluginId}">${value.id}</a><%--

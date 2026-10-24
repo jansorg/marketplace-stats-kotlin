@@ -770,6 +770,12 @@ tr.disabled a:hover {
     color: var(--link-color-active);
 }
 
+/* the symbol of expired licenses, besides the gray of their rows, see ExpiredLicenseEnd */
+.expired-marker {
+    margin-left: 0.3em;
+    cursor: help;
+}
+
 .desc, .incomplete {
     font-style: italic;
 }
