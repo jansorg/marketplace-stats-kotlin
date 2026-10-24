@@ -19,6 +19,9 @@ import dev.ja.marketplace.data.customers.CustomerTableFactory
 import dev.ja.marketplace.data.daySummary.DaySummaryFactory
 import dev.ja.marketplace.data.downloads.MonthlyDownloadsFactory
 import dev.ja.marketplace.data.funnel.FunnelTableFactory
+import dev.ja.marketplace.data.licenses.FallbackCustomersTable
+import dev.ja.marketplace.data.licenses.FallbackLicenseRisk
+import dev.ja.marketplace.data.licenses.FallbackLicensesTable
 import dev.ja.marketplace.data.licenses.FallbackVersion
 import dev.ja.marketplace.data.licenses.LicenseTable
 import dev.ja.marketplace.data.licenses.LicenseStatus
@@ -429,6 +432,11 @@ class MarketplaceStatsServer(
                     ?: throw IllegalStateException("Unable to find plugin")
                 call.respond(JteContent("main.kte", churnedLicensesPageData.createTemplateParameters(loader, call.request, serverConfiguration)))
             }
+            get("/licenses/fallback") {
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                renderFallbackLicensesPage(loader, serverConfiguration)
+            }
             get("/countries") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
@@ -802,6 +810,37 @@ class MarketplaceStatsServer(
                     "licenseId" to licenseId,
                     "licenseTable" to licenseTable.renderTable(),
                     "fallbackVersion" to loader.fallbackReleases()?.let { FallbackVersion.of(licenseId, licenses, it) },
+                    "settings" to serverConfiguration,
+                )
+            )
+        )
+    }
+
+    /**
+     * The licenses, whose fallback version is the latest version of the plugin, and the revenue at risk.
+     */
+    private suspend fun RoutingContext.renderFallbackLicensesPage(
+        loader: PluginDataLoader,
+        serverConfiguration: ServerConfiguration
+    ) {
+        val data = loader.load()
+        // only for plugins with fallback licenses
+        val risk = loader.fallbackReleases()?.let { releases ->
+            FallbackLicenseRisk(data.getLicenses() ?: emptyList(), releases, data.exchangeRates)
+        }
+        val customersTable = risk?.let { FallbackCustomersTable(it, data.pluginId) }
+        val licensesTable = risk?.let { FallbackLicensesTable(it, data.pluginId) }
+        customersTable?.init(data)
+        licensesTable?.init(data)
+
+        call.respond(
+            JteContent(
+                "fallbackLicenses.kte", mapOf(
+                    "cssClass" to null,
+                    "plugin" to data.getPluginInfo(),
+                    "risk" to risk,
+                    "customersTable" to customersTable?.renderTable(),
+                    "licensesTable" to licensesTable?.renderTable(),
                     "settings" to serverConfiguration,
                 )
             )

@@ -1,0 +1,103 @@
+@import dev.ja.marketplace.ServerConfiguration
+@import dev.ja.marketplace.client.model.PluginInfo
+@import dev.ja.marketplace.data.RenderedDataTable
+@import dev.ja.marketplace.data.licenses.FallbackLicenseRisk
+@import dev.ja.marketplace.data.licenses.FallbackVersion
+
+@param cssClass: String?
+@param plugin: PluginInfo
+@param risk: FallbackLicenseRisk?
+@param customersTable: RenderedDataTable?
+@param licensesTable: RenderedDataTable?
+@param settings: ServerConfiguration
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fallback Licenses: ${plugin.name}</title>
+    @template.favicons()
+    <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
+    <link rel="stylesheet" type="text/css" media="print" href="/styles/print.css"/>
+</head>
+
+<body class="${cssClass}">
+@template.navbar(plugin = plugin, showResellerCharges = settings.showResellerCharges)
+
+<div class="sections">
+    <h1>Fallback Licenses</h1>
+
+    @if(risk == null || customersTable == null || licensesTable == null)
+        <div class="section-wide">
+            <p class="em">The plugin has no fallback licenses.</p>
+        </div>
+    @else
+        !{val latestRelease = risk.latestRelease}
+        !{val yearOldDate = risk.latestReleaseYearOldDate}
+        <div class="section-wide">
+            <p>
+                A customer, who paid for a subscription for the 12 months before it ends, keeps a perpetual fallback
+                license of the latest version released 12 months before the end of the subscription.
+                The licenses below have an active subscription, whose fallback version is already the latest version
+                of the plugin. Without a new version, these customers can keep using the latest version without
+                renewing. Once the latest version is a year old, even the subscriptions renewed for a year cover it.
+            </p>
+
+            <dl>
+                <dt>Latest Version</dt>
+                @if(latestRelease == null)
+                    <dd>—</dd>
+                @else
+                    <dd>${FallbackVersion.formatReleaseVersion(latestRelease.version)}, released on ${latestRelease.date.toString()}</dd>
+
+                    <dt>A Year Old</dt>
+                    @if(risk.isLatestReleaseYearOld)
+                        <dd>Yes, since ${yearOldDate.toString()}</dd>
+                    @else
+                        <dd>No, from ${yearOldDate.toString()}</dd>
+                    @endif
+                @endif
+
+                <dt>Affected Customers</dt>
+                <dd>${risk.affectedCustomers.size}</dd>
+
+                <dt>Affected Licenses</dt>
+                <dd>${risk.affectedLicenses.size} of ${risk.activeLicenseCount} licenses with an active paid subscription</dd>
+
+                <dt>ARR at Risk</dt>
+                <dd>@template.render(risk.revenueAtRisk) (@template.render(risk.revenueAtRiskShare) of @template.render(risk.activeAnnualRevenue), the ARR of all licenses with an active paid subscription)</dd>
+            </dl>
+
+            <p class="small">
+                The ARR at risk is the annual recurring revenue, which is lost if the affected licenses aren't renewed:
+                the amount of the latest paid purchase of each license, normalized to a year, i.e. monthly licenses
+                count 12 times. The amounts include all discounts and are converted into ${risk.currency.currencyCode}
+                at the date of the sale. A license, which was transferred, belongs to the customer of its latest
+                purchase, the fallback version depends on the purchases of all customers.
+            </p>
+        </div>
+
+        <div class="section-wide">
+            <h2>Customers</h2>
+            @if(customersTable.isEmpty)
+                <p class="em">No customer has a fallback license of the latest version.</p>
+            @else
+                @template.dataTable(plugin, customersTable)
+            @endif
+        </div>
+
+        <div class="section-wide">
+            <h2>Licenses</h2>
+            @if(licensesTable.isEmpty)
+                <p class="em">No license has a fallback license of the latest version.</p>
+            @else
+                @template.dataTable(plugin, licensesTable)
+            @endif
+        </div>
+    @endif
+</div>
+
+@template.siteFooter()
+</body>
+</html>

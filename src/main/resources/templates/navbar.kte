@@ -12,6 +12,7 @@
                 <a href="/licenses?pluginId=${plugin.id}&rows=1000">All</a>
                 <a href="/licenses/active?pluginId=${plugin.id}&rows=1000">Active</a>
                 <a href="/licenses/churned?pluginId=${plugin.id}&rows=1000">Churned</a>
+                <a href="/licenses/fallback?pluginId=${plugin.id}">Fallback</a>
             </div>
         </details>
         <a href="/customers?pluginId=${plugin.id}">Customers</a>
