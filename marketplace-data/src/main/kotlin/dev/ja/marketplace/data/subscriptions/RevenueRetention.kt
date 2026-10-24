@@ -6,6 +6,7 @@
 package dev.ja.marketplace.data.subscriptions
 
 import dev.ja.marketplace.data.PercentageValue
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap
 import java.math.BigDecimal
 
 /**
@@ -46,9 +47,14 @@ data class RevenueRetention(
                 return null
             }
 
-            val previous = revenue.customers(monthIndex - MONTHS)
-            val current = revenue.customers(monthIndex)
+            return of(revenue.customers(monthIndex), revenue.customers(monthIndex - MONTHS))
+        }
 
+        /**
+         * @param current The MRR of each customer at the end of the period.
+         * @param previous The MRR of each customer at the end of the same period a year ago.
+         */
+        fun of(current: Int2ObjectMap<BigDecimal>, previous: Int2ObjectMap<BigDecimal>): RevenueRetention {
             var retainedCustomers = 0
             var previousMrr = BigDecimal.ZERO
             var currentMrr = BigDecimal.ZERO

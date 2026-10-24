@@ -143,7 +143,7 @@ class CustomerRecurringRevenue(
         return FastMoney.of(value.setScale(2, RoundingMode.HALF_UP), currency)
     }
 
-    private fun monthlyAmount(license: LicenseInfo): BigDecimal {
+    internal fun monthlyAmount(license: LicenseInfo): BigDecimal {
         val amount = when (currency) {
             MarketplaceCurrencies.USD -> license.amountUSD
             license.amount.currency -> license.amount
