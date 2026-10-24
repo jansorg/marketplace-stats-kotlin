@@ -105,8 +105,8 @@ CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
   See the routing in `MarketplaceStatsServer.kt`.
 - The MCP server is served at `/mcp` (Streamable HTTP, `src/main/kotlin/dev/ja/marketplace/mcp/`, see README.md).
   It's disabled with `--no-mcp`. Requests must use one of the allowed hostnames (`localhost`, `127.0.0.1`, `[::1]`, `--host`,
-  `--mcp-allowed-hosts`) in the `Host` header. A tool call needs a session: `initialize` returns the `Mcp-Session-Id` header,
-  send it with all later requests, together with `Accept: application/json, text/event-stream`.
+  `--mcp-allowed-hosts`) in the `Host` header. The server is stateless, it has no sessions: send each request as POST with
+  `Accept: application/json, text/event-stream`, a tool call doesn't need an `initialize` before. GET and DELETE return 405.
 - A JetBrains Marketplace API key is required. Besides the config file, it can be passed via `--api-key` or the
   `MARKETPLACE_API_KEY` environment variable.
 - `config.json`, `config.*.json` and `.env` are git-ignored and may contain real API keys. Never commit them or print their contents.

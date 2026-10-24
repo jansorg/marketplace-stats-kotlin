@@ -153,7 +153,7 @@ Files of an older or newer version of the application, and damaged files, are ig
 ## MCP Server for AI Agents
 
 The web server also provides an [MCP](https://modelcontextprotocol.io/) server at `/mcp`,
-e.g. `http://localhost:8080/mcp`. It uses the Streamable HTTP transport.
+e.g. `http://localhost:8080/mcp`. It uses the stateless Streamable HTTP transport, without sessions.
 AI agents can use it to analyze the sales and trends of your plugins.
 
 For example, to add it to Claude Code:

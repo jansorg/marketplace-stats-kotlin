@@ -9,7 +9,7 @@ import dev.ja.marketplace.BuildConfig
 import io.ktor.server.application.*
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
-import io.modelcontextprotocol.kotlin.sdk.server.mcpStreamableHttp
+import io.modelcontextprotocol.kotlin.sdk.server.mcpStatelessStreamableHttp
 import io.modelcontextprotocol.kotlin.sdk.types.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
@@ -65,12 +65,15 @@ fun normalizeMcpAllowedHost(host: String): String? {
 }
 
 /**
- * Serves the MCP tools with the Streamable HTTP transport at [path].
+ * Serves the MCP tools with the stateless Streamable HTTP transport at [path].
+ *
+ * The tools only answer requests, so the server needs no sessions. The SDK keeps a session until the client
+ * deletes it, which many clients don't do, and each session kept a server with all tools in memory.
  *
  * @param allowedHosts Hostnames accepted in the `Host` and `Origin` headers, which protects against DNS rebinding attacks.
  */
 fun Application.marketplaceMcp(tools: MarketplaceMcpTools, allowedHosts: List<String>, path: String = "/mcp") {
-    mcpStreamableHttp(
+    mcpStatelessStreamableHttp(
         path = path,
         allowedHosts = allowedHosts,
         allowedOrigins = allowedHosts.map { "http://$it" },
