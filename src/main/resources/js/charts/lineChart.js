@@ -661,11 +661,10 @@ function renderComparisonTable(table, {plot, chartSeries, seriesPoints, comparis
 
 /**
  * uPlot moves the cursor only with a mouse. On touch devices, the cursor follows the finger.
- * Vertical swipes still scroll the dialog.
+ * Vertical swipes still scroll the dialog, unless it's maximized (touch-action in main.css).
  */
 function enableTouchCursor(plot) {
     const over = plot.over;
-    over.style.touchAction = "pan-y";
     const moveCursor = event => {
         const touch = event.touches[0];
         if (touch !== undefined) {

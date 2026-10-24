@@ -465,7 +465,11 @@ th.highlighted, td.highlighted {
     box-sizing: border-box;
     width: min(1100px, 92vw);
     max-height: 90vh;
+    /* the dynamic viewport excludes the toolbars of mobile browsers, e.g. of Safari on the iPad */
+    max-height: 90dvh;
     padding: 1rem 1.5rem 1.5rem;
+    /* scrolling the dialog never scrolls the page behind it */
+    overscroll-behavior: contain;
     border: 1px solid var(--separator-light-color);
     border-radius: 6px;
     color: var(--text-color);
@@ -480,8 +484,14 @@ th.highlighted, td.highlighted {
     width: calc(100vw - 2rem);
     max-width: none;
     height: calc(100vh - 2rem);
+    height: calc(100dvh - 2rem);
     max-height: none;
     box-sizing: border-box;
+}
+
+/* the page doesn't scroll while the dialog is open, touch devices would scroll it with swipes on the dialog */
+:root:has(.chart-dialog[open]) {
+    overflow: hidden;
 }
 
 .chart-dialog::backdrop {
@@ -490,6 +500,7 @@ th.highlighted, td.highlighted {
 
 .chart-dialog-header {
     display: flex;
+    flex-wrap: wrap;
     /* centered instead of the baseline, the icon button has no text */
     align-items: center;
     gap: 0.5rem;
@@ -608,6 +619,16 @@ th.highlighted, td.highlighted {
 
 .chart-panel .uplot {
     font-family: inherit;
+}
+
+/* on touch devices, the cursor follows the finger and vertical swipes scroll the dialog, see enableTouchCursor.
+   Maximized charts fit into the dialog, all swipes move the cursor. */
+.chart-panel .u-over {
+    touch-action: pan-y;
+}
+
+.chart-dialog.maximized .chart-panel .u-over {
+    touch-action: none;
 }
 
 .chart-panel .u-legend {
@@ -859,8 +880,12 @@ th.highlighted, td.highlighted {
     right: 4px;
 }
 
-/* values at the cursor, compared with the values one month and one year before and after it */
+/* values at the cursor, compared with the values one month and one year before and after it.
+   A table wider than the dialog scrolls horizontally. */
 .chart-comparison {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
     width: auto;
     margin: 0.5rem 0 0;
     font-size: .8rem;
