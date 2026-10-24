@@ -13,5 +13,5 @@
     <span class="disabled" title="No version was released before ${fallbackDate}. The latest subscription is valid from ${subscription}.">No version</span>
 @else
     !{val latest = if (version.isLatestVersion) " It's the latest version of the plugin." else ""}
-    <span class="${if (version.isLatestVersion) null else "disabled"}" title="The latest version released before ${fallbackDate}, with the release date ${release.date.toString()}.${latest} The latest subscription is valid from ${subscription}.">${release.version}</span>
+    <span class="${if (version.isLatestVersion) null else "disabled"}" title="The latest version released before ${fallbackDate}, with the release date ${release.date.toString()}.${latest} The latest subscription is valid from ${subscription}.">${version.displayVersion}</span>
 @endif
