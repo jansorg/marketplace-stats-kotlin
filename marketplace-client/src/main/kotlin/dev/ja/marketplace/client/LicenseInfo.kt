@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -47,10 +47,8 @@ data class LicenseInfo(
             return saleLineItem.type == PluginSaleItemType.Renew
         }
 
-    val isPaidLicense: Boolean
-        get() {
-            return !amountUSD.isZero && !saleLineItem.isFreeLicense
-        }
+    /** Stored, because the reports check it for each license many times. */
+    val isPaidLicense: Boolean = !amountUSD.isZero && !saleLineItem.isFreeLicense
 
     val isSubscriptionLicense: Boolean
         get() {
