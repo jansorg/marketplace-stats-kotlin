@@ -21,6 +21,7 @@ import dev.ja.marketplace.data.customers.CustomerTableFactory
 import dev.ja.marketplace.data.daySummary.DaySummaryFactory
 import dev.ja.marketplace.data.downloads.MonthlyDownloadsFactory
 import dev.ja.marketplace.data.funnel.FunnelTableFactory
+import dev.ja.marketplace.data.licenses.FallbackVersion
 import dev.ja.marketplace.data.licenses.LicenseTable
 import dev.ja.marketplace.data.licenses.LicenseTableFactory
 import dev.ja.marketplace.data.lineItems.LineItemsTable
@@ -751,6 +752,15 @@ class MarketplaceStatsServer(
 
         val trialsTable = TrialsTable(showDetails = false) { trial -> trial.customer.code == customerId }
 
+        val fallbackReleases = loader.fallbackReleases()
+        val fallbackVersions = when (fallbackReleases) {
+            null -> emptyList()
+            else -> licenses.filter { it.sale.customer.code == customerId }
+                .mapTo(LinkedHashSet()) { it.id }
+                .mapNotNull { FallbackVersion.of(it, licenses, fallbackReleases) }
+                .sortedByDescending { it.subscriptionEnd }
+        }
+
         for (table in listOf(licenseTableMonthly, licenseTableAnnual, trialsTable)) {
             table.init(data)
             for (sale in sales) {
@@ -771,6 +781,7 @@ class MarketplaceStatsServer(
                     "licenseTableAnnual" to licenseTableAnnual.renderTable(),
                     "trials" to trials,
                     "trialTable" to trialsTable.renderTable(),
+                    "fallbackVersions" to fallbackVersions,
                     "settings" to serverConfiguration,
                 )
             )
@@ -804,10 +815,29 @@ class MarketplaceStatsServer(
                     "plugin" to data.getPluginInfo(),
                     "licenseId" to licenseId,
                     "licenseTable" to licenseTable.renderTable(),
+                    "fallbackVersion" to loader.fallbackReleases()?.let { FallbackVersion.of(licenseId, licenses, it) },
                     "settings" to serverConfiguration,
                 )
             )
         )
+    }
+
+    /**
+     * @return The release dates of the versions, which the Marketplace uses for fallback licenses,
+     *  or `null` if the plugin has no fallback licenses or if they couldn't be loaded.
+     */
+    private suspend fun PluginDataLoader.fallbackReleases(): List<PluginReleaseDate>? {
+        return try {
+            when (client.marketplacePluginInfo(plugin.id).licensingType) {
+                LicensingType.SubscriptionWithFallback -> client.releaseDates(plugin.id)
+                else -> null
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn("Unable to load the release dates of plugin ${plugin.id} for the fallback licenses", e)
+            null
+        }
     }
 
     private suspend fun RoutingContext.renderRefNumPage(
