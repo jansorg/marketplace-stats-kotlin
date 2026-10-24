@@ -38,14 +38,6 @@
         @endfor
     </ul>
 @endif
-@if(summaryTables.isNotEmpty())
-    <p class="summary-description">The sales and downloads of all paid and freemium plugins.</p>
-    <section class="tables">
-        @for(table in summaryTables)
-            @template.dataTable(null, table)
-        @endfor
-    </section>
-@endif
 <ul class="plugin-cards">
     @for(plugin in plugins.filter { it.isPaidOrFreemium })
         <li>
@@ -57,6 +49,14 @@
         </li>
     @endfor
 </ul>
+@if(summaryTables.isNotEmpty())
+    <p class="summary-description">The sales and downloads of all paid and freemium plugins.</p>
+    <section class="tables">
+        @for(table in summaryTables)
+            @template.dataTable(null, table)
+        @endfor
+    </section>
+@endif
 
 <h2>Free Plugins</h2>
 <p>There's only limited data provided for free plugins.</p>

@@ -319,9 +319,13 @@ button {
     color: var(--text-color-disabled);
 }
 
-/* the description of the summary of all plugins on the list of plugins, above its table */
+/* the description of the summary of all plugins on the list of plugins, above its tables */
 .summary-description {
     margin: 0.75rem 0 1.25rem;
+}
+
+.summary-description + .tables {
+    margin-bottom: 2.5rem;
 }
 
 /* the plugins of the list of plugins are small cards, which wrap */
