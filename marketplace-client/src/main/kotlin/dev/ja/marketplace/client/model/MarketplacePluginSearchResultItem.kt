@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -45,4 +45,8 @@ data class MarketplacePluginSearchResultItem(
     val createdTimestamp: Instant? = null,
     @SerialName("vendorInfo")
     val vendorInfo: PluginVendorShort? = null,
+    @SerialName("vendor")
+    val vendor: PluginVendorShort? = null,
+    @SerialName("rating")
+    val rating: Double? = null,
 ) : PluginInfoExtended

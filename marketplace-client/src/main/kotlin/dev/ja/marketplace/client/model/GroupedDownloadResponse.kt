@@ -22,6 +22,8 @@ data class GroupedDownloadResponse(
     val groupDimension: String,
     @SerialName("data")
     val groups: List<DownloadResponseGroup>,
+    @SerialName("filters")
+    val filters: List<DownloadFilter> = emptyList(),
 )
 
 @Serializable

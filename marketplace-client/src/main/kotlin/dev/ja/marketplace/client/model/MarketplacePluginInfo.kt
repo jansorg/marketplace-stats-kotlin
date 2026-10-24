@@ -1,11 +1,13 @@
 /*
- * Copyright (c) 2024-2025 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 package dev.ja.marketplace.client.model
 
 import dev.ja.marketplace.client.MonetaryAmountUsdSerializer
+import dev.ja.marketplace.client.YearMonthDateSerializer
+import dev.ja.marketplace.client.YearMonthDay
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import javax.money.MonetaryAmount
@@ -39,4 +41,8 @@ data class MarketplacePluginInfo(
     // only available with fullInfo=true
     @SerialName("versions")
     val majorVersions: List<PluginMajorVersion>? = null,
+    /** The date, at which the continuity discount was disabled, if it was disabled. */
+    @SerialName("continuityDiscountDisabledAt")
+    @Serializable(YearMonthDateSerializer::class)
+    val continuityDiscountDisabledAt: YearMonthDay? = null,
 )
