@@ -16,4 +16,6 @@ data class ApplicationConfig(
     val displayedCurrency: String? = null,
     @SerialName("showResellerCharges")
     val showResellerCharges: Boolean = false,
+    @SerialName("cacheDir")
+    val cacheDir: String? = null,
 )
