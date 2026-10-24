@@ -83,6 +83,14 @@ Version constraints to keep in mind when upgrading:
 
 CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
 
+The client decodes the API responses with `ignoreUnknownKeys`, so new properties of the API don't break it, but they
+would go unnoticed. `LiveApiCoverageTest` (`marketplace-client`) requests all GET endpoints of the Marketplace and the
+JetBrains services, and fails for properties of the responses and columns of the sales reports, which the models don't
+have (`UnknownJsonKeys`, `SalesReportCsv.unknownColumns`), and for responses the client can't decode. It only runs with
+`MARKETPLACE_API_KEY` and `MARKETPLACE_COVERAGE_PLUGIN_IDS` (comma-separated IDs of paid and free plugins of the account),
+e.g. after API changes: `./gradlew :marketplace-client:test --tests '*LiveApiCoverageTest' --rerun`. New properties are
+added to the models as optional properties at the end of the constructors, unknown enum values as strings.
+
 ## Running the Web Server
 
 ```bash
