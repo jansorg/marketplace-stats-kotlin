@@ -53,7 +53,7 @@ class AverageRevenuePerCustomerTable : RecurringRevenueTable(
             with(revenue) {
                 SimpleDateTableRow(
                     columnMonth to monthLabel(index),
-                    columnCustomers to valueOf(index, average.customers),
+                    columnCustomers to valueOf(index, average.customers.toBigInteger()),
                     columnArpa to valueOf(index, average.average?.let(::toAmount)),
                     columnOrganizations to valueOf(index, average.average(CustomerType.Organization)?.let(::toAmount)),
                     columnIndividuals to valueOf(index, average.average(CustomerType.Individual)?.let(::toAmount)),
