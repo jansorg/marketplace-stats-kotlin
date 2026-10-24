@@ -20,6 +20,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Customer Details: @if (customer.name.isNullOrEmpty()) ${customer.code} @else ${customer.name}@endif</title>
+    @template.favicons()
     <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
     <link rel="stylesheet" type="text/css" media="print" href="/styles/print.css"/>
 </head>
