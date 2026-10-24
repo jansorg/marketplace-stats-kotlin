@@ -97,8 +97,10 @@ class McpAnalysisTools(private val provider: McpDataProvider) {
         McpToolDefinition(
             "list_reviews",
             "Reviews and ratings",
-            "Reviews (without spam) with date, rating 1-5, text, author and votes, the average rating per month, and the current rating, " +
-                    "which also counts ratings without a review.",
+            "Reviews (without spam) with date, rating 1-5 (0 for a comment without rating), text, author, votes, sub-ratings, " +
+                    "IDE and plugin version and resolve state, the average rating per month, and the current rating, " +
+                    "which also counts ratings without a review. Resolved and deleted reviews and comments without rating " +
+                    "don't count for the rating (countsForRating), the averages only use the reviews, which count.",
             buildJsonObject {
                 put("pluginId", pluginIdProperty)
                 put("startDate", startDateProperty)
@@ -449,10 +451,14 @@ class McpAnalysisTools(private val provider: McpDataProvider) {
             put("reviewCount", reviews.size)
             put("byMonth", buildJsonArray {
                 for ((month, items) in reviews.groupBy { (date, _) -> "%04d-%02d".format(date.year, date.month) }) {
+                    val counted = items.map { it.second }.filter(::countsForRating)
                     add(buildJsonObject {
                         put("month", month)
                         put("reviews", items.size)
-                        put("averageRating", BigDecimal(items.map { it.second.rating.toInt() }.average()).setScale(2, RoundingMode.HALF_UP))
+                        put("countedReviews", counted.size)
+                        put("averageRating", counted.takeIf { it.isNotEmpty() }?.let { reviews ->
+                            BigDecimal(reviews.map { it.rating.toInt() }.average()).setScale(2, RoundingMode.HALF_UP)
+                        })
                     })
                 }
             })
@@ -469,10 +475,31 @@ class McpAnalysisTools(private val provider: McpDataProvider) {
                         put("replies", review.repliesCount)
                         put("votesPositive", review.votes?.positive)
                         put("votesNegative", review.votes?.negative)
+                        put("countsForRating", countsForRating(review))
+                        review.resolveState?.let { put("resolveState", it) }
+                        if (review.isResolveRequested) {
+                            put("resolveRequested", true)
+                        }
+                        if (review.isDeleted) {
+                            put("isDeleted", true)
+                        }
+                        review.subRating?.takeIf { it.isNotEmpty() }?.let { subRatings ->
+                            put("subRatings", buildJsonObject { subRatings.toSortedMap().forEach { (aspect, value) -> put(aspect, value) } })
+                        }
+                        review.ideVersion?.let { put("ideVersion", it) }
+                        review.releaseVersion?.let { put("pluginVersion", it) }
                     })
                 }
             })
         }
+    }
+
+    /**
+     * Resolved and deleted reviews and comments without rating don't count for the rating of the plugin.
+     * Without them, the reviews match the votes of the rating, except ratings without a review.
+     */
+    private fun countsForRating(review: PluginReviewComment): Boolean {
+        return review.rating in 1..5 && !review.isResolved && !review.isDeleted
     }
 
     private suspend fun getPageViews(arguments: JsonObject): JsonObject {
