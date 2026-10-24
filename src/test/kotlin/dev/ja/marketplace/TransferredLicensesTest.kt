@@ -73,6 +73,17 @@ class TransferredLicensesTest {
 
         val active = render(LicenseTable(statusFilter = LicenseStatus.Active, showOnlyLatestLicenseInfo = true, nowDate = today))
         assertEquals(listOf("transferred"), active.licenseIds())
+        // the latest purchase shows the period of all purchases of its sale
+        val row = active.rows().single()
+        assertEquals(YearMonthDay(2026, 3, 31), active.value(row, "license-validity"))
+        assertEquals(YearMonthDay(2027, 3, 30), active.value(row, "license-validity-end"))
+    }
+
+    @Test
+    fun rowLimitCountsTheShownLicenses() {
+        // the latest purchases are both purchases of the transferred license, the limit applies to the shown licenses
+        val table = render(LicenseTable(maxTableRows = 2, showOnlyLatestLicenseInfo = true, nowDate = today))
+        assertEquals(listOf("transferred", "churned"), table.licenseIds())
     }
 
     @Test
