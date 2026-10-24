@@ -38,7 +38,7 @@
             @if(fallbackVersion != null)
                 <dt>Fallback Version</dt>
                 !{val fallbackRelease = fallbackVersion.release}
-                <dd>@template.fallbackVersion(version = fallbackVersion)@if(fallbackRelease != null) (release date ${fallbackRelease.date.toString()})@endif</dd>
+                <dd>@template.fallbackVersion(version = fallbackVersion)@if(fallbackRelease != null) (${fallbackRelease.date.toString()})@endif</dd>
             @endif
         </dl>
     </div>
