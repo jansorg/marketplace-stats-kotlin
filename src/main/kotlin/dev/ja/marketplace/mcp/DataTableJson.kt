@@ -222,6 +222,7 @@ object DataTableJson {
             is Boolean -> JsonPrimitive(value)
             is YearMonthDay -> JsonPrimitive(value.asIsoString)
             is LinkedCustomer -> JsonPrimitive(value.id)
+            is LinkedCustomerName -> JsonPrimitive(value.name)
             is LinkedLicense -> JsonPrimitive(value.id)
             is LinkedRefNum -> JsonPrimitive(value.refNum)
             is Iterable<*> -> JsonArray(value.map(::cellValue))
