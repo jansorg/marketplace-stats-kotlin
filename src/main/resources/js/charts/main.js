@@ -11,15 +11,22 @@
 
 import {createFormatter} from "./format.js";
 import {
-    canCombineUnits, CHART_STYLES, groupCharts, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES, nextColor, pieSlices, visibleMarkers,
+    canCombineUnits, CHART_STYLES, exportFileName, groupCharts, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES, nextColor, pieSlices,
+    visibleMarkers,
 } from "./model.js";
 import {browserStorage, createSetupStorage} from "./storage.js";
 import {chartColumns, readLineSeries, readMarkers, readPieRows} from "./tableData.js";
 import {ChartDialog} from "./dialog.js";
 import {createLineChart} from "./lineChart.js";
 import {renderPie} from "./pieChart.js";
+import {downloadCanvas, downloadSvg, lineChartImage, pieChartSvg, printImages, svgCanvas} from "./exportImage.js";
 
 const STYLE_LABELS = {lines: "Lines", bars: "Bars"};
+
+function isTextInput(element) {
+    return element instanceof HTMLElement
+        && (element.isContentEditable || element.matches("textarea, select, input:not([type=checkbox], [type=radio], [type=button])"));
+}
 
 class ChartController {
     /**
@@ -37,6 +44,8 @@ class ChartController {
         this.series = [];
         this.pies = [];
         this.plots = [];
+        // the exports of the shown charts, see exportButtons
+        this.exports = [];
         // stored entries of tables, which aren't on this page, are kept for other pages
         this.unresolvedEntries = [];
         this.combineUnits = false;
@@ -56,6 +65,26 @@ class ChartController {
         });
         this.restore(columns);
         this.makeLogoClickable();
+        if (columns.length > 0) {
+            this.enableShortcut();
+        }
+    }
+
+    /**
+     * The key C shows and hides the charts, unless a text field has the focus.
+     */
+    enableShortcut() {
+        document.addEventListener("keydown", event => {
+            if (event.key.toLowerCase() !== "c" || event.ctrlKey || event.metaKey || event.altKey || event.repeat || isTextInput(event.target)) {
+                return;
+            }
+            event.preventDefault();
+            if (this.dialog?.isOpen) {
+                this.dialog.close();
+            } else {
+                this.openDialog(null);
+            }
+        });
     }
 
     /**
@@ -69,7 +98,8 @@ class ChartController {
         logo.classList.add("chart-opener");
         logo.tabIndex = 0;
         logo.setAttribute("role", "button");
-        logo.title = "Show charts";
+        logo.title = "Show charts (C)";
+        logo.setAttribute("aria-keyshortcuts", "C");
         logo.addEventListener("click", () => this.openDialog(null));
         logo.addEventListener("keydown", event => {
             if (event.key === "Enter" || event.key === " ") {
@@ -239,6 +269,7 @@ class ChartController {
         const dialog = this.ensureDialog();
         this.plots.forEach(plot => plot.destroy());
         this.plots = [];
+        this.exports = [];
         dialog.clearPanels();
         dialog.setMaximized(this.maximized);
         dialog.setCombineUnits(this.combineUnits, canCombineUnits(this.series));
@@ -254,10 +285,11 @@ class ChartController {
             const chartStyle = this.chartStyles[key] ?? this.preferredStyle;
             this.shownStyles[key] = chartStyle;
             const panel = dialog.addPanel("chart-panel");
-            panel.append(this.styleSwitch(key, chartStyle));
-            this.plots.push(createLineChart({
+            const toolbar = this.toolbar(panel);
+            const chartSeries = this.series.filter(s => s.period === chart.period);
+            const plot = createLineChart({
                 units: chart.units,
-                series: this.series.filter(s => s.period === chart.period),
+                series: chartSeries,
                 dateRange: chart.dateRange,
                 markers,
                 formatter: this.formatter,
@@ -267,11 +299,29 @@ class ChartController {
                 width: dialog.chartWidth,
                 height,
                 container: panel,
-            }));
+            });
+            this.plots.push(plot);
+            const title = document.title;
+            const labels = chartSeries.filter(s => chart.units.includes(s.unit)).map(s => s.label);
+            const chartExport = {
+                fileName: extension => exportFileName([title, ...labels], extension),
+                image: () => lineChartImage(plot, {title, fontFamily: this.fontFamily}),
+            };
+            this.exports.push(chartExport);
+            toolbar.append(this.exportMenu(chartExport), this.styleSwitch(key, chartStyle));
         }
 
         for (const pie of this.pies) {
-            renderPie(pie, dialog.addPanel("chart-panel chart-pie-panel"), this.formatter);
+            const panel = dialog.addPanel("chart-panel chart-pie-panel");
+            const svg = () => pieChartSvg(pie, this.formatter, this.fontFamily);
+            const chartExport = {
+                fileName: extension => exportFileName([document.title, pie.label], extension),
+                image: () => svgCanvas(svg()),
+                svg,
+            };
+            this.exports.push(chartExport);
+            this.toolbar(panel).append(this.exportMenu(chartExport));
+            renderPie(pie, panel, this.formatter);
         }
 
         if (charts.length === 0 && this.pies.length === 0) {
@@ -281,12 +331,106 @@ class ChartController {
         requestAnimationFrame(() => dialog.fitChartHeights(this.plots));
     }
 
+    toolbar(panel) {
+        const toolbar = document.createElement("div");
+        toolbar.className = "chart-toolbar";
+        panel.append(toolbar);
+        return toolbar;
+    }
+
+    /**
+     * @param {{fileName: (extension: string) => string, image: () => HTMLCanvasElement|Promise<HTMLCanvasElement>, svg?: () => SVGSVGElement}} chartExport
+     * @return {HTMLElement} A menu to print the chart and to download it as PNG and, if available, as SVG.
+     */
+    exportMenu(chartExport) {
+        const items = [
+            {label: "Print", run: () => this.print([chartExport])},
+            // shown when the menu opens, the other charts are added after this menu
+            {label: "Print all charts", run: () => this.print(this.exports), isShown: () => this.exports.length > 1},
+            {label: "Download PNG", run: async () => downloadCanvas(await chartExport.image(), chartExport.fileName("png"))},
+        ];
+        if (chartExport.svg) {
+            items.push({label: "Download SVG", run: async () => downloadSvg(chartExport.svg(), chartExport.fileName("svg"))});
+        }
+
+        const menu = document.createElement("details");
+        menu.className = "chart-menu";
+        const summary = document.createElement("summary");
+        summary.textContent = "Export";
+        const list = document.createElement("div");
+        list.className = "chart-menu-items";
+        list.setAttribute("role", "menu");
+        for (const item of items) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.setAttribute("role", "menuitem");
+            button.textContent = item.label;
+            button.addEventListener("click", () => {
+                menu.open = false;
+                item.run().catch(error => console.error("Export of the chart failed", error));
+            });
+            list.append(button);
+            if (item.isShown) {
+                menu.addEventListener("toggle", () => button.hidden = !item.isShown());
+            }
+        }
+        menu.append(summary, list);
+        this.openOnHover(menu, summary);
+        // Escape closes the menu, but not the dialog
+        menu.addEventListener("keydown", event => {
+            if (event.key === "Escape" && menu.open) {
+                event.preventDefault();
+                event.stopPropagation();
+                menu.open = false;
+                summary.focus();
+            }
+        });
+        return menu;
+    }
+
+    /**
+     * A mouse opens the menu on hover. Touch devices and keyboards open it with a tap or Enter on the summary.
+     */
+    openOnHover(menu, summary) {
+        let closeTimer = null;
+        let pointerType = null;
+        menu.addEventListener("pointerenter", event => {
+            pointerType = event.pointerType;
+            if (event.pointerType === "mouse") {
+                clearTimeout(closeTimer);
+                menu.open = true;
+            }
+        });
+        // a short delay allows to move the mouse across the gap between the summary and the items
+        menu.addEventListener("pointerleave", event => {
+            if (event.pointerType === "mouse") {
+                closeTimer = setTimeout(() => menu.open = false, 250);
+            }
+        });
+        summary.addEventListener("pointerdown", event => pointerType = event.pointerType);
+        // the menu is already open, a click with the mouse must not close it
+        summary.addEventListener("click", event => {
+            if (event.detail > 0 && pointerType === "mouse") {
+                event.preventDefault();
+                menu.open = true;
+            }
+        });
+    }
+
+    /**
+     * Prints charts, pie charts as SVG and line charts as images.
+     */
+    async print(chartExports) {
+        const images = await Promise.all(chartExports.map(chartExport => chartExport.svg?.() ?? chartExport.image()));
+        await printImages(images);
+    }
+
     /**
      * @return {HTMLElement} Buttons to switch a line chart between lines and bars.
      */
     styleSwitch(key, currentStyle) {
         const group = document.createElement("div");
-        group.className = "chart-style-switch";
+        group.className = "chart-button-group chart-style-switch";
         group.setAttribute("role", "group");
         group.setAttribute("aria-label", "Chart style");
         for (const style of CHART_STYLES) {

@@ -662,13 +662,86 @@ th.chartable:hover, th.chartable:focus-visible {
     position: relative;
 }
 
-.chart-style-switch {
+/* buttons above a chart: downloads and the style of line charts */
+.chart-toolbar {
     display: flex;
     justify-content: flex-end;
+    gap: 0.5rem;
     margin: 0 0 0.25rem;
 }
 
-.chart-style-switch button {
+.chart-button-group {
+    display: flex;
+}
+
+/* the export menu of a chart */
+.chart-menu {
+    position: relative;
+    font-size: .75rem;
+}
+
+.chart-menu summary {
+    list-style: none;
+    padding: 0.1rem 0.6rem;
+    background-color: #fff;
+    border: 1px solid var(--separator-light-color);
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.chart-menu summary::-webkit-details-marker {
+    display: none;
+}
+
+/* a small arrow, which marks the menu */
+.chart-menu summary::after {
+    content: "▾";
+    margin-left: 0.35rem;
+}
+
+.chart-menu[open] summary {
+    background-color: #e9e9e6;
+}
+
+.chart-menu summary:focus-visible, .chart-menu-items button:focus-visible {
+    outline: 2px solid var(--link-color);
+    outline-offset: 1px;
+}
+
+.chart-menu-items {
+    position: absolute;
+    right: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    min-width: 10rem;
+    margin-top: 0.2rem;
+    padding: 0.25rem 0;
+    background-color: #fff;
+    border: 1px solid var(--separator-light-color);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(28, 27, 34, 0.15);
+}
+
+.chart-menu-items button {
+    font: inherit;
+    text-align: left;
+    padding: 0.3rem 0.8rem;
+    color: var(--text-color);
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.chart-menu-items button:hover {
+    background-color: #f4f4f2;
+}
+
+.chart-menu-items button[hidden] {
+    display: none;
+}
+
+.chart-button-group button {
     font: inherit;
     font-size: .75rem;
     padding: 0.1rem 0.6rem;
@@ -678,24 +751,24 @@ th.chartable:hover, th.chartable:focus-visible {
     cursor: pointer;
 }
 
-.chart-style-switch button + button {
+.chart-button-group button + button {
     border-left: none;
 }
 
-.chart-style-switch button:first-child {
+.chart-button-group button:first-child {
     border-radius: 4px 0 0 4px;
 }
 
-.chart-style-switch button:last-child {
+.chart-button-group button:last-child {
     border-radius: 0 4px 4px 0;
 }
 
-.chart-style-switch button[aria-pressed="true"] {
+.chart-button-group button[aria-pressed="true"] {
     background-color: #e9e9e6;
     font-weight: 700;
 }
 
-.chart-style-switch button:focus-visible {
+.chart-button-group button:focus-visible {
     outline: 2px solid var(--link-color);
     outline-offset: 1px;
 }
@@ -725,6 +798,11 @@ th.chartable:hover, th.chartable:focus-visible {
 
 .chart-pie-panel {
     position: relative;
+}
+
+/* the images of the charts, which are added to the page for printing */
+.chart-print {
+    display: none;
 }
 
 .chart-pie-panel figcaption {

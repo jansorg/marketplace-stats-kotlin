@@ -8,7 +8,7 @@
  */
 
 import {formatDate, unitTitle} from "./format.js";
-import {alignSeries, barLayout, layoutLabels, shortestPeriod, smallestInterval, zeroBasedRange} from "./model.js";
+import {alignSeries, barLayout, layoutLabels, MARKER_LABELS, shortestPeriod, smallestInterval, zeroBasedRange} from "./model.js";
 
 export const CHART_STYLE = {
     axisColor: "#52514e",
@@ -31,6 +31,36 @@ export const CHART_STYLE = {
     barRadius: 4,
 };
 
+/** The series and vertical lines of each chart, needed for the legend of the exported images. */
+const legendData = new WeakMap();
+
+/**
+ * The legend of an exported image: the shown series, incomplete values and the kinds of vertical lines in the date range.
+ * Unlike the legend of uPlot, it shows no values.
+ *
+ * @param {uPlot} plot A chart created by {@link createLineChart}.
+ * @return {{label: string, color: string, shape: "line"|"box"|"point"|"marker", dash?: number[]}[]}
+ */
+export function lineChartLegend(plot) {
+    const {chartSeries, markers, isBars} = legendData.get(plot);
+    const min = plot.scales.x.min;
+    const max = plot.scales.x.max;
+    const shown = chartSeries.filter((series, index) => plot.series[index + 1].show);
+    const entries = shown.map(series => ({
+        label: series.isRightAxis ? series.label + " (right axis)" : series.label,
+        color: series.color,
+        shape: isBars ? "box" : "line",
+    }));
+    if (shown.some(series => [...series.incomplete].some(timestamp => timestamp >= min && timestamp <= max))) {
+        entries.push({label: "Incomplete values", color: CHART_STYLE.incompleteColor, shape: isBars ? "box" : "point"});
+    }
+    const kinds = new Set(markers.filter(marker => marker.timestamp >= min && marker.timestamp <= max).map(marker => marker.kind));
+    for (const kind of kinds) {
+        const style = CHART_STYLE.markers[kind] ?? CHART_STYLE.markers.release;
+        entries.push({label: MARKER_LABELS[kind] ?? kind, color: style.color, dash: style.dash, shape: "marker"});
+    }
+    return entries;
+}
 
 /**
  * @param {string} fontFamily The font of the page. uPlot draws on a canvas, which doesn't use the CSS fonts.
@@ -448,5 +478,6 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     const plot = new uPlot(options, [timestamps, ...values], container);
     updateTooltip = enableTooltip(plot, chartSeries, describe);
     enableTouchCursor(plot);
+    legendData.set(plot, {chartSeries, markers, isBars});
     return plot;
 }
