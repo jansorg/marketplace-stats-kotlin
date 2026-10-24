@@ -293,7 +293,8 @@ export function finerPoints(data, id) {
     }
     const points = new Map();
     const incomplete = new Set();
-    const firstValue = series.values.findIndex(value => value !== 0);
+    // values without data are null, e.g. the revenue retention of the first year
+    const firstValue = series.values.findIndex(value => value !== 0 && value !== null);
     const start = firstValue === -1 ? 0 : Math.max(0, firstValue - 1);
     data.dates.slice(start).forEach((date, offset) => {
         const index = start + offset;
@@ -489,18 +490,18 @@ export function seriesMeasure(series) {
 }
 
 /**
- * Moving averages apply to monthly values with the granularity Month: the values per week or day are already sums of
- * the month before each day. The previous year can be compared for all values, except yearly values.
+ * Moving averages apply to monthly values. With the granularity Week or Day, they need the values per day of the
+ * series, see {@link trailingAverageOfDays}. The previous year can be compared for all values, except yearly values.
  *
  * @param {string} kind One of {@link OVERLAYS}.
- * @param {{period: string, measure?: string|null, unit: string}} series
+ * @param {{period: string, measure?: string|null, unit: string, daily?: string|null}} series
  * @param {"month"|"week"|"day"} granularity The granularity of the chart.
  */
 export function overlayApplies(kind, series, granularity) {
     if (kind === "previousYear") {
         return series.period !== "year";
     }
-    return series.period === "month" && granularity === "month";
+    return series.period === "month" && (granularity === "month" || Boolean(series.daily));
 }
 
 function completePoints(series) {
@@ -525,6 +526,38 @@ export function trailingAverage(series, months) {
         // the first value of the window must be at the end of the first month of the window
         if (window[0][0] >= shiftDate(points[i][0], 0, -(months - 1)) - SECONDS_PER_DAY) {
             result.set(points[i][0], window.reduce((sum, [, value]) => sum + value, 0) / months);
+        }
+    }
+    return result;
+}
+
+/**
+ * The moving average of values per day, which have the scale of monthly values, e.g. the sales of the month before
+ * each day: the average of the value of each day and the values of the same day of the previous months. At the last
+ * day of a month, it's the average of the monthly values. Incomplete values are ignored, there's no average if one of
+ * the values is missing.
+ *
+ * @param {{points: Map<number, number>, incomplete: Set<number>}} dailySeries Values of each day.
+ * @param {number} months The number of months of each average.
+ * @param {Iterable<number>} [timestamps] The dates of the averages, e.g. the ends of the weeks. Defaults to all days.
+ * @return {Map<number, number>} The averages at the dates.
+ */
+export function trailingAverageOfDays(dailySeries, months, timestamps = dailySeries.points.keys()) {
+    const values = new Map(completePoints(dailySeries));
+    const result = new Map();
+    for (const timestamp of timestamps) {
+        let sum = 0;
+        let count = 0;
+        for (let month = 0; month < months; month++) {
+            const value = values.get(shiftDate(timestamp, 0, -month));
+            if (value === undefined) {
+                break;
+            }
+            sum += value;
+            count++;
+        }
+        if (count === months) {
+            result.set(timestamp, sum / months);
         }
     }
     return result;

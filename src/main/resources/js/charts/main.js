@@ -12,7 +12,7 @@
 import {createFormatter} from "./format.js";
 import {
     canCombineUnits, CHART_STYLES, dateRange, exportFileName, finerPoints, GRANULARITIES, groupCharts, hasFinerValues, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES, nextColor, pieSlices,
-    visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear, trailingAverage,
+    visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear, trailingAverage, trailingAverageOfDays,
 } from "./model.js";
 import {browserStorage, createSetupStorage} from "./storage.js";
 import {chartColumns, readLineSeries, readMarkers, readPieRows} from "./tableData.js";
@@ -453,7 +453,10 @@ class ChartController {
                     case "average3":
                     case "average12": {
                         const months = kind === "average3" ? 3 : 12;
-                        overlays.push({kind, base: series.key, label: `${series.label}, ${months}-month average`, points: trailingAverage(series, months)});
+                        const points = this.movingAverage(series, months, granularity);
+                        if (points !== null) {
+                            overlays.push({kind, base: series.key, label: `${series.label}, ${months}-month average`, points});
+                        }
                         break;
                     }
                     case "previousYear":
@@ -463,6 +466,25 @@ class ChartController {
             }
         }
         return overlays.filter(overlay => overlay.points.size > 0);
+    }
+
+    /**
+     * Moving averages of values per week are calculated with the values per day, which are loaded if needed.
+     *
+     * @return {Map<number, number>|null} The moving average at the dates of the series, or null if the values per day
+     *  are still loading.
+     */
+    movingAverage(series, months, granularity) {
+        switch (granularity) {
+            case "month":
+                return trailingAverage(series, months);
+            case "day":
+                return trailingAverageOfDays(series, months);
+            default: {
+                const daily = finerPoints(this.loadFinerValues("day"), series.daily);
+                return daily === null ? null : trailingAverageOfDays(daily, months, series.points.keys());
+            }
+        }
     }
 
     /**
