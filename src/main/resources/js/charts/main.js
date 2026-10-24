@@ -12,7 +12,7 @@
 import {createFormatter} from "./format.js";
 import {
     canCombineUnits, CHART_STYLES, dateRange, exportFileName, finerPoints, GRANULARITIES, groupCharts, hasFinerValues, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES, nextColor, pieSlices,
-    visibleMarkers, withoutIncomplete,
+    visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear, trailingAverage,
 } from "./model.js";
 import {browserStorage, createSetupStorage} from "./storage.js";
 import {chartColumns, readLineSeries, readMarkers, readPieRows} from "./tableData.js";
@@ -59,6 +59,8 @@ class ChartController {
         this.showIncomplete = true;
         // if a table with the values at the cursor replaces the legend of the line charts
         this.showValueTable = true;
+        // trends of the line charts, see OVERLAYS
+        this.shownOverlays = [];
         this.hasLineCharts = false;
         this.storage = createSetupStorage(browserStorage());
 
@@ -236,6 +238,7 @@ class ChartController {
         this.preferredStyle = setup.preferredStyle;
         this.shownMarkers = setup.shownMarkers;
         this.shownExtremes = setup.shownExtremes;
+        this.shownOverlays = setup.shownOverlays;
         this.showIncomplete = setup.showIncomplete;
         this.showValueTable = setup.showValueTable;
 
@@ -267,6 +270,7 @@ class ChartController {
             granularities: this.granularities,
             shownMarkers: this.shownMarkers,
             shownExtremes: this.shownExtremes,
+            shownOverlays: this.shownOverlays,
             showIncomplete: this.showIncomplete,
             showValueTable: this.showValueTable,
             entries: [
@@ -302,6 +306,15 @@ class ChartController {
                     this.save();
                     this.render();
                 },
+                onOverlayVisibilityChange: (kind, visible) => {
+                    this.shownOverlays = visible ? [...new Set([...this.shownOverlays, kind])] : this.shownOverlays.filter(k => k !== kind);
+                    this.save();
+                    this.render();
+                    // an option without effect is explained
+                    if (visible && !this.dialog.isOverlayApplicable(kind)) {
+                        this.dialog.showMessage(this.dialog.overlayHint(kind));
+                    }
+                },
                 onValueTableVisibilityChange: visible => {
                     this.showValueTable = visible;
                     this.save();
@@ -336,12 +349,15 @@ class ChartController {
         dialog.setShownExtremes(this.shownExtremes);
         dialog.setShowIncomplete(this.showIncomplete);
         dialog.setShowValueTable(this.showValueTable);
+        dialog.setShownOverlays(this.shownOverlays);
         const markers = visibleMarkers(this.markers, this.shownMarkers);
 
         const charts = groupCharts(this.series, this.combineUnits);
         const height = dialog.chartHeight(charts.length);
         // the styles of the shown charts, a new style of one chart must not change the others
         this.shownStyles = {};
+        // the trends, which apply to at least one series of the shown line charts
+        const applicableOverlays = new Set();
         for (const chart of charts) {
             const key = lineChartKey(chart);
             let chartSeries = this.series.filter(s => s.period === chart.period);
@@ -357,15 +373,21 @@ class ChartController {
             // bars of every day would be too thin
             const chartStyle = granularity === "month" ? this.chartStyles[key] ?? this.preferredStyle : "lines";
             this.shownStyles[key] = this.chartStyles[key] ?? this.preferredStyle;
+            const overlays = this.trends(chartSeries.filter(s => chart.units.includes(s.unit)), granularity);
+            for (const series of chartSeries.filter(s => chart.units.includes(s.unit))) {
+                OVERLAYS.filter(kind => overlayApplies(kind, series, granularity)).forEach(kind => applicableOverlays.add(kind));
+            }
+            // charts per week or day and charts without incomplete values have their own date range
+            const chartDateRange = finerValues === null && this.showIncomplete
+                ? chart.dateRange
+                : dateRange(chartSeries.filter(s => chart.units.includes(s.unit))) ?? chart.dateRange;
             const panel = dialog.addPanel("chart-panel");
             const toolbar = this.toolbar(panel);
             const plot = createLineChart({
                 units: chart.units,
                 series: chartSeries,
-                // charts per week or day and charts without incomplete values have their own date range
-                dateRange: finerValues === null && this.showIncomplete
-                    ? chart.dateRange
-                    : dateRange(chartSeries.filter(s => chart.units.includes(s.unit))) ?? chart.dateRange,
+                overlays,
+                dateRange: chartDateRange,
                 markers,
                 formatter: this.formatter,
                 syncKey: "marketplace-charts-" + chart.period + "-" + granularity,
@@ -411,7 +433,32 @@ class ChartController {
             dialog.showEmptyHint();
         }
         // measured after the browser has laid out the charts
+        dialog.setApplicableOverlays([...applicableOverlays]);
         requestAnimationFrame(() => dialog.fitChartHeights(this.plots));
+    }
+
+    /**
+     * @param {object[]} chartSeries The series of a line chart.
+     * @return {object[]} The shown trends of the series, which apply to them, as additional lines of the series.
+     */
+    trends(chartSeries, granularity) {
+        const overlays = [];
+        for (const series of chartSeries) {
+            for (const kind of OVERLAYS.filter(k => this.shownOverlays.includes(k) && overlayApplies(k, series, granularity))) {
+                switch (kind) {
+                    case "average3":
+                    case "average12": {
+                        const months = kind === "average3" ? 3 : 12;
+                        overlays.push({kind, base: series.key, label: `${series.label}, ${months}-month average`, points: trailingAverage(series, months)});
+                        break;
+                    }
+                    case "previousYear":
+                        overlays.push({kind, base: series.key, label: `${series.label}, previous year`, points: previousYear(series).points});
+                        break;
+                }
+            }
+        }
+        return overlays.filter(overlay => overlay.points.size > 0);
     }
 
     /**

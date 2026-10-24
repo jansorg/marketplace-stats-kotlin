@@ -52,10 +52,11 @@ export class ChartDialog {
      * @param {(kind: "min"|"max", visible: boolean) => void} callbacks.onExtremeVisibilityChange
      * @param {(visible: boolean) => void} callbacks.onIncompleteVisibilityChange
      * @param {(visible: boolean) => void} callbacks.onValueTableVisibilityChange
+     * @param {(kind: string, visible: boolean) => void} callbacks.onOverlayVisibilityChange
      * @param {string[]} markerKinds The kinds of vertical lines, which are available on this page.
      * @param {boolean} hasLineCharts If the page has columns, which can be shown in line charts.
      */
-    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange, onExtremeVisibilityChange, onIncompleteVisibilityChange, onValueTableVisibilityChange}, markerKinds, hasLineCharts) {
+    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange, onExtremeVisibilityChange, onIncompleteVisibilityChange, onValueTableVisibilityChange, onOverlayVisibilityChange}, markerKinds, hasLineCharts) {
         this.element = document.createElement("dialog");
         this.element.className = "chart-dialog noprint";
         this.element.setAttribute("aria-labelledby", "chart-dialog-title");
@@ -114,6 +115,23 @@ export class ChartDialog {
         this.valueTableCheckbox = this.addToggle(viewOptions, "Value table",
             "Show a table with the values at the cursor and one month and one year before and after it instead of the legend",
             onValueTableVisibilityChange);
+
+        // trends, which are only added to suitable lines
+        const trendHeading = document.createElement("span");
+        trendHeading.className = "chart-menu-heading";
+        trendHeading.textContent = "Trend";
+        viewOptions.append(trendHeading);
+        const monthsOnly = " Only for monthly values with the granularity Month.";
+        this.overlayTitles = {};
+        this.overlayCheckboxes = Object.fromEntries([
+            ["average3", "3-month average", "Average of each month and the two months before it." + monthsOnly],
+            ["average12", "12-month average", "Average of each month and the eleven months before it, without seasonal changes." + monthsOnly],
+            ["previousYear", "Previous year", "The values of the previous year as a faint line, e.g. to recognize seasonal changes."],
+        ].map(([kind, text, title]) => {
+            this.overlayTitles[kind] = {text, title};
+            return [kind, this.addToggle(viewOptions, text, title, visible => onOverlayVisibilityChange(kind, visible))];
+        }));
+        this.applicableOverlays = [];
         this.markerToggles.append(viewMenu);
 
         this.message = document.createElement("p");
@@ -187,6 +205,38 @@ export class ChartDialog {
         label.append(checkbox, text);
         container.append(label);
         return checkbox;
+    }
+
+    /**
+     * Trends, which don't apply to any of the shown series, are dimmed.
+     *
+     * @param {string[]} kinds The trends, which apply to at least one series of the shown line charts.
+     */
+    setApplicableOverlays(kinds) {
+        this.applicableOverlays = kinds;
+        for (const [kind, checkbox] of Object.entries(this.overlayCheckboxes)) {
+            const label = checkbox.parentElement;
+            const isApplicable = kinds.includes(kind);
+            label.classList.toggle("chart-option-unavailable", !isApplicable);
+            label.title = this.overlayTitles[kind].title + (isApplicable ? "" : "\nNot available for the shown charts.");
+        }
+    }
+
+    isOverlayApplicable(kind) {
+        return this.applicableOverlays.includes(kind);
+    }
+
+    /** @return {string} Why a trend isn't shown. */
+    overlayHint(kind) {
+        const {text, title} = this.overlayTitles[kind];
+        return `${text}: not available for the shown charts. ${title}`;
+    }
+
+    /** @param {string[]} shownKinds */
+    setShownOverlays(shownKinds) {
+        for (const [kind, checkbox] of Object.entries(this.overlayCheckboxes)) {
+            checkbox.checked = shownKinds.includes(kind);
+        }
     }
 
     setShowValueTable(visible) {

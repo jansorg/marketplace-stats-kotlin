@@ -756,6 +756,19 @@ th.highlighted, td.highlighted {
     cursor: pointer;
 }
 
+.chart-menu-heading {
+    padding: 0.4rem 0.8rem 0.1rem;
+    margin-top: 0.25rem;
+    border-top: 1px solid var(--separator-light-color);
+    color: var(--future-color);
+    font-size: .7rem;
+}
+
+/* options, which don't apply to the shown charts */
+.chart-menu-items label.chart-option-unavailable {
+    color: var(--text-color-disabled);
+}
+
 .chart-menu-items label:hover {
     background-color: #f4f4f2;
 }

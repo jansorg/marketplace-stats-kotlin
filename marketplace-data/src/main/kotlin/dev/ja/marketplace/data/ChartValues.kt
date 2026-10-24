@@ -29,6 +29,21 @@ enum class ChartPeriod {
 }
 
 /**
+ * What the values of a column of a chartable table measure. Charts offer trends only where they make sense,
+ * e.g. a moving average of the sales of each month, but not of the MRR at the end of each month.
+ */
+enum class ChartMeasure {
+    /** Sum of a period, e.g. the sales or the trials of a month. */
+    Flow,
+
+    /** Value at the end of a period, e.g. the MRR or the number of licenses. */
+    Stock,
+
+    /** Percentage or ratio, e.g. a churn rate. */
+    Ratio,
+}
+
+/**
  * Extracts the data of chartable tables, see [DataTable.isChartable].
  */
 object ChartValues {
