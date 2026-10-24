@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.data.subscriptions
 
+import dev.ja.marketplace.data.ChartMeasure
 import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.data.DataTableColumn
 import dev.ja.marketplace.data.DataTableSection
@@ -19,19 +20,23 @@ class AverageRevenuePerCustomerTable : RecurringRevenueTable(
 ) {
     private val columnMonth = DataTableColumn("month", null)
     private val columnCustomers = DataTableColumn(
-        "customers", "Paying Customers", "num", tooltip = "Customers with recurring revenue at the end of the month"
+        "customers", "Paying Customers", "num", tooltip = "Customers with recurring revenue at the end of the month",
+        chartMeasure = ChartMeasure.Stock,
     )
     private val columnArpa = DataTableColumn(
         "arpa", "ARPA", "num", chartTitle = "Average MRR per Customer",
-        tooltip = "Average MRR per paying customer"
+        tooltip = "Average MRR per paying customer",
+        chartMeasure = ChartMeasure.Stock,
     )
     private val columnOrganizations = DataTableColumn(
         "organizations", "Organizations", "num", chartTitle = "Average MRR per Organization",
-        tooltip = "Average MRR per paying organization"
+        tooltip = "Average MRR per paying organization",
+        chartMeasure = ChartMeasure.Stock,
     )
     private val columnIndividuals = DataTableColumn(
         "individuals", "Individuals", "num", chartTitle = "Average MRR per Individual",
-        tooltip = "Average MRR per paying individual customer"
+        tooltip = "Average MRR per paying individual customer",
+        chartMeasure = ChartMeasure.Stock,
     )
 
     override val columns: List<DataTableColumn> = listOf(

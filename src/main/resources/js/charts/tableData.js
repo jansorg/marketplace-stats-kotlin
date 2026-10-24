@@ -9,7 +9,8 @@
  * The server writes the data as attributes:
  * - tables: `data-chart-title` and `data-chart-period` (day, month or year) for line charts
  * - column headers: `data-chart-col` (index), `data-chart-label`, `data-chart-pie` for share columns and
- *   `data-chart-daily` for columns with values for each day, which are loaded from `/chart-series`
+ *   `data-chart-daily` for columns with values for each day, which are loaded from `/chart-series`,
+ *   `data-chart-measure` (flow, stock or ratio) for what the values measure
  * - rows of line charts: `data-chart-x` (ISO date), cells: `data-chart-value`, `data-chart-unit`, `data-chart-incomplete`
  * - rows of pie charts: `data-chart-category`, cells: `data-chart-share` (percentage)
  * - vertical lines: `#chart-major-releases`, `#chart-price-changes` and `#chart-ide-releases` with `li[data-date]`
@@ -51,7 +52,8 @@ function chartLabel(table, column) {
 
 /**
  * @return {{key: string, table: string, column: string, label: string, period: string, unit: string|null,
- *  points: Map<number, number>, incomplete: Set<number>, daily: string|null}} The values of a column for a line chart.
+ *  points: Map<number, number>, incomplete: Set<number>, daily: string|null, measure: string|null}}
+ *  The values of a column for a line chart.
  */
 export function readLineSeries(table, columnIndex) {
     const tableTitle = table.dataset.chartTitle;
@@ -84,6 +86,7 @@ export function readLineSeries(table, columnIndex) {
         points,
         incomplete,
         daily: header.dataset.chartDaily || null,
+        measure: header.dataset.chartMeasure || null,
     };
 }
 

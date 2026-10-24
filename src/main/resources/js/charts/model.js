@@ -444,6 +444,83 @@ export function withoutIncomplete(series) {
     };
 }
 
+/**
+ * Trends, which can be added to line charts: moving averages of 3 and 12 months and the values of the previous year.
+ */
+export const OVERLAYS = ["average3", "average12", "previousYear"];
+
+/**
+ * @param {{measure?: string|null, unit: string}} series
+ * @return {"flow"|"stock"|"ratio"|null} What the values measure: sums of a period, values at the end of a period or
+ *  ratios. Percentages without a measure are ratios, other series are unknown.
+ */
+export function seriesMeasure(series) {
+    return series.measure ?? (series.unit === "%" ? "ratio" : null);
+}
+
+/**
+ * Moving averages apply to monthly values with the granularity Month: the values per week or day are already sums of
+ * the month before each day. The previous year can be compared for all values, except yearly values.
+ *
+ * @param {string} kind One of {@link OVERLAYS}.
+ * @param {{period: string, measure?: string|null, unit: string}} series
+ * @param {"month"|"week"|"day"} granularity The granularity of the chart.
+ */
+export function overlayApplies(kind, series, granularity) {
+    if (kind === "previousYear") {
+        return series.period !== "year";
+    }
+    return series.period === "month" && granularity === "month";
+}
+
+function completePoints(series) {
+    return [...series.points]
+        .filter(([timestamp, value]) => !series.incomplete.has(timestamp) && value !== null && value !== undefined)
+        .sort(([a], [b]) => a - b);
+}
+
+/**
+ * The average of the value of each month and the values of the previous months. Incomplete values are ignored.
+ * There's no average if one of the months has no value, missing months aren't counted as zero.
+ *
+ * @param {{points: Map<number, number>, incomplete: Set<number>}} series Values at the end of each month.
+ * @param {number} months The number of months of each average.
+ * @return {Map<number, number>} The averages at the dates of the values.
+ */
+export function trailingAverage(series, months) {
+    const points = completePoints(series);
+    const result = new Map();
+    for (let i = months - 1; i < points.length; i++) {
+        const window = points.slice(i - months + 1, i + 1);
+        // the first value of the window must be at the end of the first month of the window
+        if (window[0][0] >= shiftDate(points[i][0], 0, -(months - 1)) - SECONDS_PER_DAY) {
+            result.set(points[i][0], window.reduce((sum, [, value]) => sum + value, 0) / months);
+        }
+    }
+    return result;
+}
+
+/**
+ * @param {{points: Map<number, number>, incomplete: Set<number>}} series
+ * @return {{points: Map<number, number>, incomplete: Set<number>}} The values of the series one year later, to
+ *  compare them with the values of the series. Values after the last value of the series are dropped.
+ */
+export function previousYear(series) {
+    const lastTimestamp = Math.max(...series.points.keys());
+    const points = new Map();
+    const incomplete = new Set();
+    for (const [timestamp, value] of series.points) {
+        const shifted = shiftDate(timestamp, 1, 0);
+        if (shifted <= lastTimestamp) {
+            points.set(shifted, value);
+            if (series.incomplete.has(timestamp)) {
+                incomplete.add(shifted);
+            }
+        }
+    }
+    return {points, incomplete};
+}
+
 /** Kinds of vertical lines in the line charts. */
 export const MARKER_KINDS = ["release", "price", "ide"];
 

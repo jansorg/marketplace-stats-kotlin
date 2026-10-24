@@ -7,7 +7,8 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
-    alignSeries, availableComparisons, extremeIndices, INCOMPLETE_GREY, incompleteColor, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, groupCharts, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
+    alignSeries, availableComparisons, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
+    seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, groupCharts, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
 } from "../../main/resources/js/charts/model.js";
 
@@ -232,3 +233,39 @@ test("values per day start with the last zero before the first value", () => {
     assert.deepEqual([...finerPoints(data, "mrr").points.values()], [0, 5, 0]);
     assert.deepEqual([...finerPoints(data, "arr").points.values()], [0, 0, 0, 0]);
 });
+
+test("averages apply to monthly values, the previous year to all except yearly values", () => {
+    const flow = {period: "month", measure: "flow", unit: "USD"};
+    assert.equal(overlayApplies("average3", flow, "month"), true);
+    assert.equal(overlayApplies("average12", flow, "day"), false);
+    assert.equal(overlayApplies("average3", {period: "month", measure: "stock", unit: "count"}, "month"), true);
+    assert.equal(overlayApplies("average12", {period: "month", unit: "%"}, "month"), true);
+    assert.equal(overlayApplies("average3", {period: "year", measure: "flow", unit: "USD"}, "month"), false);
+    assert.equal(overlayApplies("previousYear", {period: "month", measure: "stock", unit: "USD"}, "day"), true);
+    assert.equal(overlayApplies("previousYear", {period: "year", measure: "flow", unit: "USD"}, "month"), false);
+    assert.equal(seriesMeasure({unit: "%"}), "ratio");
+    assert.equal(seriesMeasure({unit: "count"}), null);
+});
+
+function monthly(values, incomplete = []) {
+    const points = new Map(values.map(([month, value]) => [isoDateToTimestamp(month), value]));
+    return {points, incomplete: new Set(incomplete.map(isoDateToTimestamp))};
+}
+
+test("moving averages of months", () => {
+    const series = monthly([["2025-01-31", 10], ["2025-02-28", 20], ["2025-03-31", 30], ["2025-04-30", 70], ["2025-05-31", 99]], ["2025-05-31"]);
+    const averages = trailingAverage(series, 3);
+    assert.deepEqual([...averages.entries()], [[isoDateToTimestamp("2025-03-31"), 20], [isoDateToTimestamp("2025-04-30"), 40]]);
+    // a missing month isn't counted as zero
+    const gap = monthly([["2025-01-31", 10], ["2025-02-28", 20], ["2025-04-30", 30], ["2025-05-31", 40], ["2025-06-30", 50]]);
+    assert.deepEqual([...trailingAverage(gap, 3).values()], [40]);
+    assert.equal(trailingAverage(monthly([["2025-01-31", 10]]), 3).size, 0);
+});
+
+test("the previous year is shifted by a year and ends with the series", () => {
+    const series = monthly([["2024-01-31", 1], ["2024-02-29", 2], ["2025-01-31", 3], ["2025-02-28", 4]], ["2025-02-28"]);
+    const shifted = previousYear(series);
+    assert.deepEqual([...shifted.points.entries()], [[isoDateToTimestamp("2025-01-31"), 1], [isoDateToTimestamp("2025-02-28"), 2]]);
+    assert.equal(shifted.incomplete.size, 0);
+});
+

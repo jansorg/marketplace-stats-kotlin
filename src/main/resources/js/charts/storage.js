@@ -15,17 +15,19 @@ const VERSION = 1;
  * @typedef {{type: "line"|"pie", table: string, column: string, color?: string}} ChartEntry
  * @typedef {{combineUnits: boolean, maximized: boolean, preferredStyle: "lines"|"bars",
  *  chartStyles: Object<string, "lines"|"bars">, granularities: Object<string, "month"|"week"|"day">, shownMarkers: string[],
- *  shownExtremes: ("min"|"max")[], showIncomplete: boolean, showValueTable: boolean, entries: ChartEntry[]}} ChartSetup
+ *  shownExtremes: ("min"|"max")[], shownOverlays: string[], showIncomplete: boolean, showValueTable: boolean,
+ *  entries: ChartEntry[]}} ChartSetup
  */
 
 /** @return {ChartSetup} */
 export function emptySetup() {
     // vertical lines are hidden by default
-    return {combineUnits: false, maximized: false, preferredStyle: "lines", chartStyles: {}, granularities: {}, shownMarkers: [], shownExtremes: [], showIncomplete: true, showValueTable: true, entries: []};
+    return {combineUnits: false, maximized: false, preferredStyle: "lines", chartStyles: {}, granularities: {}, shownMarkers: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, entries: []};
 }
 
 const STYLES = ["lines", "bars"];
 const EXTREMES = ["min", "max"];
+const OVERLAYS = ["average3", "average12", "previousYear"];
 
 function validExtremes(setup) {
     if (Array.isArray(setup.shownExtremes)) {
@@ -73,6 +75,7 @@ export function createSetupStorage(storage) {
                     granularities: validValues(setup.granularities, GRANULARITIES),
                     shownMarkers: Array.isArray(setup.shownMarkers) ? setup.shownMarkers.filter(kind => MARKER_KINDS.includes(kind)) : [],
                     shownExtremes: validExtremes(setup),
+                    shownOverlays: Array.isArray(setup.shownOverlays) ? OVERLAYS.filter(kind => setup.shownOverlays.includes(kind)) : [],
                     // shown by default, also with a setup stored before the option existed
                     showIncomplete: setup.showIncomplete !== false,
                     showValueTable: setup.showValueTable !== false,

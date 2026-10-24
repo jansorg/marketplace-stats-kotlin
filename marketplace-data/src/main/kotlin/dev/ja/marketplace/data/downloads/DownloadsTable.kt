@@ -13,7 +13,7 @@ class DownloadsTable : SimpleDataTable("", "downloads"), MarketplaceDataSink {
     private lateinit var data: List<MonthlyDownload>
 
     private val columnMonth = DataTableColumn("month", null)
-    private val columnDownloads = DataTableColumn("downloads", "Downloads", "num")
+    private val columnDownloads = DataTableColumn("downloads", "Downloads", "num", chartMeasure = ChartMeasure.Flow)
 
     override val isChartable: Boolean = true
     override val chartPeriod: ChartPeriod = ChartPeriod.Month

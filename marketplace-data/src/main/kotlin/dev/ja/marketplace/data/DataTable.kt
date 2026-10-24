@@ -129,6 +129,11 @@ data class DataTableColumn(
      * see [dev.ja.marketplace.data.overview.OverviewDailyValues].
      */
     val dailyChartSeries: String? = null,
+    /**
+     * What the values of this column measure, e.g. sums of a period. Charts offer trends like moving averages only for
+     * suitable columns, see [ChartMeasure].
+     */
+    val chartMeasure: ChartMeasure? = null,
 )
 
 data class SimpleTableSection(

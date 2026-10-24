@@ -119,6 +119,11 @@ CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
   before and after it, the table below the chart compares the values at these dates (`enableComparisons` in
   `lineChart.js`). The table replaces the uPlot legend, a click on the label of a series shows or hides it. Without
   the option "Value table" of the View menu, the uPlot legend is shown instead, it only shows and hides the series.
+- Columns declare what they measure with `DataTableColumn.chartMeasure` (`ChartMeasure`: flow, stock or ratio), written
+  as `data-chart-measure`. The trends of the View menu (3- and 12-month moving averages, previous year) are only added
+  to suitable series (`overlayApplies` in `model.js`): averages to monthly values with the granularity Month, because
+  the values per week or day are already sums of the month before each day. Options without effect on the shown
+  charts are dimmed in the menu.
 - Incomplete values are drawn as dotted lines, hollow points and striped bars in a lighter color of their series
   (`incompleteColor` in `model.js`).
   The option "Incomplete values" of the View menu of the chart dialog hides them, "Minimum" and "Maximum" mark the

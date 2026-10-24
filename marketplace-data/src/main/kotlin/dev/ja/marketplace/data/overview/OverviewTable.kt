@@ -86,45 +86,54 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     private val years = TreeMap<Int, YearData>(Comparator.reverseOrder())
 
     private val columnYearMonth = DataTableColumn("month", null, "month")
-    private val columnAmountTotal = DataTableColumn("sales", "Total Sales", "num", dailyChartSeries = OverviewDailyColumn.Sales.id)
+    private val columnAmountTotal = DataTableColumn("sales", "Total Sales", "num", dailyChartSeries = OverviewDailyColumn.Sales.id, chartMeasure = ChartMeasure.Flow)
     private val columnAmountFees = DataTableColumn("sales", "Fees", "num")
-    private val columnAmountPaid = DataTableColumn("sales", "Invoice", "num", dailyChartSeries = OverviewDailyColumn.Invoice.id)
+    private val columnAmountPaid = DataTableColumn("sales", "Invoice", "num", dailyChartSeries = OverviewDailyColumn.Invoice.id, chartMeasure = ChartMeasure.Flow)
     private val columnActiveLicenses = DataTableColumn(
         "customer-licenses", "Licenses", "num", tooltip = "Licenses at the end of month",
         dailyChartSeries = OverviewDailyColumn.Licenses.id,
+        chartMeasure = ChartMeasure.Stock,
     )
     private val columnActiveLicensesPaying = DataTableColumn(
         "customer-licenses-paid", "Paid", "num", tooltip = "Paid licenses at the end of month", chartTitle = "Paid licenses",
         dailyChartSeries = OverviewDailyColumn.PaidLicenses.id,
+        chartMeasure = ChartMeasure.Stock,
     )
     private val columnMonthlyRecurringRevenue = DataTableColumn(
         "customer-mrr", "MRR", "num", tooltip = "Average monthly recurring revenue (MRR)",
         dailyChartSeries = OverviewDailyColumn.Mrr.id,
+        chartMeasure = ChartMeasure.Stock,
     )
     private val columnAnnualRecurringRevenue = DataTableColumn(
         "customer-mrr", "ARR", "num", tooltip = "Average annual recurring revenue (MRR)",
         dailyChartSeries = OverviewDailyColumn.Arr.id,
+        chartMeasure = ChartMeasure.Stock,
     )
 
     private val columnLicenseChurnAnnual = DataTableColumn(
-        "churn-annual-paid", "Churn (annual)", "num num-percentage", tooltip = "Churn of paid annual licenses"
+        "churn-annual-paid", "Churn (annual)", "num num-percentage", tooltip = "Churn of paid annual licenses",
+        chartMeasure = ChartMeasure.Ratio,
     )
 
     private val columnLicenseChurnMonthly = DataTableColumn(
-        "churn-monthly-paid", "Churn (monthly)", "num num-percentage", tooltip = "Churn of paid monthly licenses"
+        "churn-monthly-paid", "Churn (monthly)", "num num-percentage", tooltip = "Churn of paid monthly licenses",
+        chartMeasure = ChartMeasure.Ratio,
     )
     private val columnDownloads = DataTableColumn(
         "downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Number of downloads in the month",
         dailyChartSeries = OverviewDailyColumn.Downloads.id,
+        chartMeasure = ChartMeasure.Flow,
     )
     private val columnTrials = DataTableColumn(
         "trials", "Trials", "num", tooltip = "Number of new trials at the end of the month",
         dailyChartSeries = OverviewDailyColumn.Trials.id,
+        chartMeasure = ChartMeasure.Flow,
     )
     private val columnTrialsConverted = DataTableColumn(
         "trials-converted-length", "Conv.", "num",
         tooltip = "Percentage of trials started in the month, which were converted by a paid new license " +
-                "within the trial period and ${Marketplace.TRIAL_CONVERSION_EXTRA_DAYS} days after it"
+                "within the trial period and ${Marketplace.TRIAL_CONVERSION_EXTRA_DAYS} days after it",
+        chartMeasure = ChartMeasure.Ratio,
     )
 
     override val isChartable: Boolean = true

@@ -15,6 +15,13 @@ export const CHART_STYLE = {
     gridColor: "#e4e3df",
     surfaceColor: "#ffffff",
     lineWidth: 2,
+    // trends: dashed moving averages, a faint line of the previous year, the alpha is appended to the color of the series
+    overlays: {
+        average3: {dash: [6, 3], alpha: "cc"},
+        average12: {dash: [14, 4], alpha: "cc"},
+        previousYear: {dash: null, alpha: "59"},
+    },
+    overlayWidth: 1.5,
     // incomplete values: dotted lines, hollow points and striped bars in a lighter color of the series
     incompleteDotSpacing: 5,
     incompleteStripeSpacing: 5,
@@ -46,7 +53,7 @@ const legendData = new WeakMap();
  * @return {{label: string, color: string, shape: "line"|"dotted"|"box"|"stripes"|"point"|"marker", dash?: number[]}[]}
  */
 export function lineChartLegend(plot) {
-    const {chartSeries, markers, isBars} = legendData.get(plot);
+    const {chartSeries, markers, isBars, chartOverlays} = legendData.get(plot);
     const min = plot.scales.x.min;
     const max = plot.scales.x.max;
     const shown = chartSeries.filter((series, index) => plot.series[index + 1].show);
@@ -59,6 +66,11 @@ export function lineChartLegend(plot) {
         entries.push({label: "Incomplete values", color: incompleteColor(shown[0].color), shape: isBars ? "stripes" : "dotted"});
     }
     const kinds = new Set(markers.filter(marker => marker.timestamp >= min && marker.timestamp <= max).map(marker => marker.kind));
+    for (const overlay of chartOverlays ?? []) {
+        if (plot.series[chartSeries.length + chartOverlays.indexOf(overlay) + 1].show) {
+            entries.push({label: overlay.label, color: overlayColor(overlay), shape: "line"});
+        }
+    }
     for (const kind of kinds) {
         const style = CHART_STYLE.markers[kind] ?? CHART_STYLE.markers.release;
         entries.push({label: MARKER_LABELS[kind] ?? kind, color: style.color, dash: style.dash, shape: "marker"});
@@ -313,6 +325,10 @@ function barGeometry(plot, chartSeries, interval) {
         gap: CHART_STYLE.barGap * uPlot.pxRatio,
     });
     return {visible, width, offsets};
+}
+
+function overlayColor(overlay) {
+    return overlay.base.color + CHART_STYLE.overlays[overlay.kind].alpha;
 }
 
 /**
@@ -719,20 +735,29 @@ function yAxis(unit, scale, side, style) {
  * @param {"month"|"week"|"day"} [options.granularity] Values per week or per day are labeled with their day.
  * @param {("min"|"max")[]} [options.extremes] If the minimum or the maximum of each series are marked.
  * @param {boolean} [options.valueTable] If a table compares the values at the cursor instead of the legend of uPlot.
+ * @param {{kind: string, base: string, label: string, points: Map<number, number>}[]} [options.overlays] Additional
+ *  lines of the series with the key `base`, e.g. moving averages.
  * @param {string} options.fontFamily
  * @param {number} options.width
  * @param {number} options.height
  * @param {HTMLElement} options.container
  * @return {uPlot}
  */
-export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, fontFamily, width, height, container}) {
+export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, overlays = [], fontFamily, width, height, container}) {
     const style = {formatter, fonts: fonts(fontFamily)};
     const scaleKeys = ["y", "y2"];
     const chartSeries = units.flatMap((unit, unitIndex) => series
         .filter(s => s.unit === unit)
         .map(s => ({...s, scale: scaleKeys[unitIndex], isRightAxis: unitIndex === 1})));
 
-    const {timestamps, values} = alignSeries(chartSeries);
+    // the overlays of series, which aren't shown in this chart, are ignored
+    const chartOverlays = overlays
+        .map(overlay => ({...overlay, base: chartSeries.find(s => s.key === overlay.base)}))
+        .filter(overlay => overlay.base !== undefined);
+    const {timestamps, values: allValues} = alignSeries([...chartSeries, ...chartOverlays]);
+    const values = allValues.slice(0, chartSeries.length);
+    const overlayValues = allValues.slice(chartSeries.length);
+    const overlayIndex = index => chartSeries.length + index + 1;
     const period = shortestPeriod(chartSeries);
     const datePeriod = granularity === "week" || granularity === "day" ? "day" : period;
 
@@ -750,7 +775,11 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                 const value = values[seriesIndex][index];
                 const incomplete = value !== null && s.incomplete.has(timestamps[index]);
                 return {color: s.color, label: s.label + (incomplete ? " (incomplete)" : ""), value: formatter.value(value, s.unit)};
-            }),
+            })
+            .concat(chartOverlays
+                .map((overlay, i) => ({overlay, value: overlayValues[i][index], isShown: plot.series[overlayIndex(i)].show}))
+                .filter(({value, isShown}) => isShown && value !== null && value !== undefined)
+                .map(({overlay, value}) => ({color: overlayColor(overlay), label: overlay.label, value: formatter.value(value, overlay.base.unit)}))),
     });
 
     // yearly values are in the middle of the years, the range covers the complete years until today
@@ -809,8 +838,18 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                     drawExtremes(plot, chartSeries, {kinds: extremes, isBars, interval, formatter, font: style.fonts.extremeLabel});
                 }
             }],
-            // series are shown and hidden by a click on the legend
-            setSeries: [() => updateComparisons?.()],
+            // series are shown and hidden by a click on the legend, the overlays of a series are shown and hidden with it
+            setSeries: [(plot, seriesIndex) => {
+                if (seriesIndex !== null && seriesIndex <= chartSeries.length) {
+                    const base = chartSeries[seriesIndex - 1];
+                    chartOverlays.forEach((overlay, i) => {
+                        if (overlay.base === base && plot.series[overlayIndex(i)].show !== plot.series[seriesIndex].show) {
+                            plot.setSeries(overlayIndex(i), {show: plot.series[seriesIndex].show});
+                        }
+                    });
+                }
+                updateComparisons?.();
+            }],
             setCursor: [plot => {
                 updateComparisons?.(plot);
                 updateTooltip?.(plot);
@@ -828,15 +867,25 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                 points: {show: false},
                 ...(isBars ? {paths: () => null} : {}),
             })),
+            // overlays are lines, also in bar charts
+            ...chartOverlays.map(overlay => ({
+                label: overlay.label,
+                scale: overlay.base.scale,
+                stroke: overlayColor(overlay),
+                width: CHART_STYLE.overlayWidth,
+                ...(CHART_STYLE.overlays[overlay.kind].dash ? {dash: CHART_STYLE.overlays[overlay.kind].dash} : {}),
+                spanGaps: true,
+                points: {show: false},
+            })),
         ],
     };
 
     let updateTooltip = null;
     let updateComparisons = null;
-    const plot = new uPlot(options, [timestamps, ...values], container);
+    const plot = new uPlot(options, [timestamps, ...values, ...overlayValues], container);
     updateTooltip = enableTooltip(plot, chartSeries, describe);
     updateComparisons = enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, formatter, valueTable});
     enableTouchCursor(plot);
-    legendData.set(plot, {chartSeries, markers, isBars});
+    legendData.set(plot, {chartSeries, markers, isBars, chartOverlays});
     return plot;
 }
