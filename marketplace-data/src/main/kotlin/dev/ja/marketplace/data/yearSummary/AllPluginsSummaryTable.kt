@@ -25,7 +25,7 @@ import java.util.*
  *
  * MRR and ARR are the sums of the MRR and ARR of the plugins at the end of each year, with the rules of the overview.
  */
-class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : SimpleDataTable("Years", "all-plugins", "table-column-wide") {
+class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : SimpleDataTable("Years", "all-plugins", "table-column-wide table-fixed-columns") {
     private val columnYear = DataTableColumn("year", null)
     private val columnSalesTotal = DataTableColumn("sales", "Sales Total", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.SALES)
     private val columnSalesFees = DataTableColumn("fees", "Fees", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.FEES)

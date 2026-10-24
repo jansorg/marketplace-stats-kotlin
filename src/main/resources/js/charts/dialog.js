@@ -81,7 +81,7 @@ export class ChartDialog {
 
         const hint = document.createElement("p");
         hint.className = "chart-dialog-hint";
-        hint.textContent = "Close the dialog and click another column header to add it. The key C shows and hides the charts. "
+        hint.textContent = "Close the dialog and click another column header to add it. Press 'C' to show and hide the charts. "
             + "Dotted lines, hollow points and striped bars mark incomplete values, which may still change.";
 
         // toggles of the vertical lines, with a sample of each line as key, and of the minimum and maximum
