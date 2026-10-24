@@ -81,7 +81,7 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
 
     private val allPluginsSummary: Boolean by option("--all-plugins-summary", envvar = "MARKETPLACE_ALL_PLUGINS_SUMMARY")
         .flag("--no-all-plugins-summary", default = true, defaultForHelp = "enabled")
-        .help("Show the sales and downloads of all plugins above the list of plugins. The data of all plugins is loaded at the start, or taken from the persistent cache.")
+        .help("Show the sales and downloads of all paid plugins above the list of plugins. The data of these plugins is loaded at the start, or taken from the persistent cache.")
 
     private val mcpAllowedHosts: List<String> by option("--mcp-allowed-hosts", envvar = "MARKETPLACE_MCP_ALLOWED_HOSTS")
         .split(",")

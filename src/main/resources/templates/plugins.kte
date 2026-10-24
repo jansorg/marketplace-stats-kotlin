@@ -25,20 +25,16 @@
 <body data-locale="${java.util.Locale.getDefault().toLanguageTag()}">
 
 <h1>Available Plugins</h1>
-
-@if(summary != null && !summary.isEmpty)
-    <h2>All Plugins</h2>
-    <p>The sales and downloads of all plugins.</p>
-    <section class="tables">
-        @template.dataTable(null, summary)
-    </section>
-    <br>
-@endif
-
 <p>Please choose one of the available plugins.</p>
 <br>
 
 <h2>Paid or Freemium Plugins</h2>
+@if(summary != null && !summary.isEmpty)
+    <p>The sales and downloads of all paid and freemium plugins.</p>
+    <section class="tables">
+        @template.dataTable(null, summary)
+    </section>
+@endif
 <ul>
     @for(plugin in plugins.filter { it.isPaidOrFreemium })
         <li>

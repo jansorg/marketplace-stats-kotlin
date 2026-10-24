@@ -8,6 +8,6 @@ package dev.ja.marketplace
 data class ServerConfiguration(
     val userDisplayCurrencyCode: String,
     val showResellerCharges: Boolean,
-    /** Shows the sales and downloads of all plugins on the list of plugins. Their data is loaded at the start. */
+    /** Shows the sales and downloads of all paid plugins on the list of plugins. Their data is loaded at the start. */
     val showAllPluginsSummary: Boolean = true,
 )

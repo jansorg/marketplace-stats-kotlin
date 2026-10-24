@@ -569,7 +569,7 @@ class MarketplaceStatsServer(
         // stored data is updated after the start, also without a report being opened
         (client as? CaffeineCacheMarketplaceClient)?.updateStoredHistory(allPlugins.filter(PluginInfoSummary::isPaidOrFreemium).map(PluginInfoSummary::id))
         if (serverConfiguration.showAllPluginsSummary) {
-            // the summary of all plugins needs their data, it's loaded in the background, so that the list is fast
+            // the summary of all paid plugins needs their data, it's loaded in the background, so that the list is fast
             backgroundScope.launch {
                 try {
                     loadAllPluginsData()
@@ -604,18 +604,19 @@ class MarketplaceStatsServer(
     )
 
     /**
-     * The sales and downloads of all plugins for their summary. The client caches the data of the plugins,
-     * also in the persistent cache. Plugins, whose data can't be loaded, are left out.
+     * The sales and downloads of all paid and freemium plugins for their summary. Free plugins are left out.
+     * The client caches the data of the plugins, also in the persistent cache. Plugins, whose data can't be loaded,
+     * are left out.
      */
     private suspend fun loadAllPluginsData(): List<AllPluginsData> {
         val requests = Semaphore(4)
         return coroutineScope {
-            allPlugins.map { plugin ->
+            allPlugins.filter(PluginInfoSummary::isPaidOrFreemium).map { plugin ->
                 async(Dispatchers.IO) {
                     requests.withPermit {
                         try {
                             AllPluginsData(
-                                if (plugin.isPaidOrFreemium) client.salesInfo(plugin.id) else emptyList(),
+                                client.salesInfo(plugin.id),
                                 client.downloadsMonthly(plugin.id, DownloadCountType.Downloads),
                                 client.downloadsDaily(plugin.id, DownloadCountType.Downloads),
                             )
@@ -633,12 +634,12 @@ class MarketplaceStatsServer(
     }
 
     /**
-     * The sales and downloads of all plugins, shown above the list of plugins.
+     * The sales and downloads of all paid and freemium plugins, shown above the list of plugins.
      *
-     * @return The table, or `null` if it's disabled or there are no plugins.
+     * @return The table, or `null` if it's disabled or there are no paid plugins.
      */
     private suspend fun allPluginsSummary(): RenderedDataTable? {
-        if (!serverConfiguration.showAllPluginsSummary || allPlugins.isEmpty()) {
+        if (!serverConfiguration.showAllPluginsSummary || allPlugins.none(PluginInfoSummary::isPaidOrFreemium)) {
             return null
         }
 

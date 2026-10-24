@@ -36,8 +36,8 @@ class AllPluginsDailyValues private constructor(val days: List<YearMonthDay>, va
         const val DOWNLOADS = "all-plugins-downloads"
 
         /**
-         * @param sales The sales of all plugins.
-         * @param downloads The downloads of all plugins.
+         * @param sales The sales of all paid plugins.
+         * @param downloads The downloads of all paid plugins.
          */
         fun create(
             sales: List<PluginSale>,
