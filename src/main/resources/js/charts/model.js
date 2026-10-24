@@ -12,6 +12,29 @@ import {isAmountUnit, isoDateToTimestamp, PERIODS, SECONDS_PER_DAY} from "./form
 /** Categorical palette, assigned in fixed order. */
 export const SERIES_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"];
 export const OTHER_SLICE_COLOR = "#a8a7a2";
+/**
+ * The colors of {@link SERIES_COLORS} for the dark mode: the same hues, stepped for the dark surface, so that each
+ * has a contrast of at least 3:1 and the neighbors stay distinguishable with color vision deficiencies.
+ * The stored setup of the charts always uses the colors of the light mode.
+ */
+export const DARK_SERIES_COLORS = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"];
+export const DARK_OTHER_SLICE_COLOR = "#8a8993";
+
+/**
+ * @param {string} color A color of {@link SERIES_COLORS} or {@link OTHER_SLICE_COLOR}.
+ * @param {boolean} dark If the color is shown in the dark mode.
+ * @return {string} The color, which is shown. Other colors are returned unchanged.
+ */
+export function displayColor(color, dark) {
+    if (!dark) {
+        return color;
+    }
+    if (color === OTHER_SLICE_COLOR) {
+        return DARK_OTHER_SLICE_COLOR;
+    }
+    const index = SERIES_COLORS.indexOf(color);
+    return index === -1 ? color : DARK_SERIES_COLORS[index];
+}
 export const MAX_SERIES = SERIES_COLORS.length;
 export const MAX_PIES = 4;
 /** Pie charts show the largest rows, the other rows are combined into one slice. */
@@ -367,13 +390,17 @@ export function valueChange(earlier, later, unit) {
 
 /** Color of incomplete values of series, whose lighter color would be too similar to the color of the series. */
 export const INCOMPLETE_GREY = "#a8a7a2";
+/** {@link INCOMPLETE_GREY} of the dark mode. */
+export const DARK_INCOMPLETE_GREY = "#5f5e66";
 
 /**
  * @param {string} color A color like `#2a78d6`.
- * @return {string} The color with slightly less saturation and more lightness, for incomplete values, which may still
- *  change. If it's too similar to the color, {@link INCOMPLETE_GREY}. Other formats are returned unchanged.
+ * @param {boolean} [dark] If the color is shown in the dark mode. The color is faded towards the dark surface then.
+ * @return {string} The color with slightly less saturation and more lightness, or less lightness in the dark mode,
+ *  for incomplete values, which may still change. If it's too similar to the color, {@link INCOMPLETE_GREY} or
+ *  {@link DARK_INCOMPLETE_GREY}. Other formats are returned unchanged.
  */
-export function incompleteColor(color) {
+export function incompleteColor(color, dark = false) {
     const match = /^#([0-9a-f]{6})$/i.exec(color);
     if (match === null) {
         return color;
@@ -390,10 +417,13 @@ export function incompleteColor(color) {
         hue = max === r ? (g - b) / delta + (g < b ? 6 : 0) : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
         hue /= 6;
     }
-    const result = hslToHex(hue, saturation * 0.8, lightness + (1 - lightness) * 0.3);
+    const result = hslToHex(hue, saturation * 0.8, dark ? lightness * 0.62 : lightness + (1 - lightness) * 0.3);
     // the distance of the RGB values, below about 70 the colors are hard to tell apart in thin lines and points
     const distance = Math.hypot(...[0, 2, 4].map(i => Number.parseInt(match[1].substring(i, i + 2), 16) - Number.parseInt(result.substring(i + 1, i + 3), 16)));
-    return distance < 70 ? INCOMPLETE_GREY : result;
+    if (distance < 70) {
+        return dark ? DARK_INCOMPLETE_GREY : INCOMPLETE_GREY;
+    }
+    return result;
 }
 
 function hslToHex(hue, saturation, lightness) {

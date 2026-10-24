@@ -7,7 +7,8 @@
  * Pie charts rendered as SVG, with a legend and a tooltip with the values of the row of a slice.
  */
 
-import {pieArcs, slicePath} from "./model.js";
+import {CHART_THEMES, preferredChartTheme} from "./lineChart.js";
+import {displayColor, pieArcs, slicePath} from "./model.js";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 // size of the coordinate system of the SVG, the displayed size is defined by CSS
@@ -16,7 +17,6 @@ const RADIUS = SIZE / 2 - 8;
 const CENTER = SIZE / 2;
 // distance, which a highlighted slice moves outward
 const HIGHLIGHT_OFFSET = 6;
-const SURFACE_COLOR = "#ffffff";
 
 function element(tagName, className, text) {
     const result = document.createElement(tagName);
@@ -65,8 +65,11 @@ function positionTooltip(tooltip, panel, event) {
  * @param {{label: string, slices: {label: string, value: number, color: string, details: string[][]}[]}} pie
  * @param {HTMLElement} panel The figure element of the chart.
  * @param {{value: Function}} formatter
+ * @param {"light"|"dark"} [themeName] The colors of the chart, by default the color scheme of the browser.
  */
-export function renderPie(pie, panel, formatter) {
+export function renderPie(pie, panel, formatter, themeName = preferredChartTheme()) {
+    const theme = CHART_THEMES[themeName];
+    const colors = pie.slices.map(slice => displayColor(slice.color, theme.isDark));
     const svg = document.createElementNS(SVG_NAMESPACE, "svg");
     svg.setAttribute("viewBox", `0 0 ${SIZE} ${SIZE}`);
     svg.setAttribute("role", "img");
@@ -112,13 +115,13 @@ export function renderPie(pie, panel, formatter) {
     pie.slices.forEach((slice, index) => {
         const arc = arcs[index];
         const mark = sliceMark(arc);
-        mark.setAttribute("fill", slice.color);
+        mark.setAttribute("fill", colors[index]);
         // 2px gap in the surface color between the slices
-        mark.setAttribute("stroke", SURFACE_COLOR);
+        mark.setAttribute("stroke", theme.surfaceColor);
         mark.setAttribute("stroke-width", "2");
 
         const swatch = element("span", "chart-swatch");
-        swatch.style.backgroundColor = slice.color;
+        swatch.style.backgroundColor = colors[index];
         const legendItem = element("li");
         legendItem.append(swatch, element("span", "chart-pie-label", slice.label), element("span", "chart-pie-value", formatter.value(slice.value, "%")));
         legend.append(legendItem);

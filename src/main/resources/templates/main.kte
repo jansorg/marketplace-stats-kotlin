@@ -43,11 +43,9 @@
     </div>
 @endif
 <h1>${plugin.name}</h1>
-<div class="subtitle">
-    @template.render(today)
-    <br>
-    <br>
-    <span>↓ @template.render(plugin.downloads.toBigInteger()) downloads</span><br>
+<div class="subtitle plugin-stats">
+    <span>@template.render(today)</span>
+    <span>↓ @template.render(plugin.downloads.toBigInteger()) downloads</span>
     <span title="${rating.votesCount} ratings">★ @template.render(rating.calculatedRatingValue)</span>
 </div>
 

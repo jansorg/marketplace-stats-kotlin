@@ -8,7 +8,7 @@
  * Line charts are images of the canvas of uPlot. Pie charts are SVG, which is converted to PNG on demand.
  */
 
-import {CHART_STYLE, lineChartLegend} from "./lineChart.js";
+import {CHART_STYLE, CHART_THEMES, lineChartLegend} from "./lineChart.js";
 import {layoutLegend, pieArcs, slicePath} from "./model.js";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
@@ -120,7 +120,7 @@ export function lineChartImage(plot, {title, fontFamily}) {
     const context = canvas.getContext("2d");
     context.scale(ratio, ratio);
 
-    context.fillStyle = CHART_STYLE.surfaceColor;
+    context.fillStyle = CHART_THEMES.light.surfaceColor;
     context.fillRect(0, 0, width, height);
 
     context.fillStyle = TEXT_COLOR;
@@ -182,14 +182,14 @@ export function pieChartSvg(pie, formatter, fontFamily) {
         fill: TEXT_COLOR,
     });
     svg.append(
-        svgElement("rect", {width, height, fill: CHART_STYLE.surfaceColor}),
+        svgElement("rect", {width, height, fill: CHART_THEMES.light.surfaceColor}),
         svgElement("text", {x: PADDING, y: PADDING, "dominant-baseline": "hanging", "font-size": TITLE_SIZE, "font-weight": 700}, pie.label),
     );
 
     const center = PIE_SIZE / 2;
     const slices = svgElement("g", {transform: `translate(${PADDING},${contentTop + (contentHeight - PIE_SIZE) / 2})`});
     pieArcs(pie.slices.map(slice => slice.value)).forEach((arc, index) => {
-        const attributes = {fill: pie.slices[index].color, stroke: CHART_STYLE.surfaceColor, "stroke-width": 2};
+        const attributes = {fill: pie.slices[index].color, stroke: CHART_THEMES.light.surfaceColor, "stroke-width": 2};
         slices.append(arc.isFullCircle
             ? svgElement("circle", {cx: center, cy: center, r: center - 4, ...attributes})
             : svgElement("path", {d: slicePath(arc, center, center - 4), ...attributes}));

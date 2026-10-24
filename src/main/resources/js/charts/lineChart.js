@@ -8,12 +8,41 @@
  */
 
 import {formatDate, SECONDS_PER_DAY, unitTitle} from "./format.js";
-import {alignSeries, availableComparisons, barLayout, extremeIndices, incompleteColor, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, zeroBasedRange} from "./model.js";
+import {alignSeries, availableComparisons, barLayout, displayColor, extremeIndices, incompleteColor, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, zeroBasedRange} from "./model.js";
+
+/**
+ * The colors of the charts in the light and the dark mode. The surface is the background of the charts in the chart
+ * dialog, the colors of the dark mode have the same contrast to it like the colors of the light mode on white.
+ * Exported and printed images always use the light mode.
+ */
+export const CHART_THEMES = {
+    light: {
+        isDark: false,
+        axisColor: "#52514e",
+        gridColor: "#e4e3df",
+        surfaceColor: "#ffffff",
+        markerColors: {release: "#7d7c77", price: "#c27c0e", ide: "#6f74b8"},
+    },
+    dark: {
+        isDark: true,
+        axisColor: "#b0afb8",
+        gridColor: "#303038",
+        surfaceColor: "#1b1b21",
+        markerColors: {release: "#9a99a2", price: "#e0a040", ide: "#9ea3ec"},
+    },
+};
+
+/** @return {"light"|"dark"} The theme of new charts, the color scheme of the browser. */
+export function preferredChartTheme() {
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+/** @return {"light"|"dark"} The theme of a chart created by {@link createLineChart}. */
+export function lineChartTheme(plot) {
+    return legendData.get(plot).theme.isDark ? "dark" : "light";
+}
 
 export const CHART_STYLE = {
-    axisColor: "#52514e",
-    gridColor: "#e4e3df",
-    surfaceColor: "#ffffff",
     lineWidth: 2,
     // trends: dashed moving averages, a faint line of the previous year, the alpha is appended to the color of the series
     overlays: {
@@ -25,12 +54,12 @@ export const CHART_STYLE = {
     // incomplete values: dotted lines, hollow points and striped bars in a lighter color of the series
     incompleteDotSpacing: 5,
     incompleteStripeSpacing: 5,
-    // vertical lines: line color and dash pattern of each kind, the labels use the color of the axes
+    // vertical lines: dash pattern of each kind, the colors are in CHART_THEMES, the labels use the color of the axes
     markerWidth: 2,
     markers: {
-        release: {color: "#7d7c77", dash: [4, 4]},
-        price: {color: "#c27c0e", dash: [2, 3]},
-        ide: {color: "#6f74b8", dash: [8, 3]},
+        release: {dash: [4, 4]},
+        price: {dash: [2, 3]},
+        ide: {dash: [8, 3]},
     },
     pointRadius: 3,
     // series with more values, e.g. per day, have no points, the lighter line marks their incomplete values
@@ -53,7 +82,7 @@ const legendData = new WeakMap();
  * @return {{label: string, color: string, shape: "line"|"dotted"|"box"|"stripes"|"point"|"marker", dash?: number[]}[]}
  */
 export function lineChartLegend(plot) {
-    const {chartSeries, markers, isBars, chartOverlays} = legendData.get(plot);
+    const {chartSeries, markers, isBars, chartOverlays, theme} = legendData.get(plot);
     const min = plot.scales.x.min;
     const max = plot.scales.x.max;
     const shown = chartSeries.filter((series, index) => plot.series[index + 1].show);
@@ -63,7 +92,7 @@ export function lineChartLegend(plot) {
         shape: isBars ? "box" : "line",
     }));
     if (shown.some(series => [...series.incomplete].some(timestamp => timestamp >= min && timestamp <= max))) {
-        entries.push({label: "Incomplete values", color: incompleteColor(shown[0].color), shape: isBars ? "stripes" : "dotted"});
+        entries.push({label: "Incomplete values", color: incompleteColor(shown[0].color, theme.isDark), shape: isBars ? "stripes" : "dotted"});
     }
     const kinds = new Set(markers.filter(marker => marker.timestamp >= min && marker.timestamp <= max).map(marker => marker.kind));
     for (const overlay of chartOverlays ?? []) {
@@ -73,7 +102,8 @@ export function lineChartLegend(plot) {
     }
     for (const kind of kinds) {
         const style = CHART_STYLE.markers[kind] ?? CHART_STYLE.markers.release;
-        entries.push({label: MARKER_LABELS[kind] ?? kind, color: style.color, dash: style.dash, shape: "marker"});
+        const color = theme.markerColors[kind] ?? theme.markerColors.release;
+        entries.push({label: MARKER_LABELS[kind] ?? kind, color, dash: style.dash, shape: "marker"});
     }
     return entries;
 }
@@ -98,7 +128,7 @@ function scaledFont(font, pixelRatio) {
  * Draws a vertical line with a centered label above the plot for each marker in the date range, e.g. major releases.
  * The lines are drawn before the series, so that they don't cover the data.
  */
-function drawMarkers(plot, markers, font) {
+function drawMarkers(plot, markers, font, theme) {
     const releases = markers.filter(marker => marker.timestamp >= plot.scales.x.min && marker.timestamp <= plot.scales.x.max);
     if (releases.length === 0) {
         return;
@@ -122,13 +152,13 @@ function drawMarkers(plot, markers, font) {
     );
 
     context.lineWidth = lineWidth;
-    context.fillStyle = CHART_STYLE.axisColor;
+    context.fillStyle = theme.axisColor;
     context.textBaseline = "bottom";
     context.textAlign = "center";
 
     releases.forEach((release, index) => {
         const style = CHART_STYLE.markers[release.kind] ?? CHART_STYLE.markers.release;
-        context.strokeStyle = style.color;
+        context.strokeStyle = theme.markerColors[release.kind] ?? theme.markerColors.release;
         context.setLineDash(style.dash.map(length => length * pixelRatio));
         context.beginPath();
         context.moveTo(positions[index], top);
@@ -144,7 +174,7 @@ function drawMarkers(plot, markers, font) {
 /**
  * Draws the lines to incomplete values over the lines of uPlot in a lighter, less saturated color of the series.
  */
-function drawIncompleteLines(plot, chartSeries) {
+function drawIncompleteLines(plot, chartSeries, theme) {
     const context = plot.ctx;
     const pixelRatio = uPlot.pxRatio;
     const timestamps = plot.data[0];
@@ -185,12 +215,12 @@ function drawIncompleteLines(plot, chartSeries) {
         context.setLineDash([]);
         context.lineCap = "round";
         context.lineWidth = CHART_STYLE.lineWidth * pixelRatio + 2;
-        context.strokeStyle = CHART_STYLE.surfaceColor;
+        context.strokeStyle = theme.surfaceColor;
         context.stroke(path);
         context.setLineDash([0, CHART_STYLE.incompleteDotSpacing * pixelRatio]);
         context.lineCap = "round";
         context.lineWidth = CHART_STYLE.lineWidth * pixelRatio;
-        context.strokeStyle = incompleteColor(series.color);
+        context.strokeStyle = incompleteColor(series.color, theme.isDark);
         context.stroke(path);
     });
     context.restore();
@@ -200,7 +230,7 @@ function drawIncompleteLines(plot, chartSeries) {
  * Draws the points of all series with a ring in the surface color. Incomplete values are drawn in a different color.
  * Points at the edges of the plot are not cut off.
  */
-function drawPoints(plot, chartSeries) {
+function drawPoints(plot, chartSeries, theme) {
     const context = plot.ctx;
     const pixelRatio = uPlot.pxRatio;
     const radius = CHART_STYLE.pointRadius * pixelRatio;
@@ -233,14 +263,14 @@ function drawPoints(plot, chartSeries) {
 
             context.beginPath();
             context.arc(x, y, radius + ring, 0, 2 * Math.PI);
-            context.fillStyle = CHART_STYLE.surfaceColor;
+            context.fillStyle = theme.surfaceColor;
             context.fill();
 
             context.beginPath();
             if (isIncomplete) {
                 context.arc(x, y, radius - pixelRatio, 0, 2 * Math.PI);
                 context.lineWidth = 2 * pixelRatio;
-                context.strokeStyle = incompleteColor(series.color);
+                context.strokeStyle = incompleteColor(series.color, theme.isDark);
                 context.stroke();
             } else {
                 context.arc(x, y, radius, 0, 2 * Math.PI);
@@ -257,15 +287,15 @@ const stripePatterns = new Map();
 /**
  * @return {CanvasPattern} Diagonal stripes in the color on the surface color, for incomplete bars.
  */
-function stripePattern(context, color, pixelRatio) {
-    const key = color + "/" + pixelRatio;
+function stripePattern(context, color, pixelRatio, surfaceColor) {
+    const key = color + "/" + surfaceColor + "/" + pixelRatio;
     if (!stripePatterns.has(key)) {
         const size = Math.round(CHART_STYLE.incompleteStripeSpacing * 2 * pixelRatio);
         const tile = document.createElement("canvas");
         tile.width = size;
         tile.height = size;
         const tileContext = tile.getContext("2d");
-        tileContext.fillStyle = CHART_STYLE.surfaceColor;
+        tileContext.fillStyle = surfaceColor;
         tileContext.fillRect(0, 0, size, size);
         tileContext.strokeStyle = color;
         tileContext.lineWidth = 2 * pixelRatio;
@@ -335,7 +365,7 @@ function overlayColor(overlay) {
  * Marks the minimum and/or the maximum of each shown series with a ring and a label with the value.
  * The label of the maximum is above the value, the label of the minimum below it.
  */
-function drawExtremes(plot, chartSeries, {kinds, isBars, interval, formatter, font}) {
+function drawExtremes(plot, chartSeries, {kinds, isBars, interval, formatter, font, theme}) {
     const context = plot.ctx;
     const pixelRatio = uPlot.pxRatio;
     const timestamps = plot.data[0];
@@ -394,7 +424,7 @@ function drawExtremes(plot, chartSeries, {kinds, isBars, interval, formatter, fo
             placedLabels.push(box);
 
             // a background in the surface color keeps the label readable on lines and grid lines
-            context.fillStyle = CHART_STYLE.surfaceColor;
+            context.fillStyle = theme.surfaceColor;
             context.fillRect(box.left, box.top, box.width, box.height);
             context.fillStyle = series.color;
             context.fillText(label, labelX, labelY);
@@ -406,7 +436,7 @@ function drawExtremes(plot, chartSeries, {kinds, isBars, interval, formatter, fo
 /**
  * Draws the values of all series as groups of bars. Incomplete values are drawn in a different color.
  */
-function drawBars(plot, chartSeries, interval) {
+function drawBars(plot, chartSeries, interval, theme) {
     const context = plot.ctx;
     const pixelRatio = uPlot.pxRatio;
     const timestamps = plot.data[0];
@@ -428,11 +458,11 @@ function drawBars(plot, chartSeries, interval) {
             }
             const x = plot.valToPos(timestamps[i], "x", true);
             const isIncomplete = series.incomplete.has(timestamps[i]);
-            context.fillStyle = isIncomplete ? stripePattern(context, incompleteColor(series.color), pixelRatio) : series.color;
+            context.fillStyle = isIncomplete ? stripePattern(context, incompleteColor(series.color, theme.isDark), pixelRatio, theme.surfaceColor) : series.color;
             drawBar(context, x + offsets[position], width, plot.valToPos(value, scale, true), baseY, CHART_STYLE.barRadius * pixelRatio);
             if (isIncomplete) {
                 context.lineWidth = pixelRatio;
-                context.strokeStyle = incompleteColor(series.color);
+                context.strokeStyle = incompleteColor(series.color, theme.isDark);
                 context.stroke();
             }
         });
@@ -705,17 +735,18 @@ function yearRange([min, max]) {
 }
 
 function yAxis(unit, scale, side, style) {
+    const theme = style.theme;
     return {
         scale,
         side,
         label: unitTitle(unit),
         labelFont: style.fonts.axisTitle,
         font: style.fonts.ticks,
-        stroke: CHART_STYLE.axisColor,
+        stroke: theme.axisColor,
         size: 64,
         // only the left axis has a grid, two grids would be confusing
-        grid: {show: side === 3, stroke: CHART_STYLE.gridColor, width: 1},
-        ticks: {stroke: CHART_STYLE.gridColor, width: 1},
+        grid: {show: side === 3, stroke: theme.gridColor, width: 1},
+        ticks: {stroke: theme.gridColor, width: 1},
         values: (plot, splits) => splits.map(value => style.formatter.compact(value)),
     };
 }
@@ -740,14 +771,16 @@ function yAxis(unit, scale, side, style) {
  * @param {number} options.width
  * @param {number} options.height
  * @param {HTMLElement} options.container
+ * @param {"light"|"dark"} [options.theme] The colors of the chart, by default the color scheme of the browser.
  * @return {uPlot}
  */
-export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, overlays = [], fontFamily, width, height, container}) {
-    const style = {formatter, fonts: fonts(fontFamily)};
+export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, overlays = [], fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
+    const theme = CHART_THEMES[themeName];
+    const style = {formatter, fonts: fonts(fontFamily), theme};
     const scaleKeys = ["y", "y2"];
     const chartSeries = units.flatMap((unit, unitIndex) => series
         .filter(s => s.unit === unit)
-        .map(s => ({...s, scale: scaleKeys[unitIndex], isRightAxis: unitIndex === 1})));
+        .map(s => ({...s, color: displayColor(s.color, theme.isDark), scale: scaleKeys[unitIndex], isRightAxis: unitIndex === 1})));
 
     // the overlays of series, which aren't shown in this chart, are ignored
     const chartOverlays = overlays
@@ -792,9 +825,9 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
             label: "Date",
             labelFont: style.fonts.axisTitle,
             font: style.fonts.ticks,
-            stroke: CHART_STYLE.axisColor,
-            grid: {stroke: CHART_STYLE.gridColor, width: 1},
-            ticks: {stroke: CHART_STYLE.gridColor, width: 1},
+            stroke: theme.axisColor,
+            grid: {stroke: theme.gridColor, width: 1},
+            ticks: {stroke: theme.gridColor, width: 1},
             ...xAxisTicks(period, formatter),
         },
         yAxis(units[0], "y", 3, style),
@@ -825,16 +858,16 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
             },
         },
         hooks: {
-            drawAxes: [plot => drawMarkers(plot, markers, style.fonts.releaseLabel)],
+            drawAxes: [plot => drawMarkers(plot, markers, style.fonts.releaseLabel, theme)],
             draw: [plot => {
                 if (isBars) {
-                    drawBars(plot, chartSeries, interval);
+                    drawBars(plot, chartSeries, interval, theme);
                 } else {
-                    drawIncompleteLines(plot, chartSeries);
-                    drawPoints(plot, chartSeries);
+                    drawIncompleteLines(plot, chartSeries, theme);
+                    drawPoints(plot, chartSeries, theme);
                 }
                 if (extremes.length > 0) {
-                    drawExtremes(plot, chartSeries, {kinds: extremes, isBars, interval, formatter, font: style.fonts.extremeLabel});
+                    drawExtremes(plot, chartSeries, {kinds: extremes, isBars, interval, formatter, font: style.fonts.extremeLabel, theme});
                 }
             }],
             // series are shown and hidden by a click on the legend, the overlays of a series are shown and hidden with it
@@ -885,6 +918,6 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     updateTooltip = enableTooltip(plot, chartSeries, describe);
     updateComparisons = enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, formatter, valueTable});
     enableTouchCursor(plot);
-    legendData.set(plot, {chartSeries, markers, isBars, chartOverlays});
+    legendData.set(plot, {chartSeries, markers, isBars, chartOverlays, theme});
     return plot;
 }
