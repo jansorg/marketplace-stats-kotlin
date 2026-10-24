@@ -12,42 +12,20 @@
 
 @param value: Any?
 
-@if(value is Array<*>)
-    @for(i in ForSupport.of(value))
-        @template.render(i.get())@if(!i.isLast)<br>@endif
-    @endfor
-@elseif(value is Iterable<*>)
-    @for(i in ForSupport.of(value))
-        @template.render(i.get())@if(!i.isLast)<br>@endif
-    @endfor
-@elseif(value is MonetaryAmount)
-    ${Formatters.MonetaryAmount.format(value)}
-@elseif(value is PercentageValue)
-    @if(value == PercentageValue.ZERO)
-        —
-    @else
-        ${String.format("%,.2f %%", value.value)}
-    @endif
-@elseif(value is BigInteger)
-    ${Formatters.formatInteger(value)}
-@elseif(value is BigDecimal)
-    ${Formatters.formatDecimal(value)}
-@elseif(value is Double)
-    ${Formatters.formatDecimal(value)}
-@elseif(value is Float)
-    ${Formatters.formatDecimal(value.toDouble())}
-@elseif(value is IncompleteValue)
-    <span class="incomplete">@template.render(value.value)</span>
-@elseif(value is LinkedCustomer)
-    <a class="noprint" href="/customer/${value.id}?pluginId=${value.pluginId}">${value.id}</a>
-@elseif(value is LinkedLicense)
-    <a class="noprint" href="/license/${value.id}?pluginId=${value.pluginId}">${value.id}</a>
-@elseif(value is LinkedRefNum)
-    <a class="noprint" href="/refnum/${value.refNum}?pluginId=${value.pluginId}">${value.refNum}</a>
-@elseif(value is LinkedChurnRate)
-    <a href="/churn-rate/${value.period.linkSegmentName}/${value.previousPeriodMarkerDate.toString()}/${value.currentPeriodMarkerDate.toString()}?pluginId=${value.pluginId}">
-        @template.render(value.churnRate)
-    </a>
-@else
-    ${value?.toString()}
-@endif
+<%-- The values have no whitespace around them: the cells of large tables would contain more whitespace than values.
+     The comments join the lines without adding whitespace to the output. --%>@if(value is Array<*>)<%--
+    --%>@for(i in ForSupport.of(value))@template.render(i.get())@if(!i.isLast)<br>@endif@endfor<%--
+--%>@elseif(value is Iterable<*>)<%--
+    --%>@for(i in ForSupport.of(value))@template.render(i.get())@if(!i.isLast)<br>@endif@endfor<%--
+--%>@elseif(value is MonetaryAmount)${Formatters.MonetaryAmount.format(value)}<%--
+--%>@elseif(value is PercentageValue)@if(value == PercentageValue.ZERO)—@else${Formatters.formatPercentage(value.value)}@endif<%--
+--%>@elseif(value is BigInteger)${Formatters.formatInteger(value)}<%--
+--%>@elseif(value is BigDecimal)${Formatters.formatDecimal(value)}<%--
+--%>@elseif(value is Double)${Formatters.formatDecimal(value)}<%--
+--%>@elseif(value is Float)${Formatters.formatDecimal(value.toDouble())}<%--
+--%>@elseif(value is IncompleteValue)<span class="incomplete">@template.render(value.value)</span><%--
+--%>@elseif(value is LinkedCustomer)<a class="noprint" href="/customer/${value.id}?pluginId=${value.pluginId}">${value.id}</a><%--
+--%>@elseif(value is LinkedLicense)<a class="noprint" href="/license/${value.id}?pluginId=${value.pluginId}">${value.id}</a><%--
+--%>@elseif(value is LinkedRefNum)<a class="noprint" href="/refnum/${value.refNum}?pluginId=${value.pluginId}">${value.refNum}</a><%--
+--%>@elseif(value is LinkedChurnRate)<a href="/churn-rate/${value.period.linkSegmentName}/${value.previousPeriodMarkerDate.toString()}/${value.currentPeriodMarkerDate.toString()}?pluginId=${value.pluginId}">@template.render(value.churnRate)</a><%--
+--%>@else${value?.toString()}@endif
