@@ -7,10 +7,13 @@ package dev.ja.marketplace.data
 
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.*
+import dev.ja.marketplace.data.subscriptions.CustomerRecurringRevenue
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import dev.ja.marketplace.services.Countries
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 data class PluginData(
     // JetBrains Services
@@ -33,6 +36,9 @@ data class PluginData(
     private val trialsDeferred: Deferred<List<PluginTrial>>?,
 ) {
     val pluginId: PluginId = pluginSummary.id
+
+    private val customerRecurringRevenueLock = Mutex()
+    private var customerRecurringRevenue: CustomerRecurringRevenue? = null
 
     suspend fun getPluginInfo(): PluginInfo {
         return pluginInfoDeferred.await()
@@ -64,6 +70,17 @@ data class PluginData(
 
     suspend fun getTrials(): List<PluginTrial>? {
         return trialsDeferred?.await()
+    }
+
+    /**
+     * The recurring revenue of each customer, calculated from all licenses.
+     * It's calculated once and shared by the tables of a page, because the calculation is expensive.
+     */
+    suspend fun getCustomerRecurringRevenue(): CustomerRecurringRevenue {
+        return customerRecurringRevenueLock.withLock {
+            customerRecurringRevenue
+                ?: CustomerRecurringRevenue(getLicenses() ?: emptyList(), exchangeRates).also { customerRecurringRevenue = it }
+        }
     }
 
     /**
