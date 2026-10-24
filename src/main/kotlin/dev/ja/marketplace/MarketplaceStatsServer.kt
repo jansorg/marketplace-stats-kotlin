@@ -23,7 +23,8 @@ import dev.ja.marketplace.data.licenses.FallbackVersion
 import dev.ja.marketplace.data.licenses.LicenseTable
 import dev.ja.marketplace.data.licenses.LicenseStatus
 import dev.ja.marketplace.data.licenses.LicenseTableFactory
-import dev.ja.marketplace.data.lineItems.LineItemsTable
+import dev.ja.marketplace.data.lineItems.LineItemLicensesTable
+import dev.ja.marketplace.data.lineItems.SaleLineItemSummary
 import dev.ja.marketplace.data.overview.OverviewTableFactory
 import dev.ja.marketplace.data.privingOverview.PricingOverviewTableFactory
 import dev.ja.marketplace.data.resellers.ResellerTableFactory
@@ -837,9 +838,14 @@ class MarketplaceStatsServer(
             return
         }
 
-        val lineItemsTable = LineItemsTable()
-        lineItemsTable.init(data)
-        lineItemsTable.process(sale)
+        // the details of each line item and its licenses
+        val licenses = data.getLicenses() ?: emptyList()
+        val lineItems = sale.lineItems.map { lineItem ->
+            val licenseTable = LineItemLicensesTable(lineItem)
+            licenseTable.init(data)
+            licenses.forEach { licenseTable.process(it) }
+            SaleLineItemSummary(sale, lineItem) to licenseTable.renderTable()
+        }
 
         call.respond(
             JteContent(
@@ -847,7 +853,7 @@ class MarketplaceStatsServer(
                     "cssClass" to null,
                     "plugin" to data.getPluginInfo(),
                     "sale" to sale,
-                    "lineItemsTable" to lineItemsTable.renderTable(),
+                    "lineItems" to lineItems,
                     "settings" to serverConfiguration,
                 )
             )
