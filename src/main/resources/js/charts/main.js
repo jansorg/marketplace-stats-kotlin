@@ -186,7 +186,7 @@ class ChartController {
             return series.label + " has no values to show.";
         }
         if (this.series.length >= MAX_SERIES) {
-            return `At most ${MAX_SERIES} columns can be shown. Remove all to start again.`;
+            return `At most ${MAX_SERIES} columns can be shown. Clear the charts to start again.`;
         }
         return null;
     }
@@ -199,7 +199,7 @@ class ChartController {
             return pie.label + " has no values to show.";
         }
         if (this.pies.length >= MAX_PIES) {
-            return `At most ${MAX_PIES} pie charts can be shown. Remove all to start again.`;
+            return `At most ${MAX_PIES} pie charts can be shown. Clear the charts to start again.`;
         }
         return null;
     }
