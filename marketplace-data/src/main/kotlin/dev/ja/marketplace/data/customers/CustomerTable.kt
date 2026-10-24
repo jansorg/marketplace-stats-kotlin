@@ -47,14 +47,14 @@ class CustomerTable(
     private val columnType = DataTableColumn("customer-type", "Type")
     private val columnSales = DataTableColumn("sales-total", "Total Sales", "num")
     private val columnActiveLicenses = DataTableColumn(
-        "customer-licenses-active", "Active Licenses", "num", tooltip = "Licenses, which the customer holds today"
+        "customer-licenses-active", "Active", "num", tooltip = "Licenses, which the customer holds today"
     )
     private val columnChurnedLicenses = DataTableColumn(
-        "customer-licenses-churned", "Churned Licenses", "num",
+        "customer-licenses-churned", "Churned", "num",
         tooltip = "Licenses, which ended and weren't renewed by any customer"
     )
     private val columnTransferredLicenses = DataTableColumn(
-        "customer-licenses-transferred", "Transferred Licenses", "num",
+        "customer-licenses-transferred", "Transferred", "num",
         tooltip = "Licenses, which another customer renewed and still holds, e.g. after a transfer to an organization"
     )
     private val columnTotalLicenses = DataTableColumn("customer-licenses-total", "Total Licenses", "num")
@@ -75,10 +75,10 @@ class CustomerTable(
             columnValidSince,
             columnName,
             columnSales,
-            columnActiveLicenses,
-            columnChurnedLicenses,
-            columnTransferredLicenses.takeIf { customerMap.values.any { transferredLicenses(it) > 0 } },
             columnTotalLicenses,
+            columnActiveLicenses,
+            columnTransferredLicenses.takeIf { customerMap.values.any { transferredLicenses(it) > 0 } },
+            columnChurnedLicenses,
             columnType,
             columnCountry,
             columnId
@@ -147,7 +147,7 @@ class CustomerTable(
                         columnValidUntil to validUntil.takeIf { showValidUntil },
                         columnValidSince to validSince,
                         columnId to LinkedCustomer(customer.code, pluginId = pluginId!!),
-                        columnName to (customer.name ?: NoValue),
+                        columnName to (customer.name?.let { LinkedCustomerName(it, customer.code, pluginId!!) } ?: NoValue),
                         columnCountry to customer.country,
                         columnType to customer.type,
                         columnTotalLicenses to customerData.totalLicenses.size.toBigInteger(),

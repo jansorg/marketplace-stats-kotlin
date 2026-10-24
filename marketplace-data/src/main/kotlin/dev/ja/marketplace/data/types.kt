@@ -77,6 +77,9 @@ const val IncompleteRecurringRevenueTooltip: String =
 
 data class LinkedCustomer(val id: CustomerId, val pluginId: PluginId)
 
+/** The name of a customer, linked to the page of the customer. */
+data class LinkedCustomerName(val name: String, val id: CustomerId, val pluginId: PluginId)
+
 data class LinkedLicense(val id: LicenseId, val pluginId: PluginId)
 
 data class LinkedRefNum(val refNum: String, val pluginId: PluginId)
