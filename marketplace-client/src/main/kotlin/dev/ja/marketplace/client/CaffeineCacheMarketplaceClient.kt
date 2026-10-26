@@ -25,14 +25,13 @@ import kotlinx.serialization.builtins.serializer
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.abs
+import dev.ja.marketplace.client.CachingStrategy.Category
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.days
-import kotlin.time.Duration.Companion.minutes
 
 /**
  * Client, which caches the API responses in memory.
  *
+ * The durations of the cached data are defined by the [cachingStrategy].
  * If a [persistentCache] is given, the history of sales and trials and the prices of plugins are also stored on disk.
  * After a restart, the stored data is used and updated in the background, see [PersistentHistoryCache].
  * The store must only be used for the data of a single account, see [PersistentCacheStore.accountStore].
@@ -42,9 +41,8 @@ class CaffeineCacheMarketplaceClient(
     apiPath: String = Marketplace.API_PATH,
     dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2),
     httpClient: HttpClient,
-    private val unstableHistoricDataDays: Int = 45,
     private val persistentCache: PersistentCacheStore? = null,
-    private val persistentHistorySettings: PersistentHistorySettings = PersistentHistorySettings(overlapDays = unstableHistoricDataDays),
+    private val cachingStrategy: CachingStrategy = CachingStrategy(),
 ) : KtorMarketplaceClient(apiHost, apiPath, dispatcher, httpClient), CacheAware {
     constructor(
         apiKey: String,
@@ -54,17 +52,17 @@ class CaffeineCacheMarketplaceClient(
         enableHttpCaching: Boolean = false,
         dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2),
         persistentCacheDirectory: Path? = null,
+        cachingStrategy: CachingStrategy = CachingStrategy(),
     ) : this(
         apiHost,
         apiPath,
         dispatcher,
         KtorHttpClientFactory.createHttpClient(apiHost, apiKey, logLevel = logLevel, enableHttpCaching = enableHttpCaching),
         persistentCache = persistentCacheDirectory?.let { PersistentCacheStore(it).accountStore(apiHost, apiKey) },
+        cachingStrategy = cachingStrategy,
     )
 
-    private val frequentlyModifiedCacheDuration = 30.minutes
-    private val rarelyModifiedCacheDuration = 1.days
-    private val mostlyStaticCacheDuration = 7.days
+    private val persistentHistorySettings = cachingStrategy.historySettings
 
     private val cache = Caffeine.newBuilder()
         .expireAfter(CacheExpiry())
@@ -75,10 +73,14 @@ class CaffeineCacheMarketplaceClient(
     private val persistentCacheScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val persistentSales = ConcurrentHashMap<PluginId, PersistentHistoryCache<PluginSale, CachedSale>>()
     private val persistentTrials = ConcurrentHashMap<PluginId, PersistentHistoryCache<PluginTrial, CachedTrial>>()
-    private val persistentPrices = persistentCache?.let { PersistentPriceCache(it, persistentCacheScope) }
+    private val persistentPrices = persistentCache?.let {
+        PersistentPriceCache(it, persistentCacheScope, maxAge = cachingStrategy.maxAge(Category.Static))
+    }
 
-    // downloads are stored for a day, the monthly, daily and per-product values are requested via downloads()
-    private val persistentDownloads = persistentCache?.let { PersistentResponseCache(it, persistentCacheScope, maxAge = 1.days) }
+    // the monthly, daily and per-product downloads are requested via downloads()
+    private val persistentDownloads = persistentCache?.let {
+        PersistentResponseCache(it, persistentCacheScope, maxAge = cachingStrategy.maxAge(Category.Daily))
+    }
 
     // set after the cache was invalidated, data stored on disk is ignored afterward
     @Volatile
@@ -145,26 +147,26 @@ class CaffeineCacheMarketplaceClient(
     }
 
     override suspend fun userInfo(): UserInfo {
-        return loadCached("userInfo", rarelyModifiedCacheDuration) {
+        return loadCached("userInfo", Category.Daily) {
             super.userInfo()
         }
     }
 
     override suspend fun plugins(userId: UserId, family: List<ProductFamily>?, page: Int, maxResults: Int?): List<PluginInfoSummary> {
         val families = family?.joinToString(",", transform = ProductFamily::jsonId) ?: ""
-        return loadCached("plugins.$userId.$families.$page.${maxResults ?: -1}", rarelyModifiedCacheDuration) {
+        return loadCached("plugins.$userId.$families.$page.${maxResults ?: -1}", Category.Daily) {
             super.plugins(userId, family, page, maxResults)
         }
     }
 
     override suspend fun pluginInfo(plugin: PluginId): PluginInfo {
-        return loadCached("pluginInfo.$plugin", rarelyModifiedCacheDuration) {
+        return loadCached("pluginInfo.$plugin", Category.Daily) {
             super.pluginInfo(plugin)
         }
     }
 
     override suspend fun pluginRating(id: PluginId): PluginRating {
-        return loadCached("pluginRating.$id", frequentlyModifiedCacheDuration) {
+        return loadCached("pluginRating.$id", Category.Daily) {
             super.pluginRating(id)
         }
     }
@@ -202,7 +204,7 @@ class CaffeineCacheMarketplaceClient(
     }
 
     override suspend fun licenseInfo(plugin: PluginId): SalesWithLicensesInfo {
-        return loadCached(licenseInfoKey(plugin), frequentlyModifiedCacheDuration) {
+        return loadCached(licenseInfoKey(plugin), Category.Recent) {
             super.licenseInfo(plugin)
         }
     }
@@ -210,7 +212,7 @@ class CaffeineCacheMarketplaceClient(
     override suspend fun downloadsTotal(plugin: PluginId, vararg filters: DownloadFilter): Long {
         val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
         val key = "downloadsTotal.$plugin.$filterString"
-        return loadCached(key, frequentlyModifiedCacheDuration) {
+        return loadCached(key, Category.Daily) {
             storedDownloads(plugin, key, Long.serializer()) { super.downloadsTotal(plugin, *filters) }
         }
     }
@@ -224,7 +226,7 @@ class CaffeineCacheMarketplaceClient(
     ): DownloadResponse {
         val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
         val key = "downloads.$plugin.$groupType.$countType.$startDate.$filterString"
-        return loadCached(key, frequentlyModifiedCacheDuration) {
+        return loadCached(key, Category.Daily) {
             storedDownloads(plugin, key, DownloadResponse.serializer()) { super.downloads(plugin, groupType, countType, startDate, *filters) }
         }
     }
@@ -239,7 +241,7 @@ class CaffeineCacheMarketplaceClient(
     ): GroupedDownloadResponse {
         val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
         val key = "groupedDownloads.$plugin.$dimension.$groupType.$countType.$startDate.$filterString"
-        return loadCached(key, frequentlyModifiedCacheDuration) {
+        return loadCached(key, Category.Daily) {
             storedDownloads(plugin, key, GroupedDownloadResponse.serializer()) {
                 super.groupedDownloads(plugin, dimension, groupType, countType, startDate, *filters)
             }
@@ -259,7 +261,7 @@ class CaffeineCacheMarketplaceClient(
     private fun downloadsFileName(plugin: PluginId): String = "plugin-$plugin-downloads"
 
     override suspend fun pageAnalytics(plugin: PluginId, timeFrame: PageAnalyticsTimeFrame): PluginPageAnalytics {
-        return loadCached("pageAnalytics.$plugin.$timeFrame", frequentlyModifiedCacheDuration) {
+        return loadCached("pageAnalytics.$plugin.$timeFrame", Category.Daily) {
             super.pageAnalytics(plugin, timeFrame)
         }
     }
@@ -270,7 +272,7 @@ class CaffeineCacheMarketplaceClient(
         startDate: YearMonthDay?,
         productCode: JetBrainsProductCode?
     ): List<MonthlyDownload> {
-        return loadCached("downloadsMonthly.$plugin.$countType.$startDate", frequentlyModifiedCacheDuration) {
+        return loadCached("downloadsMonthly.$plugin.$countType.$startDate", Category.Daily) {
             super.downloadsMonthly(plugin, countType, startDate, productCode)
         }
     }
@@ -281,79 +283,79 @@ class CaffeineCacheMarketplaceClient(
         startDate: YearMonthDay?,
         productCode: JetBrainsProductCode?
     ): List<DailyDownload> {
-        return loadCached("downloadsDaily.$plugin.$countType.$startDate.$productCode", frequentlyModifiedCacheDuration) {
+        return loadCached("downloadsDaily.$plugin.$countType.$startDate.$productCode", Category.Daily) {
             super.downloadsDaily(plugin, countType, startDate, productCode)
         }
     }
 
     override suspend fun downloadsByProduct(plugin: PluginId, countType: DownloadCountType): List<ProductDownload> {
-        return loadCached("downloadsByProduct.$plugin.$countType", frequentlyModifiedCacheDuration) {
+        return loadCached("downloadsByProduct.$plugin.$countType", Category.Daily) {
             super.downloadsByProduct(plugin, countType)
         }
     }
 
     override suspend fun compatibleProducts(plugin: PluginId): List<JetBrainsProductId> {
-        return loadCached("compatibleProducts.$plugin", rarelyModifiedCacheDuration) {
+        return loadCached("compatibleProducts.$plugin", Category.Daily) {
             super.compatibleProducts(plugin)
         }
     }
 
     override suspend fun volumeDiscounts(plugin: PluginId): VolumeDiscountResponse {
-        return loadCached("volumeDiscount.$plugin", rarelyModifiedCacheDuration) {
+        return loadCached("volumeDiscount.$plugin", Category.Daily) {
             super.volumeDiscounts(plugin)
         }
     }
 
     override suspend fun releaseDates(plugin: PluginId): List<PluginReleaseDate> {
-        return loadCached("releaseDates.$plugin", rarelyModifiedCacheDuration) {
+        return loadCached("releaseDates.$plugin", Category.Daily) {
             super.releaseDates(plugin)
         }
     }
 
     override suspend fun offers(plugin: PluginId): List<PluginOffer> {
-        return loadCached("offers.$plugin", frequentlyModifiedCacheDuration) {
+        return loadCached("offers.$plugin", Category.Recent) {
             super.offers(plugin)
         }
     }
 
     override suspend fun offer(plugin: PluginId, offer: PluginOfferId): PluginOffer {
-        return loadCached("offer.$plugin.$offer", frequentlyModifiedCacheDuration) {
+        return loadCached("offer.$plugin.$offer", Category.Recent) {
             super.offer(plugin, offer)
         }
     }
 
     override suspend fun offerCoupons(plugin: PluginId, offer: PluginOfferId): List<PluginOfferCoupon> {
-        return loadCached("offerCoupons.$plugin.$offer", frequentlyModifiedCacheDuration) {
+        return loadCached("offerCoupons.$plugin.$offer", Category.Recent) {
             super.offerCoupons(plugin, offer)
         }
     }
 
     override suspend fun monetization(plugin: PluginId): PluginMonetization {
-        return loadCached("monetization.$plugin", rarelyModifiedCacheDuration) {
+        return loadCached("monetization.$plugin", Category.Daily) {
             super.monetization(plugin)
         }
     }
 
     override suspend fun salesAnalyticsReport(plugin: PluginId): List<SalesAnalyticsReportRow> {
-        return loadCached("salesAnalyticsReport.$plugin", frequentlyModifiedCacheDuration) {
+        return loadCached("salesAnalyticsReport.$plugin", Category.Recent) {
             super.salesAnalyticsReport(plugin)
         }
     }
 
     override suspend fun fullSalesReport(plugin: PluginId): List<FullSalesReportRow> {
-        return loadCached("fullSalesReport.$plugin", frequentlyModifiedCacheDuration) {
+        return loadCached("fullSalesReport.$plugin", Category.Recent) {
             super.fullSalesReport(plugin)
         }
     }
 
     override suspend fun marketplacePluginInfo(plugin: PluginId, fullInfo: Boolean): MarketplacePluginInfo {
-        return loadCached("marketplacePluginInfo.$plugin.$fullInfo", rarelyModifiedCacheDuration) {
+        return loadCached("marketplacePluginInfo.$plugin.$fullInfo", Category.Daily) {
             super.marketplacePluginInfo(plugin, fullInfo)
         }
     }
 
     override suspend fun marketplacePluginsSearchSinglePage(request: MarketplacePluginSearchRequest): MarketplacePluginSearchResponse {
-        return loadCached("marketplaceSearchPluginsPage.$request", frequentlyModifiedCacheDuration) {
+        return loadCached("marketplaceSearchPluginsPage.$request", Category.Recent) {
             super.marketplacePluginsSearchSinglePage(request)
         }
     }
@@ -362,43 +364,43 @@ class CaffeineCacheMarketplaceClient(
         request: MarketplacePluginSearchRequest,
         pageSize: Int
     ): List<MarketplacePluginSearchResultItem> {
-        return loadCached("marketplaceSearchPlugins.$request.$pageSize", frequentlyModifiedCacheDuration) {
+        return loadCached("marketplaceSearchPlugins.$request.$pageSize", Category.Recent) {
             super.marketplacePluginsSearch(request, pageSize)
         }
     }
 
     override suspend fun reviewComments(plugin: PluginId, pageSize: Int): List<PluginReviewComment> {
-        return loadCached("reviewComments.$plugin", frequentlyModifiedCacheDuration) {
+        return loadCached("reviewComments.$plugin", Category.Recent) {
             super.reviewComments(plugin, pageSize)
         }
     }
 
     override suspend fun reviewCommentsSinglePage(plugin: PluginId, size: Int, page: Int): List<PluginReviewComment> {
-        return loadCached("reviewComments.$plugin.$size.$page", frequentlyModifiedCacheDuration) {
+        return loadCached("reviewComments.$plugin.$size.$page", Category.Recent) {
             super.reviewCommentsSinglePage(plugin, size, page)
         }
     }
 
     override suspend fun reviewReplies(plugin: PluginId): List<PluginReviewComment> {
-        return loadCached("reviewReplies.$plugin", frequentlyModifiedCacheDuration) {
+        return loadCached("reviewReplies.$plugin", Category.Recent) {
             super.reviewReplies(plugin)
         }
     }
 
     override suspend fun channels(plugin: PluginId): List<PluginChannel> {
-        return loadCached("channels.$plugin", rarelyModifiedCacheDuration) {
+        return loadCached("channels.$plugin", Category.Daily) {
             super.channels(plugin)
         }
     }
 
     override suspend fun releasesSinglePage(plugin: PluginId, channel: PluginChannel, size: Int, page: Int): List<PluginReleaseInfo> {
-        return loadCached("releases.$plugin.$channel.$size.$page", rarelyModifiedCacheDuration) {
+        return loadCached("releases.$plugin.$channel.$size.$page", Category.Daily) {
             super.releasesSinglePage(plugin, channel, size, page)
         }
     }
 
     override suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo {
-        return loadCached("priceInfo.$plugin.$isoCountryCode", mostlyStaticCacheDuration) {
+        return loadCached("priceInfo.$plugin.$isoCountryCode", Category.Static) {
             when (persistentPrices) {
                 null -> super.priceInfo(plugin, isoCountryCode)
                 else -> persistentPrices.get(plugin, isoCountryCode) { super.priceInfo(plugin, isoCountryCode) }
@@ -407,23 +409,13 @@ class CaffeineCacheMarketplaceClient(
     }
 
     override suspend fun loadSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
-        val cacheDuration = when {
-            abs(range.start daysUntil YearMonthDay.now()) > unstableHistoricDataDays -> mostlyStaticCacheDuration
-            else -> frequentlyModifiedCacheDuration
-        }
-
-        return loadCached("loadSalesInfo.$plugin.$range", cacheDuration) {
+        return loadCached("loadSalesInfo.$plugin.$range", cachingStrategy.historyCategory(range)) {
             super.loadSalesInfo(plugin, range)
         }
     }
 
     override suspend fun loadTrialsInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginTrial> {
-        val cacheDuration = when {
-            abs(range.start daysUntil YearMonthDay.now()) > unstableHistoricDataDays -> mostlyStaticCacheDuration
-            else -> frequentlyModifiedCacheDuration
-        }
-
-        return loadCached("loadTrialsInfo.$plugin.$range", cacheDuration) {
+        return loadCached("loadTrialsInfo.$plugin.$range", cachingStrategy.historyCategory(range)) {
             super.loadTrialsInfo(plugin, range)
         }
     }
@@ -431,7 +423,8 @@ class CaffeineCacheMarketplaceClient(
     private fun licenseInfoKey(plugin: PluginId): String = "licenseInfo.$plugin"
 
     @Suppress("UNCHECKED_CAST")
-    private suspend fun <T> loadCached(key: String, expireAfterCreate: Duration, loader: suspend () -> T): T {
+    private suspend fun <T> loadCached(key: String, category: Category, loader: suspend () -> T): T {
+        val expireAfterCreate = cachingStrategy.maxAge(category)
         val cachedValue = cache.get(key) {
             try {
                 CacheValue(expireAfterCreate, loader(), null)
