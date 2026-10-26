@@ -7,6 +7,7 @@ package dev.ja.marketplace.data.lineItems
 
 import dev.ja.marketplace.client.LicenseId
 import dev.ja.marketplace.client.LicenseInfo
+import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.currency.MarketplaceCurrencies
@@ -14,10 +15,11 @@ import dev.ja.marketplace.client.model.PluginSaleItem
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.licenses.LicenseStatus
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
+import javax.money.MonetaryAmount
 
 /**
  * The licenses of a line item of a sale, with the end of the latest purchase of each license of all customers,
- * e.g. to see if a license was renewed later.
+ * e.g. to see if a license was renewed later. The footer contains the total amounts of the line item.
  */
 class LineItemLicensesTable(
     private val lineItem: PluginSaleItem,
@@ -26,6 +28,7 @@ class LineItemLicensesTable(
     private val columnLicenseId = DataTableColumn("license-id", "License ID", "col-right")
     private val columnAmount = DataTableColumn("license-amount", "Amount", "num")
     private val columnAmountUSD = DataTableColumn("license-amount-usd", "Amount USD", "num")
+    private val columnPaidAmount = DataTableColumn("license-paid-amount", "Paid Amount", "num", tooltip = "Amount after the share of the Marketplace")
     private val columnLicensedUntil = DataTableColumn(
         "license-until", "Licensed Until", "date", tooltip = "End of the latest purchase of the license, of all customers"
     )
@@ -44,6 +47,7 @@ class LineItemLicensesTable(
             columnLicenseId,
             columnAmount,
             columnAmountUSD.takeUnless { licenses.all { it.sale.amount.currency == MarketplaceCurrencies.USD } },
+            columnPaidAmount,
             columnLicensedUntil,
             columnRenewedBy.takeIf { licenses.any { renewedBy(it) != null } },
         )
@@ -79,6 +83,7 @@ class LineItemLicensesTable(
                     columnLicenseId to LinkedLicense(license.id, pluginId!!),
                     columnAmount to license.amount,
                     columnAmountUSD to license.amountUSD,
+                    columnPaidAmount to Marketplace.paidAmount(license.sale.date, license.amount),
                     columnLicensedUntil to when {
                         latestEnd == null -> NoValue
                         isChurned -> ExpiredLicenseEnd(latestEnd, latestEnd)
@@ -91,6 +96,16 @@ class LineItemLicensesTable(
                 cssClass = if (isChurned) "disabled" else null,
             )
         }
-        return listOf(SimpleTableSection(rows))
+        val footer = licenses.takeIf { it.isNotEmpty() }?.let { lineItemLicenses ->
+            val amount = lineItemLicenses.map(LicenseInfo::amount).reduce(MonetaryAmount::add)
+            SimpleRowGroup(
+                SimpleDateTableRow(
+                    columnAmount to amount,
+                    columnAmountUSD to lineItemLicenses.map(LicenseInfo::amountUSD).reduce(MonetaryAmount::add),
+                    columnPaidAmount to Marketplace.paidAmount(lineItemLicenses.first().sale.date, amount),
+                )
+            )
+        }
+        return listOf(SimpleTableSection(rows, footer = footer))
     }
 }
