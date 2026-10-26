@@ -15,6 +15,7 @@ import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.overview.OverviewTable.CustomerSegment.*
 import dev.ja.marketplace.data.trackers.*
+import dev.ja.marketplace.data.yearSummary.AllPluginsDailyValues
 import java.util.*
 
 class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tables-row") {
@@ -92,27 +93,35 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     private val years = TreeMap<Int, YearData>(Comparator.reverseOrder())
 
     private val columnYearMonth = DataTableColumn("month", null, "month")
-    private val columnAmountTotal = DataTableColumn("sales", "Total Sales", "num", dailyChartSeries = OverviewDailyColumn.Sales.id, chartMeasure = ChartMeasure.Flow)
+    private val columnAmountTotal = DataTableColumn("sales", "Total Sales", "num", dailyChartSeries = OverviewDailyColumn.Sales.id, yearlyChartSeries = AllPluginsDailyValues.SALES, chartMeasure = ChartMeasure.Flow)
     private val columnAmountFees = DataTableColumn("sales", "Fees", "num")
-    private val columnAmountPaid = DataTableColumn("sales", "Invoice", "num", dailyChartSeries = OverviewDailyColumn.Invoice.id, chartMeasure = ChartMeasure.Flow)
+    private val columnAmountPaid = DataTableColumn("sales", "Invoice", "num", dailyChartSeries = OverviewDailyColumn.Invoice.id, yearlyChartSeries = AllPluginsDailyValues.PAID, chartMeasure = ChartMeasure.Flow)
     private val columnActiveLicenses = DataTableColumn(
         "customer-licenses", "Licenses", "num", tooltip = "Licenses at the end of month",
         dailyChartSeries = OverviewDailyColumn.Licenses.id,
+        // the value at the end of each year
+        yearlyChartSeries = OverviewDailyColumn.Licenses.id,
         chartMeasure = ChartMeasure.Stock,
     )
     private val columnActiveLicensesPaying = DataTableColumn(
         "customer-licenses-paid", "Paid", "num", tooltip = "Paid licenses at the end of month", chartTitle = "Paid licenses",
         dailyChartSeries = OverviewDailyColumn.PaidLicenses.id,
+        // the value at the end of each year
+        yearlyChartSeries = OverviewDailyColumn.PaidLicenses.id,
         chartMeasure = ChartMeasure.Stock,
     )
     private val columnMonthlyRecurringRevenue = DataTableColumn(
         "customer-mrr", "MRR", "num", tooltip = "Average monthly recurring revenue (MRR)",
         dailyChartSeries = OverviewDailyColumn.Mrr.id,
+        // the value at the end of each year
+        yearlyChartSeries = OverviewDailyColumn.Mrr.id,
         chartMeasure = ChartMeasure.Stock,
     )
     private val columnAnnualRecurringRevenue = DataTableColumn(
         "customer-arr", "ARR", "num", tooltip = "Average annual recurring revenue (ARR)",
         dailyChartSeries = OverviewDailyColumn.Arr.id,
+        // the value at the end of each year
+        yearlyChartSeries = OverviewDailyColumn.Arr.id,
         chartMeasure = ChartMeasure.Stock,
     )
 
@@ -132,11 +141,15 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     private val columnDownloads = DataTableColumn(
         "downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Number of downloads in the month",
         dailyChartSeries = OverviewDailyColumn.Downloads.id,
+        // the sums of the year before each day
+        yearlyChartSeries = AllPluginsDailyValues.DOWNLOADS,
         chartMeasure = ChartMeasure.Flow,
     )
     private val columnTrials = DataTableColumn(
         "trials", "Trials", "num", tooltip = "Number of new trials at the end of the month",
         dailyChartSeries = OverviewDailyColumn.Trials.id,
+        // the sums of the year before each day
+        yearlyChartSeries = AllPluginsDailyValues.TRIALS,
         chartMeasure = ChartMeasure.Flow,
     )
     private val columnTrialsConverted = DataTableColumn(

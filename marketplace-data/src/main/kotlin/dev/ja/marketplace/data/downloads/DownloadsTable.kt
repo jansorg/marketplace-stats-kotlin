@@ -9,6 +9,7 @@ import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.model.MonthlyDownload
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.overview.OverviewDailyColumn
+import dev.ja.marketplace.data.yearSummary.AllPluginsDailyValues
 
 class DownloadsTable : SimpleDataTable("", "downloads"), MarketplaceDataSink {
     private lateinit var data: List<MonthlyDownload>
@@ -17,6 +18,8 @@ class DownloadsTable : SimpleDataTable("", "downloads"), MarketplaceDataSink {
     private val columnDownloads = DataTableColumn(
         "downloads", "Downloads", "num", chartMeasure = ChartMeasure.Flow,
         dailyChartSeries = OverviewDailyColumn.Downloads.id,
+        // the sums of the year before each day
+        yearlyChartSeries = AllPluginsDailyValues.DOWNLOADS,
     )
 
     override val isChartable: Boolean = true
