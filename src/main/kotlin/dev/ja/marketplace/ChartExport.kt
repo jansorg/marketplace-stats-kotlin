@@ -377,8 +377,11 @@ class ChartExportColumn(
 @Serializable(with = ChartExportRowSerializer::class)
 class ChartExportRow(val date: String, val values: List<BigDecimal?>)
 
-/** Writes a [ChartExportRow] as JSON array of the date and the values, the values as numbers with their scale. */
-private object ChartExportRowSerializer : KSerializer<ChartExportRow> {
+/**
+ * Writes a [ChartExportRow] as JSON array of the date and the values, the values as numbers with their scale.
+ * It's as visible as the row, the serializer of a type must not be less visible than the type.
+ */
+object ChartExportRowSerializer : KSerializer<ChartExportRow> {
     override val descriptor: SerialDescriptor = JsonArray.serializer().descriptor
 
     @OptIn(ExperimentalSerializationApi::class)

@@ -325,7 +325,7 @@ class McpAnalysisTools(private val provider: McpDataProvider) {
             put("granularity", dimension.requestPathSegment)
             put("unique", countType == DownloadCountType.DownloadsUnique)
             put("productCode", productCode?.code)
-            put("startDate", dateRange.start?.asIsoString)
+            put("startDate", dateRange.start.asIsoString)
             put("endDate", dateRange.end?.asIsoString)
             // the values of the current period and the day before aren't complete yet
             val incompleteFrom = when (dimension) {
