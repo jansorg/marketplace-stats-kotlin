@@ -3,10 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-/* Default font */
-@import url('https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;1,400&display=swap');
-/* Chinese fallback */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC&display=swap');
+/* The font Lato is loaded by the templates, see fonts.kte. Chinese text uses a font of the system. */
 
 /*
  * Colors of the light and the dark mode. All text colors have a contrast of at least 4.5:1 on the page, the tables,
@@ -126,7 +123,7 @@ html, body, h1, h2, h3, h4, h5, p, div, table, tr, th, td, svg, img, dl, dt, dd 
 
 /* html tags */
 html {
-    font-family: 'Lato', 'Noto Sans SC', sans-serif;
+    font-family: 'Lato', sans-serif;
     color: var(--text-color);
     background-color: var(--page-bgcolor);
     font-kerning: normal;
