@@ -703,7 +703,7 @@ class MarketplaceStatsServer(
         val years = AllPluginsSummaryTable(exchangeRates)
         val month = AllPluginsMonthTable(exchangeRates, today)
         for (data in allData) {
-            years.add(data.sales, data.licenses, data.monthlyDownloads)
+            years.add(data.sales, data.licenses, data.monthlyDownloads, data.dailyDownloads)
             month.add(data.sales, data.licenses, data.dailyDownloads)
         }
         val tables = listOf(years.renderTable(), month.renderTable()).filterNot(RenderedDataTable::isEmpty)

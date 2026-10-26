@@ -26,6 +26,8 @@ import dev.ja.marketplace.data.timeSpanSummary.TimeSpanSummaryTable
 import dev.ja.marketplace.data.yearSummary.YearlySummaryTable
 import dev.ja.marketplace.mcp.McpTestData
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -41,7 +43,10 @@ class SummaryTablesTest {
         val year2024 = rows.single { it.values[column(table, "year")] == 2024 }
         assertAmount(400, year2024.values[column(table, "sales")])
         assertAmount(400, year2024.values[column(table, "arr")])
-        assertEquals(BigInteger.ONE, year2024.values[column(table, "trials")])
+        // the data starts in 2024, the sums of the first year are incomplete
+        assertEquals(IncompleteValue(BigInteger.ONE), year2024.values[column(table, "trials")])
+        assertTrue(year2024.values[column(table, "sales")] is IncompleteValue)
+        assertFalse(year2024.values[column(table, "arr")] is IncompleteValue)
 
         // all licenses expired before the end of 2025
         val year2025 = rows.single { it.values[column(table, "year")] == 2025 }

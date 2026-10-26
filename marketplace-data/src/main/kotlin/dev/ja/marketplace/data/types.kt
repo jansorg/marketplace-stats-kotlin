@@ -83,6 +83,24 @@ fun BigDecimal.sortValue(): Long {
  */
 data class IncompleteValue(val value: Any)
 
+/**
+ * @return The value as [IncompleteValue], if [isIncomplete], e.g. the sales of the current month or of the first month
+ *  of a plugin, which started within the month. [NoValue] and incomplete values are returned as they are.
+ */
+fun incompleteIf(value: Any, isIncomplete: Boolean): Any = when {
+    !isIncomplete || value is IncompleteValue || value == NoValue -> value
+    else -> IncompleteValue(value)
+}
+
+/**
+ * @return If the sums of a period, which starts at [periodStart], only cover a part of it, because the plugin started
+ *  within the period at [pluginStart], see [PluginData.getFirstActivityDate].
+ */
+fun isPartialPeriod(periodStart: YearMonthDay, pluginStart: YearMonthDay?): Boolean = pluginStart != null && pluginStart > periodStart
+
+/** @return The tooltip of the first period of a plugin, which started within the period. */
+fun partialPeriodTooltip(pluginStart: YearMonthDay): String = "Incomplete: the first data of the plugin is of ${pluginStart.asIsoString}"
+
 const val IncompleteRecurringRevenueTooltip: String =
     "Incomplete: the recurring revenue of today, it changes until the end of this period"
 

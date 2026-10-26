@@ -82,7 +82,8 @@ class ChartData {
         /**
          * Example: `{"dates": ["2026-01-31", ...], "series": {"mrr": {"title": "MRR", "unit": "USD", "measure": "stock",
          * "usesWindow": false, "values": [12.50, ...], "incompleteFrom": 42}}}`.
-         * Values at the index `incompleteFrom` and later may still change, values without data are `null`.
+         * Values at the index `incompleteFrom` and later may still change, values before the index `partialUntil` only cover a
+         * part of their window, e.g. the first year of a plugin, which started in February. Values without data are `null`.
          * The moving average of a metric over the months before each day has the ID of the metric with the months,
          * e.g. `sales@avg3`, and the property `averageMonths`, see [ChartMetricValues.average].
          * Unknown metrics, metrics without values and averages, which don't apply, are left out.
@@ -111,12 +112,13 @@ class ChartData {
                 series.joinTo(this, ",") { (key, values) ->
                     val (id, metric, months) = key
                     val incompleteFrom = indices.indexOfFirst { it >= values.incompleteFrom }.takeIf { it >= 0 } ?: indices.size
+                    val partialUntil = indices.count { it < values.partialUntil }
                     val seriesValues = indices.joinToString(",") { values.values[it]?.toPlainString() ?: "null" }
                     val measure = metric.measure.name.lowercase()
                     val average = if (months != null) ",\"averageMonths\":$months" else ""
                     "${JsonPrimitive(id)}:{\"title\":${JsonPrimitive(metric.title)},\"unit\":${JsonPrimitive(values.unit)}," +
                             "\"measure\":\"$measure\",\"usesWindow\":${metric.usesWindow}$average," +
-                            "\"values\":[$seriesValues],\"incompleteFrom\":$incompleteFrom}"
+                            "\"values\":[$seriesValues],\"incompleteFrom\":$incompleteFrom,\"partialUntil\":$partialUntil}"
                 }
                 append("}}")
             }

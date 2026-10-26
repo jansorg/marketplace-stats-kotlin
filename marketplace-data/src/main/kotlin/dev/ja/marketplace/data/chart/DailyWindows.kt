@@ -24,8 +24,16 @@ import javax.money.MonetaryAmount
  * @param values The value of each day of [DailyWindows.days], `null` if there is no value, e.g. no average without customers.
  * @param incompleteFrom Index of the first day, whose value may still change.
  * @param ratio The numerators and the denominators of rates.
+ * @param partialUntil Index of the first day, whose window doesn't start before the first day with data, e.g. the sums
+ *  of the first year of a plugin, which started in February, only cover a part of the year.
  */
-data class DailySeries(val unit: String, val values: List<BigDecimal?>, val incompleteFrom: Int, val ratio: DailyRatio? = null)
+data class DailySeries(
+    val unit: String,
+    val values: List<BigDecimal?>,
+    val incompleteFrom: Int,
+    val ratio: DailyRatio? = null,
+    val partialUntil: Int = 0,
+)
 
 /**
  * The numerators and the denominators of the rates of a [DailySeries], e.g. the churned and the previously active
