@@ -675,7 +675,8 @@ function renderComparisonTable(table, {plot, rows, seriesPoints, comparisons, ti
     }
     const columns = [
         ...comparisons.filter(c => c.years + c.months < 0),
-        {label: "Cursor", years: 0, months: 0, isCursor: true},
+        // the column of the cursor only shows its date, the space keeps the dates of the columns aligned
+        {label: "\u00a0", years: 0, months: 0, isCursor: true},
         ...comparisons.filter(c => c.years + c.months > 0),
     ].map(column => ({...column, timestamp: shiftDate(timestamp, column.years, column.months)}));
 
