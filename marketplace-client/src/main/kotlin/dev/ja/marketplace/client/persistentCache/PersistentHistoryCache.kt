@@ -311,7 +311,9 @@ internal class PersistentHistoryCache<T, C>(
             onIncrementalFetch(range, fetchTime)
         }
         snapshot = updated
-        write(updated)
+        if (isFull || isStoredDataChanged(previous!!, updated)) {
+            write(updated)
+        }
         return updated
     }
 
@@ -370,8 +372,11 @@ internal class PersistentHistoryCache<T, C>(
                     val updated = merged(latest, fetched, range, false, fetchTime)
                     onIncrementalFetch(range, fetchTime)
                     snapshot = updated
-                    write(updated)
-                    true
+                    if (isStoredDataChanged(latest, updated)) {
+                        write(updated)
+                    }
+                    // the data derived from the items, e.g. the licenses, is only outdated if the items changed
+                    updated.items != latest.items
                 }
 
                 if (isUpdated) {
@@ -437,6 +442,14 @@ internal class PersistentHistoryCache<T, C>(
                 logger.warn("Unable to fetch the complete history of cached ${kind.name} in ${store.directory}, the cached data is kept: $e")
             }
         }
+    }
+
+    /**
+     * @return If the stored file is outdated: if the items or the fetched days changed. An unchanged fetch of the
+     *  recent days isn't written, a restart fetches the recent days again.
+     */
+    private fun isStoredDataChanged(previous: HistorySnapshot<T>, updated: HistorySnapshot<T>): Boolean {
+        return updated.fetchedUntil != previous.fetchedUntil || updated.items != previous.items
     }
 
     private fun merged(

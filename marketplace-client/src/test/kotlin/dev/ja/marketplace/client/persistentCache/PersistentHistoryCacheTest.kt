@@ -107,6 +107,26 @@ class PersistentHistoryCacheTest {
     }
 
     @Test
+    suspend fun unchangedBackgroundFetchKeepsTheDerivedData() {
+        serverSales += listOf(testSale("a", day(2020, 1, 1)), testSale("b", day(2025, 3, 10)))
+        val cache = createCache()
+        cache.get()
+        val stored = store.file("plugin-1-sales").toFile().lastModified()
+
+        // the recent days didn't change, e.g. the licenses derived from the sales are still valid
+        nowMillis += 30.minutes.inWholeMilliseconds
+        cache.refresh()
+        assertEquals(0, backgroundUpdates.get())
+        assertEquals(stored, store.file("plugin-1-sales").toFile().lastModified(), "the unchanged data isn't written")
+
+        serverSales += testSale("c", day(2025, 3, 14))
+        nowMillis += 30.minutes.inWholeMilliseconds
+        cache.refresh()
+        assertEquals(1, backgroundUpdates.get())
+        assertEquals(listOf("a", "b", "c"), cache.get().map { it.ref })
+    }
+
+    @Test
     suspend fun restartFetchesTheRecentDaysOfFreshDataInBackground() {
         serverSales += listOf(testSale("a", day(2020, 1, 1)), testSale("b", day(2025, 3, 10)))
         createCache().get()
