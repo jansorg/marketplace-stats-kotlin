@@ -73,7 +73,8 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
         // the prices of each country are a request, they're loaded concurrently
         val currencyToPricing = coroutineScope {
             MarketplaceCurrencies.map { currency ->
-                currency to countries.byCurrencyIsoCode(currency.currencyCode)!!.map { countryWithCurrency ->
+                // a currency without countries, e.g. after a change of the countries of JetBrains, has no prices
+                currency to countries.byCurrencyIsoCode(currency.currencyCode).orEmpty().map { countryWithCurrency ->
                     async { pluginPricing.getCountryPricing(countryWithCurrency.country.isoCode)?.let { countryWithCurrency to it } }
                 }
             }.associate { (currency, prices) -> currency to prices.awaitAll().filterNotNull() }
