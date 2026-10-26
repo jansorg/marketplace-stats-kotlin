@@ -203,11 +203,12 @@ class ChartController {
     }
 
     /**
-     * @return {string|null} The reason why a series can't be added, or null if it can be added.
+     * @return {string|null} The reason why a series can't be added, or null if it can be added. An empty reason for a
+     *  series, which is already shown: the dialog shows it without a message.
      */
     rejectSeries(series) {
         if (this.series.some(s => s.key === series.key)) {
-            return series.label + " is already shown.";
+            return "";
         }
         if (series.points.size === 0) {
             return series.label + " has no values to show.";
@@ -218,9 +219,10 @@ class ChartController {
         return null;
     }
 
+    /** @see rejectSeries */
     rejectPie(pie) {
         if (this.pies.some(p => p.key === pie.key)) {
-            return pie.label + " is already shown.";
+            return "";
         }
         if (pie.slices.length === 0) {
             return pie.label + " has no values to show.";
@@ -253,6 +255,10 @@ class ChartController {
         let rejection = null;
         for (const series of readRowHistorySeries(table, columnIndex)) {
             rejection = this.rejectSeries(series);
+            // the rows, which are already shown, are skipped
+            if (rejection === "") {
+                continue;
+            }
             if (rejection !== null) {
                 break;
             }
