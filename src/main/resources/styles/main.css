@@ -326,9 +326,12 @@ button {
     margin: 0.75rem 0 1.25rem;
 }
 
-/* tables with the same columns, e.g. the tables of the summary of all plugins, have columns of the same width */
-.table-fixed-columns {
-    table-layout: fixed;
+/* tables with the same columns, e.g. the tables of the summary of all plugins, have columns of the same width.
+   Small screens use the automatic layout, columns of the same width would be narrower than their values. */
+@media (min-width: 901px) {
+    .table-fixed-columns {
+        table-layout: fixed;
+    }
 }
 
 /* a hint of a keyboard shortcut, e.g. below the title of the list of plugins */
