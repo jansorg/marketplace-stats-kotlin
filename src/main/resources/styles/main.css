@@ -269,8 +269,8 @@ tfoot tr {
     vertical-align: text-top;
 }
 
-/* the totals below the rows */
-tfoot td {
+/* the totals below the rows, also the totals of each section of a table with several sections */
+tfoot td, .row-total > td {
     font-weight: 700;
 }
 
