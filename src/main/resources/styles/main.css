@@ -321,6 +321,9 @@ button {
 }
 
 .site-footer-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25em;
     padding: 0;
     font-size: inherit;
     color: var(--link-color);
@@ -331,6 +334,17 @@ button {
 
 .site-footer-button:hover {
     text-decoration: underline;
+}
+
+/* the icon shows that the button is an action, not a link */
+.site-footer-icon {
+    width: 1em;
+    height: 1em;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 /* the items of the footer are separated by a middle dot */
