@@ -666,7 +666,12 @@ function enableComparisons(plot, {rows, timestamps, datePeriod, formatter, value
 
     // without a cursor, the table shows the latest shown values, e.g. of a zoomed chart
     const shownIndices = timestamps.flatMap((timestamp, index) => timestamp >= shownRange[0] && timestamp <= shownRange[1] ? [index] : []);
-    const latestIndex = shownIndices.length > 0 ? shownIndices[shownIndices.length - 1] : timestamps.length - 1;
+    // the latest values of the lines, not of their trends, e.g. the previous year continues after today
+    const lineRows = rows.filter(row => !row.isTrend);
+    const hasLineValue = index => lineRows.some(row => row.values[index] !== null && row.values[index] !== undefined);
+    const lineIndices = shownIndices.filter(hasLineValue);
+    const latestIndex = lineIndices.length > 0 ? lineIndices[lineIndices.length - 1]
+        : shownIndices.length > 0 ? shownIndices[shownIndices.length - 1] : timestamps.length - 1;
     let shownIndex = null;
     // the labels of the rows, see renderComparisonTable
     const labels = new Map();
@@ -1355,6 +1360,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                     incomplete: new Set(),
                     values: overlayValues[overlayIndex],
                     plotIndex: chartSeries.length + overlayIndex + 1,
+                    isTrend: true,
                 })));
         });
     }

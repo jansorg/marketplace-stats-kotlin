@@ -348,10 +348,20 @@ test("moving averages of months", () => {
     assert.equal(trailingAverage(monthly([["2025-01-31", 10]]), 3).size, 0);
 });
 
-test("the previous year is shifted by a year and ends with the series", () => {
+test("the previous year is shifted by a year and ends with the year of the series", () => {
     const series = monthly([["2024-01-31", 1], ["2024-02-29", 2], ["2025-01-31", 3], ["2025-02-28", 4]], ["2025-02-28"]);
     const shifted = previousYear(series);
     assert.deepEqual([...shifted.points.entries()], [[isoDateToTimestamp("2025-01-31"), 1], [isoDateToTimestamp("2025-02-28"), 2]]);
+    assert.equal(shifted.incomplete.size, 0);
+});
+
+test("the previous year is complete, also after the current month", () => {
+    // the values until today, the current month is at today
+    const series = monthly([["2024-10-31", 1], ["2024-11-30", 2], ["2024-12-31", 3], ["2025-09-30", 4], ["2025-10-26", 5]], ["2025-10-26"]);
+    const shifted = previousYear(series);
+    assert.deepEqual([...shifted.points.entries()], [
+        [isoDateToTimestamp("2025-10-31"), 1], [isoDateToTimestamp("2025-11-30"), 2], [isoDateToTimestamp("2025-12-31"), 3],
+    ]);
     assert.equal(shifted.incomplete.size, 0);
 });
 

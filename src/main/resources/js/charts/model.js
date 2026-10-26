@@ -973,10 +973,12 @@ export function trailingAverage(series, months) {
 /**
  * @param {{points: Map<number, number>, incomplete: Set<number>}} series
  * @return {{points: Map<number, number>, incomplete: Set<number>}} The values of the series one year later, to
- *  compare them with the values of the series. Values after the last value of the series are dropped.
+ *  compare them with the values of the series. The whole previous year is kept, also after the last value of the
+ *  series, e.g. the months after the current month, the values after the end of the year of the last value are
+ *  dropped.
  */
 export function previousYear(series) {
-    const lastTimestamp = Math.max(...series.points.keys());
+    const lastTimestamp = periodEnd(Math.max(...series.points.keys()), "yearEnd");
     const points = new Map();
     const incomplete = new Set();
     for (const [timestamp, value] of series.points) {
