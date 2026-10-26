@@ -116,10 +116,6 @@
     @endfor
 </section>
 
-<footer class="menu subtitle section-small">
-    <form action="/refresh?pluginId=${plugin.id}&reload=true" method="POST"><button>Refresh</button></form>
-</footer>
-
-@template.siteFooter()
+@template.siteFooter(dropCachesPluginId = plugin.id)
 </body>
 </html>

@@ -313,6 +313,24 @@ button {
     border-top: 1px solid var(--separator-light-color);
 }
 
+/* a small button in the footer, which looks like the links */
+.site-footer form {
+    display: inline;
+}
+
+.site-footer-button {
+    padding: 0;
+    font-size: inherit;
+    color: var(--link-color);
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.site-footer-button:hover {
+    text-decoration: underline;
+}
+
 /* the items of the footer are separated by a middle dot */
 .site-footer > * + *::before {
     content: "·";
