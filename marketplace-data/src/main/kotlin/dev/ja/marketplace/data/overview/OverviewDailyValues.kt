@@ -7,14 +7,12 @@ package dev.ja.marketplace.data.overview
 
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.DailyDownload
-import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.client.model.PluginTrial
 import dev.ja.marketplace.data.trackers.RecurringRevenueSales
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.javamoney.moneta.FastMoney
 import java.math.BigDecimal
-import java.math.RoundingMode
 import java.time.DayOfWeek
 import javax.money.MonetaryAmount
 
@@ -183,11 +181,8 @@ class OverviewDailyValues private constructor(
         fun recurringRevenue(licenses: List<LicenseInfo>): Pair<DailySeries, DailySeries> {
             val mrrChanges = Array(dayCount + 1) { zero }
             val arrChanges = Array(dayCount + 1) { zero }
-            val annualToMonthly = BigDecimal.ONE.divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP)
-            val monthlyToAnnual = BigDecimal.valueOf(12)
-
             val salesByLicense = licenses
-                .filter { it.validity != null && it.isPaidLicense && it.isSubscriptionLicense }
+                .filter(RecurringRevenueSales::isRecurring)
                 .groupBy { it.id }
             for (licenseSales in salesByLicense.values) {
                 // the latest sale only changes at the start or after the end of a sale
@@ -199,8 +194,8 @@ class OverviewDailyValues private constructor(
                     // the sale, which counts for the recurring revenue, like in RecurringRevenueTracker
                     val latest = RecurringRevenueSales.latest(licenseSales.filter { segmentStart in it.validity!! }) ?: continue
 
-                    val mrrFactor = if (latest.sale.licensePeriod == LicensePeriod.Annual) annualToMonthly else BigDecimal.ONE
-                    val arrFactor = if (latest.sale.licensePeriod == LicensePeriod.Monthly) monthlyToAnnual else BigDecimal.ONE
+                    val mrrFactor = RecurringRevenueSales.monthlyFactor(latest.sale.licensePeriod)
+                    val arrFactor = RecurringRevenueSales.annualFactor(latest.sale.licensePeriod)
                     val mrr = exchangeRates.targetAmount(latest.sale.date, latest.amountUSD * mrrFactor, latest.amount * mrrFactor)
                     val arr = exchangeRates.targetAmount(latest.sale.date, latest.amountUSD * arrFactor, latest.amount * arrFactor)
                     addToDays(segmentStart, nextStart.add(0, 0, -1)) { from, to ->
