@@ -1357,6 +1357,24 @@ dl.detail-grid dd {
     display: flex;
 }
 
+/* removes a chart, if several charts are shown */
+.chart-remove {
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0 0.4rem;
+    color: var(--text-color-disabled);
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.chart-remove:hover, .chart-remove:focus-visible {
+    color: var(--text-color);
+    border-color: var(--separator-light-color);
+}
+
 /* the export menu of a chart */
 .chart-menu {
     position: relative;

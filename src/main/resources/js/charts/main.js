@@ -481,6 +481,8 @@ class ChartController {
         const markers = visibleMarkers(this.markers, this.shownMarkers, this.shownEvents);
 
         const charts = groupCharts(this.series, this.combineUnits);
+        // with several charts, each chart can be removed
+        const isRemovable = charts.length + this.pies.length > 1;
         const visibleRange = rangeTimestamps(this.dateRange);
         dialog.setDateRange(rangeYears(this.series), this.dateRange);
         const height = dialog.chartHeight(charts.length);
@@ -550,6 +552,11 @@ class ChartController {
             }
             // disabled instead of hidden, so that the buttons don't move
             toolbar.append(this.styleSwitch(key, chartStyle, granularity !== "month"));
+            if (isRemovable) {
+                toolbar.append(this.removeButton(() => {
+                    this.series = this.series.filter(s => s.period !== chart.period || !chart.units.includes(s.unit));
+                }));
+            }
         }
 
         for (const pie of this.pies) {
@@ -561,7 +568,11 @@ class ChartController {
                 svg,
             };
             this.exports.push(chartExport);
-            this.toolbar(panel).append(this.exportMenu(chartExport));
+            const pieToolbar = this.toolbar(panel);
+            pieToolbar.append(this.exportMenu(chartExport));
+            if (isRemovable) {
+                pieToolbar.append(this.removeButton(() => this.pies = this.pies.filter(p => p !== pie)));
+            }
             renderPie(pie, panel, this.formatter);
         }
 
@@ -695,6 +706,25 @@ class ChartController {
      * The toolbar of the first chart is shown in the row of the options of the dialog to save space,
      * the toolbars of the other charts above them.
      */
+    /**
+     * @param {() => void} remove Removes the series or the pie of the chart.
+     * @return {HTMLButtonElement} A button to remove the chart.
+     */
+    removeButton(remove) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "chart-remove";
+        button.textContent = "×";
+        button.title = "Remove this chart";
+        button.setAttribute("aria-label", "Remove this chart");
+        button.addEventListener("click", () => {
+            remove();
+            this.save();
+            this.render();
+        });
+        return button;
+    }
+
     toolbar(panel) {
         const toolbar = document.createElement("div");
         toolbar.className = "chart-toolbar";
