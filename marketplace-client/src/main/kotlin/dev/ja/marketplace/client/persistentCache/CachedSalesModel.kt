@@ -171,9 +171,12 @@ private fun LicensePeriod.toCached(): Int = when (this) {
     LicensePeriod.Annual -> 1
     LicensePeriod.Monthly -> 2
     LicensePeriod.Perpetual -> 3
+    // a value, which the Marketplace added later
+    LicensePeriod.Unknown -> 0
 }
 
 private fun licensePeriodOf(code: Int): LicensePeriod = when (code) {
+    0 -> LicensePeriod.Unknown
     1 -> LicensePeriod.Annual
     2 -> LicensePeriod.Monthly
     3 -> LicensePeriod.Perpetual
@@ -183,9 +186,12 @@ private fun licensePeriodOf(code: Int): LicensePeriod = when (code) {
 private fun CustomerType.toCached(): Int = when (this) {
     CustomerType.Organization -> 1
     CustomerType.Individual -> 2
+    // a value, which the Marketplace added later
+    CustomerType.Unknown -> 0
 }
 
 private fun customerTypeOf(code: Int): CustomerType = when (code) {
+    0 -> CustomerType.Unknown
     1 -> CustomerType.Organization
     2 -> CustomerType.Individual
     else -> throw IllegalStateException("Unknown customer type code $code")
@@ -194,9 +200,12 @@ private fun customerTypeOf(code: Int): CustomerType = when (code) {
 private fun ResellerType.toCached(): Int = when (this) {
     ResellerType.Reseller -> 1
     ResellerType.Organization -> 2
+    // a value, which the Marketplace added later
+    ResellerType.Unknown -> 0
 }
 
 private fun resellerTypeOf(code: Int): ResellerType = when (code) {
+    0 -> ResellerType.Unknown
     1 -> ResellerType.Reseller
     2 -> ResellerType.Organization
     else -> throw IllegalStateException("Unknown reseller type code $code")
@@ -205,9 +214,12 @@ private fun resellerTypeOf(code: Int): ResellerType = when (code) {
 private fun PluginSaleItemType.toCached(): Int = when (this) {
     PluginSaleItemType.New -> 1
     PluginSaleItemType.Renew -> 2
+    // a value, which the Marketplace added later
+    PluginSaleItemType.Unknown -> 0
 }
 
 private fun saleItemTypeOf(code: Int): PluginSaleItemType = when (code) {
+    0 -> PluginSaleItemType.Unknown
     1 -> PluginSaleItemType.New
     2 -> PluginSaleItemType.Renew
     else -> throw IllegalStateException("Unknown sale item type code $code")

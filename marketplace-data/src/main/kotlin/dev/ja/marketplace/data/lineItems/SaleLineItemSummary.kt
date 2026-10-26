@@ -20,6 +20,7 @@ class SaleLineItemSummary(val sale: PluginSale, val lineItem: PluginSaleItem) {
         get() = when (lineItem.type) {
             PluginSaleItemType.New -> "New"
             PluginSaleItemType.Renew -> "Renewal"
+            PluginSaleItemType.Unknown -> "Other"
         }
 
     /** `null` for perpetual licenses. */

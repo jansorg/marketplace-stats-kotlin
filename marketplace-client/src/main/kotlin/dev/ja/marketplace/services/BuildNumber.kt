@@ -53,8 +53,11 @@ data class BuildNumber(internal val segments: IntArray) : Comparable<BuildNumber
     }
 
     companion object {
+        /**
+         * @return The numeric segments at the start of the build, e.g. 251 of `251.SNAPSHOT`.
+         */
         fun of(value: String): BuildNumber {
-            val items = value.split('.').map(String::toInt)
+            val items = value.split('.').map(String::toIntOrNull).takeWhile { it != null }.filterNotNull()
             require(items.isNotEmpty()) {
                 "Unable to parse build number $value"
             }

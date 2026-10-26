@@ -42,14 +42,16 @@ class DaySummaryTable(
 
         this.totalSales = MonetaryAmountTracker(data.exchangeRates)
 
+        val salesOfRange = data.getSales()?.filter { it.date in dateRange } ?: emptyList()
+        val periodsOfSales = salesOfRange.mapTo(mutableSetOf()) { it.licensePeriod }
+        // keep the order of the enum, unknown values of the Marketplace only if there are sales with them
         val periods = data.getOfferedLicensePeriods()?.let { offered ->
-            val periodsOfSales = data.getSales()?.filter { it.date in dateRange }?.mapTo(mutableSetOf()) { it.licensePeriod } ?: emptySet()
-            // keep the order of the enum
             LicensePeriod.entries.filter { it in offered || it in periodsOfSales }
-        } ?: LicensePeriod.entries
+        } ?: LicensePeriod.entries.filter { it != LicensePeriod.Unknown || it in periodsOfSales }
+        val customerTypes = CustomerType.entries.filter { type -> type != CustomerType.Unknown || salesOfRange.any { it.customer.type == type } }
 
         for (period in periods) {
-            for (type in CustomerType.entries) {
+            for (type in customerTypes) {
                 sales[type to period] = MonetaryAmountTracker(exchangeRates)
             }
         }

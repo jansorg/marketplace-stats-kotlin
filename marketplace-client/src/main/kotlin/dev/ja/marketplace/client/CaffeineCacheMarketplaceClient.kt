@@ -215,7 +215,7 @@ class CaffeineCacheMarketplaceClient(
     }
 
     override suspend fun plugins(userId: UserId, family: List<ProductFamily>?, page: Int, maxResults: Int?): List<PluginInfoSummary> {
-        val families = family?.joinToString(",", transform = ProductFamily::jsonId) ?: ""
+        val families = family?.joinToString(",", transform = ProductFamily::id) ?: ""
         return loadCached("plugins.$userId.$families.$page.${maxResults ?: -1}", Category.Daily) {
             super.plugins(userId, family, page, maxResults)
         }

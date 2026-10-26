@@ -7,7 +7,9 @@ package dev.ja.marketplace.client
 
 import dev.ja.marketplace.client.model.DownloadCountType
 import dev.ja.marketplace.client.model.DownloadRequestDimension
+import dev.ja.marketplace.client.model.IntelliJFamily
 import dev.ja.marketplace.client.model.PerformanceRating
+import dev.ja.marketplace.client.model.TeamCityRecipesFamily
 import dev.ja.marketplace.client.model.PluginRatingCategory
 import dev.ja.marketplace.client.model.PluginVerificationType
 import dev.ja.marketplace.client.model.UnknownRatingCategory
@@ -89,6 +91,11 @@ class MarketplaceClientRequestsTest {
         assertEquals(PLUGINS_PAGE_SIZE + 2, client.allPlugins("user").size)
         assertEquals(listOf("1", "2"), requests.map { it.url.parameters["page"] })
         assertEquals(setOf("$PLUGINS_PAGE_SIZE"), requests.map { it.url.parameters["size"] }.toSet())
+
+        // the families are requested by their IDs
+        requests.clear()
+        client.plugins("user", listOf(IntelliJFamily, TeamCityRecipesFamily))
+        assertEquals(listOf("intellij", "teamcity_recipes"), requests.single().url.parameters.getAll("family"))
     }
 
     @Test

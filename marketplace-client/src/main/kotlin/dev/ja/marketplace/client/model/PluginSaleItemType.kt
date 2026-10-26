@@ -1,18 +1,25 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 package dev.ja.marketplace.client.model
 
-import kotlinx.serialization.SerialName
+import dev.ja.marketplace.client.TolerantEnumSerializer
 import kotlinx.serialization.Serializable
 
-@Serializable
-enum class PluginSaleItemType {
-    @SerialName("NEW")
-    New,
+/**
+ * The type of a line item of a sale. Types, which the client doesn't know, are [Unknown].
+ */
+@Serializable(PluginSaleItemTypeSerializer::class)
+enum class PluginSaleItemType(val apiValue: String) {
+    New("NEW"),
+    Renew("RENEW"),
 
-    @SerialName("RENEW")
-    Renew,
+    /** A type, which the Marketplace added later. */
+    Unknown("UNKNOWN"),
 }
+
+object PluginSaleItemTypeSerializer : TolerantEnumSerializer<PluginSaleItemType>(
+    "PluginSaleItemType", PluginSaleItemType.entries, PluginSaleItemType.Unknown, PluginSaleItemType::apiValue,
+)

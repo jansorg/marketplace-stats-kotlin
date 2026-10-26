@@ -88,7 +88,7 @@ open class KtorMarketplaceClient(
 
             url {
                 if (family != null) {
-                    parameters.appendAll("family", family.map(ProductFamily::jsonId))
+                    parameters.appendAll("family", family.map(ProductFamily::id))
                 }
             }
         }.body()

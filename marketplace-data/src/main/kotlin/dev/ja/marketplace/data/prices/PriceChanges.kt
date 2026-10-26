@@ -29,6 +29,7 @@ data class PriceChange(val date: YearMonthDay, val prices: Map<CustomerType, Big
                 when (customerType) {
                     CustomerType.Individual -> "Price $formattedPrice"
                     CustomerType.Organization -> "Org. $formattedPrice"
+                    CustomerType.Unknown -> formattedPrice
                 }
             }.joinToString(" · ")
         }
@@ -53,6 +54,7 @@ object PriceChanges {
      */
     fun find(sales: Iterable<PluginSale>): List<PriceChange> {
         val changes = CustomerType.entries
+            .filter { it != CustomerType.Unknown }
             .flatMap { customerType -> findChanges(basePrices(sales, customerType), customerType) }
             .sortedBy { it.firstSaleWithNewPrice }
 

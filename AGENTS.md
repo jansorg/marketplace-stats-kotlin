@@ -89,7 +89,14 @@ JetBrains services, and fails for properties of the responses and columns of the
 have (`UnknownJsonKeys`, `SalesReportCsv.unknownColumns`), and for responses the client can't decode. It only runs with
 `MARKETPLACE_API_KEY` and `MARKETPLACE_COVERAGE_PLUGIN_IDS` (comma-separated IDs of paid and free plugins of the account),
 e.g. after API changes: `./gradlew :marketplace-client:test --tests '*LiveApiCoverageTest' --rerun`. New properties are
-added to the models as optional properties at the end of the constructors, unknown enum values as strings.
+added to the models as optional properties at the end of the constructors. Values of the API, which the Marketplace may
+extend, must not fail a response:
+- Enums, which the code handles in `when` expressions, e.g. `LicensePeriod`, `CustomerType` and `PluginSaleItemType`, have
+  an entry `Unknown` and use a `TolerantEnumSerializer`, which decodes unknown values as `Unknown` and logs them once.
+  Tables with fixed rows per value skip `Unknown`, unless there are sales with it. The persistent cache stores it as code 0.
+- Open sets of values, e.g. `ProductFamily`, `PluginRatingCategory` or `ProductDownloadType`, are sealed interfaces with a
+  `data object` for each known value and a data class for unknown values. `findById` returns the predefined objects and
+  creates an unknown value once per ID.
 
 ## Running the Web Server
 
