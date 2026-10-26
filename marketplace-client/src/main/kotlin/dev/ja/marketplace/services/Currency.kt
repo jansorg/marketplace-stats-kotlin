@@ -20,7 +20,7 @@ data class Currency(
     val prefixSymbol: Boolean,
 ) : Comparable<Currency> {
     override fun compareTo(other: Currency): Int {
-        return isoCode.compareTo(isoCode)
+        return isoCode.compareTo(other.isoCode)
     }
 
     override fun toString(): String {

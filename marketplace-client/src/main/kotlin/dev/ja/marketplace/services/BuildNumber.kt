@@ -35,7 +35,8 @@ data class BuildNumber(internal val segments: IntArray) : Comparable<BuildNumber
             }
         }
 
-        return 0
+        // a build with more segments is later, e.g. 251.1 after 251
+        return segments.size.compareTo(otherSize)
     }
 
     override fun equals(other: Any?): Boolean {
