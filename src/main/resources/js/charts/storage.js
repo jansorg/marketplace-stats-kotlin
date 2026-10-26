@@ -21,8 +21,8 @@ const VERSION = 1;
 
 /** @return {ChartSetup} */
 export function emptySetup() {
-    // vertical lines are hidden by default
-    return {combineUnits: false, maximized: false, preferredStyle: "lines", chartStyles: {}, granularities: {}, shownMarkers: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, entries: []};
+    // vertical lines are hidden by default, the dialog is maximized
+    return {combineUnits: false, maximized: true, preferredStyle: "lines", chartStyles: {}, granularities: {}, shownMarkers: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, entries: []};
 }
 
 const STYLES = ["lines", "bars"];
@@ -69,7 +69,7 @@ export function createSetupStorage(storage) {
                 }
                 return {
                     combineUnits: setup.combineUnits === true,
-                    maximized: setup.maximized === true,
+                    maximized: setup.maximized !== false,
                     preferredStyle: STYLES.includes(setup.preferredStyle) ? setup.preferredStyle : "lines",
                     chartStyles: validValues(setup.chartStyles, STYLES),
                     granularities: validValues(setup.granularities, GRANULARITIES),

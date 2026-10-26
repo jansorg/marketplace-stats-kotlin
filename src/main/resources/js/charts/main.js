@@ -78,7 +78,7 @@ class ChartController {
         // stored entries of tables, which aren't on this page, are kept for other pages
         this.unresolvedEntries = [];
         this.combineUnits = false;
-        this.maximized = false;
+        this.maximized = true;
         // style of each line chart, the last selected style is used for new charts
         this.chartStyles = {};
         this.preferredStyle = "lines";
