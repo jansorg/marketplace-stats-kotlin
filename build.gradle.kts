@@ -87,6 +87,8 @@ allprojects {
 }
 
 project("marketplace-client") {
+    description = "Client for the API of the JetBrains Marketplace and the services of JetBrains, with caching and currency conversion"
+
     dependencies {
         api("io.ktor:ktor-client-core:$ktorVersion")
         api("io.ktor:ktor-client-java:$ktorVersion")
@@ -104,9 +106,84 @@ project("marketplace-client") {
 }
 
 project(":marketplace-data") {
+    description = "Reports and analysis of the sales, licenses, customers and trials of paid plugins of the JetBrains Marketplace"
+
     dependencies {
         // api: the public API of marketplace-data uses the types of marketplace-client
         api(project(":marketplace-client"))
+    }
+}
+
+// The modules are published as libraries to the self-hosted Reposilite at https://maven.j-a.dev, see "Libraries" in README.md.
+// The web application of the root project isn't published.
+configure(listOf(project(":marketplace-client"), project(":marketplace-data"))) {
+    group = "dev.j-a.jetbrains-marketplace"
+    version = providers.fileContents(rootProject.layout.projectDirectory.file("VERSION.txt")).asText.get().trim()
+
+    apply {
+        plugin("maven-publish")
+    }
+
+    java {
+        withSourcesJar()
+    }
+
+    // Dokka isn't set up, the JAR only contains the manifest
+    tasks.register<Jar>("javadocEmpty") {
+        description = "Generates empty JavaDoc"
+        archiveClassifier = "javadoc"
+    }
+
+    configure<PublishingExtension> {
+        repositories {
+            mavenLocal()
+
+            // the self-hosted Reposilite, the credentials are the name and the secret of an access token,
+            // the Gradle properties jaDevUsername and jaDevPassword, e.g. ORG_GRADLE_PROJECT_jaDevUsername
+            maven {
+                name = "jaDev"
+                url = uri(if (version.toString().endsWith("-SNAPSHOT")) "https://maven.j-a.dev/snapshots" else "https://maven.j-a.dev/releases")
+                credentials(PasswordCredentials::class)
+            }
+        }
+
+        publications {
+            create<MavenPublication>("library") {
+                from(components["java"])
+
+                artifact(tasks.named("javadocEmpty")) {
+                    classifier = "javadoc"
+                }
+
+                pom {
+                    name = project.name
+                    description = project.description
+                    url = "https://github.com/jansorg/marketplace-stats-kotlin"
+                    inceptionYear = "2023"
+
+                    licenses {
+                        license {
+                            name = "GNU Affero General Public License v3.0 or later"
+                            url = "https://www.gnu.org/licenses/agpl-3.0.txt"
+                            distribution = "repo"
+                        }
+                    }
+
+                    scm {
+                        url = "https://github.com/jansorg/marketplace-stats-kotlin"
+                    }
+
+                    developers {
+                        developer {
+                            id = "jansorg"
+                            name = "Joachim Ansorg"
+                            email = "mail@ja-dev.eu"
+                            url = "https://github.com/jansorg"
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
