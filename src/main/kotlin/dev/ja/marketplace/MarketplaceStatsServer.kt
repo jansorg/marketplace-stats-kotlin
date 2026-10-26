@@ -66,6 +66,7 @@ import io.ktor.server.http.content.*
 import io.ktor.server.jte.*
 import io.ktor.server.netty.*
 import io.ktor.server.plugins.compression.*
+import io.ktor.server.plugins.conditionalheaders.*
 import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -338,10 +339,13 @@ class MarketplaceStatsServer(
             marketplaceMcp(MarketplaceMcpTools(mcpDataProvider), mcpAllowedHosts)
         }
 
+        // answers requests of static files with 304, if the ETag of the browser is the hash of the content
+        install(ConditionalHeaders)
+
         routing {
-            staticResources("/styles", "styles")
-            staticResources("/js", "js")
-            staticResources("/favicon", "favicon")
+            staticAssets("/styles", "styles")
+            staticAssets("/js", "js")
+            staticAssets("/favicon", "favicon")
             // browsers request /favicon.ico, also for pages without a link to it
             get("/favicon.ico") {
                 call.respondBytes(faviconIco, ContentType("image", "x-icon"))

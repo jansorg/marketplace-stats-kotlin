@@ -31,14 +31,14 @@
     <title>${plugin.name}: ${pageTitle ?: "Report"}</title>
     @template.favicons()
     @template.fonts()
-    <link rel="stylesheet" type="text/css" href="/styles/main.min.css"/>
-    <link rel="stylesheet" type="text/css" media="print" href="/styles/print.min.css"/>
-    <link href="/js/sortable-base.min.css" rel="stylesheet"/>
-    <link href="/js/uPlot.min.css" rel="stylesheet"/>
-    <script src="/js/sortable.min.js"></script>
-    <script src="/js/uPlot.iife.min.js" defer></script>
-    <script type="module" src="/js/charts.min.js"></script>
-    <script type="module" src="/js/collapsibleTables.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="${dev.ja.marketplace.StaticAssets.url("/styles/main.min.css")}"/>
+    <link rel="stylesheet" type="text/css" media="print" href="${dev.ja.marketplace.StaticAssets.url("/styles/print.min.css")}"/>
+    <link href="${dev.ja.marketplace.StaticAssets.url("/js/sortable-base.min.css")}" rel="stylesheet"/>
+    <link href="${dev.ja.marketplace.StaticAssets.url("/js/uPlot.min.css")}" rel="stylesheet"/>
+    <script src="${dev.ja.marketplace.StaticAssets.url("/js/sortable.min.js")}"></script>
+    <script src="${dev.ja.marketplace.StaticAssets.url("/js/uPlot.iife.min.js")}" defer></script>
+    <script type="module" src="${dev.ja.marketplace.StaticAssets.url("/js/charts.min.js")}"></script>
+    <script type="module" src="${dev.ja.marketplace.StaticAssets.url("/js/collapsibleTables.min.js")}"></script>
 </head>
 <body class="${cssClass}" data-plugin-name="${plugin.name}" data-locale="${java.util.Locale.getDefault().toLanguageTag()}">
 @template.pluginHeader(plugin = plugin, urls = urls, rating = rating, today = today, otherPlugins = otherPlugins)

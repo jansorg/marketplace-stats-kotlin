@@ -306,8 +306,12 @@ extend, must not fail a response:
   Templates link `print.min.css` with `media="print"`.
 - Table styling is partly set from Kotlin: `DataTable` subclasses in `marketplace-data` pass CSS class names (for example
   `cssClass = "small table-striped"`) and per-column `cssClass`/`cssStyle` values (`DataTable.kt`). These classes must exist in `main.css`.
-- Static resources are served by `staticResources("/styles", "styles")` and `staticResources("/js", "js")` in
-  `MarketplaceStatsServer.kt`.
+- Static resources are served by `staticAssets("/styles", "styles")`, `staticAssets("/js", "js")` and
+  `staticAssets("/favicon", "favicon")` in `MarketplaceStatsServer.kt` (`StaticAssets.kt`): the ETag is the SHA-256 of
+  the content, the plugin ConditionalHeaders answers with 304. Templates link static files with
+  `${dev.ja.marketplace.StaticAssets.url("/js/charts.min.js")}`, which adds the hash of the content (`?v=<hash>`).
+  These addresses are cached for a year (`immutable`), a new version has a new address. Requests without the hash
+  are validated with the ETag (`no-cache`).
 
 ## Conventions
 
