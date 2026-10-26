@@ -38,14 +38,18 @@
 <div class="sections">
 
     <div class="section-wide">
-        <dl>
-            <dt>ID</dt>
-            <dd>${licenseId}</dd>
+        <dl class="detail-grid">
+            <div>
+                <dt>ID</dt>
+                <dd>${licenseId}</dd>
+            </div>
 
             @if(fallbackVersion != null)
-                <dt>Fallback Version</dt>
-                !{val fallbackRelease = fallbackVersion.release}
-                <dd>@template.fallbackVersion(version = fallbackVersion)@if(fallbackRelease != null) (${fallbackRelease.date.toString()})@endif</dd>
+                <div>
+                    <dt>Fallback Version</dt>
+                    !{val fallbackRelease = fallbackVersion.release}
+                    <dd>@template.fallbackVersion(version = fallbackVersion)@if(fallbackRelease != null) (${fallbackRelease.date.toString()})@endif</dd>
+                </div>
             @endif
         </dl>
     </div>
