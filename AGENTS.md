@@ -161,8 +161,11 @@ extend, must not fail a response:
 
 ## Charts
 
-- The charts are ES modules in `src/main/resources/js/charts/`, loaded without a build step (`main.js` is the entry
-  point). Line charts use uPlot, pie charts are SVG. Keep logic out of the DOM code:
+- The charts are ES modules in `src/main/resources/js/charts/` (`main.js` is the entry point). The task
+  `bundleChartsJavascript` bundles and minifies them with the Closure Compiler (a Java library, no Node.js needed) into
+  `js/charts.min.js` with a source map, which the pages load. `js/collapsibleTables.js` is minified the same way
+  (task class `ClosureBundle` in `build.gradle.kts`, it lists the files when it runs, so that new modules are bundled
+  also with the configuration cache). The sources aren't part of the resources, a change needs a build. Line charts use uPlot, pie charts are SVG. Keep logic out of the DOM code:
   - `format.js`, `model.js`, `storage.js`: pure functions, tested with Node.js in `src/test/js/*.test.mjs`
     (`node --test src/test/js/`, or `./gradlew testJavascript`, which is part of `check` and skipped without Node.js)
   - `tableData.js`: reads the `data-chart-*` attributes of the tables
@@ -279,7 +282,9 @@ extend, must not fail a response:
 
 - Pages are server-side rendered from JTE templates in `src/main/resources/templates/`. `main.kte` is the layout of the
   report pages; `dataTable.kte`, `dataTableSection.kte`, `dataRowGroup.kte` and `tableColumnsRow.kte` render the data tables.
-- All styling is in `src/main/resources/styles/main.css`, served at `/styles/main.css`. It defines colors as CSS custom
+- All styling is in `src/main/resources/styles/main.css`. The build minifies the stylesheets (`MinifyCss` in
+  `build.gradle.kts`, task `minifyStylesheets`), the pages load `/styles/main.min.css` and `/styles/print.min.css`,
+  the sources aren't part of the resources. The minifier only removes comments and whitespace, which isn't needed. It defines colors as CSS custom
   properties in `:root`. The Lato font is loaded from Google Fonts by `fonts.kte`, which all pages
   include before `main.css` (no `@import`, so that the font loads in parallel). Use these properties instead of fixed colors.
 - Dark mode: `@media screen and (prefers-color-scheme: dark)` redefines the custom properties. Printing always uses the
@@ -293,7 +298,7 @@ extend, must not fail a response:
   they aren't committed: Gradle downloads the package and `bundleJavascriptLibraries` extracts the files, served at
   `/js/`. To upgrade, change the version in `build.gradle.kts`.
 - `src/main/resources/styles/print.css` contains the print-only rules (`.noprint`, `.noprintlink`, A4 landscape `@page`).
-  Templates link it with `media="print"`.
+  Templates link `print.min.css` with `media="print"`.
 - Table styling is partly set from Kotlin: `DataTable` subclasses in `marketplace-data` pass CSS class names (for example
   `cssClass = "small table-striped"`) and per-column `cssClass`/`cssStyle` values (`DataTable.kt`). These classes must exist in `main.css`.
 - Static resources are served by `staticResources("/styles", "styles")` and `staticResources("/js", "js")` in

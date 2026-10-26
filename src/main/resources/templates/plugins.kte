@@ -17,13 +17,13 @@
     <title>All Available Plugins</title>
     @template.favicons()
     @template.fonts()
-    <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
-    <link rel="stylesheet" type="text/css" media="print" href="/styles/print.css"/>
+    <link rel="stylesheet" type="text/css" href="/styles/main.min.css"/>
+    <link rel="stylesheet" type="text/css" media="print" href="/styles/print.min.css"/>
     @if(summaryTables.isNotEmpty())
         <link href="/js/uPlot.min.css" rel="stylesheet"/>
         <script src="/js/uPlot.iife.min.js" defer></script>
-        <script type="module" src="/js/charts/main.js"></script>
-        <script type="module" src="/js/collapsibleTables.js"></script>
+        <script type="module" src="/js/charts.min.js"></script>
+        <script type="module" src="/js/collapsibleTables.min.js"></script>
     @endif
 </head>
 <body data-locale="${java.util.Locale.getDefault().toLanguageTag()}">

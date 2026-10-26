@@ -261,8 +261,62 @@ project(":") {
         into(layout.buildDirectory.dir("generated/javascript"))
     }
 
+    // The Closure Compiler bundles the ES modules of the charts into one minified file, it runs on the JVM,
+    // the build doesn't need Node.js
+    val closureCompiler by configurations.creating {
+        isCanBeConsumed = false
+    }
+
+    dependencies {
+        // https://github.com/google/closure-compiler
+        closureCompiler("com.google.javascript:closure-compiler:v20261021")
+    }
+
+    // the modules of the charts, main.js and its imports
+    val bundleChartsJavascript by tasks.registering(ClosureBundle::class) {
+        description = "Bundles and minifies the JavaScript modules of the charts"
+        bundleName = "charts"
+        sourceDirectory = layout.projectDirectory.dir("src/main/resources/js/charts")
+        sources.from(sourceDirectory.asFileTree.matching { include("**/*.js") })
+        entryPoint = "main.js"
+        compilerClasspath.from(closureCompiler)
+        javaLauncher = javaToolchains.launcherFor(java.toolchain)
+        outputDirectory = layout.buildDirectory.dir("generated/bundleChartsJavascript")
+    }
+
+    // the script of the tables with collapsed rows
+    val minifyCollapsibleTablesJavascript by tasks.registering(ClosureBundle::class) {
+        description = "Minifies the JavaScript of the collapsible tables"
+        bundleName = "collapsibleTables"
+        sourceDirectory = layout.projectDirectory.dir("src/main/resources/js")
+        sources.from(sourceDirectory.file("collapsibleTables.js"))
+        entryPoint = "collapsibleTables.js"
+        compilerClasspath.from(closureCompiler)
+        javaLauncher = javaToolchains.launcherFor(java.toolchain)
+        outputDirectory = layout.buildDirectory.dir("generated/minifyCollapsibleTablesJavascript")
+    }
+
     sourceSets.main {
         resources.srcDir(bundleJavascriptLibraries)
+        resources.srcDir(bundleChartsJavascript)
+        resources.srcDir(minifyCollapsibleTablesJavascript)
+    }
+
+    // the stylesheets are served minified, e.g. styles/main.min.css
+    val minifyStylesheets by tasks.registering(MinifyCss::class) {
+        description = "Minifies the stylesheets"
+        source.from(fileTree("src/main/resources/styles") { include("*.css") })
+        outputDirectory.set(layout.buildDirectory.dir("generated/stylesheets/styles"))
+    }
+
+    sourceSets.main {
+        resources.srcDir(minifyStylesheets.map { it.outputDirectory.get().asFile.parentFile })
+    }
+
+    // the pages load the minified scripts and stylesheets instead of their sources
+    tasks.processResources {
+        exclude("js/charts/**", "js/collapsibleTables.js")
+        exclude { it.relativePath.pathString.startsWith("styles/") && !it.name.endsWith(".min.css") }
     }
 
     // Tests of the JavaScript modules of the charts, with the test runner of Node.js. Skipped if Node.js isn't installed.
@@ -413,4 +467,153 @@ project(":") {
 interface InjectedArchiveOperations {
     @get:Inject
     val archiveOperations: ArchiveOperations
+}
+
+/**
+ * Minifies stylesheets into `<name>.min.css`: removes comments, whitespace and the last semicolon of each block. The minifier is
+ * conservative, it keeps strings, the spaces of selectors (e.g. `a :hover`) and of values (e.g. `calc(1px + 2px)`).
+ */
+@CacheableTask
+abstract class MinifyCss : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val source: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction
+    fun minify() {
+        val target = outputDirectory.get().asFile
+        target.deleteRecursively()
+        target.mkdirs()
+        for (file in source.files) {
+            target.resolve(file.name.removeSuffix(".css") + ".min.css").writeText(minify(file.readText()))
+        }
+    }
+
+    private fun minify(css: String): String {
+        val result = StringBuilder(css.length)
+        var index = 0
+        var pendingSpace = false
+        // characters, after and before which whitespace isn't needed. The space before a colon is kept, it's a
+        // descendant combinator of a selector like `a :hover`.
+        val noSpaceAfter = "{};,:>"
+        val noSpaceBefore = "{};,>"
+        fun appendSpace(next: Char) {
+            if (pendingSpace && result.isNotEmpty() && result.last() !in noSpaceAfter && next !in noSpaceBefore) {
+                result.append(' ')
+            }
+            pendingSpace = false
+        }
+        while (index < css.length) {
+            val char = css[index]
+            when {
+                css.startsWith("/*", index) -> {
+                    val end = css.indexOf("*/", index + 2)
+                    check(end >= 0) { "Unclosed comment in the stylesheet" }
+                    index = end + 2
+                    pendingSpace = true
+                }
+
+                char == '"' || char == '\'' -> {
+                    appendSpace(char)
+                    var end = index + 1
+                    while (end < css.length && css[end] != char) {
+                        end += if (css[end] == '\\') 2 else 1
+                    }
+                    check(end < css.length) { "Unclosed string in the stylesheet" }
+                    result.append(css, index, end + 1)
+                    index = end + 1
+                }
+
+                char.isWhitespace() -> {
+                    pendingSpace = true
+                    index++
+                }
+
+                else -> {
+                    // the last declaration of a block doesn't need a semicolon
+                    if (char == '}' && result.endsWith(";")) {
+                        result.setLength(result.length - 1)
+                    }
+                    appendSpace(char)
+                    result.append(char)
+                    index++
+                }
+            }
+        }
+        return result.toString()
+    }
+}
+
+/**
+ * Bundles the script [entryPoint] and the modules it imports of [sources] with the Closure Compiler into
+ * `js/<bundleName>.min.js` with a source map, which contains the sources. The files are passed when the task runs, so
+ * that new and removed modules are noticed, also with the configuration cache.
+ */
+@CacheableTask
+abstract class ClosureBundle : DefaultTask() {
+    @get:Input
+    abstract val bundleName: Property<String>
+
+    /** The directory of the sources, the paths of the files and of the source map are relative to it. */
+    @get:Internal
+    abstract val sourceDirectory: DirectoryProperty
+
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sources: ConfigurableFileCollection
+
+    /** The path of the script, which is loaded by the pages, relative to [sourceDirectory]. */
+    @get:Input
+    abstract val entryPoint: Property<String>
+
+    @get:Classpath
+    abstract val compilerClasspath: ConfigurableFileCollection
+
+    @get:Nested
+    abstract val javaLauncher: Property<JavaLauncher>
+
+    @get:OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @get:Inject
+    abstract val execOperations: ExecOperations
+
+    @TaskAction
+    fun bundle() {
+        val name = bundleName.get()
+        val baseDir = sourceDirectory.get().asFile
+        val output = outputDirectory.get().asFile.resolve("js/$name.min.js")
+        outputDirectory.get().asFile.deleteRecursively()
+        output.parentFile.mkdirs()
+        val files = sources.files.map { it.relativeTo(baseDir).invariantSeparatorsPath }.sorted()
+        execOperations.javaexec {
+            executable(javaLauncher.get().executablePath.asFile)
+            classpath(compilerClasspath)
+            mainClass.set("com.google.javascript.jscomp.CommandLineRunner")
+            // the compiler uses sun.misc.Unsafe, the JDK warns about it
+            jvmArgs("--sun-misc-unsafe-memory-access=allow")
+            workingDir(baseDir)
+            args(
+                "--compilation_level", "SIMPLE",
+                "--language_in", "ECMASCRIPT_NEXT",
+                "--language_out", "NO_TRANSPILE",
+                // the JSDoc types aren't checked
+                "--warning_level", "QUIET",
+                "--dependency_mode", "PRUNE",
+                "--entry_point", entryPoint.get(),
+                "--js_output_file", output.absolutePath,
+                "--create_source_map", "${output.absolutePath}.map",
+                "--source_map_include_content",
+                // the sources of the source map are shown in the directory of the bundle, e.g. charts/main.js
+                "--source_map_location_mapping", "|$name/",
+                // the variables of the bundle don't become globals of the page, they're renamed like local variables
+                "--assume_function_wrapper",
+                "--output_wrapper", "(() => {%output%})();\n//# sourceMappingURL=$name.min.js.map",
+            )
+            args(files.flatMap { listOf("--js", it) })
+        }
+    }
 }
