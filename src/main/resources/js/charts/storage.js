@@ -15,14 +15,14 @@ const VERSION = 1;
  * @typedef {{type: "line"|"pie", table: string, column: string, row?: string, color?: string}} ChartEntry
  * @typedef {{combineUnits: boolean, maximized: boolean, preferredStyle: "lines"|"bars",
  *  chartStyles: Object<string, "lines"|"bars">, granularities: Object<string, "yearEnd"|"month"|"monthEnd"|"week"|"day">, shownMarkers: string[], shownEvents: string[],
- *  shownExtremes: ("min"|"max")[], shownOverlays: string[], showIncomplete: boolean, showValueTable: boolean,
+ *  shownExtremes: ("min"|"max")[], shownOverlays: string[], showIncomplete: boolean, showValueTable: boolean, averagesOnly: boolean,
  *  entries: ChartEntry[]}} ChartSetup
  */
 
 /** @return {ChartSetup} */
 export function emptySetup() {
     // vertical lines are hidden by default, the dialog is maximized
-    return {combineUnits: false, maximized: true, preferredStyle: "lines", chartStyles: {}, granularities: {}, shownMarkers: [], shownEvents: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, entries: []};
+    return {combineUnits: false, maximized: true, preferredStyle: "lines", chartStyles: {}, granularities: {}, shownMarkers: [], shownEvents: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, averagesOnly: false, entries: []};
 }
 
 const STYLES = ["lines", "bars"];
@@ -78,6 +78,7 @@ function parseSetup(setup) {
         // shown by default, also with a setup stored before the option existed
         showIncomplete: setup.showIncomplete !== false,
         showValueTable: setup.showValueTable !== false,
+        averagesOnly: setup.averagesOnly === true,
         entries: setup.entries.filter(isValidEntry),
     };
 }

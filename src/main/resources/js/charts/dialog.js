@@ -59,7 +59,7 @@ export class ChartDialog {
      *  selects the shown events in a menu.
      * @param {boolean} hasLineCharts If the page has columns, which can be shown in line charts.
      */
-    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange, onEventVisibilityChange, onExtremeVisibilityChange, onIncompleteVisibilityChange, onValueTableVisibilityChange, onOverlayVisibilityChange}, markerKinds, hasLineCharts, customEvents = []) {
+    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange, onEventVisibilityChange, onExtremeVisibilityChange, onIncompleteVisibilityChange, onValueTableVisibilityChange, onOverlayVisibilityChange, onAveragesOnlyChange}, markerKinds, hasLineCharts, customEvents = []) {
         this.element = document.createElement("dialog");
         this.element.className = "chart-dialog noprint";
         this.element.setAttribute("aria-labelledby", "chart-dialog-title");
@@ -150,6 +150,10 @@ export class ChartDialog {
             this.overlayTitles[kind] = {text, title};
             return [kind, this.addToggle(viewOptions, text, title, visible => onOverlayVisibilityChange(kind, visible))];
         }));
+        // the values of lines with an average can be hidden, lines without an average are always shown
+        this.averagesOnlyCheckbox = this.addToggle(viewOptions, "Only averages",
+            "Show only the moving average of lines with an average, not their values. The value table still shows the values.",
+            onAveragesOnlyChange);
         this.applicableOverlays = [];
         this.markerToggles.append(viewMenu);
 
@@ -293,6 +297,9 @@ export class ChartDialog {
             label.classList.toggle("chart-option-unavailable", !isApplicable);
             label.title = this.overlayTitles[kind].title + (isApplicable ? "" : "\nNot available for the shown charts.");
         }
+        // without a shown average, the option has no effect
+        const hasAverage = ["average3", "average12"].some(kind => kinds.includes(kind) && (this.shownOverlays ?? []).includes(kind));
+        this.averagesOnlyCheckbox.parentElement.classList.toggle("chart-option-unavailable", !hasAverage);
     }
 
     isOverlayApplicable(kind) {
@@ -310,6 +317,11 @@ export class ChartDialog {
         for (const [kind, checkbox] of Object.entries(this.overlayCheckboxes)) {
             checkbox.checked = shownKinds.includes(kind);
         }
+        this.shownOverlays = shownKinds;
+    }
+
+    setAveragesOnly(averagesOnly) {
+        this.averagesOnlyCheckbox.checked = averagesOnly;
     }
 
     setShowValueTable(visible) {
