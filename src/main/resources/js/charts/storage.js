@@ -16,13 +16,13 @@ const VERSION = 1;
  * @typedef {{combineUnits: boolean, maximized: boolean, preferredStyle: "lines"|"bars",
  *  chartStyles: Object<string, "lines"|"bars">, granularities: Object<string, "yearEnd"|"month"|"monthEnd"|"week"|"day">, shownMarkers: string[], shownEvents: string[],
  *  shownExtremes: ("min"|"max")[], shownOverlays: string[], showIncomplete: boolean, showValueTable: boolean, averagesOnly: boolean,
- *  dateRange: {from: string, to: string}|null, entries: ChartEntry[]}} ChartSetup
+ *  dateRange: {from: string, to: string}|null, hiddenSeries: string[], entries: ChartEntry[]}} ChartSetup
  */
 
 /** @return {ChartSetup} */
 export function emptySetup() {
     // vertical lines are hidden by default, the dialog is maximized
-    return {combineUnits: false, maximized: true, preferredStyle: "lines", chartStyles: {}, granularities: {}, shownMarkers: [], shownEvents: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, averagesOnly: false, dateRange: null, entries: []};
+    return {combineUnits: false, maximized: true, preferredStyle: "lines", chartStyles: {}, granularities: {}, shownMarkers: [], shownEvents: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, averagesOnly: false, dateRange: null, hiddenSeries: [], entries: []};
 }
 
 const STYLES = ["lines", "bars"];
@@ -90,6 +90,8 @@ function parseSetup(setup) {
         showValueTable: setup.showValueTable !== false,
         averagesOnly: setup.averagesOnly === true,
         dateRange: validDateRange(setup.dateRange ?? null),
+        // the keys of the series and overlays, which are hidden by a click on the legend
+        hiddenSeries: Array.isArray(setup.hiddenSeries) ? setup.hiddenSeries.filter(key => typeof key === "string") : [],
         entries: setup.entries.filter(isValidEntry),
     };
 }

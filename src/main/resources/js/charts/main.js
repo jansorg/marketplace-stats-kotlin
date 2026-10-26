@@ -74,6 +74,8 @@ class ChartController {
         this.averagesOnly = false;
         // the shown dates of the line charts, null for all dates, see storage.js
         this.dateRange = null;
+        // the keys of the series and overlays, which were hidden by a click on the legend, see createLineChart
+        this.hiddenSeries = new Set();
         // trends of the line charts, see OVERLAYS
         this.shownOverlays = [];
         this.hasLineCharts = false;
@@ -273,6 +275,7 @@ class ChartController {
     removeAll() {
         this.series = [];
         this.pies = [];
+        this.hiddenSeries = new Set();
         this.unresolvedEntries = [];
         this.save();
         this.dialog.close();
@@ -300,6 +303,7 @@ class ChartController {
         this.showValueTable = setup.showValueTable;
         this.averagesOnly = setup.averagesOnly;
         this.dateRange = setup.dateRange;
+        this.hiddenSeries = new Set(setup.hiddenSeries);
 
         for (const entry of setup.entries) {
             const column = columns.find(c => c.type === entry.type && c.table === entry.table && c.column === entry.column);
@@ -370,6 +374,7 @@ class ChartController {
             showValueTable: this.showValueTable,
             averagesOnly: this.averagesOnly,
             dateRange: this.dateRange,
+            hiddenSeries: [...this.hiddenSeries],
             entries: [
                 ...this.series.map(s => ({type: "line", table: s.table, column: s.column, ...(s.row ? {row: s.row} : {}), color: s.color})),
                 ...this.pies.map(p => ({type: "pie", table: p.table, column: p.column})),
@@ -534,10 +539,18 @@ class ChartController {
                 valueTable: this.showValueTable,
                 averagesOnly: this.averagesOnly,
                 visibleRange,
+                hiddenSeries: this.hiddenSeries,
                 fontFamily: this.fontFamily,
             };
             const onZoom = (from, to) => this.setDateRange(from === null ? null : rangeOfTimestamps(from, to));
-            const plot = createLineChart({...chartOptions, onZoom, width: dialog.chartWidth, height, container: panel});
+            // the hidden lines stay hidden, e.g. after the level of the chart was changed
+            const onSeriesVisibilityChange = (key, visible) => {
+                if (visible !== !this.hiddenSeries.has(key)) {
+                    visible ? this.hiddenSeries.delete(key) : this.hiddenSeries.add(key);
+                    this.save();
+                }
+            };
+            const plot = createLineChart({...chartOptions, onZoom, onSeriesVisibilityChange, width: dialog.chartWidth, height, container: panel});
             this.plots.push(plot);
             const title = document.title;
             const labels = chartSeries.filter(s => chart.units.includes(s.unit)).map(s => s.label);

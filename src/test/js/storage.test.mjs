@@ -17,14 +17,14 @@ test("a stored setup is loaded", () => {
     const setupStorage = createSetupStorage(storage);
     const setup = {
         combineUnits: true, averagesOnly: true, maximized: false, preferredStyle: "bars", chartStyles: {"month/USD": "bars"}, granularities: {"month/USD": "day"}, shownMarkers: ["ide"], shownEvents: ["price-announcement"], shownExtremes: ["max"], shownOverlays: ["average12", "previousYear"], showIncomplete: false, showValueTable: false,
-        dateRange: {from: "2024-01-01", to: "2024-12-31"},
+        dateRange: {from: "2024-01-01", to: "2024-12-31"}, hiddenSeries: ["line/Overview/MRR", "line/Overview/MRR:average3"],
         entries: [{type: "line", table: "Overview", column: "MRR", color: "#2a78d6"}, {type: "pie", table: "Top Countries", column: "% of Sales"}],
     };
     setupStorage.save(setup);
     assert.deepEqual(setupStorage.load(), setup);
     // only the setup is stored, no values of the tables
     assert.deepEqual(Object.keys(JSON.parse(storage.values.get(STORAGE_KEY))).sort(),
-        ["averagesOnly", "chartStyles", "combineUnits", "dateRange", "entries", "granularities", "maximized", "preferredStyle", "showIncomplete", "showValueTable", "shownEvents", "shownExtremes", "shownMarkers", "shownOverlays", "version"]);
+        ["averagesOnly", "chartStyles", "combineUnits", "dateRange", "entries", "granularities", "hiddenSeries", "maximized", "preferredStyle", "showIncomplete", "showValueTable", "shownEvents", "shownExtremes", "shownMarkers", "shownOverlays", "version"]);
 });
 
 test("the dialog is maximized by default", () => {
@@ -76,6 +76,13 @@ test("a bookmarked view is the setup in the fragment of the address", () => {
     // non-ASCII names of tables and columns
     const named = {...emptySetup(), entries: [{type: "line", table: "Übersicht", column: "Umsatz €"}]};
     assert.deepEqual(decodeView(encodeView(named)), named);
+});
+
+test("invalid keys of hidden lines are ignored", () => {
+    const load = hiddenSeries => createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 1, entries: [], hiddenSeries})})).load().hiddenSeries;
+    assert.deepEqual(load(undefined), []);
+    assert.deepEqual(load("line/Overview/MRR"), []);
+    assert.deepEqual(load(["line/Overview/MRR", 3, null]), ["line/Overview/MRR"]);
 });
 
 test("an invalid date range shows all dates", () => {
