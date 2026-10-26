@@ -31,11 +31,6 @@
     <div class="section-wide">
         <dl class="detail-grid">
             <div>
-                <dt>RefNum</dt>
-                <dd>${sale.ref}</dd>
-            </div>
-
-            <div>
                 <dt>Date</dt>
                 <dd>@template.render(value = sale.date)</dd>
             </div>
