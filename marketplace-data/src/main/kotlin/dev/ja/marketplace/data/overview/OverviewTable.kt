@@ -144,6 +144,8 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         tooltip = "Percentage of trials started in the month, which were converted by a paid new license " +
                 "within the trial period and ${Marketplace.TRIAL_CONVERSION_EXTRA_DAYS} days after it",
         chartMeasure = ChartMeasure.Ratio,
+        dailyChartSeries = OverviewDailyColumn.TrialsConverted.id,
+        yearlyChartSeries = OverviewDailyColumn.TrialsConvertedOfYear.id,
     )
 
     override val isChartable: Boolean = true
