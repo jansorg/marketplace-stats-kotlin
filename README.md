@@ -219,6 +219,7 @@ events:
 
 - You find the ID of a plugin in the address of its report, e.g. `?pluginId=12345`.
 - The IDs of the events must be unique.
+- `events-template.yml` is a template. Copy it, e.g. to `events.yml`, and change the events.
 
 ### Use the File
 
