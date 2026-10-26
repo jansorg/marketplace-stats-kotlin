@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.47.0
+
+- Charts:
+  - The menu "Range" has the ranges today, the past 7 days and this month, and lists the years with values below the
+    heading "Years".
+  - "Copy data URL" of the Export menu copies an address of the values of the shown lines as CSV or JSON
+    (`/chart-export`), e.g. for an AI agent.
+  - The trend "Previous year" shows the whole previous year, also after the current month.
+  - Moving averages are drawn above the other values, e.g. above bars.
+  - On small screens, the levels and the styles are dropdown menus, the menus fit into one row.
+  - The "+" menu scrolls with a finger and shows more items. The menus don't hang Chromium anymore, when they're opened
+    again after a click.
+- MCP: the new tool `create_chart` renders charts of metrics as PNG or SVG, with the options of the charts of the web
+  pages.
+- Pages:
+  - The calculated tables of a page are reused while the data of the plugin is the same, pages load much faster.
+  - The font Lato is served by the server instead of Google Fonts, the pages load a single stylesheet, the static
+    files are cached by the browsers with the hash of their content in their addresses.
+  - Small screens have a slightly smaller font, the arrow of the downloads columns is larger.
+  - Better accessibility: a main landmark, a meta description and names of all columns for screen readers.
+- Marketplace client:
+  - The plugin search can return all results beyond the 10,000 results of the Marketplace
+    (`PluginSearchMode.AnySizeWorkaround`). `MarketplaceClient` has the new method `marketplaceTags()`, implementations
+    outside of this project need to add it.
+  - The download statistics don't fail with the date range in the filters of the response.
+
 ## 0.46.0
 
 - Charts:
