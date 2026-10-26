@@ -7,6 +7,10 @@
 
 @param cssClass: String?
 @param plugin: PluginInfo
+@param urls: dev.ja.marketplace.client.MarketplaceUrlSupport
+@param rating: dev.ja.marketplace.client.model.PluginRating
+@param today: dev.ja.marketplace.client.YearMonthDay
+@param otherPlugins: List<dev.ja.marketplace.client.model.PluginInfoSummary>
 @param sale: PluginSale
 @param lineItems: List<Pair<SaleLineItemSummary, RenderedDataTable>>
 @param settings: ServerConfiguration
@@ -23,10 +27,13 @@
 </head>
 
 <body class="${cssClass}">
+<%-- the page only exists for this plugin, the menu of the other plugins links to their overview --%>
+@template.pluginHeader(plugin = plugin, urls = urls, rating = rating, today = today, otherPlugins = otherPlugins, otherPluginPath = "/")
 @template.navbar(plugin = plugin, showResellerCharges = settings.showResellerCharges)
 
+<h2 class="centered">Sale ${sale.ref}</h2>
+
 <div class="sections">
-    <h1>Sale ${sale.ref}</h1>
 
     <div class="section-wide">
         <dl class="detail-grid">

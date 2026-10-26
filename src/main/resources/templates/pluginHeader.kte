@@ -1,0 +1,54 @@
+@import dev.ja.marketplace.client.MarketplaceUrlSupport
+@import dev.ja.marketplace.client.YearMonthDay
+@import dev.ja.marketplace.client.model.PluginInfo
+@import dev.ja.marketplace.client.model.PluginInfoSummary
+@import dev.ja.marketplace.client.model.PluginRating
+
+@param plugin: PluginInfo
+@param urls: MarketplaceUrlSupport
+@param rating: PluginRating
+@param today: YearMonthDay
+@param otherPlugins: List<PluginInfoSummary>
+@param otherPluginPath: String = ""
+
+<%-- The icon, the name and the statistics of the plugin above the navigation of the pages of a plugin.
+     The menu of the other plugins links to the same page of the other plugin, or to otherPluginPath, e.g. "/" for the
+     pages of a sale or of a license, which don't exist for other plugins. --%>
+!{val iconUrl = plugin.iconUrlPath?.let { urls.assetUrl(it) }}
+@if(iconUrl != null)
+    <div class="centered">
+        <img src="${iconUrl}" alt="logo" class="plugin-icon"/>
+    </div>
+@endif
+<h1>${plugin.name}<%--
+    the other paid plugins
+--%>@if(otherPlugins.isNotEmpty())<details class="plugin-switcher noprint">
+        <summary title="Show another plugin" aria-label="Show another plugin"></summary>
+        <ul>
+            @for(other in otherPlugins)
+                !{val otherIconUrl = other.iconUrlPath?.let { urls.assetUrl(it) }}
+                <li><a href="${otherPluginPath}?pluginId=${other.id}">@if(otherIconUrl != null)<img src="${otherIconUrl}" alt="" class="plugin-switcher-icon"/>@endif${other.name}</a></li>
+            @endfor
+            <li class="plugin-switcher-all"><a href="/">All</a></li>
+        </ul>
+    </details>
+    <script type="module">
+        // the menu is closed by a click outside of it and by the Escape key
+        const menu = document.querySelector("details.plugin-switcher");
+        document.addEventListener("click", event => {
+            if (menu.open && !menu.contains(event.target)) {
+                menu.open = false;
+            }
+        });
+        document.addEventListener("keydown", event => {
+            if (menu.open && event.key === "Escape") {
+                menu.open = false;
+                menu.querySelector("summary").focus();
+            }
+        });
+    </script>@endif</h1>
+<div class="subtitle plugin-stats">
+    <span>@template.render(today)</span>
+    <span>↓ @template.render(plugin.downloads.toBigInteger()) downloads</span>
+    <span title="${rating.votesCount} ratings">★ @template.render(rating.calculatedRatingValue)</span>
+</div>
