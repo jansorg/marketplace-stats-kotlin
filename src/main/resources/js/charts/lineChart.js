@@ -800,8 +800,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     const overlayIndex = index => chartSeries.length + index + 1;
     const period = shortestPeriod(chartSeries);
     const isFiner = granularity === "week" || granularity === "day";
-    // the values at the end of each month are shown with the month
-    const datePeriod = granularity === "monthEnd" ? "month" : isFiner ? "day" : period;
+    // the values at the end of each month are shown with the month, the values at the end of each year with the year
+    const datePeriod = granularity === "monthEnd" ? "month" : granularity === "yearEnd" ? "year" : isFiner ? "day" : period;
 
     const isBars = chartStyle === "bars";
     // bars at the first and last date need space beside the date
@@ -825,7 +825,11 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     });
 
     // the range of yearly values covers the years until today
-    const xRange = period === "year" ? yearRange(dateRange, granularity !== "month") : [dateRange[0] - xPadding, dateRange[1] + xPadding];
+    // the values per year of monthly values have the ticks and the range of yearly values
+    const axisPeriod = granularity === "yearEnd" ? "year" : period;
+    const xRange = axisPeriod === "year"
+        ? yearRange(dateRange, granularity !== "month" && granularity !== "yearEnd")
+        : [dateRange[0] - xPadding, dateRange[1] + xPadding];
     const scales = {
         x: {time: true, range: () => xRange},
         y: {range: (plot, min, max) => uPlot.rangeNum(...zeroBasedRange(min, max), 0.1, true)},
@@ -839,7 +843,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
             grid: {stroke: theme.gridColor, width: 1},
             ticks: {stroke: theme.gridColor, width: 1},
             // the values per week or per day of a table of days span years, they use the default ticks of uPlot
-            ...xAxisTicks(period === "day" && isFiner ? "month" : period, formatter),
+            ...xAxisTicks(period === "day" && isFiner ? "month" : axisPeriod, formatter),
         },
         yAxis(units[0], "y", 3, style),
     ];

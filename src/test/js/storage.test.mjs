@@ -86,7 +86,7 @@ test("an invalid bookmarked view is ignored", () => {
 
 test("a series of a row of a table is stored with the name of the row", () => {
     const storage = createSetupStorage(memoryStorage());
-    const setup = {...emptySetup(), entries: [{type: "line", table: "Customer Type", column: "% of Sales per Month", row: "Individual", color: "#2a78d6"}]};
+    const setup = {...emptySetup(), entries: [{type: "line", table: "Customer Type", column: "% of Sales", row: "Individual", color: "#2a78d6"}]};
     storage.save(setup);
     assert.deepEqual(storage.load(), setup);
     assert.deepEqual(createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 1, entries: [{type: "line", table: "T", column: "C", row: 1}]})})).load().entries, []);

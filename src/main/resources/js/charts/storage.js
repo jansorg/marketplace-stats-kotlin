@@ -14,7 +14,7 @@ const VERSION = 1;
 /**
  * @typedef {{type: "line"|"pie", table: string, column: string, row?: string, color?: string}} ChartEntry
  * @typedef {{combineUnits: boolean, maximized: boolean, preferredStyle: "lines"|"bars",
- *  chartStyles: Object<string, "lines"|"bars">, granularities: Object<string, "month"|"monthEnd"|"week"|"day">, shownMarkers: string[],
+ *  chartStyles: Object<string, "lines"|"bars">, granularities: Object<string, "yearEnd"|"month"|"monthEnd"|"week"|"day">, shownMarkers: string[],
  *  shownExtremes: ("min"|"max")[], shownOverlays: string[], showIncomplete: boolean, showValueTable: boolean,
  *  entries: ChartEntry[]}} ChartSetup
  */
@@ -36,7 +36,7 @@ function validExtremes(setup) {
     // the option "Minimum and maximum" was split into two options
     return setup.showExtremes === true ? [...EXTREMES] : [];
 }
-const GRANULARITIES = ["month", "monthEnd", "week", "day"];
+const GRANULARITIES = ["yearEnd", "month", "monthEnd", "week", "day"];
 const MARKER_KINDS = ["release", "price", "ide"];
 
 /** @return {object} The entries of the map with valid values. */

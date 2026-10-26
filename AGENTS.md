@@ -203,7 +203,10 @@ added to the models as optional properties at the end of the constructors, unkno
 - Tables opt in with `DataTable.isChartable` (line charts over the date in the first column) or columns with
   `DataTableColumn.isShareOfTotal` (pie charts with one slice per row) or `DataTableColumn.rowHistoryPeriod` (line
   charts with one series per row, e.g. the share of each customer type per month, from `DataTableRow.getChartHistory`,
-  written as `data-chart-history` JSON by `ChartValues.history`). The templates write the raw values and units as
+  written as `data-chart-history` JSON by `ChartValues.history`). With `dailyChartSeries`, the series of a row also have
+  values per day and per year from `/chart-series` (`<id>.month.<row>` and `<id>.year.<row>`, e.g.
+  `CustomerTypeDailyValues`), the chart then offers Year (granularity `yearEnd`, `/chart-series?granularity=year`),
+  Month, Week and Day. The templates write the raw values and units as
   `data-chart-*` attributes, computed by `ChartValues`, so the JavaScript doesn't parse formatted numbers.
 
 ## Styling of the Rendered HTML

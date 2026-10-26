@@ -269,17 +269,29 @@ export function lineChartKey(chart) {
  * Granularities of the line charts of the values of tables. "month" is the period of the table, i.e. also the years of
  * yearly values and the days of tables like the days of the current month. Columns with values for each day, e.g. MRR,
  * can be shown per week or per day, and the values of yearly tables also at the end of each month ("monthEnd").
- * Their values have the scale of the values of the table, see OverviewDailyValues.kt.
+ * Their values have the scale of the values of the table, see OverviewDailyValues.kt. Monthly values with values per
+ * year, e.g. the shares of the customer types, can also be shown at the end of each year ("yearEnd").
  */
-export const GRANULARITIES = ["month", "monthEnd", "week", "day"];
+export const GRANULARITIES = ["yearEnd", "month", "monthEnd", "week", "day"];
 
 /**
  * @param {"day"|"month"|"year"} period The period of the values of the table.
+ * @param {boolean} hasYearValues If a series of the chart has values per year, see {@link readRowHistorySeries}.
  * @return {string[]} The granularities of a line chart of the values, the values at the end of each month only for
- *  yearly values, they would be the values of the table for monthly values.
+ *  yearly values, they would be the values of the table for monthly values, and the values at the end of each year
+ *  only for monthly values with values per year.
  */
-export function granularitiesOf(period) {
-    return GRANULARITIES.filter(granularity => granularity !== "monthEnd" || period === "year");
+export function granularitiesOf(period, hasYearValues = false) {
+    return GRANULARITIES.filter(granularity => {
+        switch (granularity) {
+            case "monthEnd":
+                return period === "year";
+            case "yearEnd":
+                return period === "month" && hasYearValues;
+            default:
+                return true;
+        }
+    });
 }
 
 /**
@@ -312,7 +324,7 @@ export function yearEndTicks(min, max, lastValue) {
  * @return {boolean} If the chart can show the values per week or per day.
  */
 export function hasFinerValues(seriesList) {
-    return seriesList.some(series => series.daily && ["day", "month", "year"].includes(series.period));
+    return seriesList.some(series => (series.daily || series.yearly) && ["day", "month", "year"].includes(series.period));
 }
 
 /**
@@ -537,7 +549,8 @@ export function overlayApplies(kind, series, granularity) {
     if (kind === "previousYear") {
         return series.period !== "year";
     }
-    return series.period === "month" && (granularity === "month" || Boolean(series.daily));
+    // the averages of months don't apply to the values of years
+    return series.period === "month" && granularity !== "yearEnd" && (granularity === "month" || Boolean(series.daily));
 }
 
 function completePoints(series) {

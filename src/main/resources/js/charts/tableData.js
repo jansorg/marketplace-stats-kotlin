@@ -130,7 +130,9 @@ export function readRowHistorySeries(table, columnIndex) {
             unit: history.unit,
             points,
             incomplete,
-            daily: null,
+            // the values per day and per year, e.g. customer-type-share.month.Individual, see CustomerTypeDailyValues.kt
+            daily: header.dataset.chartDaily ? `${header.dataset.chartDaily}.month.${name}` : null,
+            yearly: header.dataset.chartDaily ? `${header.dataset.chartDaily}.year.${name}` : null,
             measure: header.dataset.chartMeasure || null,
         });
     }

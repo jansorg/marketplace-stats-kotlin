@@ -24,7 +24,9 @@ class CustomerTypeTable(
     private val columnAmount = DataTableColumn("amount", null, "num", chartTitle = "Total Sales")
     private val columnPercentage = DataTableColumn(
         "percentage", "% of Sales", "num num-percentage",
-        chartTitle = "% of Sales per Month", chartMeasure = ChartMeasure.Ratio, rowHistoryPeriod = ChartPeriod.Month,
+        chartMeasure = ChartMeasure.Ratio, rowHistoryPeriod = ChartPeriod.Month,
+        // the values per day and per year, see CustomerTypeDailyValues
+        dailyChartSeries = CustomerTypeDailyValues.SERIES_ID,
     )
 
     private lateinit var totalAmount: MonetaryAmountTracker

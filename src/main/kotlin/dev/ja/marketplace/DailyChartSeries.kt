@@ -8,6 +8,7 @@ package dev.ja.marketplace
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.PluginData
+import dev.ja.marketplace.data.customerType.CustomerTypeDailyValues
 import dev.ja.marketplace.data.overview.DailySeries
 import dev.ja.marketplace.data.overview.OverviewDailyValues
 import dev.ja.marketplace.data.subscriptions.SubscriptionDailyValues
@@ -18,8 +19,8 @@ import java.time.DayOfWeek
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * The values of the overview table, of the table of the years and of the monthly tables of the subscription metrics
- * for each day or week as JSON for the charts, served at `/chart-series`.
+ * The values of the overview table, of the table of the years, of the shares of the customer types and of the monthly
+ * tables of the subscription metrics for each day or week as JSON for the charts, served at `/chart-series`.
  *
  * The values are calculated once for the loaded data of a plugin. The client caches the loaded data, so the values are
  * calculated again when the data is reloaded or on the next day.
@@ -30,6 +31,8 @@ class DailyChartSeries {
         Week,
         /** The last day of each month, e.g. for the sums of the year before the end of each month. */
         Month,
+        /** The last day of each year, e.g. for the shares of the customer types of each year. */
+        Year,
     }
 
     private class Values(
@@ -95,9 +98,10 @@ class DailyChartSeries {
             val yearSeries = years.series
                 .filterKeys { it in YEAR_SERIES }
                 .mapValues { it.value.alignedTo(years.days, overview.days) }
+            val customerTypes = CustomerTypeDailyValues.create(sales ?: emptyList(), overview.days, data.exchangeRates)
             Values(
                 overview,
-                overview.series.mapKeys { it.key.id } + subscriptions.mapKeys { it.key.id } + yearSeries,
+                overview.series.mapKeys { it.key.id } + subscriptions.mapKeys { it.key.id } + yearSeries + customerTypes,
             )
         }
         entries[data.pluginId] = Entry(sales, trials, downloads, currency, today, values)
@@ -140,6 +144,10 @@ class DailyChartSeries {
             // the last day of each month, and today
             Granularity.Month -> days.indices.filter { index ->
                 index == days.lastIndex || days[index] == YearMonthDay.lastOfMonth(days[index].year, days[index].month)
+            }
+            // the last day of each year, and today
+            Granularity.Year -> days.indices.filter { index ->
+                index == days.lastIndex || (days[index].month == 12 && days[index].day == 31)
             }
         }
 
