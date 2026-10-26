@@ -598,7 +598,7 @@ function enableComparisons(plot, {rows, timestamps, datePeriod, formatter, value
             }
         }
 
-        const visibleSeries = rows.map(row => plot.series[row.seriesIndex + 1].show).join();
+        const visibleSeries = rows.map(row => plot.series[row.plotIndex].show).join();
         if (index === shownIndex && visibleSeries === shownSeries) {
             return;
         }
@@ -650,13 +650,14 @@ function renderComparisonTable(table, {plot, rows, seriesPoints, comparisons, ti
 
     const body = document.createElement("tbody");
     rows.forEach((series, rowIndex) => {
-        const index = series.seriesIndex;
+        // the series of uPlot of the row, of the series or of an average
+        const plotIndex = series.plotIndex;
         const {points, tolerance} = seriesPoints[rowIndex];
         const found = columns.map(column => valueNear(points, column.timestamp, tolerance));
         const current = found[columns.findIndex(column => column.isCursor)];
 
         // the table replaces the legend of uPlot: a click on the label shows or hides the series, hidden series are dimmed
-        const isShown = plot.series[index + 1].show;
+        const isShown = plot.series[plotIndex].show;
         const row = document.createElement("tr");
         row.classList.toggle("chart-comparison-hidden", !isShown);
         const label = cell("th", "chart-comparison-series");
@@ -664,7 +665,7 @@ function renderComparisonTable(table, {plot, rows, seriesPoints, comparisons, ti
         label.setAttribute("role", "button");
         label.setAttribute("aria-pressed", String(isShown));
         label.title = isShown ? "Click to hide the line" : "Click to show the line";
-        const toggle = () => plot.setSeries(index + 1, {show: !plot.series[index + 1].show});
+        const toggle = () => plot.setSeries(plotIndex, {show: !plot.series[plotIndex].show});
         label.addEventListener("click", toggle);
         label.addEventListener("keydown", event => {
             if (event.key === "Enter" || event.key === " ") {
@@ -1052,13 +1053,14 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
 
     /**
      * @return The rows of the value table: a row of each series, or of each of its averages, if it only shows its
-     *  average. A click on a row shows or hides the series and its averages.
+     *  average. A click on the row of a series shows or hides the series and its averages, a click on the row of an
+     *  average only the average.
      */
     function valueTableRows() {
         return chartSeries.flatMap((s, seriesIndex) => {
             const label = s.isRightAxis ? s.label + " (right axis)" : s.label;
             if (!s.isValueHidden) {
-                return [{label, color: s.color, unit: s.unit, incomplete: s.incomplete, values: values[seriesIndex], seriesIndex}];
+                return [{label, color: s.color, unit: s.unit, incomplete: s.incomplete, values: values[seriesIndex], plotIndex: seriesIndex + 1}];
             }
             return chartOverlays
                 .map((overlay, overlayIndex) => ({overlay, overlayIndex}))
@@ -1069,7 +1071,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                     unit: s.unit,
                     incomplete: new Set(),
                     values: overlayValues[overlayIndex],
-                    seriesIndex,
+                    plotIndex: chartSeries.length + overlayIndex + 1,
                 }));
         });
     }
