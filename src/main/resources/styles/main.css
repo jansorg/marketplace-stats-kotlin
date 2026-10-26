@@ -1213,8 +1213,8 @@ dl.detail-grid dd {
 }
 
 .chart-dialog-header button .chart-icon {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     /* the larger icon would also have thicker lines */
     stroke-width: 1.4;
 }
@@ -1225,7 +1225,7 @@ dl.detail-grid dd {
     width: 1.65rem;
     height: 1.75rem;
     padding: 0;
-    font-size: 1.5rem;
+    font-size: 1.375rem;
 }
 
 /* a long name of a plugin is shortened, the buttons stay in the row of the title */
