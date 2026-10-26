@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.45.0
+
+- Charts:
+  - The menu "Events" contains all vertical lines: the custom events of the plugin, then the releases of the plugin, the
+    price changes and the releases of IntelliJ IDEA. The summary of all plugins shows the events of the paid plugins.
+  - All columns of the monthly tables show the values per year, e.g. MRR, ARR, sales, downloads and the subscription
+    metrics. The converted trials show the values per year, month, week and day.
+  - "Only averages": the legends and the value table list the averages instead of the hidden values, the averages are
+    drawn solid, their minimum and maximum are marked. Several averages of a value have different shades of its color.
+  - A click on a value or on one of its moving averages in the legend only shows or hides this line. Hidden lines stay
+    hidden after changing the level of a chart and are part of bookmarked views.
+  - The dialog fills small screens with less padding, closes with a ×, removes all charts with an icon button and shows
+    the name of the plugin. Pie charts are larger on large screens, the selected level and style are clearly visible
+    in the dark mode.
+- Marketplace client:
+  - The licenses of a sale add up to the amount of the sale, also of refunds with several line items.
+  - Values, which the Marketplace adds later, e.g. new types of sales, customers, license periods, product families or
+    currencies, don't fail the data.
+  - Failed requests aren't cached for days, requests have timeouts and retry too many requests.
+  - Today is the day in the time zone of the Marketplace, e.g. the sales of the new day are loaded in the Docker image.
+  - Outdated exchange rates are used while they're updated, reports in other currencies than USD don't wait for or fail
+    without the ECB.
+  - Sales of the recent 45 days are fetched again, also at the end of a month. Data read from disk isn't kept longer
+    than intended, unchanged fetches of the recent sales don't write the history again.
+  - The sales reports support perpetual licenses and skip invalid rows instead of failing.
+  - New endpoints: the organizations of the account, the Check License API, the ratings of the categories of the
+    reviews, the results of the plugin verifier and the end date of the downloads. All pages of the plugins of the
+    account are loaded.
+- `marketplace-client` and `marketplace-data` are published as Maven libraries (`dev.j-a.jetbrains-marketplace`).
+
 ## 0.44.0
 
 - Charts:
