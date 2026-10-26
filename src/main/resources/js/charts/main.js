@@ -14,7 +14,7 @@ import {
     canCombineUnits, CHART_STYLES, dateRange, exportFileName, finerPoints, granularitiesOf, groupCharts, hasFinerValues, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES, nextColor, pieSlices,
     visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear, trailingAverage, trailingAverageOfDays,
 } from "./model.js";
-import {browserStorage, createSetupStorage} from "./storage.js";
+import {browserStorage, createSetupStorage, decodeView, encodeView} from "./storage.js";
 import {chartColumns, readLineSeries, readMarkers, readPieRows} from "./tableData.js";
 import {ChartDialog} from "./dialog.js";
 import {createLineChart, lineChartTheme} from "./lineChart.js";
@@ -99,11 +99,16 @@ class ChartController {
             this.hasLineCharts ||= tableColumns.some(column => column.type === "line");
             return tableColumns.map(column => ({...column, element: table}));
         });
-        this.restore(columns);
+        const isBookmarkedView = this.restore(columns);
         this.makeLogoClickable();
         this.makeHintsClickable();
         if (columns.length > 0) {
             this.enableShortcut();
+        }
+        // a bookmarked view replaces the stored setup and is shown
+        if (isBookmarkedView) {
+            this.save();
+            this.openDialog(null);
         }
         // the colors of the charts follow the color scheme of the browser
         window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener("change", () => {
@@ -251,10 +256,13 @@ class ChartController {
     }
 
     /**
-     * Restores the stored chart setup with the values of the tables of this page.
+     * Restores the chart setup of a bookmarked view or the stored chart setup with the values of the tables of this page.
+     *
+     * @return {boolean} If the setup of a bookmarked view was restored, see {@link bookmark}.
      */
     restore(columns) {
-        const setup = this.storage.load();
+        const view = decodeView(window.location.hash);
+        const setup = view ?? this.storage.load();
         this.combineUnits = setup.combineUnits;
         this.maximized = setup.maximized;
         this.chartStyles = setup.chartStyles;
@@ -283,10 +291,39 @@ class ChartController {
                 }
             }
         }
+        return view !== null;
     }
 
     save() {
-        this.storage.save({
+        this.storage.save(this.currentSetup());
+        // the address of a bookmarked view doesn't match the changed view
+        if (decodeView(window.location.hash) !== null) {
+            history.replaceState(history.state, "", window.location.pathname + window.location.search);
+        }
+    }
+
+    /**
+     * Shows the current view in the address of the page, so that it can be bookmarked, and copies the address.
+     * Opening the address shows the view again, see {@link restore}.
+     */
+    async bookmark() {
+        const url = new URL(window.location.href);
+        url.hash = encodeView(this.currentSetup());
+        history.replaceState(history.state, "", url);
+        let copied = false;
+        try {
+            await navigator.clipboard.writeText(url.href);
+            copied = true;
+        } catch (e) {
+            // the address is still shown, e.g. if the page has no access to the clipboard
+        }
+        this.dialog?.showMessage("The address of the page shows this view, press Ctrl+D to bookmark it."
+            + (copied ? " The address was copied." : ""));
+    }
+
+    /** @return {import("./storage.js").ChartSetup} The current setup of the charts. */
+    currentSetup() {
+        return {
             combineUnits: this.combineUnits,
             maximized: this.maximized,
             preferredStyle: this.preferredStyle,
@@ -302,7 +339,7 @@ class ChartController {
                 ...this.pies.map(p => ({type: "pie", table: p.table, column: p.column})),
                 ...this.unresolvedEntries,
             ],
-        });
+        };
     }
 
     ensureDialog() {
@@ -587,7 +624,8 @@ class ChartController {
 
     /**
      * @param {{fileName: (extension: string) => string, image: () => HTMLCanvasElement|Promise<HTMLCanvasElement>, svg?: () => SVGSVGElement}} chartExport
-     * @return {HTMLElement} A menu to print the chart and to download it as PNG and, if available, as SVG.
+     * @return {HTMLElement} A menu to print the chart, to download it as PNG and, if available, as SVG, and to bookmark
+     *  the view of the charts.
      */
     exportMenu(chartExport) {
         const items = [
@@ -595,9 +633,11 @@ class ChartController {
             // shown when the menu opens, the other charts are added after this menu
             {label: "Print all charts", run: () => this.print(this.exports), isShown: () => this.exports.length > 1},
             {label: "Download PNG", run: async () => downloadCanvas(await chartExport.image(), chartExport.fileName("png"))},
+            {label: "Bookmark this view", run: () => this.bookmark()},
         ];
+        // the bookmark is the last item, after the download of an SVG
         if (chartExport.svg) {
-            items.push({label: "Download SVG", run: async () => downloadSvg(chartExport.svg(), chartExport.fileName("svg"))});
+            items.splice(items.length - 1, 0, {label: "Download SVG", run: async () => downloadSvg(chartExport.svg(), chartExport.fileName("svg"))});
         }
 
         const {menu, items: list} = createMenu("Export");

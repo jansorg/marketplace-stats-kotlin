@@ -185,6 +185,9 @@ added to the models as optional properties at the end of the constructors, unkno
   `/chart-series?granularity=month`).
 - The chart setup (columns, colors, options) is stored in the browser's local storage (`marketplace-stats.charts`) and
   restored on all pages with the same tables. Values are never stored, they're read from the tables of the current page.
+- "Bookmark this view" of the Export menu writes the setup into the fragment of the address (`#charts=<base64url JSON>`,
+  `encodeView`/`decodeView` in `storage.js`) and copies the address. Opening it replaces the stored setup with the
+  view, opens the dialog and removes the fragment. Changing the charts also removes it.
 - uPlot isn't committed. Gradle downloads the npm package (`npm:uplot:<version>@tgz` in `build.gradle.kts`, from an
   Ivy repository for the npm registry) and the task `bundleJavascriptLibraries` extracts it into
   `build/generated/javascript/js`, which is added to the resources and served at `/js/`. To upgrade, change the version.
