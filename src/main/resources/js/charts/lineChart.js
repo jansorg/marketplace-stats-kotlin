@@ -87,7 +87,7 @@ const legendData = new WeakMap();
  * @return {{label: string, color: string, shape: "line"|"dotted"|"box"|"stripes"|"point"|"marker", dash?: number[]}[]}
  */
 export function lineChartLegend(plot) {
-    const {chartSeries, markers, isBars, chartOverlays, theme} = legendData.get(plot);
+    const {chartSeries, markers, isBar, chartOverlays, theme} = legendData.get(plot);
     const min = plot.scales.x.min;
     const max = plot.scales.x.max;
     // series, which only show their average, aren't drawn, their averages are part of the legend
@@ -95,11 +95,11 @@ export function lineChartLegend(plot) {
     const entries = shown.map(series => ({
         label: series.isRightAxis ? series.label + " (right axis)" : series.label,
         color: series.color,
-        shape: isBars ? "box" : "line",
-        ...(!isBars && averageDashOf(series, chartSeries) ? {dash: averageDashOf(series, chartSeries)} : {}),
+        shape: isBar(series) ? "box" : "line",
+        ...(!isBar(series) && averageDashOf(series, chartSeries) ? {dash: averageDashOf(series, chartSeries)} : {}),
     }));
     if (shown.length > 0 && shown.some(series => [...series.incomplete].some(timestamp => timestamp >= min && timestamp <= max))) {
-        entries.push({label: "Incomplete values", color: incompleteColor(shown[0].color, theme.isDark), shape: isBars ? "stripes" : "dotted"});
+        entries.push({label: "Incomplete values", color: incompleteColor(shown[0].color, theme.isDark), shape: shown.every(isBar) ? "stripes" : "dotted"});
     }
     const kinds = new Set(markers.filter(marker => marker.timestamp >= min && marker.timestamp <= max).map(marker => marker.kind));
     for (const overlay of chartOverlays ?? []) {
@@ -182,7 +182,7 @@ function drawMarkers(plot, markers, font, theme) {
 /**
  * Draws the lines to incomplete values over the lines of uPlot in a lighter, less saturated color of the series.
  */
-function drawIncompleteLines(plot, chartSeries, theme) {
+function drawIncompleteLines(plot, chartSeries, isBar, theme) {
     const context = plot.ctx;
     const pixelRatio = uPlot.pxRatio;
     const timestamps = plot.data[0];
@@ -195,7 +195,7 @@ function drawIncompleteLines(plot, chartSeries, theme) {
 
     chartSeries.forEach((series, index) => {
         const plotSeries = plot.series[index + 1];
-        if (!plotSeries.show || series.incomplete.size === 0 || series.isValueHidden) {
+        if (!plotSeries.show || series.incomplete.size === 0 || series.isValueHidden || isBar(series)) {
             return;
         }
         const values = plot.data[index + 1];
@@ -238,7 +238,7 @@ function drawIncompleteLines(plot, chartSeries, theme) {
  * Draws the points of all series with a ring in the surface color. Incomplete values are drawn in a different color.
  * Points at the edges of the plot are not cut off.
  */
-function drawPoints(plot, chartSeries, theme) {
+function drawPoints(plot, chartSeries, isBar, theme) {
     const context = plot.ctx;
     const pixelRatio = uPlot.pxRatio;
     const radius = CHART_STYLE.pointRadius * pixelRatio;
@@ -253,7 +253,7 @@ function drawPoints(plot, chartSeries, theme) {
 
     chartSeries.forEach((series, index) => {
         const plotSeries = plot.series[index + 1];
-        if (!plotSeries.show || series.isValueHidden) {
+        if (!plotSeries.show || series.isValueHidden || isBar(series)) {
             return;
         }
         // the lighter line marks the incomplete values of series with many values, e.g. per day,
@@ -354,9 +354,9 @@ function drawBar(context, left, width, valueY, baseY, radius) {
  * @return {{visible: {series: object, index: number}[], width: number, offsets: number[]}} The shown series, the width
  *  of a bar and the offset of the left edge of the bar of each shown series to the date, in pixels of the canvas.
  */
-function barGeometry(plot, chartSeries, interval) {
+function barGeometry(plot, chartSeries, isBar, interval) {
     const timestamps = plot.data[0];
-    const visible = chartSeries.map((series, index) => ({series, index})).filter(({series, index}) => plot.series[index + 1].show && !series.isValueHidden);
+    const visible = chartSeries.map((series, index) => ({series, index})).filter(({series, index}) => plot.series[index + 1].show && !series.isValueHidden && isBar(series));
     if (visible.length === 0 || timestamps.length === 0) {
         return {visible, width: 0, offsets: []};
     }
@@ -384,11 +384,11 @@ function overlayColor(overlay) {
  * Marks the minimum and/or the maximum of each shown series with a ring and a label with the value.
  * The label of the maximum is above the value, the label of the minimum below it.
  */
-function drawExtremes(plot, chartSeries, chartOverlays, {kinds, isBars, interval, formatter, font, theme}) {
+function drawExtremes(plot, chartSeries, chartOverlays, {kinds, isBar, interval, formatter, font, theme}) {
     const context = plot.ctx;
     const pixelRatio = uPlot.pxRatio;
     const timestamps = plot.data[0];
-    const {visible, width, offsets} = isBars ? barGeometry(plot, chartSeries, interval) : {visible: [], width: 0, offsets: []};
+    const {visible, width, offsets} = barGeometry(plot, chartSeries, isBar, interval);
 
     context.save();
     context.font = scaledFont(font, pixelRatio);
@@ -401,7 +401,7 @@ function drawExtremes(plot, chartSeries, chartOverlays, {kinds, isBars, interval
     const lines = [
         ...chartSeries
             // partial values, e.g. of the first year of a plugin, aren't the minimum or the maximum
-            .map((series, index) => ({plotIndex: index + 1, color: series.color, unit: series.unit, incomplete: new Set([...series.incomplete, ...(series.partial ?? [])]), isBar: isBars, barIndex: index, isHidden: series.isValueHidden}))
+            .map((series, index) => ({plotIndex: index + 1, color: series.color, unit: series.unit, incomplete: new Set([...series.incomplete, ...(series.partial ?? [])]), isBar: isBar(series), barIndex: index, isHidden: series.isValueHidden}))
             .filter(line => !line.isHidden),
         ...chartOverlays
             .map((overlay, index) => ({plotIndex: chartSeries.length + index + 1, color: overlayColor(overlay), unit: overlay.base.unit, incomplete: new Set(), isBar: false, isMainLine: overlay.isMainLine}))
@@ -467,13 +467,13 @@ function drawExtremes(plot, chartSeries, chartOverlays, {kinds, isBars, interval
 }
 
 /**
- * Draws the values of all series as groups of bars. Incomplete values are drawn in a different color.
+ * Draws the values of the series with bars as groups of bars. Incomplete values are drawn in a different color.
  */
-function drawBars(plot, chartSeries, interval, theme) {
+function drawBars(plot, chartSeries, isBar, interval, theme) {
     const context = plot.ctx;
     const pixelRatio = uPlot.pxRatio;
     const timestamps = plot.data[0];
-    const {visible, width, offsets} = barGeometry(plot, chartSeries, interval);
+    const {visible, width, offsets} = barGeometry(plot, chartSeries, isBar, interval);
     if (visible.length === 0 || timestamps.length === 0) {
         return;
     }
@@ -717,14 +717,19 @@ function averageDashOf(series, chartSeries) {
     return CHART_STYLE.overlays["average" + series.average]?.dash ?? null;
 }
 
+/** The styles of a line in its menu, `null` is the style of the chart, see the buttons Lines/Bars of the chart. */
+const SERIES_STYLES = [[null, "Like the chart"], ["lines", "Line"], ["bars", "Bars"]];
+
 /**
- * @param {{label: string, window: string, selectedWindow?: string}} series A line of a metric with its shown and its
- *  selected window, e.g. the trials of each month, which follow the level of the chart.
- * @param {string} detail The detail level of the chart.
- * @param {(window: string) => void} onChange Called with the selected window.
- * @return {HTMLElement} A menu with a gear icon to select the window of the line, e.g. in its legend.
+ * @param {{label: string, window?: string, selectedWindow?: string, style?: "lines"|"bars"}} series A line with its
+ *  shown and its selected window, e.g. the trials of each month, which follow the level of the chart, and its style.
+ * @param {((window: string) => void)|null} onWindowChange Called with the selected window, `null` for a line without
+ *  window.
+ * @param {(style: "lines"|"bars"|null) => void} onStyleChange Called with the selected style, `null` for the style
+ *  of the chart.
+ * @return {HTMLElement} A menu with a gear icon to select the window and the style of the line, e.g. in its legend.
  */
-function seriesWindowMenu(series, detail, onChange) {
+function seriesMenu(series, onWindowChange, onStyleChange) {
     // the legend may scroll horizontally, the menu is placed in the window, a click on the small icon opens it
     const {menu, items} = createMenu("", {fixed: true, hover: false});
     menu.classList.add("chart-series-window");
@@ -741,20 +746,42 @@ function seriesWindowMenu(series, detail, onChange) {
     gear.setAttribute("d", GEAR_PATH);
     svg.append(gear, circle);
     summary.append(svg);
-    const selected = series.selectedWindow ?? series.window;
-    summary.title = "Window: " + (WINDOW_LABELS[selected] ?? selected);
-    summary.setAttribute("aria-label", "Window of " + series.label);
-    for (const window of WINDOWS) {
+    const selectedWindow = series.selectedWindow ?? series.window;
+    const style = series.style ?? null;
+    const titles = [
+        ...(onWindowChange ? ["Window: " + (WINDOW_LABELS[selectedWindow] ?? selectedWindow)] : []),
+        "Type: " + SERIES_STYLES.find(([value]) => value === style)[1],
+    ];
+    summary.title = titles.join("\n");
+    summary.setAttribute("aria-label", "Options of " + series.label);
+
+    const heading = text => {
+        const element = document.createElement("div");
+        element.className = "chart-menu-heading";
+        element.textContent = text;
+        items.append(element);
+    };
+    const radio = (text, isChecked, onClick) => {
         const button = document.createElement("button");
         button.type = "button";
-        button.textContent = WINDOW_LABELS[window];
+        button.textContent = text;
         button.setAttribute("role", "menuitemradio");
-        button.setAttribute("aria-checked", String(window === selected));
+        button.setAttribute("aria-checked", String(isChecked));
         button.addEventListener("click", () => {
             menu.open = false;
-            onChange(window);
+            onClick();
         });
         items.append(button);
+    };
+    if (onWindowChange) {
+        heading("Window");
+        for (const window of WINDOWS) {
+            radio(WINDOW_LABELS[window], window === selectedWindow, () => onWindowChange(window));
+        }
+    }
+    heading("Type");
+    for (const [value, text] of SERIES_STYLES) {
+        radio(text, value === style, () => onStyleChange(value));
     }
     // the menu doesn't inherit the tooltip of the legend, which shows and hides the line
     menu.setAttribute("title", "");
@@ -824,8 +851,8 @@ function renderComparisonTable(table, {plot, rows, seriesPoints, comparisons, ti
             // the key, the label, the menu of the window and the button to remove the line are centered vertically
             const content = cell("span", "chart-comparison-series-content");
             content.append(key, cell("span", null, series.label));
-            if (series.windowMenu) {
-                content.append(series.windowMenu());
+            if (series.seriesMenu) {
+                content.append(series.seriesMenu());
             }
             if (series.removeButton) {
                 content.append(series.removeButton());
@@ -998,7 +1025,10 @@ function yAxis(unit, scale, side, style) {
  * @param {((key: string) => void)|null} [options.onSeriesRemove] Called with the key of a line, which is removed with
  *  the × of its legend. Without it, the legend has no buttons to remove lines.
  * @param {((key: string, window: string) => void)|null} [options.onSeriesWindowChange] Called with the key of a line of
- *  a metric and a window, which is selected in the legend. Without it, the legend has no menus of the windows.
+ *  a metric and a window, which is selected in the legend.
+ * @param {((key: string, style: "lines"|"bars"|null) => void)|null} [options.onSeriesStyleChange] Called with the key
+ *  of a line and its style, which is selected in the legend, `null` for the style of the chart. Without it, the legend
+ *  has no menus of the lines.
  * @param {boolean} [options.hideAxisValues] If the y-axes have no values, e.g. to share the chart without numbers.
  * @param {boolean} [options.comparisonLines] If vertical lines mark the dates one month and one year before and after
  *  the cursor.
@@ -1021,7 +1051,7 @@ function yAxis(unit, scale, side, style) {
  * @param {"light"|"dark"} [options.theme] The colors of the chart, by default the color scheme of the browser.
  * @return {uPlot}
  */
-export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, comparisonLines = false, hideAxisValues = false, detail = null, onSeriesWindowChange = null, onSeriesRemove = null, overlays = [], averagesOnly = false, visibleRange = null, onZoom = null, hiddenSeries = new Set(), onSeriesVisibilityChange = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
+export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, comparisonLines = false, hideAxisValues = false, detail = null, onSeriesWindowChange = null, onSeriesStyleChange = null, onSeriesRemove = null, overlays = [], averagesOnly = false, visibleRange = null, onZoom = null, hiddenSeries = new Set(), onSeriesVisibilityChange = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
     const theme = CHART_THEMES[themeName];
     const style = {formatter, fonts: fonts(fontFamily), theme, hideAxisValues};
     const scaleKeys = ["y", "y2"];
@@ -1055,7 +1085,9 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     // the values at the end of each month are shown with the month, the values at the end of each year with the year
     const datePeriod = granularity === "monthEnd" ? "month" : granularity === "yearEnd" ? "year" : isFiner ? "day" : period;
 
-    const isBars = chartStyle === "bars";
+    // a line has its own style, or the style of the chart
+    const isBar = series => (series.style ?? chartStyle) === "bars";
+    const isBars = chartSeries.some(isBar);
     // bars at the first and last date need space beside the date
     const interval = smallestInterval(timestamps, 24 * 60 * 60);
     const xPadding = isBars ? interval / 2 : 0;
@@ -1148,16 +1180,13 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         hooks: {
             drawAxes: [plot => drawMarkers(plot, markers, style.fonts.releaseLabel, theme)],
             draw: [plot => {
-                if (isBars) {
-                    drawBars(plot, chartSeries, interval, theme);
-                } else {
-                    drawIncompleteLines(plot, chartSeries, theme);
-                    drawPoints(plot, chartSeries, theme);
-                }
+                drawBars(plot, chartSeries, isBar, interval, theme);
+                drawIncompleteLines(plot, chartSeries, isBar, theme);
+                drawPoints(plot, chartSeries, isBar, theme);
                 if (extremes.length > 0) {
                     // the labels of the minimum and the maximum have no values, if the axes have none
                     const extremeFormatter = hideAxisValues ? {...formatter, value: () => "", compact: () => ""} : formatter;
-                    drawExtremes(plot, chartSeries, chartOverlays, {kinds: extremes, isBars, interval, formatter: extremeFormatter, font: style.fonts.extremeLabel, theme});
+                    drawExtremes(plot, chartSeries, chartOverlays, {kinds: extremes, isBar, interval, formatter: extremeFormatter, font: style.fonts.extremeLabel, theme});
                 }
             }],
             // series and overlays, e.g. moving averages, are shown and hidden one by one by a click on the legend
@@ -1192,7 +1221,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                 spanGaps: true,
                 // points and bars are drawn by drawPoints and drawBars, to show incomplete values in a different color
                 points: {show: false},
-                ...(isBars || s.isValueHidden ? {paths: () => null} : {}),
+                ...(isBar(s) || s.isValueHidden ? {paths: () => null} : {}),
                 show: !hiddenSeries.has(s.key),
             })),
             // overlays are lines, also in bar charts
@@ -1238,7 +1267,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         return chartSeries.flatMap((s, seriesIndex) => {
             const label = s.isRightAxis ? s.label + " (right axis)" : s.label;
             const seriesRow = s.isValueHidden ? [] : [{label, color: s.color, unit: s.unit, incomplete: s.incomplete, values: values[seriesIndex], plotIndex: seriesIndex + 1,
-                windowMenu: windowMenuOf(s), removeButton: removeButtonOf(s), dash: averageDash(s)}];
+                seriesMenu: seriesMenuOf(s), removeButton: removeButtonOf(s), dash: isBar(s) ? null : averageDash(s)}];
             return seriesRow.concat(chartOverlays
                 .map((overlay, overlayIndex) => ({overlay, overlayIndex}))
                 .filter(({overlay}) => overlay.base === s)
@@ -1253,11 +1282,14 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         });
     }
 
-    /** @return {(() => HTMLElement)|null} Creates the menu of the window of a line, see seriesWindowMenu. */
-    function windowMenuOf(series) {
-        return series.usesWindow && series.window && detail && onSeriesWindowChange
-            ? () => seriesWindowMenu(series, detail, window => onSeriesWindowChange(series.key, window))
-            : null;
+    /** @return {(() => HTMLElement)|null} Creates the menu of the window and the style of a line, see seriesMenu. */
+    function seriesMenuOf(series) {
+        if (!onSeriesStyleChange) {
+            return null;
+        }
+        const hasWindow = series.usesWindow && series.window && detail && onSeriesWindowChange;
+        return () => seriesMenu(series, hasWindow ? window => onSeriesWindowChange(series.key, window) : null,
+            style => onSeriesStyleChange(series.key, style));
     }
 
     /** @return {(() => HTMLElement)|null} Creates the button, which removes a line from the chart. */
@@ -1287,12 +1319,12 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     const plot = new uPlot(options, [timestamps, ...values, ...overlayValues], container);
     // the lines, which were hidden before, e.g. of another level, don't show their axis
     showUsedAxes(plot);
-    // without the value table, the legend of uPlot has the menus of the windows
+    // without the value table, the legend of uPlot has the menus of the lines
     if (!valueTable) {
         const legendLabels = [...plot.root.querySelectorAll(".u-legend .u-series .u-label")];
         chartSeries.forEach((s, index) => {
             const legendLabel = legendLabels.find(label => label.textContent === plot.series[index + 1].label);
-            const elements = [windowMenuOf(s)?.(), removeButtonOf(s)?.()].filter(Boolean);
+            const elements = [seriesMenuOf(s)?.(), removeButtonOf(s)?.()].filter(Boolean);
             legendLabel?.after(...elements);
         });
     }
@@ -1307,6 +1339,6 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     if (onZoom !== null) {
         enablePinchZoom(plot, {limits: fullRange, onZoom, setPreview: range => pinchPreview = range});
     }
-    legendData.set(plot, {chartSeries, markers, isBars, chartOverlays, theme});
+    legendData.set(plot, {chartSeries, markers, isBar, chartOverlays, theme});
     return plot;
 }

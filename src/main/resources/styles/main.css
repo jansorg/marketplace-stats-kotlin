@@ -1650,16 +1650,19 @@ dl.detail-grid dd {
 
 /* the gear in the legend of a line, which selects its window */
 .chart-series-window {
-    display: inline-block;
+    display: inline-flex;
     margin-left: 0.3rem;
     vertical-align: middle;
+    font-size: inherit;
     font-weight: normal;
 }
 
 .chart-series-window summary {
     display: inline-flex;
     align-items: center;
-    padding: 0.05rem 0.15rem;
+    box-sizing: border-box;
+    height: var(--chart-legend-line-height);
+    padding: 0 0.15rem;
     color: var(--text-color-disabled);
     background: none;
     border-color: transparent;
@@ -1675,11 +1678,16 @@ dl.detail-grid dd {
 }
 
 .chart-series-window .chart-icon {
-    width: 13px;
-    height: 13px;
+    width: 1em;
+    height: 1em;
 }
 
-/* the key, the label, the gear and the × of a line in the legend are centered vertically */
+/* the key, the label, the gear and the × of a line in the legend are centered vertically and have the same height */
+.chart-comparison-series-content, .u-legend .u-series th {
+    --chart-legend-line-height: 1.25rem;
+    line-height: var(--chart-legend-line-height);
+}
+
 .chart-comparison-series-content {
     display: inline-flex;
     align-items: center;
@@ -1696,10 +1704,14 @@ dl.detail-grid dd {
 
 /* the × in the legend of a line, which removes it */
 .chart-series-remove {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    height: var(--chart-legend-line-height);
     margin-left: 0.15rem;
     padding: 0 0.25rem;
     font: inherit;
-    font-size: 1rem;
+    font-size: 1.15em;
     line-height: 1;
     vertical-align: middle;
     color: var(--text-color-disabled);
@@ -1715,6 +1727,7 @@ dl.detail-grid dd {
 }
 
 .chart-series-window .chart-menu-items {
+    font-size: .75rem;
     left: 0;
     right: auto;
     text-align: left;
@@ -1856,7 +1869,7 @@ dl.detail-grid dd {
     overflow-x: auto;
     width: auto;
     margin: 0.5rem 0 0;
-    font-size: .8rem;
+    font-size: .875rem;
     border-collapse: collapse;
 }
 

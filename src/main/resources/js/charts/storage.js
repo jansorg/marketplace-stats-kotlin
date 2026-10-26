@@ -18,9 +18,9 @@ const VERSION = 2;
 const READ_VERSIONS = [1, VERSION];
 
 /**
- * @typedef {{type: "line"|"pie", table: string, column: string, row?: string, color?: string}
+ * @typedef {{type: "line"|"pie", table: string, column: string, row?: string, color?: string, style?: "lines"|"bars"}
  *  |{type: "metric", metric: string, window?: string, usesWindow?: boolean, average?: number, label: string, unit: string, measure?: string,
- *   row?: string, color?: string}} ChartEntry
+ *   row?: string, color?: string, style?: "lines"|"bars"}} ChartEntry
  * @typedef {{window: string, detail: string}} ChartLevel
  * @typedef {{combineUnits: boolean, maximized: boolean, preferredStyle: "lines"|"bars",
  *  chartStyles: Object<string, "lines"|"bars">, chartLevels: Object<string, ChartLevel>, shownMarkers: string[], shownEvents: string[],
@@ -86,6 +86,7 @@ function isValidMetricEntry(entry) {
         && (entry.average === undefined || [1, 3, 12].includes(entry.average))
         && (entry.measure === undefined || typeof entry.measure === "string")
         && (entry.color === undefined || typeof entry.color === "string")
+        && (entry.style === undefined || STYLES.includes(entry.style))
         && (entry.row === undefined || typeof entry.row === "string");
 }
 
@@ -98,6 +99,7 @@ function isValidEntry(entry) {
         && typeof entry.table === "string"
         && typeof entry.column === "string"
         && (entry.color === undefined || typeof entry.color === "string")
+        && (entry.style === undefined || STYLES.includes(entry.style))
         && (entry.row === undefined || typeof entry.row === "string");
 }
 
