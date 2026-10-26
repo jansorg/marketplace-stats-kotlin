@@ -573,7 +573,9 @@ open class KtorMarketplaceClient(
 
     private fun HttpRequestBuilder.addDownloadFilters(filters: Array<out DownloadFilter>) {
         filters.forEach { filter ->
-            parameter(filter.type.requestParameterName, filter.value)
+            if (filter.type != DownloadFilterType.Unknown) {
+                parameter(filter.type.requestParameterName, filter.value)
+            }
         }
     }
 }
