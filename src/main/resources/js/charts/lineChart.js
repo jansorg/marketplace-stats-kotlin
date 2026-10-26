@@ -9,7 +9,7 @@
 
 import {formatDate, SECONDS_PER_DAY, unitTitle} from "./format.js";
 import {createMenu} from "./menu.js";
-import {alignSeries, availableComparisons, barLayout, cursorPosition, periodEnd, WINDOW_LABELS, WINDOWS, displayColor, extremeIndices, incompleteColor, averageShade, pinchedRange, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange} from "./model.js";
+import {alignSeries, availableComparisons, barLayout, cursorPosition, periodEnd, WINDOW_LABELS, WINDOWS, displayColor, extremeIndices, incompleteColor, averageShade, pinchedRange, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange, alignedRanges, niceStep, rangeTicks} from "./model.js";
 
 /**
  * The colors of the charts in the light and the dark mode. The surface is the background of the charts in the chart
@@ -691,10 +691,15 @@ function showUsedAxes(plot) {
     }
     const usedScales = new Set(plot.series.slice(1).filter(series => series.show).map(series => series.scale));
     let changed = false;
+    let hasGrid = false;
     for (const axis of yAxes) {
         const show = usedScales.size === 0 || usedScales.has(axis.scale);
-        if (axis.show !== show) {
+        // the first shown axis has the grid, also if the other axis is hidden
+        const showGrid = show && !hasGrid;
+        hasGrid ||= showGrid;
+        if (axis.show !== show || axis.grid.show !== showGrid) {
             axis.show = show;
+            axis.grid.show = showGrid;
             changed = true;
         }
     }
@@ -1120,6 +1125,9 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     const xRange = visibleRange !== null ? [visibleRange[0] - xPadding, visibleRange[1] + xPadding] : fullRange;
     // the range while two fingers zoom, see enablePinchZoom
     let pinchPreview = null;
+    // the ranges and the steps of the ticks of two y-axes, see alignedRange, and the preferred number of steps
+    const alignedTicks = {};
+    const tickCount = Math.max(2, Math.round((height - 80) / 60));
     const scales = {
         x: {time: true, range: () => pinchPreview ?? xRange},
         y: {range: (plot, min, max) => uPlot.rangeNum(...zeroBasedRange(...drawnRange(plot, "y", min, max)), 0.1, true)},
@@ -1138,8 +1146,13 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         yAxis(units[0], "y", 3, style),
     ];
     if (units.length > 1) {
-        scales.y2 = {range: (plot, min, max) => uPlot.rangeNum(...zeroBasedRange(...drawnRange(plot, "y2", min, max)), 0.1, true)};
+        // the ticks of both axes are at the same heights, so that the grid lines are at values of both axes
+        scales.y.range = plot => alignedRange(plot, "y");
+        scales.y2 = {range: plot => alignedRange(plot, "y2")};
         axes.push(yAxis(units[1], "y2", 1, style));
+        for (const axis of axes.slice(1)) {
+            axis.splits = (plot, axisIndex, min, max) => rangeTicks(alignedTicks[axis.scale] ?? {min, max, step: niceStep(max - min, tickCount)});
+        }
     }
 
     // moving averages are dashed next to values
@@ -1252,6 +1265,41 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
             .flatMap(({index}) => plot.data[index].filter((value, i) => value !== null && value !== undefined
                 && plot.data[0][i] >= xRange[0] && plot.data[0][i] <= xRange[1]));
         return drawn.length === 0 ? [min, max] : [Math.min(...drawn), Math.max(...drawn)];
+    }
+
+    /**
+     * @return {[number, number]|null} The smallest and the largest drawn value of the scale at the shown dates, null
+     *  without shown values.
+     */
+    function scaleExtent(plot, scale) {
+        const [from, to] = pinchPreview ?? xRange;
+        let min = Infinity;
+        let max = -Infinity;
+        plot.series.forEach((plotSeries, index) => {
+            // the values of series with averagesOnly aren't drawn
+            if (index === 0 || !plotSeries.show || plotSeries.scale !== scale || chartSeries[index - 1]?.isValueHidden) {
+                return;
+            }
+            plot.data[index].forEach((value, i) => {
+                if (value !== null && value !== undefined && plot.data[0][i] >= from && plot.data[0][i] <= to) {
+                    min = Math.min(min, value);
+                    max = Math.max(max, value);
+                }
+            });
+        });
+        return min <= max ? [min, max] : null;
+    }
+
+    /**
+     * @return {[number, number]} The range of a scale of a chart with two y-axes, see alignedRanges. A hidden axis
+     *  doesn't change the range of the shown axis.
+     */
+    function alignedRange(plot, scale) {
+        const extents = ["y", "y2"].map(key => [key, scaleExtent(plot, key)]).filter(([, extent]) => extent !== null);
+        const used = extents.some(([key]) => key === scale) ? extents : [[scale, [0, 1]]];
+        const ranges = alignedRanges(used.map(([, extent]) => extent), tickCount);
+        used.forEach(([key], index) => alignedTicks[key] = ranges[index]);
+        return [alignedTicks[scale].min, alignedTicks[scale].max];
     }
 
     /** @return The key of the uPlot series at the index, of a series or of an overlay, see `hiddenSeries`. */
