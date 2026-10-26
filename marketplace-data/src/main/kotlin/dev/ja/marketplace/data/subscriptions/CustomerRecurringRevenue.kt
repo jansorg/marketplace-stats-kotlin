@@ -11,6 +11,7 @@ import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.client.model.LicensePeriod
+import dev.ja.marketplace.data.trackers.RecurringRevenueSales
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
@@ -65,7 +66,7 @@ class CustomerRecurringRevenue(
             val lastKey = minOf(todayKey, if (isEndOfMonth) monthKey(end) else monthKey(end) - 1)
             for (key in monthKey(validity.start)..lastKey) {
                 latestLicenseSales.computeIfAbsent(key) { Object2ObjectOpenHashMap() }
-                    .merge(license.id, license) { old, new -> if (new.validity!!.end > old.validity!!.end) new else old }
+                    .merge(license.id, license, RecurringRevenueSales::preferred)
             }
         }
 
