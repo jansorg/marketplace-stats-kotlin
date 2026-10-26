@@ -96,8 +96,9 @@ data class YearMonthDay internal constructor(private val instant: LocalDate) : C
             return YearMonthDay(y.toInt(), m.toInt(), d.toInt())
         }
 
+        /** @return Today in the time zone of the Marketplace, like the dates of the sales and of [of] with an instant. */
         fun now(): YearMonthDay {
-            return of(LocalDate.now())
+            return of(LocalDate.now(MarketplaceTimeZone.toJavaZoneId()))
         }
 
         fun of(date: LocalDate): YearMonthDay {
