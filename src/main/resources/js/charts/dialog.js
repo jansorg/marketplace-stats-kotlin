@@ -73,6 +73,7 @@ export class ChartDialog {
      * @param {(kind: "min"|"max", visible: boolean) => void} callbacks.onExtremeVisibilityChange
      * @param {(visible: boolean) => void} callbacks.onIncompleteVisibilityChange
      * @param {(visible: boolean) => void} callbacks.onValueTableVisibilityChange
+     * @param {(visible: boolean) => void} callbacks.onComparisonLinesVisibilityChange
      * @param {(kind: string, visible: boolean) => void} callbacks.onOverlayVisibilityChange
      * @param {(range: {from: string, to: string}|null) => void} callbacks.onDateRangeChange
      * @param {string[]} markerKinds The kinds of vertical lines, which are available on this page.
@@ -80,7 +81,7 @@ export class ChartDialog {
      *  selects the shown events in a menu.
      * @param {boolean} hasLineCharts If the page has columns, which can be shown in line charts.
      */
-    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange, onEventVisibilityChange, onExtremeVisibilityChange, onIncompleteVisibilityChange, onValueTableVisibilityChange, onOverlayVisibilityChange, onAveragesOnlyChange, onDateRangeChange}, markerKinds, hasLineCharts, customEvents = []) {
+    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange, onEventVisibilityChange, onExtremeVisibilityChange, onIncompleteVisibilityChange, onValueTableVisibilityChange, onComparisonLinesVisibilityChange, onOverlayVisibilityChange, onAveragesOnlyChange, onDateRangeChange}, markerKinds, hasLineCharts, customEvents = []) {
         this.element = document.createElement("dialog");
         this.element.className = "chart-dialog noprint";
         this.element.setAttribute("aria-labelledby", "chart-dialog-title");
@@ -164,6 +165,9 @@ export class ChartDialog {
         this.valueTableCheckbox = this.addToggle(viewOptions, "Value table",
             "Show a table with the values at the cursor and one month and one year before and after it instead of the legend",
             onValueTableVisibilityChange);
+        this.comparisonLinesCheckbox = this.addToggle(viewOptions, "Comparison lines",
+            "Mark the dates one month and one year before and after the cursor with vertical lines",
+            onComparisonLinesVisibilityChange);
 
         // trends, which are only added to suitable lines
         const trendHeading = document.createElement("span");
@@ -400,6 +404,10 @@ export class ChartDialog {
 
     setShowValueTable(visible) {
         this.valueTableCheckbox.checked = visible;
+    }
+
+    setShowComparisonLines(visible) {
+        this.comparisonLinesCheckbox.checked = visible;
     }
 
     setShowIncomplete(visible) {

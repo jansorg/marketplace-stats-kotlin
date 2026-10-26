@@ -555,10 +555,10 @@ function enableTooltip(plot, chartSeries, describe) {
 
 /**
  * Compares the values at the cursor with the values one month and one year before and after it: vertical lines mark
- * the dates and a table below the chart shows the values and their changes. Without a cursor on the chart, the table
- * shows the latest values.
+ * the dates, if they're shown, and a table below the chart shows the values and their changes. Without a cursor on
+ * the chart, the table shows the latest values.
  */
-function enableComparisons(plot, {rows, timestamps, datePeriod, formatter, valueTable, shownRange}) {
+function enableComparisons(plot, {rows, timestamps, datePeriod, formatter, valueTable, comparisonLines, shownRange}) {
     // the values of each row without gaps, and the tolerance to find a value near a date
     const seriesPoints = rows.map(row => {
         const points = timestamps
@@ -569,7 +569,7 @@ function enableComparisons(plot, {rows, timestamps, datePeriod, formatter, value
     const shortestInterval = Math.min(...seriesPoints.map(({tolerance}) => tolerance * 2));
     const comparisons = availableComparisons(shortestInterval);
 
-    const lines = comparisons.map(comparison => {
+    const lines = (comparisonLines ? comparisons : []).map(comparison => {
         const line = document.createElement("div");
         // the labels are outside of the lines, away from the cursor, labels of months below the labels of years
         line.className = "chart-compare-line "
@@ -844,6 +844,8 @@ function yAxis(unit, scale, side, style) {
  * @param {"month"|"week"|"day"} [options.granularity] Values per week or per day are labeled with their day.
  * @param {("min"|"max")[]} [options.extremes] If the minimum or the maximum of each series are marked.
  * @param {boolean} [options.valueTable] If a table compares the values at the cursor instead of the legend of uPlot.
+ * @param {boolean} [options.comparisonLines] If vertical lines mark the dates one month and one year before and after
+ *  the cursor.
  * @param {{kind: string, base: string, label: string, points: Map<number, number>}[]} [options.overlays] Additional
  *  lines of the series with the key `base`, e.g. moving averages.
  * @param {boolean} [options.averagesOnly] If series with a moving average only show the average, the value table and
@@ -863,7 +865,7 @@ function yAxis(unit, scale, side, style) {
  * @param {"light"|"dark"} [options.theme] The colors of the chart, by default the color scheme of the browser.
  * @return {uPlot}
  */
-export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, overlays = [], averagesOnly = false, visibleRange = null, onZoom = null, hiddenSeries = new Set(), onSeriesVisibilityChange = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
+export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, comparisonLines = false, overlays = [], averagesOnly = false, visibleRange = null, onZoom = null, hiddenSeries = new Set(), onSeriesVisibilityChange = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
     const theme = CHART_THEMES[themeName];
     const style = {formatter, fonts: fonts(fontFamily), theme};
     const scaleKeys = ["y", "y2"];
@@ -1079,7 +1081,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     let updateComparisons = null;
     const plot = new uPlot(options, [timestamps, ...values, ...overlayValues], container);
     updateTooltip = enableTooltip(plot, chartSeries, describe);
-    updateComparisons = enableComparisons(plot, {rows: valueTableRows(), timestamps, datePeriod, formatter, valueTable, shownRange: xRange});
+    updateComparisons = enableComparisons(plot, {rows: valueTableRows(), timestamps, datePeriod, formatter, valueTable, comparisonLines, shownRange: xRange});
     // the legend of uPlot doesn't list series, which only show their average
     const hiddenLabels = new Set(chartSeries.flatMap((s, index) => s.isValueHidden ? [plot.series[index + 1].label] : []));
     for (const row of plot.root.querySelectorAll(".u-legend .u-series")) {

@@ -16,7 +16,7 @@ test("a stored setup is loaded", () => {
     const storage = memoryStorage();
     const setupStorage = createSetupStorage(storage);
     const setup = {
-        combineUnits: true, averagesOnly: true, maximized: false, preferredStyle: "bars", chartStyles: {"month/USD": "bars"}, chartLevels: {"metric/USD": {window: "year", detail: "day"}}, shownMarkers: ["ide"], shownEvents: ["price-announcement"], shownExtremes: ["max"], shownOverlays: ["average12", "previousYear"], showIncomplete: false, showValueTable: false,
+        combineUnits: true, averagesOnly: true, maximized: false, preferredStyle: "bars", chartStyles: {"month/USD": "bars"}, chartLevels: {"metric/USD": {window: "year", detail: "day"}}, shownMarkers: ["ide"], shownEvents: ["price-announcement"], shownExtremes: ["max"], shownOverlays: ["average12", "previousYear"], showIncomplete: false, showValueTable: false, showComparisonLines: true,
         dateRange: {from: "2024-01-01", to: "2024-12-31"}, hiddenSeries: ["line/Overview/MRR", "line/Overview/MRR:average3"],
         entries: [
             {type: "metric", metric: "mrr", label: "MRR", unit: "USD", measure: "stock", color: "#2a78d6"},
@@ -28,7 +28,7 @@ test("a stored setup is loaded", () => {
     assert.deepEqual(setupStorage.load(), setup);
     // only the setup is stored, no values of the tables
     assert.deepEqual(Object.keys(JSON.parse(storage.values.get(STORAGE_KEY))).sort(),
-        ["averagesOnly", "chartLevels", "chartStyles", "combineUnits", "dateRange", "entries", "hiddenSeries", "maximized", "preferredStyle", "showIncomplete", "showValueTable", "shownEvents", "shownExtremes", "shownMarkers", "shownOverlays", "version"]);
+        ["averagesOnly", "chartLevels", "chartStyles", "combineUnits", "dateRange", "entries", "hiddenSeries", "maximized", "preferredStyle", "showComparisonLines", "showIncomplete", "showValueTable", "shownEvents", "shownExtremes", "shownMarkers", "shownOverlays", "version"]);
 });
 
 test("the dialog is maximized by default", () => {
@@ -36,6 +36,13 @@ test("the dialog is maximized by default", () => {
     assert.equal(emptySetup().maximized, true);
     assert.equal(load({}).maximized, true);
     assert.equal(load({maximized: false}).maximized, false);
+});
+
+test("the comparison lines are hidden by default", () => {
+    const load = stored => createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 2, entries: [], ...stored})})).load();
+    assert.equal(emptySetup().showComparisonLines, false);
+    assert.equal(load({}).showComparisonLines, false);
+    assert.equal(load({showComparisonLines: true}).showComparisonLines, true);
 });
 
 test("invalid data is ignored", () => {
