@@ -7,6 +7,11 @@
     display: none;
 }
 
+/* the footer is printed with the date of the page, without the button to drop the caches */
+.site-footer .noprint {
+    display: none;
+}
+
 /* printing the charts of the chart dialog shows only the charts, see js/charts/exportImage.js */
 body.print-charts > :not(.chart-print) {
     display: none !important;

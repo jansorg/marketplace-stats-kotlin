@@ -1,12 +1,14 @@
-<%-- The footer of all pages: the version and links to the project and its author.
-     The pages of a plugin show a button to drop the cached data of the plugin. --%>
+<%-- The footer of all pages: the version, links to the project and its author, and the date and the time of the page,
+     e.g. for archived and printed pages. The pages of a plugin show a button to drop the cached data of the plugin. --%>
 @param dropCachesPluginId: Int? = null
 
-<footer class="site-footer noprint">
+!{val renderedAt = java.time.ZonedDateTime.now().truncatedTo(java.time.temporal.ChronoUnit.MINUTES)}
+<footer class="site-footer">
     <span>Marketplace Stats ${dev.ja.marketplace.AppInfo.version}</span>
     @if(dropCachesPluginId != null)
-        <form action="/refresh?pluginId=${dropCachesPluginId}&reload=true" method="POST"><button class="site-footer-button" title="Drops the cached data and loads it again"><svg class="site-footer-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9 M12.5 1.5v3h-3"/></svg>Drop caches</button></form>
+        <form class="noprint" action="/refresh?pluginId=${dropCachesPluginId}&reload=true" method="POST"><button class="site-footer-button" title="Drops the cached data and loads it again"><svg class="site-footer-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9 M12.5 1.5v3h-3"/></svg>Drop caches</button></form>
     @endif
     <a href="https://github.com/jansorg/marketplace-stats-kotlin" target="_blank" rel="noopener">GitHub</a>
     <a href="https://j-a.dev" target="_blank" rel="noopener">j-a.dev</a>
+    <time class="site-footer-date" datetime="${renderedAt.toOffsetDateTime().toString()}">${renderedAt.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z"))}</time>
 </footer>
