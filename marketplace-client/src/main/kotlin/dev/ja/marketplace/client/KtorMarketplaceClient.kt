@@ -111,9 +111,12 @@ open class KtorMarketplaceClient(
         loadMonthlyChunks(range) { loadSalesInfo(plugin, it) }
     }
 
-    override suspend fun licenseInfo(plugin: PluginId): SalesWithLicensesInfo = withContext(dispatcher) {
+    override suspend fun licenseInfo(plugin: PluginId): SalesWithLicensesInfo {
         val sales = salesInfo(plugin)
-        SalesWithLicensesInfo(sales, LicenseInfo.createFrom(sales))
+        // CPU work, the dispatcher of the requests has few threads, which other requests would wait for
+        return withContext(Dispatchers.Default) {
+            SalesWithLicensesInfo(sales, LicenseInfo.createFrom(sales))
+        }
     }
 
     override suspend fun trialsInfo(plugin: PluginId): List<PluginTrial> = withContext(dispatcher) {
