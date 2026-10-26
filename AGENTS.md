@@ -190,7 +190,7 @@ extend, must not fail a response:
   them when the charts are drawn. Exported and printed images always use the light colors, a dark chart is drawn again
   with the light colors for the image.
   The option "Incomplete values" of the View menu of the chart dialog hides them, "Minimum" and "Maximum" mark the
-  lowest and highest complete value of each series.
+  lowest and highest complete value of each series, with "Only averages" of each average, which is drawn instead.
   "Only averages" of the View menu hides the values of series with a shown moving average (`averagesOnly`): the series
   aren't drawn, their averages are drawn solid like a series, and the value table, the tooltip and the legends list
   the averages instead of the series. Series without an average are always drawn. Several averages of the same series

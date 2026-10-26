@@ -377,7 +377,7 @@ function overlayColor(overlay) {
  * Marks the minimum and/or the maximum of each shown series with a ring and a label with the value.
  * The label of the maximum is above the value, the label of the minimum below it.
  */
-function drawExtremes(plot, chartSeries, {kinds, isBars, interval, formatter, font, theme}) {
+function drawExtremes(plot, chartSeries, chartOverlays, {kinds, isBars, interval, formatter, font, theme}) {
     const context = plot.ctx;
     const pixelRatio = uPlot.pxRatio;
     const timestamps = plot.data[0];
@@ -390,27 +390,37 @@ function drawExtremes(plot, chartSeries, {kinds, isBars, interval, formatter, fo
     // labels, which would overlap a label of another series, e.g. at the same minimum, are skipped
     const placedLabels = [];
 
-    chartSeries.forEach((series, index) => {
-        const plotSeries = plot.series[index + 1];
-        if (!plotSeries.show || series.isValueHidden) {
+    // the drawn series, and the averages, which are drawn instead of their series with "Only averages"
+    const lines = [
+        ...chartSeries
+            .map((series, index) => ({plotIndex: index + 1, color: series.color, unit: series.unit, incomplete: series.incomplete, isBar: isBars, barIndex: index, isHidden: series.isValueHidden}))
+            .filter(line => !line.isHidden),
+        ...chartOverlays
+            .map((overlay, index) => ({plotIndex: chartSeries.length + index + 1, color: overlayColor(overlay), unit: overlay.base.unit, incomplete: new Set(), isBar: false, isMainLine: overlay.isMainLine}))
+            .filter(line => line.isMainLine),
+    ];
+
+    lines.forEach(series => {
+        const plotSeries = plot.series[series.plotIndex];
+        if (!plotSeries.show) {
             return;
         }
-        const values = plot.data[index + 1];
+        const values = plot.data[series.plotIndex];
         // the extremes of the shown dates, e.g. of a zoomed chart
         const extremes = extremeIndices(timestamps, values, series.incomplete, [plot.scales.x.min, plot.scales.x.max]);
         if (extremes === null) {
             return;
         }
-        const barPosition = visible.findIndex(entry => entry.index === index);
+        const barPosition = series.isBar ? visible.findIndex(entry => entry.index === series.barIndex) : -1;
 
         for (const kind of ["max", "min"].filter(kind => kinds.includes(kind))) {
             const i = extremes[kind];
-            const x = plot.valToPos(timestamps[i], "x", true) + (isBars ? offsets[barPosition] + width / 2 : 0);
+            const x = plot.valToPos(timestamps[i], "x", true) + (series.isBar ? offsets[barPosition] + width / 2 : 0);
             const y = plot.valToPos(values[i], plotSeries.scale, true);
             // only the value, the position at the highest or lowest point shows the kind
-            const lines = [formatter.value(values[i], series.unit)];
+            const labelLines = [formatter.value(values[i], series.unit)];
 
-            if (!isBars) {
+            if (!series.isBar) {
                 context.beginPath();
                 context.arc(x, y, (CHART_STYLE.pointRadius + CHART_STYLE.pointRing + 3) * pixelRatio, 0, 2 * Math.PI);
                 context.strokeStyle = series.color;
@@ -418,11 +428,11 @@ function drawExtremes(plot, chartSeries, {kinds, isBars, interval, formatter, fo
             }
 
             // the label is inside of the chart, the label of a negative maximum or a positive minimum is beside the bar
-            const halfWidth = Math.max(...lines.map(line => context.measureText(line).width)) / 2;
+            const halfWidth = Math.max(...labelLines.map(line => context.measureText(line).width)) / 2;
             const labelX = Math.min(Math.max(x, plot.bbox.left + halfWidth), plot.bbox.left + plot.bbox.width - halfWidth);
             const distance = 10 * pixelRatio;
             const lineHeight = 16 * pixelRatio;
-            const height = lines.length * lineHeight + 2 * pixelRatio;
+            const height = labelLines.length * lineHeight + 2 * pixelRatio;
             const isAbove = kind === "max" ? y - distance - height > plot.bbox.top : y + distance + height > plot.bbox.top + plot.bbox.height;
             context.textBaseline = "top";
 
@@ -442,7 +452,7 @@ function drawExtremes(plot, chartSeries, {kinds, isBars, interval, formatter, fo
             context.fillStyle = theme.surfaceColor;
             context.fillRect(box.left, box.top, box.width, box.height);
             context.fillStyle = series.color;
-            lines.forEach((line, lineIndex) => context.fillText(line, labelX, box.top + pixelRatio + lineIndex * lineHeight));
+            labelLines.forEach((line, lineIndex) => context.fillText(line, labelX, box.top + pixelRatio + lineIndex * lineHeight));
         }
     });
     context.restore();
@@ -972,7 +982,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                     drawPoints(plot, chartSeries, theme);
                 }
                 if (extremes.length > 0) {
-                    drawExtremes(plot, chartSeries, {kinds: extremes, isBars, interval, formatter, font: style.fonts.extremeLabel, theme});
+                    drawExtremes(plot, chartSeries, chartOverlays, {kinds: extremes, isBars, interval, formatter, font: style.fonts.extremeLabel, theme});
                 }
             }],
             // series and overlays, e.g. moving averages, are shown and hidden one by one by a click on the legend
