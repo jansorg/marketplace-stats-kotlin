@@ -44,6 +44,6 @@
 
     !{val footer = section.footer}
     @if(renderFooter && footer != null)
-        @template.dataRowGroup(table = table, group = footer, columns = columns, cssClass = "row-border-light-top", renderHeader = false)
+        @template.dataRowGroup(table = table, group = footer, columns = columns, cssClass = "row-border-light-top row-total", renderHeader = false)
     @endif
 @endif
