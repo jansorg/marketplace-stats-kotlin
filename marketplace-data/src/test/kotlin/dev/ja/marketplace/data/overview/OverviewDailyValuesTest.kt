@@ -117,6 +117,21 @@ class OverviewDailyValuesTest {
     }
 
     @Test
+    fun recurringRevenueOfTheCurrentMonthIsTheValueOfToday() {
+        // the table measures the current month at today, like the licenses
+        val currentMonth = YearMonthDayRange(YearMonthDay(today.year, today.month, 1), today)
+        val mrrTracker = MonthlyRecurringRevenueTracker(currentMonth, exchangeRates)
+        val arrTracker = AnnualRecurringRevenueTracker(currentMonth, exchangeRates)
+        licenses.forEach {
+            mrrTracker.processLicenseSale(it)
+            arrTracker.processLicenseSale(it)
+        }
+        val index = values.days.indexOf(today)
+        assertAmount(mrrTracker.getResult().amounts.getTotalAmount(), value(OverviewDailyColumn.Mrr, index), "MRR of today")
+        assertAmount(arrTracker.getResult().amounts.getTotalAmount(), value(OverviewDailyColumn.Arr, index), "ARR of today")
+    }
+
+    @Test
     fun sumsWithinAMonthAreTheSumsOfTheMonthBeforeTheDay() = runBlocking {
         val day = YearMonthDay(2024, 3, 15)
         val range = YearMonthDay(2024, 2, 16).rangeTo(day)

@@ -118,7 +118,7 @@ class OverviewDailyValues private constructor(
         private val incompleteSums = dayCount - 1
 
         // recurring revenue of the current month is incomplete like in the table,
-        // because licenses renewed later in the month aren't included yet
+        // it's the value of today, it changes until the end of the month
         private val incompleteRecurringRevenue = maxOf(0, index(YearMonthDay.firstOfMonth(today.year, today.month)))
 
         /** Index of the first day of the month before each day, see [OverviewDailyValues]. */

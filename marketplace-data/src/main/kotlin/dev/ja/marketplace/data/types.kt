@@ -73,7 +73,7 @@ fun BigDecimal.sortValue(): Long {
 data class IncompleteValue(val value: Any)
 
 const val IncompleteRecurringRevenueTooltip: String =
-    "Incomplete: licenses renewed later in this period are not included yet"
+    "Incomplete: the recurring revenue of today, it changes until the end of this period"
 
 data class LinkedCustomer(val id: CustomerId, val pluginId: PluginId)
 
