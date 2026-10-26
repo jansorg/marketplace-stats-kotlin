@@ -178,6 +178,8 @@ added to the models as optional properties at the end of the constructors, unkno
   with the light colors for the image.
   The option "Incomplete values" of the View menu of the chart dialog hides them, "Minimum" and "Maximum" mark the
   lowest and highest complete value of each series.
+  "Only averages" of the View menu hides the values of series with a shown moving average (`averagesOnly`, the
+  series aren't drawn, but their values are in the value table). Series without an average are always drawn.
 - In sortable tables (`sortable` CSS class), a click on the label of a column header opens the chart and a click on
   the rest of the header, e.g. the arrow, sorts the table.
 - Line charts of the overview table can show the values per week or per day. Columns with values per day set

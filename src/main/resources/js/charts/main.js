@@ -70,6 +70,8 @@ class ChartController {
         this.showIncomplete = true;
         // if a table with the values at the cursor replaces the legend of the line charts
         this.showValueTable = true;
+        // if lines with a moving average only show the average
+        this.averagesOnly = false;
         // trends of the line charts, see OVERLAYS
         this.shownOverlays = [];
         this.hasLineCharts = false;
@@ -294,6 +296,7 @@ class ChartController {
         this.shownOverlays = setup.shownOverlays;
         this.showIncomplete = setup.showIncomplete;
         this.showValueTable = setup.showValueTable;
+        this.averagesOnly = setup.averagesOnly;
 
         for (const entry of setup.entries) {
             const column = columns.find(c => c.type === entry.type && c.table === entry.table && c.column === entry.column);
@@ -362,6 +365,7 @@ class ChartController {
             shownOverlays: this.shownOverlays,
             showIncomplete: this.showIncomplete,
             showValueTable: this.showValueTable,
+            averagesOnly: this.averagesOnly,
             entries: [
                 ...this.series.map(s => ({type: "line", table: s.table, column: s.column, ...(s.row ? {row: s.row} : {}), color: s.color})),
                 ...this.pies.map(p => ({type: "pie", table: p.table, column: p.column})),
@@ -409,6 +413,11 @@ class ChartController {
                         this.dialog.showMessage(this.dialog.overlayHint(kind));
                     }
                 },
+                onAveragesOnlyChange: averagesOnly => {
+                    this.averagesOnly = averagesOnly;
+                    this.save();
+                    this.render();
+                },
                 onValueTableVisibilityChange: visible => {
                     this.showValueTable = visible;
                     this.save();
@@ -446,6 +455,7 @@ class ChartController {
         dialog.setShowIncomplete(this.showIncomplete);
         dialog.setShowValueTable(this.showValueTable);
         dialog.setShownOverlays(this.shownOverlays);
+        dialog.setAveragesOnly(this.averagesOnly);
         const markers = visibleMarkers(this.markers, this.shownMarkers, this.shownEvents);
 
         const charts = groupCharts(this.series, this.combineUnits);
@@ -496,6 +506,7 @@ class ChartController {
                 granularity,
                 extremes: this.shownExtremes,
                 valueTable: this.showValueTable,
+                averagesOnly: this.averagesOnly,
                 fontFamily: this.fontFamily,
             };
             const plot = createLineChart({...chartOptions, width: dialog.chartWidth, height, container: panel});
