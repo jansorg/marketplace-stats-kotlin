@@ -34,9 +34,7 @@ class CountryChurn(licenses: List<LicenseInfo>, today: YearMonthDay) {
     val previouslyActiveDate: YearMonthDay = today.add(-1, 0, 0)
     val activeDate: YearMonthDay = today
 
-    private val churnedIds = HashMap<LicensePeriod, Set<LicenseId>>()
-    // the country of each license, which was active a year ago
-    private val previouslyActiveCountries = HashMap<LicensePeriod, Map<LicenseId, String>>()
+    private val results = HashMap<LicensePeriod, Map<String, Result>>()
 
     init {
         val churnValidities = ChurnValidities(licenses)
@@ -51,14 +49,14 @@ class CountryChurn(licenses: List<LicenseInfo>, today: YearMonthDay) {
                     countries[license.id] = license.sale.customer.country
                 }
             }
-            churnedIds[period] = processor.churnedIds()
-            previouslyActiveCountries[period] = countries
+            val churned = processor.churnedIds()
+            results[period] = countries.entries
+                .groupBy({ it.value }, { it.key })
+                .mapValues { (_, licenseIds) -> Result(licenseIds.size, licenseIds.count { it in churned }) }
         }
     }
 
     fun result(country: String, period: LicensePeriod): Result {
-        val licenseIds = previouslyActiveCountries[period]!!.filterValues { it == country }.keys
-        val churned = churnedIds[period]!!
-        return Result(licenseIds.size, licenseIds.count { it in churned })
+        return results[period]!![country] ?: Result(0, 0)
     }
 }

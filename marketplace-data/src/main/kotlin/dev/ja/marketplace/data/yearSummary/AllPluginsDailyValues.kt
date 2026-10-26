@@ -13,7 +13,6 @@ import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.client.model.PluginTrial
 import dev.ja.marketplace.data.overview.DailySeries
 import dev.ja.marketplace.data.overview.DailyWindows
-import dev.ja.marketplace.data.overview.OverviewDailyColumn
 import dev.ja.marketplace.data.overview.OverviewDailyValues
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import java.math.BigDecimal
@@ -90,15 +89,13 @@ class AllPluginsDailyValues private constructor(val days: List<YearMonthDay>, va
             val mrr = Array<BigDecimal>(dayCount) { BigDecimal.ZERO }
             val arr = Array<BigDecimal>(dayCount) { BigDecimal.ZERO }
             for (licenses in licensesOfPlugins) {
-                val plugin = OverviewDailyValues.create(emptyList(), licenses, emptyList(), emptyList(), exchangeRates, today)
-                val pluginMrr = plugin.series[OverviewDailyColumn.Mrr] ?: continue
-                val pluginArr = plugin.series.getValue(OverviewDailyColumn.Arr)
-                for ((pluginIndex, day) in plugin.days.withIndex()) {
-                    val index = windows.index(day)
-                    if (index in 0 until dayCount) {
-                        mrr[index] += pluginMrr.values[pluginIndex] ?: BigDecimal.ZERO
-                        arr[index] += pluginArr.values[pluginIndex] ?: BigDecimal.ZERO
-                    }
+                if (licenses.isEmpty()) {
+                    continue
+                }
+                val (pluginMrr, pluginArr) = OverviewDailyValues.recurringRevenue(licenses, windows, exchangeRates)
+                for (index in 0 until dayCount) {
+                    mrr[index] += pluginMrr.values[index] ?: BigDecimal.ZERO
+                    arr[index] += pluginArr.values[index] ?: BigDecimal.ZERO
                 }
             }
 

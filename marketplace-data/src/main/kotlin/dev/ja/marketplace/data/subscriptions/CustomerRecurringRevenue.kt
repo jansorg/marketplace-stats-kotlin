@@ -11,6 +11,7 @@ import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.times
 import dev.ja.marketplace.client.model.CustomerType
+import dev.ja.marketplace.data.monthLabel
 import dev.ja.marketplace.data.trackers.RecurringRevenueSales
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap
@@ -134,7 +135,7 @@ class CustomerRecurringRevenue(
     /** Label of a month, e.g. `2026-03`, which charts recognize as month. */
     fun monthLabel(monthIndex: Int): String {
         val month = months[monthIndex]
-        return String.format("%04d-%02d", month.year, month.month)
+        return monthLabel(month.year, month.month)
     }
 
     fun toAmount(value: BigDecimal): MonetaryAmount {

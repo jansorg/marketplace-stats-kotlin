@@ -52,6 +52,30 @@ class RenewalRatesTest {
     }
 
     @Test
+    fun ratesOfALicensePeriodAreTheRatesOfAllPeriodsOfThisPeriod() {
+        val annual = LicensePeriod.Annual
+        val monthly = LicensePeriod.Monthly
+        val licenses = licenses(
+            // a monthly subscription, which is renewed as annual subscription, the annual one has a previous renewal
+            sale(customer(1), "a", YearMonthDay(2024, 1, 1), 10, monthly),
+            sale(customer(1), "a", YearMonthDay(2024, 2, 1), 100, annual, PluginSaleItemType.Renew),
+            sale(customer(2), "b", YearMonthDay(2024, 1, 1), 100, annual),
+            sale(customer(2), "b", YearMonthDay(2025, 1, 1), 100, annual, PluginSaleItemType.Renew),
+        )
+        val today = YearMonthDay(2026, 10, 1)
+        for (period in listOf(annual, monthly)) {
+            assertEquals(
+                RenewalRates.of(licenses, today = today).filter { it.licensePeriod == period },
+                RenewalRates.of(licenses, today = today, licensePeriod = period),
+            )
+        }
+        assertEquals(
+            listOf("2025 1: 0/2", "2024 0: 1/1"),
+            RenewalRates.of(licenses, today = today, licensePeriod = annual).map { "${it.year} ${it.previousRenewals}: ${it.renewed}/${it.due}" }.reversed(),
+        )
+    }
+
+    @Test
     fun renewalAfterAtMostTheGracePeriodWithoutALicense() {
         val annual = LicensePeriod.Annual
         // the subscriptions end at 2024-12-31, the renewals start after 90 and after 91 days without a license

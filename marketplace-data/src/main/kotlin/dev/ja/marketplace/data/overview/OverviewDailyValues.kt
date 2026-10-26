@@ -103,6 +103,11 @@ class OverviewDailyValues private constructor(
                 )
             }
         }
+
+        /** @return The MRR and the ARR at each day of [windows], like [OverviewDailyColumn.Mrr] and [OverviewDailyColumn.Arr]. */
+        fun recurringRevenue(licenses: List<LicenseInfo>, windows: DailyWindows, exchangeRates: ExchangeRates): Pair<DailySeries, DailySeries> {
+            return Builder(windows, exchangeRates).recurringRevenue(licenses)
+        }
     }
 
     private class Builder(private val windows: DailyWindows, private val exchangeRates: ExchangeRates) {

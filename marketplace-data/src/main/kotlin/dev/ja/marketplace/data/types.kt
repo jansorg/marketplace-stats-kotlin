@@ -137,3 +137,6 @@ fun String.orEmptyCountry(): String = ifEmpty { NoValue }
 
 /** Tooltip of downloads, which may still change. */
 const val IncompleteDownloadsTooltip: String = "The downloads of a day are reported on the next day at the earliest"
+
+/** @return The label of a month, e.g. `2026-03`, which charts recognize as month. */
+fun monthLabel(year: Int, month: Int): String = String.format("%04d-%02d", year, month)

@@ -16,6 +16,7 @@ import dev.ja.marketplace.data.PercentageValue
 import dev.ja.marketplace.data.SimpleDataTable
 import dev.ja.marketplace.data.SimpleDateTableRow
 import dev.ja.marketplace.data.SimpleTableSection
+import dev.ja.marketplace.data.monthLabel
 
 /**
  * The share of renewed subscriptions of a license period by year, grouped by the number of previous renewals.
@@ -58,14 +59,12 @@ class RenewalRateTable(private val licensePeriod: LicensePeriod) : SimpleDataTab
 
     override suspend fun createSections(): List<DataTableSection> {
         val ageColumns = listOf(columnFirst, columnSecond, columnLater)
-        val ratesByPeriod = RenewalRates.of(licenses, byMonth = isByMonth)
-            .filter { it.licensePeriod == licensePeriod }
+        val ratesByPeriod = RenewalRates.of(licenses, byMonth = isByMonth, licensePeriod = licensePeriod)
             .groupBy { it.year to it.month }
 
         val rows = ratesByPeriod.entries.reversed().map { (period, periodRates) ->
             val (year, month) = period
-            // a month like 2026-03, which charts recognize as month
-            val label: Any = if (month == null) year else String.format("%04d-%02d", year, month)
+            val label: Any = if (month == null) year else monthLabel(year, month)
             val values = mutableMapOf<DataTableColumn, Any?>(columnYear to label)
             val tooltips = mutableMapOf<DataTableColumn, String?>()
             for (rate in periodRates) {

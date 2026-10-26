@@ -309,7 +309,6 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                     val totalLicenses = monthData.licenses.totalLicenseCount
                     val totalLicensesPaying = monthData.licenses.paidLicensesCount
 
-                    val trialsMonth = trialTracker.getResultBySaleDate(monthDateRange, monthDateRange)
                     val trialsMonthAnyLength = trialTracker.getResult(monthDateRange)
                     val trialsMonthByLength = trialTracker.getResultWithinConversionPeriod(monthDateRange, maxTrialDays)
                     val downloadCount = monthData.downloads
@@ -333,7 +332,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                             columnLicenseChurnAnnual to annualLicenseChurnRate,
                             columnLicenseChurnMonthly to monthlyLicenseChurnRate,
                             columnDownloads to (downloadCount.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
-                            columnTrials to (trialsMonth.totalTrials.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
+                            columnTrials to (trialsMonthAnyLength.totalTrials.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
                             columnTrialsConverted to trialsMonthByLength.displayedConversionRate,
                         ),
                         tooltips = mapOf(
@@ -355,7 +354,6 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                 val yearLicenseChurnAnnual = yearData.churnLicensesAnnual.getResult(LicensePeriod.Annual)
                 val yearLicenseChurnMonthly = yearData.churnLicensesMonthly.getResult(LicensePeriod.Monthly)
 
-                val trialsYear = trialTracker.getResultBySaleDate(yearDateRange, yearDateRange)
                 val trialsYearTrialLength = trialTracker.getResultWithinConversionPeriod(yearDateRange, maxTrialDays)
                 val trialsYearAnyDuration = trialTracker.getResult(yearDateRange)
 
@@ -369,7 +367,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                                 columnLicenseChurnMonthly to yearLicenseChurnMonthly.getRenderedChurnRate(pluginId, isIncomplete = isCurrentYear),
                                 columnDownloads to (yearData.months.values.sumOf { it.downloads }.takeIf { it > 0 }?.toBigInteger()
                                     ?: NoValue),
-                                columnTrials to (trialsYear.totalTrials.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
+                                columnTrials to (trialsYearAnyDuration.totalTrials.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
                                 columnTrialsConverted to trialsYearTrialLength.displayedConversionRate,
                             ),
                             tooltips = mapOf(
