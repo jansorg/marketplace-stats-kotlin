@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
     alignedRanges, niceStep, rangeTicks, seriesMenuSections, seriesStyle, SERIES_STYLES, WINDOWS, RANGE_PRESETS, rangeOfPreset,
-    averageShade, pinchedRange, rangeLabel, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
+    averageShade, pinchedRange, rangeLabel, rangeMenuItems, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, finestDetail, lineDetail, periodEnd, shownWindow, storedChartLevel, tableWindow, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
@@ -515,6 +515,21 @@ test("the menu of a line selects its window, if its values depend on the window,
     assert.deepEqual(seriesMenuSections({...sales, average: 3}, true).map(section => section.kind), ["window"]);
     assert.deepEqual(seriesMenuSections({usesWindow: false, average: 3}, true), []);
     assert.equal(SERIES_STYLES.length, 3);
+});
+
+test("the menu Range lists all dates, the ranges until today and the years with values below the heading Years", () => {
+    const now = new Date(2026, 9, 26, 18, 30);
+    const labels = items => items.map(item => item.heading ? "# " + item.heading : item.label);
+    assert.deepEqual(labels(rangeMenuItems([2026, 2025, 2024], null, now)),
+        ["All", "Today", "Past 7 days", "This month", "# Years", "2026", "2025", "2024"]);
+    assert.deepEqual(rangeMenuItems([2025], null, now).at(-1), {label: "2025", range: {from: "2025-01-01", to: "2025-12-31"}});
+    // without years there's no heading
+    assert.deepEqual(labels(rangeMenuItems([], null, now)), ["All", "Today", "Past 7 days", "This month"]);
+    // a zoomed range is the last item, a year or a range until today isn't added again
+    const zoomed = {from: "2025-03-01", to: "2025-04-15"};
+    assert.deepEqual(rangeMenuItems([2025], zoomed, now).at(-1), {label: "2025-03-01 – 2025-04-15", range: zoomed});
+    assert.equal(rangeMenuItems([2025], {from: "2025-01-01", to: "2025-12-31"}, now).length, 6);
+    assert.equal(rangeMenuItems([2025], rangeOfPreset("today", now), now).length, 6);
 });
 
 test("a line has its own style or the style of the chart, a moving average is always a line", () => {
