@@ -31,7 +31,7 @@ class ChurnValidities(licenses: Iterable<LicenseInfo>, graceDays: Int = Marketpl
                     val nextStart = next.validity!!.start
                     // a renewal, which starts directly after the end, doesn't need an extension
                     val hasGap = nextStart > validity.end.add(0, 0, 1)
-                    if (next.isRenewalLicense && hasGap && nextStart <= Renewals.deadline(validity.end, graceDays)) {
+                    if (hasGap && Renewals.isRenewal(license, next, graceDays)) {
                         extendedValidities[license] = validity.copy(end = nextStart.add(0, 0, -1))
                     }
                 }

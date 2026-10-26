@@ -56,7 +56,7 @@ data class LicenseCohortRenewal(
 object LicenseCohorts {
     /**
      * Groups the subscription licenses by the month of their first paid subscription and the license period of that sale.
-     * A subscription is renewed, like in [RenewalRates], if another paid subscription of the same license starts later,
+     * A subscription is renewed, like in [RenewalRates], if a paid renewal sale of the same license starts later,
      * after at most [graceDays] days without a license, see [Renewals].
      *
      * @param maxRenewals The maximum number of renewals of each cohort.
@@ -85,10 +85,9 @@ object LicenseCohorts {
             var current = sorted[firstIndex]
             var renewals = 0
             while (true) {
-                val validity = current.validity!!
-                val deadline = Renewals.deadline(validity.end, graceDays)
                 // free subscriptions aren't renewals of the paid subscriptions
-                current = sorted.firstOrNull { it.isPaidLicense && it.validity!!.start > validity.start && it.validity!!.start <= deadline } ?: break
+                val previous = current
+                current = sorted.firstOrNull { it.isPaidLicense && Renewals.isRenewal(previous, it, graceDays) } ?: break
                 renewals++
             }
 

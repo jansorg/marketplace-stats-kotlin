@@ -76,4 +76,16 @@ class RenewalRatesTest {
         val rate = RenewalRates.of(licenses, today = YearMonthDay(2026, 10, 1)).single()
         assertEquals("2023 0: 0/1", "${rate.year} ${rate.previousRenewals}: ${rate.renewed}/${rate.due}")
     }
+
+    @Test
+    fun newPurchaseOfTheSameLicenseIsNoRenewal() {
+        val annual = LicensePeriod.Annual
+        val licenses = licenses(
+            sale(customer(1), "a", YearMonthDay(2023, 1, 1), 100, annual),
+            sale(customer(1), "a", YearMonthDay(2024, 1, 1), 100, annual, PluginSaleItemType.New),
+        )
+        val rate = RenewalRates.of(licenses, today = YearMonthDay(2026, 10, 1)).single { it.year == 2023 }
+        assertEquals(0, rate.renewed)
+        assertEquals(1, rate.due)
+    }
 }
