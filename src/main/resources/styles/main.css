@@ -1457,6 +1457,13 @@ dl.detail-grid dd {
     cursor: pointer;
 }
 
+/* a menu with a selection, which limits the charts, e.g. a date range */
+.chart-menu.chart-menu-modified summary {
+    background-color: var(--button-selected-bgcolor);
+    border-color: var(--link-color);
+    font-weight: 700;
+}
+
 .chart-menu summary::-webkit-details-marker {
     display: none;
 }
