@@ -87,6 +87,8 @@ function drawSwatch(context, entry, x, centerY) {
         default:
             context.lineWidth = 3;
             context.lineCap = "round";
+            // e.g. the dashes of the averages
+            context.setLineDash(entry.dash ?? []);
             context.beginPath();
             context.moveTo(x + 1.5, centerY);
             context.lineTo(x + SWATCH_WIDTH - 1.5, centerY);

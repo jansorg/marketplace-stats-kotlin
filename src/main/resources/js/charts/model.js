@@ -529,7 +529,19 @@ export function incompleteColor(color, dark = false) {
     if (match === null) {
         return color;
     }
-    const [r, g, b] = [0, 2, 4].map(i => Number.parseInt(match[1].substring(i, i + 2), 16) / 255);
+    const [hue, saturation, lightness] = hexToHsl(match[1]);
+    const result = hslToHex(hue, saturation * 0.8, dark ? lightness * 0.62 : lightness + (1 - lightness) * 0.3);
+    // the distance of the RGB values, below about 70 the colors are hard to tell apart in thin lines and points
+    const distance = Math.hypot(...[0, 2, 4].map(i => Number.parseInt(match[1].substring(i, i + 2), 16) - Number.parseInt(result.substring(i + 1, i + 3), 16)));
+    if (distance < 70) {
+        return dark ? DARK_INCOMPLETE_GREY : INCOMPLETE_GREY;
+    }
+    return result;
+}
+
+/** @return The hue, the saturation and the lightness of a color like `2a78d6`, from 0 to 1. */
+function hexToHsl(hex) {
+    const [r, g, b] = [0, 2, 4].map(i => Number.parseInt(hex.substring(i, i + 2), 16) / 255);
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);
     const lightness = (max + min) / 2;
@@ -541,13 +553,28 @@ export function incompleteColor(color, dark = false) {
         hue = max === r ? (g - b) / delta + (g < b ? 6 : 0) : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
         hue /= 6;
     }
-    const result = hslToHex(hue, saturation * 0.8, dark ? lightness * 0.62 : lightness + (1 - lightness) * 0.3);
-    // the distance of the RGB values, below about 70 the colors are hard to tell apart in thin lines and points
-    const distance = Math.hypot(...[0, 2, 4].map(i => Number.parseInt(match[1].substring(i, i + 2), 16) - Number.parseInt(result.substring(i + 1, i + 3), 16)));
-    if (distance < 70) {
-        return dark ? DARK_INCOMPLETE_GREY : INCOMPLETE_GREY;
+    return [hue, saturation, lightness];
+}
+
+/**
+ * Several averages of the same series, e.g. of 3 and 12 months, have different shades of the color of the series:
+ * from a lighter shade for the first, e.g. the shortest average, to a darker shade for the last.
+ *
+ * @param {string} color The color of the series, like `#2a78d6`.
+ * @param {number} index The position of the average among the averages of the series.
+ * @param {number} count The number of averages of the series.
+ * @return {string} The color of the average, the color of the series for a single average.
+ */
+export function averageShade(color, index, count) {
+    const match = /^#([0-9a-f]{6})$/i.exec(color);
+    if (match === null || count <= 1) {
+        return color;
     }
-    return result;
+    const [hue, saturation, lightness] = hexToHsl(match[1]);
+    // from 1 for the lightest to -1 for the darkest shade
+    const position = 1 - 2 * index / (count - 1);
+    const shifted = position >= 0 ? lightness + (1 - lightness) * 0.35 * position : lightness * (1 + 0.35 * position);
+    return hslToHex(hue, saturation, shifted);
 }
 
 function hslToHex(hue, saturation, lightness) {
