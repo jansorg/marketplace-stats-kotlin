@@ -36,7 +36,8 @@ enum class ChartUnit {
  * the charts. The values are calculated for each day by [ChartMetricValues], see `/chart-data`.
  *
  * @param id The ID of the metric, used by the charts and the stored setup of the charts.
- * @param title The name of the metric in the charts.
+ * @param title The name of the metric in the charts. It describes the values without the table, e.g. "Paid amount"
+ *  instead of the column "Invoice" of a table of sales.
  * @param usesWindow If the values depend on the [ChartWindow], e.g. sums and rates. Values at each day like the MRR don't.
  * @param group The kind of the metric, e.g. "Trials", the menu to add metrics groups them.
  */
@@ -67,20 +68,20 @@ class ChartMetric private constructor(
         }
 
         // the sales, downloads and trials
-        val Sales = register("sales", "Sales", ChartMeasure.Flow, ChartUnit.Amount, group = "Sales")
-        val Fees = register("fees", "Fees", ChartMeasure.Flow, ChartUnit.Amount, group = "Sales")
-        val Invoice = register("invoice", "Invoice", ChartMeasure.Flow, ChartUnit.Amount, group = "Sales")
+        val Sales = register("sales", "Sales before fees", ChartMeasure.Flow, ChartUnit.Amount, group = "Sales")
+        val Fees = register("fees", "Marketplace fees", ChartMeasure.Flow, ChartUnit.Amount, group = "Sales")
+        val Invoice = register("invoice", "Paid amount", ChartMeasure.Flow, ChartUnit.Amount, group = "Sales")
         val Downloads = register("downloads", "Downloads", ChartMeasure.Flow, ChartUnit.Count, group = "Downloads")
-        val Trials = register("trials", "Trials", ChartMeasure.Flow, ChartUnit.Count, group = "Trials")
-        val TrialConversion = register("trials-converted", "Trial conversion", ChartMeasure.Ratio, ChartUnit.Percentage, group = "Trials")
+        val Trials = register("trials", "New trials", ChartMeasure.Flow, ChartUnit.Count, group = "Trials")
+        val TrialConversion = register("trials-converted", "Trial conversion rate", ChartMeasure.Ratio, ChartUnit.Percentage, group = "Trials")
 
         // the licenses and the recurring revenue at each day
-        val Licenses = register("licenses", "Licenses", ChartMeasure.Stock, ChartUnit.Count, group = "Licenses")
-        val PaidLicenses = register("licenses-paid", "Paid licenses", ChartMeasure.Stock, ChartUnit.Count, group = "Licenses")
+        val Licenses = register("licenses", "Active licenses", ChartMeasure.Stock, ChartUnit.Count, group = "Licenses")
+        val PaidLicenses = register("licenses-paid", "Active paid licenses", ChartMeasure.Stock, ChartUnit.Count, group = "Licenses")
         val Mrr = register("mrr", "MRR", ChartMeasure.Stock, ChartUnit.Amount, group = "Recurring revenue")
         val Arr = register("arr", "ARR", ChartMeasure.Stock, ChartUnit.Amount, group = "Recurring revenue")
-        val ChurnAnnual = register("churn-annual", "Churn (annual)", ChartMeasure.Ratio, ChartUnit.Percentage, group = "Churn")
-        val ChurnMonthly = register("churn-monthly", "Churn (monthly)", ChartMeasure.Ratio, ChartUnit.Percentage, group = "Churn")
+        val ChurnAnnual = register("churn-annual", "Churn rate of annual licenses", ChartMeasure.Ratio, ChartUnit.Percentage, group = "Churn")
+        val ChurnMonthly = register("churn-monthly", "Churn rate of monthly licenses", ChartMeasure.Ratio, ChartUnit.Percentage, group = "Churn")
 
         // the movements of the MRR between the start and the end of the window
         val MrrNew = register("mrr-new", "New MRR", ChartMeasure.Flow, ChartUnit.Amount, group = "MRR movements")
@@ -88,11 +89,11 @@ class ChartMetric private constructor(
         val MrrContraction = register("mrr-contraction", "Contraction MRR", ChartMeasure.Flow, ChartUnit.Amount, group = "MRR movements")
         val MrrChurned = register("mrr-churned", "Churned MRR", ChartMeasure.Flow, ChartUnit.Amount, group = "MRR movements")
         val MrrReactivation = register("mrr-reactivation", "Reactivation MRR", ChartMeasure.Flow, ChartUnit.Amount, group = "MRR movements")
-        val MrrNetChange = register("mrr-net-change", "Net change of the MRR", ChartMeasure.Flow, ChartUnit.Amount, group = "MRR movements")
+        val MrrNetChange = register("mrr-net-change", "Net MRR change", ChartMeasure.Flow, ChartUnit.Amount, group = "MRR movements")
         val QuickRatio = register("quick-ratio", "Quick ratio", ChartMeasure.Ratio, ChartUnit.Ratio, group = "MRR movements")
 
         // the retention of the customers of a year before each day, like the table, independent of the window
-        val PreviousCustomers = register("customers-year-ago", "Customers a year ago", ChartMeasure.Stock, ChartUnit.Count, group = "Retention")
+        val PreviousCustomers = register("customers-year-ago", "Paying customers a year ago", ChartMeasure.Stock, ChartUnit.Count, group = "Retention")
         val CustomerRetention = register("customer-retention", "Customer retention", ChartMeasure.Ratio, ChartUnit.Percentage, group = "Retention", usesWindow = false)
         val GrossRevenueRetention = register("grr", "Gross revenue retention", ChartMeasure.Ratio, ChartUnit.Percentage, group = "Retention", usesWindow = false)
         val NetRevenueRetention = register("nrr", "Net revenue retention", ChartMeasure.Ratio, ChartUnit.Percentage, group = "Retention", usesWindow = false)
@@ -110,7 +111,7 @@ class ChartMetric private constructor(
         const val CUSTOMER_TYPE_SHARE = "customer-type-share"
 
         private val customerTypeShares = CustomerType.entries.associateWith { type ->
-            register("$CUSTOMER_TYPE_SHARE.$type", "Share of $type", ChartMeasure.Ratio, ChartUnit.Percentage, group = "Customer types")
+            register("$CUSTOMER_TYPE_SHARE.$type", "Share of sales: $type", ChartMeasure.Ratio, ChartUnit.Percentage, group = "Customer types")
         }
 
         /** @return The share of the sales of the [type] of customers. */

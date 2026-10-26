@@ -50,7 +50,7 @@ class ChartDataTest {
         val series = json(listOf("sales", "mrr", "unknown"), ChartWindow.Month, ChartDetail.Month)["series"]!!.jsonObject
         assertEquals(setOf("sales", "mrr"), series.keys)
         val sales = series["sales"]!!.jsonObject
-        assertEquals("Sales", sales["title"]!!.jsonPrimitive.content)
+        assertEquals("Sales before fees", sales["title"]!!.jsonPrimitive.content)
         assertEquals("USD", sales["unit"]!!.jsonPrimitive.content)
         assertEquals("flow", sales["measure"]!!.jsonPrimitive.content)
         assertEquals("true", sales["usesWindow"]!!.jsonPrimitive.content)
