@@ -7,7 +7,8 @@
  * Reads the data of the charts from the tables of the page.
  *
  * The server writes the data as attributes:
- * - tables: `data-chart-title` and `data-chart-period` (day, month or year) for line charts
+ * - tables: `data-chart-title` and `data-chart-period` (day, month or year) for line charts, `data-chart-from` and
+ *   `data-chart-to` for the dates of a table of a few days, e.g. of the past 7 days
  * - column headers: `data-chart-col` (index), `data-chart-label`, `data-chart-pie` for share columns,
  *   `data-chart-measure` (flow, stock or ratio) for what the values measure,
  *   `data-chart-history` (day, month or year) for columns with the values of each row over time
@@ -174,6 +175,15 @@ export function readMetricLevel(table, columnIndex) {
     const header = table.querySelector(`th[data-chart-col="${columnIndex}"]`);
     const {chartWindow: window, chartDetail: detail} = header.dataset;
     return window && detail ? {window, detail} : null;
+}
+
+/**
+ * @return {{from: string, to: string}|null} The dates of a table of a few days, the date range of the charts of its
+ *  metrics, see {@link readMetricSeries}.
+ */
+export function readTableDateRange(table) {
+    const {chartFrom: from, chartTo: to} = table.dataset;
+    return from && to ? {from, to} : null;
 }
 
 /** @return {{unit: string, points: [string, number, boolean][]}|null} */

@@ -20,7 +20,7 @@ import {
     AVERAGE_MONTHS, visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear, trailingAverage,
 } from "./model.js";
 import {browserStorage, createSetupStorage, decodeView, encodeView} from "./storage.js";
-import {chartColumns, metricKey, readLineSeries, readMarkers, readMetricLevel, readMetricSeries, readPieRows, readRowHistorySeries} from "./tableData.js";
+import {chartColumns, metricKey, readLineSeries, readMarkers, readMetricLevel, readMetricSeries, readPieRows, readRowHistorySeries, readTableDateRange} from "./tableData.js";
 import {ChartDialog, removeButton} from "./dialog.js";
 import {createLineChart, lineChartTheme} from "./lineChart.js";
 import {renderPie} from "./pieChart.js";
@@ -292,6 +292,7 @@ class ChartController {
     /**
      * Adds the series of a metric column, a series for each row of a column with the values of the rows over time.
      * A new chart shows the values of the table, an existing chart of the unit keeps its level.
+     * The charts of a table of a few days, e.g. of the past 7 days, show its dates.
      */
     addMetricSeries(table, columnIndex) {
         const level = readMetricLevel(table, columnIndex);
@@ -312,6 +313,10 @@ class ChartController {
                 this.setChartLevel({period: METRIC_PERIOD, units: [series.unit]}, level);
             }
             this.series.push(metricSeries(series, nextColor(this.series.map(s => s.color))));
+        }
+        const dateRange = readTableDateRange(table);
+        if (dateRange !== null && (rejection === null || rejection === "")) {
+            this.dateRange = dateRange;
         }
         this.save();
         this.openDialog(rejection);

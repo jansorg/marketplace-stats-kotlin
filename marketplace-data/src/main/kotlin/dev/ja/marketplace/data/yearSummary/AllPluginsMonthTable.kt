@@ -62,6 +62,7 @@ class AllPluginsMonthTable(
 
     override val isChartable: Boolean = true
     override val chartPeriod: ChartPeriod = ChartPeriod.Day
+    override val chartDateRange: YearMonthDayRange get() = month
 
     // the last week, the other days of the month are shown on demand
     override val collapsedRowCount: Int = 7
