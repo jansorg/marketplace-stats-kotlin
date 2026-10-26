@@ -39,7 +39,7 @@ class LicensePeriodTest {
             listOf(item(YearMonthDay(2025, 10, 24).rangeTo(YearMonthDay(2026, 10, 23)), PluginSaleItemType.New)),
         ),
         PluginSale(
-            "ref-2", today, amount, amount, LicensePeriod.Annual, customer, null,
+            "ref-2", today, amount.multiply(2), amount.multiply(2), LicensePeriod.Annual, customer, null,
             listOf(
                 item(YearMonthDay(2027, 4, 6).rangeTo(YearMonthDay(2027, 10, 23))),
                 item(today.rangeTo(YearMonthDay(2027, 4, 5))),

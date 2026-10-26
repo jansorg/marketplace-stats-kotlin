@@ -72,13 +72,12 @@ data class LicenseInfo(
             val licenses = ArrayList<LicenseInfo>(expectedSize)
 
             sales.forEach { sale ->
-                sale.lineItems.forEach { lineItem ->
-                    // Special sales, e.g. with manual changes by JetBrains Sales personnel,
-                    // can have a total of "0.0" but line items with the regular amounts.
-                    val lineItemAmount = lineItem.amount.coerceAtMost(sale.amount)
-                    val lineItemAmountUSD = lineItem.amountUSD.coerceAtMost(sale.amountUSD)
-
-                    MonetaryAmountSplitter.split(lineItemAmount, lineItemAmountUSD, lineItem.licenseIds) { amount, amountUSD, license ->
+                // Special sales, e.g. with manual changes by JetBrains Sales personnel, can have a total, which differs
+                // from the sum of the line items, e.g. "0.0" with line items of the regular amounts.
+                val amounts = MonetaryAmountSplitter.allocate(sale.amount, sale.lineItems.map { it.amount })
+                val amountsUSD = MonetaryAmountSplitter.allocate(sale.amountUSD, sale.lineItems.map { it.amountUSD })
+                sale.lineItems.forEachIndexed { index, lineItem ->
+                    MonetaryAmountSplitter.split(amounts[index], amountsUSD[index], lineItem.licenseIds) { amount, amountUSD, license ->
                         licenses += LicenseInfo(license, amount, amountUSD, sale, lineItem)
                     }
                 }

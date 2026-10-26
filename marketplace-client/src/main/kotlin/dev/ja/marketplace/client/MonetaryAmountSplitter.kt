@@ -33,21 +33,49 @@ internal object MonetaryAmountSplitter {
 
         val totalScaled = total.number.numberValue(BigDecimal::class.java).setScale(10, RoundingMode.DOWN)
         val itemAmount = (totalScaled / count).setScale(2, RoundingMode.DOWN)
-        val itemAmountLast = (totalScaled - itemAmount * (count - BigDecimal.ONE)).setScale(2, RoundingMode.DOWN)
+        // the last item has the remainder, the parts add up to the total
+        val itemAmountLast = totalScaled - itemAmount * (count - BigDecimal.ONE)
 
         val totalUSDScaled = totalUSD.number.numberValue(BigDecimal::class.java).setScale(10, RoundingMode.DOWN)
         val itemAmountUSD = (totalUSDScaled / count).setScale(2, RoundingMode.DOWN)
-        val itemAmountUSDLast = (totalUSDScaled - itemAmountUSD * (count - BigDecimal.ONE)).setScale(2, RoundingMode.DOWN)
+        val itemAmountUSDLast = totalUSDScaled - itemAmountUSD * (count - BigDecimal.ONE)
 
         val it = items.iterator()
         while (it.hasNext()) {
             val item = it.next()
             val isLast = !it.hasNext()
             block(
-                FastMoney.of(if (isLast) itemAmountLast else itemAmount, total.currency),
-                FastMoney.of(if (isLast) itemAmountUSDLast else itemAmountUSD, "USD"),
+                fastMoneyOf(if (isLast) itemAmountLast else itemAmount, total.currency.currencyCode),
+                fastMoneyOf(if (isLast) itemAmountUSDLast else itemAmountUSD, "USD"),
                 item
             )
         }
+    }
+
+    /**
+     * Allocates the [total] to the parts in proportion to their [amounts], e.g. the total of a sale to its line items.
+     * The parts keep their amounts if they add up to the total. If they sum up to zero, the last part gets the total.
+     *
+     * @return The amount of each part, they add up to the [total].
+     */
+    fun allocate(total: MonetaryAmount, amounts: List<MonetaryAmount>): List<MonetaryAmount> {
+        if (amounts.isEmpty()) {
+            return emptyList()
+        }
+        val totalValue = total.number.numberValue(BigDecimal::class.java)
+        val values = amounts.map { it.number.numberValue(BigDecimal::class.java) }
+        val sum = values.fold(BigDecimal.ZERO, BigDecimal::add)
+        if (sum.compareTo(totalValue) == 0 && amounts.all { it.currency == total.currency }) {
+            return amounts
+        }
+
+        val parts = when {
+            sum.signum() == 0 -> values.map { BigDecimal.ZERO }
+            else -> values.map { (it * totalValue).divide(sum, 2, RoundingMode.DOWN) }
+        }
+        // the last part has the remainder
+        val allocated = parts.dropLast(1).fold(BigDecimal.ZERO, BigDecimal::add)
+        return parts.dropLast(1).map { fastMoneyOf(it, total.currency.currencyCode) } +
+                fastMoneyOf(totalValue - allocated, total.currency.currencyCode)
     }
 }
