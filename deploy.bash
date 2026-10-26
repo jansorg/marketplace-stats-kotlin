@@ -13,6 +13,15 @@ DOCKER_TAG="${1:-latest}"
 echo "Building Version $VERSION with Docker tag $DOCKER_TAG"
 
 ./gradlew clean build
+
+# the libraries marketplace-client and marketplace-data, before the tag, the same version can't be published twice.
+# Needs the Gradle properties jaDevUsername and jaDevPassword, e.g. in ~/.gradle/gradle.properties:
+# the name and the secret of a Reposilite access token, which may write to https://maven.j-a.dev/releases
+if [[ -z $1 ]]; then
+  echo "Publishing the libraries to maven.j-a.dev..."
+  ./gradlew publishAllPublicationsToJaDevRepository --no-configuration-cache
+fi
+
 git tag --force "v$VERSION"
 git push
 git push --tags --force
