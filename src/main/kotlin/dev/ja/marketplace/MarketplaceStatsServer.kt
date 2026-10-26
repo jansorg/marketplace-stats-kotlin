@@ -230,7 +230,9 @@ class MarketplaceStatsServer(
         listOf(PricingOverviewTableFactory()),
         pageTitle = "Plugin Pricing",
         pageDescription = "The pricing shown on the JetBrains Marketplace.<br>" +
-                "If there are two prices in the same column, then the 1st excludes VAT and the 2nd includes VAT."
+                "If there are two prices in the same column, then the 1st excludes VAT and the 2nd includes VAT.",
+        // the prices are loaded when the table is calculated, they aren't part of the version of the data
+        cacheTables = false,
     )
 
     private val chargesPageData: PluginPageDefinition = DefaultPluginPageDefinition(

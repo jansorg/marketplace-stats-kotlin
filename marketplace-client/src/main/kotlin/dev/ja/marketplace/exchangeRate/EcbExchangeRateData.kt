@@ -268,6 +268,11 @@ class EcbExchangeRateData(
     }
 
     /**
+     * @return The loaded rates, without loading them, `null` if they weren't loaded yet. A new object after an update.
+     */
+    fun current(): EcbRateTable? = cached?.second
+
+    /**
      * Marks the rates as outdated. The next call of [get] returns them and updates them in the background.
      */
     fun invalidate() {

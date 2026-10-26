@@ -8,8 +8,11 @@ package dev.ja.marketplace
 import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.client.PluginChannelNames
 import dev.ja.marketplace.client.MarketplaceUrlSupport
+import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.DataTable
+import dev.ja.marketplace.data.PluginData
+import dev.ja.marketplace.data.RenderedDataTable
 import dev.ja.marketplace.data.MarketplaceDataTableFactory
 import dev.ja.marketplace.data.releases.MajorRelease
 import dev.ja.marketplace.data.releases.MajorReleases
@@ -29,7 +32,15 @@ class DefaultPluginPageDefinition(
     private val pageCssClasses: String? = null,
     private val pageTitle: String? = null,
     private val pageDescription: String? = null,
+    /**
+     * If the calculated tables are used again while the data of the plugin is the same, see [PluginData.dataVersion].
+     * Tables, which load data when they're calculated, e.g. the prices, must not be cached.
+     */
+    private val cacheTables: Boolean = true,
 ) : PluginPageDefinition {
+    /** The calculated tables by the plugin and the maximum number of rows. */
+    private val tableCache = VersionedCache<Pair<PluginId, Int?>, List<RenderedDataTable>>()
+
     override suspend fun createTemplateParameters(
         dataLoader: PluginDataLoader,
         request: ApplicationRequest,
@@ -42,8 +53,32 @@ class DefaultPluginPageDefinition(
 
         val maxTableRows = request.queryParameters["rows"]?.toIntOrNull()
 
-        // process data in sinks concurrently
-        val dataSinks = factories.map { it.createTable(client, maxTableRows) }
+        val dataSinks = when {
+            cacheTables -> tableCache.get(data.pluginId to maxTableRows, data.dataVersion()) { createTables(data, maxTableRows) }
+            else -> createTables(data, maxTableRows)
+        }
+
+        mapOf(
+            "pageTitle" to pageTitle,
+            "pageDescription" to pageDescription,
+            "today" to YearMonthDay.now(),
+            "plugin" to data.getPluginInfo(),
+            "otherPlugins" to dataLoader.otherPaidPlugins,
+            "rating" to data.getPluginRating(),
+            "tables" to dataSinks,
+            "cssClass" to pageCssClasses,
+            "urls" to dataLoader.client as MarketplaceUrlSupport,
+            "settings" to serverConfiguration,
+            "majorReleases" to majorReleases.await(),
+            "ideReleases" to ideReleases.await(),
+            "priceChanges" to (data.getSales()?.let(PriceChanges::find) ?: emptyList()),
+            "customEvents" to serverConfiguration.customEvents(setOf(data.pluginId)),
+        )
+    }
+
+    /** @return The tables of the page, the data is processed by the tables concurrently. */
+    private suspend fun createTables(data: PluginData, maxTableRows: Int?): List<RenderedDataTable> {
+        return factories.map { it.createTable(client, maxTableRows) }
             .asFlow()
             .onEach { table ->
                 table.init(data)
@@ -64,23 +99,6 @@ class DefaultPluginPageDefinition(
             }
             .map(DataTable::renderTable)
             .toList()
-
-        mapOf(
-            "pageTitle" to pageTitle,
-            "pageDescription" to pageDescription,
-            "today" to YearMonthDay.now(),
-            "plugin" to data.getPluginInfo(),
-            "otherPlugins" to dataLoader.otherPaidPlugins,
-            "rating" to data.getPluginRating(),
-            "tables" to dataSinks,
-            "cssClass" to pageCssClasses,
-            "urls" to dataLoader.client as MarketplaceUrlSupport,
-            "settings" to serverConfiguration,
-            "majorReleases" to majorReleases.await(),
-            "ideReleases" to ideReleases.await(),
-            "priceChanges" to (data.getSales()?.let(PriceChanges::find) ?: emptyList()),
-            "customEvents" to serverConfiguration.customEvents(setOf(data.pluginId)),
-        )
     }
 
     private suspend fun loadMajorReleases(dataLoader: PluginDataLoader): List<MajorRelease> {
