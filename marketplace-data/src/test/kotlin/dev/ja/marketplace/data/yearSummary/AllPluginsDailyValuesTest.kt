@@ -17,7 +17,6 @@ import dev.ja.marketplace.data.trackers.AnnualRecurringRevenueTracker
 import dev.ja.marketplace.data.trackers.MonthlyRecurringRevenueTracker
 import dev.ja.marketplace.data.trackers.PaymentAmountTracker
 import dev.ja.marketplace.exchangeRate.ExchangeRates
-import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -40,7 +39,7 @@ class AllPluginsDailyValuesTest {
     private val values = AllPluginsDailyValues.create(sales, downloads, listOf(licenses), exchangeRates, today)
 
     @Test
-    fun valuesAtTheEndOfAYearAreTheSumsOfTheYear() = runBlocking {
+    suspend fun valuesAtTheEndOfAYearAreTheSumsOfTheYear() {
         val index = (values.days.first() daysUntil YearMonthDay(2024, 12, 31)).toInt()
         val year = PaymentAmountTracker(YearMonthDayRange.ofYear(2024), exchangeRates)
         sales.forEach { year.add(it.date, it.amountUSD, it.amount) }
@@ -71,7 +70,7 @@ class AllPluginsDailyValuesTest {
     }
 
     @Test
-    fun monthSumsAreTheSumsOfTheMonthBeforeTheDay() = runBlocking {
+    suspend fun monthSumsAreTheSumsOfTheMonthBeforeTheDay() {
         // the end of a month is the calendar month
         val endOfMonth = (values.days.first() daysUntil YearMonthDay(2024, 2, 29)).toInt()
         val february = PaymentAmountTracker(YearMonthDayRange(YearMonthDay(2024, 2, 1), YearMonthDay(2024, 2, 29)), exchangeRates)

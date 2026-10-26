@@ -12,11 +12,11 @@ import dev.ja.marketplace.client.model.PluginSale
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -93,7 +93,7 @@ class PersistentHistoryCacheTest {
     private fun fullRange(end: YearMonthDay = today) = YearMonthDayRange(Marketplace.Birthday, end)
 
     @Test
-    fun firstLoadFetchesCompleteHistoryAndStoresIt() = runBlocking {
+    suspend fun firstLoadFetchesCompleteHistoryAndStoresIt() {
         serverSales += listOf(testSale("a", day(2020, 1, 1)), testSale("b", day(2025, 3, 1)))
 
         val cache = createCache()
@@ -107,7 +107,7 @@ class PersistentHistoryCacheTest {
     }
 
     @Test
-    fun restartFetchesTheRecentDaysOfFreshDataInBackground() = runBlocking {
+    suspend fun restartFetchesTheRecentDaysOfFreshDataInBackground() {
         serverSales += listOf(testSale("a", day(2020, 1, 1)), testSale("b", day(2025, 3, 10)))
         createCache().get()
         fetchedRanges.clear()
@@ -124,7 +124,7 @@ class PersistentHistoryCacheTest {
     }
 
     @Test
-    fun restartUsesStoredDataAndUpdatesInBackground() = runBlocking {
+    suspend fun restartUsesStoredDataAndUpdatesInBackground() {
         serverSales += listOf(testSale("a", day(2020, 1, 1)), testSale("b", day(2025, 3, 10)))
         createCache().get()
         fetchedRanges.clear()
@@ -153,7 +153,7 @@ class PersistentHistoryCacheTest {
     }
 
     @Test
-    fun outdatedDataInMemoryIsUpdatedIncrementally() = runBlocking {
+    suspend fun outdatedDataInMemoryIsUpdatedIncrementally() {
         serverSales += testSale("a", day(2025, 3, 1))
         val cache = createCache()
         cache.get()
@@ -168,7 +168,7 @@ class PersistentHistoryCacheTest {
     }
 
     @Test
-    fun completeHistoryIsFetchedInBackgroundAfterInterval() = runBlocking {
+    suspend fun completeHistoryIsFetchedInBackgroundAfterInterval() {
         serverSales += listOf(testSale("old", day(2020, 1, 1)), testSale("new", day(2025, 3, 1)))
         val cache = createCache()
         cache.get()
@@ -185,7 +185,7 @@ class PersistentHistoryCacheTest {
     }
 
     @Test
-    fun invalidateFetchesCompleteHistoryAndIgnoresStoredData() = runBlocking {
+    suspend fun invalidateFetchesCompleteHistoryAndIgnoresStoredData() {
         serverSales += testSale("a", day(2020, 1, 1))
         val cache = createCache()
         cache.get()
@@ -204,7 +204,7 @@ class PersistentHistoryCacheTest {
     }
 
     @Test
-    fun ignoredStoredData() = runBlocking {
+    suspend fun ignoredStoredData() {
         serverSales += testSale("a", day(2020, 1, 1))
         createCache().get()
 
@@ -213,7 +213,7 @@ class PersistentHistoryCacheTest {
     }
 
     @Test
-    fun failedBackgroundFetchKeepsData() = runBlocking {
+    suspend fun failedBackgroundFetchKeepsData() {
         serverSales += testSale("a", day(2020, 1, 1))
         createCache().get()
 
@@ -233,18 +233,18 @@ class PersistentHistoryCacheTest {
     }
 
     @Test
-    fun failedForegroundFetchThrows() {
+    suspend fun failedForegroundFetchThrows() {
         failFetch = true
         val cache = createCache()
-        assertThrows(IllegalStateException::class.java) { runBlocking { cache.get() } }
+        assertInstanceOf(IllegalStateException::class.java, runCatching { cache.get() }.exceptionOrNull())
 
         failFetch = false
         serverSales += testSale("a", day(2020, 1, 1))
-        assertEquals(listOf("a"), runBlocking { cache.get() }.map { it.ref })
+        assertEquals(listOf("a"), cache.get().map { it.ref })
     }
 
     @Test
-    fun corruptStoredDataIsDropped() = runBlocking {
+    suspend fun corruptStoredDataIsDropped() {
         serverSales += testSale("a", day(2020, 1, 1))
         createCache().get()
         store.file("plugin-1-sales").writeBytes(byteArrayOf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13))
@@ -254,7 +254,7 @@ class PersistentHistoryCacheTest {
     }
 
     @Test
-    fun storedDataOfOtherVersionIsDropped() = runBlocking {
+    suspend fun storedDataOfOtherVersionIsDropped() {
         serverSales += testSale("a", day(2020, 1, 1))
         val kind = HistoryKind.Sales
         store.write("plugin-1-sales", kind.dataVersion + 1, kind.serializer, CachedHistory(0, nowMillis, nowMillis, emptyList()))
@@ -264,7 +264,7 @@ class PersistentHistoryCacheTest {
     }
 
     @Test
-    fun failingFullFetchDoesNotStopIncrementalUpdates() = runBlocking {
+    suspend fun failingFullFetchDoesNotStopIncrementalUpdates() {
         serverSales += listOf(testSale("old", day(2020, 1, 1)), testSale("a", day(2025, 3, 1)))
         val cache = createCache()
         cache.get()
@@ -299,7 +299,7 @@ class PersistentHistoryCacheTest {
     }
 
     @Test
-    fun incrementalFetchesDuringFullFetchAreKept() = runBlocking {
+    suspend fun incrementalFetchesDuringFullFetchAreKept() {
         serverSales += listOf(testSale("old", day(2020, 1, 1)), testSale("a", day(2025, 3, 1)))
         val cache = createCache()
         cache.get()
@@ -331,7 +331,7 @@ class PersistentHistoryCacheTest {
     }
 
     @Test
-    fun outdatedStoredDataIsUpdatedBeforeItsReturned() = runBlocking {
+    suspend fun outdatedStoredDataIsUpdatedBeforeItsReturned() {
         serverSales += listOf(testSale("a", day(2020, 1, 1)), testSale("b", day(2025, 3, 10)))
         createCache().get()
         fetchedRanges.clear()
@@ -350,7 +350,7 @@ class PersistentHistoryCacheTest {
     }
 
     @Test
-    fun outdatedStoredDataIsReturnedIfTheUpdateFails() = runBlocking {
+    suspend fun outdatedStoredDataIsReturnedIfTheUpdateFails() {
         serverSales += listOf(testSale("a", day(2020, 1, 1)), testSale("b", day(2025, 3, 10)))
         createCache().get()
         fetchedRanges.clear()
@@ -375,7 +375,7 @@ class PersistentHistoryCacheTest {
     }
 
     @Test
-    fun concurrentCallsWaitForRunningIncrementalFetch() = runBlocking {
+    suspend fun concurrentCallsWaitForRunningIncrementalFetch() = coroutineScope {
         serverSales += listOf(testSale("a", day(2020, 1, 1)), testSale("b", day(2025, 3, 10)))
         createCache().get()
         fetchedRanges.clear()

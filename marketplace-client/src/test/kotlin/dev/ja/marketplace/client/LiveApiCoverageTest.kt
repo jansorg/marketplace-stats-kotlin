@@ -13,7 +13,6 @@ import io.ktor.client.*
 import io.ktor.client.plugins.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
@@ -63,7 +62,7 @@ class LiveApiCoverageTest {
     }
 
     @Test
-    fun responsesHaveNoUnknownProperties() = runBlocking {
+    suspend fun responsesHaveNoUnknownProperties() {
         check("countries", ListSerializer(CountryWithCurrency.serializer())) {
             services.get("https://account.jetbrains.com/services/countries.json")
         }

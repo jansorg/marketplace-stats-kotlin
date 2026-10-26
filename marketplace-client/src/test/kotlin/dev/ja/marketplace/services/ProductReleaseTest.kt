@@ -5,13 +5,12 @@
 
 package dev.ja.marketplace.services
 
-import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 
 class ProductReleaseTest {
     @Test
-    fun downloadProductTypes() = runBlocking {
+    suspend fun downloadProductTypes() {
         val client = KtorJetBrainsServiceClient()
         val products = client.products()
 

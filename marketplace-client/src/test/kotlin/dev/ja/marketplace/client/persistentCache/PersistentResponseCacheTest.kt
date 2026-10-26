@@ -15,7 +15,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.builtins.serializer
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -56,7 +55,7 @@ class PersistentResponseCacheTest {
     }
 
     @Test
-    fun storedResponsesAreUsedAfterARestart() = runBlocking {
+    suspend fun storedResponsesAreUsedAfterARestart() {
         val cache = createCache()
         assertEquals(response, cache.load())
         assertEquals(response, cache.load())
@@ -69,7 +68,7 @@ class PersistentResponseCacheTest {
     }
 
     @Test
-    fun responsesAreFetchedAgainAfterADay() = runBlocking {
+    suspend fun responsesAreFetchedAgainAfterADay() {
         val cache = createCache()
         cache.load()
         cache.flush()
@@ -88,7 +87,7 @@ class PersistentResponseCacheTest {
     }
 
     @Test
-    fun invalidation() = runBlocking {
+    suspend fun invalidation() {
         val cache = createCache()
         cache.load()
         nowMillis += 1
@@ -103,7 +102,7 @@ class PersistentResponseCacheTest {
     }
 
     @Test
-    fun valuesOfOtherTypes() = runBlocking {
+    suspend fun valuesOfOtherTypes() {
         val cache = createCache()
         assertEquals(42L, cache.get("plugin-1-downloads", "total", Long.serializer()) { 42L })
         cache.flush()

@@ -12,7 +12,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -58,7 +57,7 @@ class PersistentPriceCacheTest {
     }
 
     @Test
-    fun pricesAreStored() = runBlocking {
+    suspend fun pricesAreStored() {
         val cache = createCache()
         assertEquals(price("100.0"), cache.load("DE", price("100.0")))
         assertEquals(price("100.0"), cache.load("DE", price("200.0")))
@@ -72,7 +71,7 @@ class PersistentPriceCacheTest {
     }
 
     @Test
-    fun outdatedPricesAreLoaded() = runBlocking {
+    suspend fun outdatedPricesAreLoaded() {
         val cache = createCache()
         cache.load("DE", price("100.0"))
         cache.flush()
@@ -83,7 +82,7 @@ class PersistentPriceCacheTest {
     }
 
     @Test
-    fun invalidatedPricesAreLoaded() = runBlocking {
+    suspend fun invalidatedPricesAreLoaded() {
         val cache = createCache()
         cache.load("DE", price("100.0"))
         nowMillis += 1.hours.inWholeMilliseconds
@@ -94,7 +93,7 @@ class PersistentPriceCacheTest {
     }
 
     @Test
-    fun pricesAreWrittenAfterDelay() = runBlocking {
+    suspend fun pricesAreWrittenAfterDelay() {
         val store = PersistentCacheStore(tempDir)
         val cache = PersistentPriceCache(store, scope, writeDelay = 10.milliseconds)
         cache.load("DE", price("100.0"))

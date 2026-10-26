@@ -9,7 +9,6 @@ import io.ktor.client.*
 import io.ktor.client.engine.mock.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import kotlin.time.Duration.Companion.hours
@@ -20,7 +19,7 @@ class PluginAutoRefreshTest {
     private val client = CaffeineCacheMarketplaceClient(httpClient = HttpClient(MockEngine { error("unexpected request") }))
 
     @Test
-    fun requestedPluginsAreRefreshedUntilTheyAreIdle() = runBlocking {
+    suspend fun requestedPluginsAreRefreshedUntilTheyAreIdle() {
         val refresh = PluginAutoRefresh(client, CachingStrategy(autoRefreshInterval = 30.minutes), currentTimeMillis = { nowMillis })
         refresh.onRequest(1)
         nowMillis += 12.hours.inWholeMilliseconds

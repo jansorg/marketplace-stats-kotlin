@@ -13,6 +13,7 @@ import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.client.model.PluginSaleItemType
 import dev.ja.marketplace.client.model.PluginTrial
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.customer
+import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.inCurrency
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.licenses
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.sale
 import dev.ja.marketplace.data.trackers.AnnualRecurringRevenueTracker
@@ -20,7 +21,6 @@ import dev.ja.marketplace.data.trackers.LicenseTracker
 import dev.ja.marketplace.data.trackers.MonthlyRecurringRevenueTracker
 import dev.ja.marketplace.data.trackers.PaymentAmountTracker
 import dev.ja.marketplace.exchangeRate.ExchangeRates
-import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -79,7 +79,7 @@ class OverviewDailyValuesTest {
     }
 
     @Test
-    fun valuesAtTheEndOfEachMonthAreTheValuesOfTheTable() = runBlocking {
+    suspend fun valuesAtTheEndOfEachMonthAreTheValuesOfTheTable() {
         var month = YearMonthDay(2023, 1, 1)
         while (month <= today) {
             val monthRange = YearMonthDayRange.ofMonth(month.year, month.month)
@@ -132,7 +132,7 @@ class OverviewDailyValuesTest {
     }
 
     @Test
-    fun sumsWithinAMonthAreTheSumsOfTheMonthBeforeTheDay() = runBlocking {
+    suspend fun sumsWithinAMonthAreTheSumsOfTheMonthBeforeTheDay() {
         val day = YearMonthDay(2024, 3, 15)
         val range = YearMonthDay(2024, 2, 16).rangeTo(day)
         val amounts = PaymentAmountTracker(range, exchangeRates)
@@ -142,6 +142,23 @@ class OverviewDailyValuesTest {
         assertAmount(amounts.totalAmount, value(OverviewDailyColumn.Sales, index), "sales")
         assertEquals(trials.count { it.date in range }, value(OverviewDailyColumn.Trials, index).toInt())
         assertEquals(downloads.filter { it.day in range }.sumOf { it.downloads }, value(OverviewDailyColumn.Downloads, index).toLong())
+    }
+
+    @Test
+    fun amountsInTheDisplayedCurrency() {
+        // paid in EUR, the displayed currency is EUR, the amounts aren't converted from USD
+        val sales = listOf(
+            inCurrency(sale(customer(1), "a", YearMonthDay(2025, 1, 1), 120, LicensePeriod.Annual), 100, "EUR"),
+            inCurrency(sale(customer(2), "b", YearMonthDay(2025, 1, 1), 12), 9, "EUR"),
+        )
+        val values = OverviewDailyValues.create(sales, licenses(*sales.toTypedArray()), emptyList(), emptyList(), ExchangeRates("EUR"), today)
+        val index = values.days.indexOf(YearMonthDay(2025, 1, 31))
+
+        val series = values.series.getValue(OverviewDailyColumn.Sales)
+        assertEquals("EUR", series.unit)
+        assertEquals(0, BigDecimal(109).compareTo(series.values[index]))
+        assertEquals(0, BigDecimal("17.33").compareTo(values.series.getValue(OverviewDailyColumn.Mrr).values[index]))
+        assertEquals(0, BigDecimal(208).compareTo(values.series.getValue(OverviewDailyColumn.Arr).values[index]))
     }
 
     @Test

@@ -11,7 +11,6 @@ import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -52,7 +51,7 @@ class CaffeineCacheMarketplaceClientRefreshTest {
     """.trimIndent()
 
     @Test
-    fun refreshFetchesTheRecentDataOfThePlugin() = runBlocking {
+    suspend fun refreshFetchesTheRecentDataOfThePlugin() {
         val client = createClient(CachingStrategy(autoRefreshInterval = 30.minutes))
         val licenses = client.licenseInfo(1)
         client.licenseInfo(2)
@@ -72,7 +71,7 @@ class CaffeineCacheMarketplaceClientRefreshTest {
     }
 
     @Test
-    fun nothingIsRefreshedWithoutTheAutomaticRefresh() = runBlocking {
+    suspend fun nothingIsRefreshedWithoutTheAutomaticRefresh() {
         val client = createClient(CachingStrategy())
         client.licenseInfo(1)
         requests.clear()

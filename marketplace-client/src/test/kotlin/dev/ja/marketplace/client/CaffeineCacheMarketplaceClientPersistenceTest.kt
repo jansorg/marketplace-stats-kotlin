@@ -12,7 +12,6 @@ import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -78,7 +77,7 @@ class CaffeineCacheMarketplaceClientPersistenceTest {
     """.trimIndent()
 
     @Test
-    fun withoutPersistentCache() = runBlocking {
+    suspend fun withoutPersistentCache() {
         val client = createClient(null)
         val sales = client.salesInfo(1)
         assertTrue(sales.isNotEmpty())
@@ -87,7 +86,7 @@ class CaffeineCacheMarketplaceClientPersistenceTest {
     }
 
     @Test
-    fun restartUsesStoredData() = runBlocking {
+    suspend fun restartUsesStoredData() {
         val store = PersistentCacheStore(tempDir).accountStore(Marketplace.HOSTNAME, "key")
         val client = createClient(store)
         val sales = client.licenseInfo(1)
@@ -111,7 +110,7 @@ class CaffeineCacheMarketplaceClientPersistenceTest {
     }
 
     @Test
-    fun storedHistoryIsUpdatedAfterTheStartWithoutReports() = runBlocking {
+    suspend fun storedHistoryIsUpdatedAfterTheStartWithoutReports() {
         val store = PersistentCacheStore(tempDir).accountStore(Marketplace.HOSTNAME, "key")
         val client = createClient(store)
         client.salesInfo(1)
@@ -128,7 +127,7 @@ class CaffeineCacheMarketplaceClientPersistenceTest {
     }
 
     @Test
-    fun noUpdateAfterTheStartWithoutPersistentCache() = runBlocking {
+    suspend fun noUpdateAfterTheStartWithoutPersistentCache() {
         val client = createClient(null)
         client.updateStoredHistory(listOf(1))
         client.awaitPersistentCacheUpdates()
@@ -136,7 +135,7 @@ class CaffeineCacheMarketplaceClientPersistenceTest {
     }
 
     @Test
-    fun pluginsAndAccountsAreSeparated() = runBlocking {
+    suspend fun pluginsAndAccountsAreSeparated() {
         val root = PersistentCacheStore(tempDir)
         val first = createClient(root.accountStore(Marketplace.HOSTNAME, "key-1"))
         assertTrue(first.salesInfo(1).all { it.ref.startsWith("1-") })
@@ -149,7 +148,7 @@ class CaffeineCacheMarketplaceClientPersistenceTest {
     }
 
     @Test
-    fun invalidateCacheFetchesCompleteHistory() = runBlocking {
+    suspend fun invalidateCacheFetchesCompleteHistory() {
         val store = PersistentCacheStore(tempDir).accountStore(Marketplace.HOSTNAME, "key")
         val client = createClient(store)
         client.salesInfo(1)
