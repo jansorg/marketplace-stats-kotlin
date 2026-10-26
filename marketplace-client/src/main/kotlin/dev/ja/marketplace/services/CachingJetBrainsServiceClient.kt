@@ -63,7 +63,7 @@ class CachingJetBrainsServiceClient(
 
         val value = when (persistent) {
             null -> loader()
-            else -> persistent.get(fileName, key, serializer, loader)
+            else -> persistent.get(fileName, key, serializer, loader = loader)
         }
         memory.put(memoryKey, value)
         return value

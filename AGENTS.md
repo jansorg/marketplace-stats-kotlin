@@ -126,6 +126,11 @@ added to the models as optional properties at the end of the constructors, unkno
   Data is grouped by how often it changes: `Recent` (30 minutes, e.g. recent sales and trials, offers, reviews),
   `Daily` (e.g. downloads, ratings, releases, products of JetBrains) and `Static` (7 days, e.g. prices, sales older than
   45 days, the weekly complete fetch of the history). Use these categories for new cached requests.
+- With `--auto-refresh[=<minutes>]`/`MARKETPLACE_AUTO_REFRESH` (off by default, 30 minutes), `PluginAutoRefresh` refreshes
+  the plugins, which were requested in the last 24 hours (`MarketplaceStatsServer.getDataLoader`, the summary of all
+  plugins), via `CaffeineCacheMarketplaceClient.refreshPlugin`. Requests then use the cached data for two more
+  intervals (`CachingStrategy.expiry`) and don't fetch it themselves. A new cached request needs a `refresh` function,
+  which bypasses the persistent caches, if its loader reads them.
 - Optional, enabled with `--cache-dir`/`MARKETPLACE_CACHE_DIR`/`cacheDir`. Without it, or with an empty value, all data
   is only cached in memory. The Docker image enables it with `MARKETPLACE_CACHE_DIR=/root/.cache/marketplace-stats`,
   `docker-compose.yml` mounts a named volume there.

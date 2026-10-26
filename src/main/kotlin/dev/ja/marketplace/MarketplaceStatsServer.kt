@@ -95,6 +95,8 @@ class MarketplaceStatsServer(
      * Hostnames accepted by the MCP endpoint at `/mcp`, the endpoint is disabled if `null`.
      */
     private val mcpAllowedHosts: List<String>? = null,
+    /** Refreshes the data of the requested plugins in the background, `null` if it's disabled. */
+    private val autoRefresh: PluginAutoRefresh? = null,
 ) {
     private lateinit var allPlugins: List<PluginInfoSummary>
     private lateinit var countries: Countries
@@ -583,6 +585,8 @@ class MarketplaceStatsServer(
             }
         }
 
+        autoRefresh?.start(backgroundScope)
+
         println("Launching web server: http://$host:$port/")
         if (mcpAllowedHosts != null) {
             println("MCP server: http://$host:$port/mcp")
@@ -670,6 +674,7 @@ class MarketplaceStatsServer(
             return emptyList()
         }
 
+        onAllPluginsRequest()
         val allData = loadAllPluginsData()
         val today = YearMonthDay.now()
         allPluginsSummaryCache?.takeIf { it.isValid(allData, today) }?.let { return it.value }
@@ -686,9 +691,17 @@ class MarketplaceStatsServer(
     }
 
     /**
+     * The summary of all plugins shows the data of all paid and freemium plugins, they're refreshed like requested plugins.
+     */
+    private fun onAllPluginsRequest() {
+        allPlugins.filter(PluginInfoSummary::isPaidOrFreemium).forEach { autoRefresh?.onRequest(it.id) }
+    }
+
+    /**
      * The values of the summary of all plugins for each day, for the charts of the list of plugins.
      */
     private suspend fun allPluginsDailyValues(): AllPluginsDailyValues {
+        onAllPluginsRequest()
         val allData = loadAllPluginsData()
         val today = YearMonthDay.now()
         allPluginsDailyValuesCache?.takeIf { it.isValid(allData, today) }?.let { return it.value }
@@ -707,6 +720,8 @@ class MarketplaceStatsServer(
     }
 
     private fun getDataLoader(plugin: PluginInfoSummary): PluginDataLoader {
+        // the pages and the tools of the MCP server load the data of a plugin with a loader
+        autoRefresh?.onRequest(plugin.id)
         val otherPaidPlugins = allPlugins.filter { it.isPaidOrFreemium && it.id != plugin.id }
         return PluginDataLoader(client, plugin, countries, exchangeRates, ideReleases, otherPaidPlugins)
     }

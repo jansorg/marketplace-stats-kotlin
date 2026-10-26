@@ -19,8 +19,10 @@ import com.github.ajalt.clikt.parameters.options.*
 import com.github.ajalt.clikt.parameters.types.enum
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
+import dev.ja.marketplace.client.CachingStrategy
 import dev.ja.marketplace.client.CaffeineCacheMarketplaceClient
 import dev.ja.marketplace.client.ClientLogLevel
+import dev.ja.marketplace.client.PluginAutoRefresh
 import dev.ja.marketplace.client.persistentCache.PersistentCacheStore
 import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.mcp.McpDefaultAllowedHosts
@@ -31,6 +33,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.time.Duration.Companion.minutes
 
 class Application(version: String) : CliktCommand(name = "marketplace-stats") {
     override fun help(context: Context): String {
@@ -74,6 +77,16 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
 
     private val cacheDir: String? by option("--cache-dir", envvar = "MARKETPLACE_CACHE_DIR")
         .help("Directory of the persistent cache. Sales, trials, prices and exchange rates are stored there to speed up restarts. The data is kept in memory only if no directory is set or if it's empty. A leading ~ is the home directory.")
+
+    private val autoRefreshMinutes: Int? by option("--auto-refresh", envvar = "MARKETPLACE_AUTO_REFRESH", metavar = "MINUTES")
+        .int()
+        .optionalValue(DEFAULT_AUTO_REFRESH_MINUTES, acceptsUnattachedValue = false)
+        .help(
+            "Refreshes the data of the plugins, which were requested in the last 24 hours, in the background every MINUTES " +
+                    "(default: $DEFAULT_AUTO_REFRESH_MINUTES), so that the pages don't wait for the Marketplace. " +
+                    "Use --auto-refresh or --auto-refresh=MINUTES, 0 disables it. Disabled by default."
+        )
+        .check("The interval of the automatic refresh must not be negative") { it >= 0 }
 
     private val mcpEnabled: Boolean by option("--mcp", envvar = "MARKETPLACE_MCP")
         .flag("--no-mcp", default = true, defaultForHelp = "enabled")
@@ -130,21 +143,32 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
             .mapNotNull(::normalizeMcpAllowedHost)
             .distinct()
 
+        val cachingStrategy = CachingStrategy(autoRefreshInterval = autoRefreshMinutes?.takeIf { it > 0 }?.minutes)
+        val client = CaffeineCacheMarketplaceClient(
+            apiKey = apiKey,
+            logLevel = logging,
+            persistentCacheDirectory = cacheDir,
+            cachingStrategy = cachingStrategy,
+        )
+
         runBlocking {
             val server = MarketplaceStatsServer(
-                CaffeineCacheMarketplaceClient(apiKey = apiKey, logLevel = logging, persistentCacheDirectory = cacheDir),
+                client,
                 // the products of JetBrains are the same for all accounts, they're stored outside the directory of the account
                 CachingJetBrainsServiceClient(KtorJetBrainsServiceClient(logLevel = logging), cacheDir?.let { PersistentCacheStore(it).subStore("jetbrains") }),
                 serverHostname,
                 serverPort,
                 ServerConfiguration(displayCurrencyCode, showResellerCharges, allPluginsSummary),
                 mcpAllowedHosts.takeIf { mcpEnabled },
+                PluginAutoRefresh(client, cachingStrategy).takeIf { cachingStrategy.autoRefreshInterval != null },
             )
 
             server.start()
         }
     }
 }
+
+private const val DEFAULT_AUTO_REFRESH_MINUTES = 30
 
 fun main(args: Array<String>) {
     Application(BuildConfig.APP_VERSION).main(args)

@@ -260,6 +260,23 @@ internal class PersistentHistoryCache<T, C>(
     }
 
     /**
+     * Fetches the recent data in the background, also if it isn't stale yet, and waits until it's done, e.g. for the
+     * automatic refresh. Requests use the cached data meanwhile. Nothing is fetched without data in memory.
+     */
+    suspend fun refresh() {
+        val job = mutex.withLock {
+            val current = snapshot
+            if (current == null || generation.get() != seenGeneration) {
+                return@withLock null
+            }
+            startIncrementalFetch()
+            startFullFetchIfDue(current)
+            incrementalJob
+        }
+        job?.join()
+    }
+
+    /**
      * Waits until the current background fetches are done, for tests.
      */
     internal suspend fun awaitBackgroundFetch() {
