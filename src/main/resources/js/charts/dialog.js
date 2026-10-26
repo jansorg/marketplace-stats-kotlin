@@ -481,7 +481,8 @@ export class ChartDialog {
 
     showEmptyHint() {
         const empty = document.createElement("p");
-        empty.textContent = "Click a column header of a table to show its values.";
+        empty.className = "chart-empty-hint";
+        empty.textContent = "Use + to add a chart, or click the header of a column of a table.";
         this.panels.append(empty);
     }
 
