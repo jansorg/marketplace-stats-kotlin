@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.data.PercentageValue
 import dev.ja.marketplace.data.overview.DailySeries
+import dev.ja.marketplace.data.trackers.RecurringRevenueSales
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps
@@ -92,7 +93,7 @@ object SubscriptionDailyValues {
                 .sorted()
             for ((segmentStart, nextStart) in boundaries.zipWithNext()) {
                 // the first sale with the latest end, like CustomerRecurringRevenue
-                val latest = licenseSales.filter { segmentStart in it.validity!! }.maxByOrNull { it.validity!!.end } ?: continue
+                val latest = RecurringRevenueSales.latest(licenseSales.filter { segmentStart in it.validity!! }) ?: continue
                 val from = maxOf(0, index(segmentStart))
                 val to = minOf(dayCount - 1, index(nextStart) - 1)
                 if (from > to) {

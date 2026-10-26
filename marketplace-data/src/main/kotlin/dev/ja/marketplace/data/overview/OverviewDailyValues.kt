@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.model.DailyDownload
 import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.client.model.PluginTrial
+import dev.ja.marketplace.data.trackers.RecurringRevenueSales
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.javamoney.moneta.FastMoney
 import java.math.BigDecimal
@@ -195,11 +196,8 @@ class OverviewDailyValues private constructor(
                     .distinct()
                     .sorted()
                 for ((segmentStart, nextStart) in boundaries.zipWithNext()) {
-                    // the first sale with the latest end, like RecurringRevenueTracker
-                    val latest = licenseSales
-                        .filter { segmentStart in it.validity!! }
-                        .maxByOrNull { it.validity!!.end }
-                        ?: continue
+                    // the sale, which counts for the recurring revenue, like in RecurringRevenueTracker
+                    val latest = RecurringRevenueSales.latest(licenseSales.filter { segmentStart in it.validity!! }) ?: continue
 
                     val mrrFactor = if (latest.sale.licensePeriod == LicensePeriod.Annual) annualToMonthly else BigDecimal.ONE
                     val arrFactor = if (latest.sale.licensePeriod == LicensePeriod.Monthly) monthlyToAnnual else BigDecimal.ONE

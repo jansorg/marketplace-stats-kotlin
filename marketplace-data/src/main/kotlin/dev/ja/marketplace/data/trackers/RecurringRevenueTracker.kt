@@ -30,12 +30,7 @@ abstract class RecurringRevenueTracker(
     fun processLicenseSale(licenseInfo: LicenseInfo) {
         // only keep the latest valid sale of a license
         if (licenseInfo.isPaidLicense && licenseInfo.isSubscriptionLicense && isValid(licenseInfo)) {
-            latestSales.merge(licenseInfo.id, licenseInfo) { old, new ->
-                when {
-                    new.validity!!.end > old.validity!!.end -> new
-                    else -> old
-                }
-            }
+            latestSales.merge(licenseInfo.id, licenseInfo, RecurringRevenueSales::preferred)
         }
     }
 
