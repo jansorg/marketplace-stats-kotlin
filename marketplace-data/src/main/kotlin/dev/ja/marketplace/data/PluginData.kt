@@ -35,6 +35,8 @@ data class PluginData(
     val pluginPricing: PluginPricing?,
     private val salesWithLicensesDeferred: Deferred<SalesWithLicensesInfo>?,
     private val trialsDeferred: Deferred<List<PluginTrial>>?,
+    /** `null` for free plugins, the value is `null` if the info couldn't be loaded. */
+    private val marketplacePluginInfoDeferred: Deferred<MarketplacePluginInfo?>? = null,
 ) {
     val pluginId: PluginId = pluginSummary.id
 
@@ -71,6 +73,14 @@ data class PluginData(
 
     suspend fun getTrials(): List<PluginTrial>? {
         return trialsDeferred?.await()
+    }
+
+    /**
+     * @return The license periods, which customers can buy, or `null` if they're unknown.
+     * @see MarketplacePluginInfo.offeredLicensePeriods
+     */
+    suspend fun getOfferedLicensePeriods(): Set<LicensePeriod>? {
+        return marketplacePluginInfoDeferred?.await()?.offeredLicensePeriods
     }
 
     /**

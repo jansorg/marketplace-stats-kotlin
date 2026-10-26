@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -13,6 +13,9 @@ import dev.ja.marketplace.data.PluginPricing
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import dev.ja.marketplace.services.Countries
 import kotlinx.coroutines.*
+import org.slf4j.LoggerFactory
+
+private val logger = LoggerFactory.getLogger(PluginDataLoader::class.java)
 
 class PluginDataLoader(
     val client: MarketplaceClient,
@@ -33,6 +36,17 @@ class PluginDataLoader(
 
             val salesAndLicenses = loadAsyncIfPaid { client.licenseInfo(plugin.id) }
             val trials = loadAsyncIfPaid { client.trialsInfo(plugin.id) }
+            val marketplacePluginInfo = loadAsyncIfPaid {
+                // optional data, an error must not fail the other data
+                try {
+                    client.marketplacePluginInfo(plugin.id)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.warn("Unable to load the marketplace info of plugin ${plugin.id}", e)
+                    null
+                }
+            }
 
             val data = PluginData(
                 countries,
@@ -46,6 +60,7 @@ class PluginDataLoader(
                 PluginPricing.create(client, plugin.id, countries),
                 salesAndLicenses,
                 trials,
+                marketplacePluginInfo,
             )
 
             data
