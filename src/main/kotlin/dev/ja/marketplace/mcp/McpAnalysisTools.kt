@@ -13,6 +13,7 @@ import dev.ja.marketplace.client.model.*
 import dev.ja.marketplace.data.PercentageValue
 import dev.ja.marketplace.data.subscriptions.LicenseCohorts
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
+import dev.ja.marketplace.data.trackers.maxTrialDays
 import dev.ja.marketplace.data.trackers.trialConversionDays
 import dev.ja.marketplace.data.transfers.LicenseTransfers
 import dev.ja.marketplace.mcp.MarketplaceMcpTools.Companion.booleanProperty
@@ -168,7 +169,7 @@ class McpAnalysisTools(private val provider: McpDataProvider) {
         val sales = tracker.getResult(YearMonthDayRange.MAX).convertedTrials
 
         val today = YearMonthDay.now()
-        val maxTrialDays = data.getPluginInfo().purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
+        val maxTrialDays = data.getPluginInfo().maxTrialDays
         val conversionDays = trialConversionDays(maxTrialDays)
 
         data class TrialStatus(val trial: PluginTrial, val status: String, val sale: PluginSale?)

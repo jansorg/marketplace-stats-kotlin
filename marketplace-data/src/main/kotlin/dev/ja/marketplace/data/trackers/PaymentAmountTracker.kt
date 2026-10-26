@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -12,7 +12,7 @@ import javax.money.MonetaryAmount
 /**
  * Tracks the payment within a given range of dates.
  */
-data class PaymentAmountTracker(val filterDateRange: YearMonthDayRange, private val exchangeRates: ExchangeRates) {
+class PaymentAmountTracker(val filterDateRange: YearMonthDayRange, exchangeRates: ExchangeRates) {
     private val total = MonetaryAmountTracker(exchangeRates)
     private val fees = MonetaryAmountTracker(exchangeRates)
 
@@ -36,7 +36,7 @@ data class PaymentAmountTracker(val filterDateRange: YearMonthDayRange, private 
             return totalAmount - feesAmount
         }
 
-    suspend fun add(paymentDate: YearMonthDay, amountUSD: MonetaryAmount, amount: MonetaryAmount) {
+    fun add(paymentDate: YearMonthDay, amountUSD: MonetaryAmount, amount: MonetaryAmount) {
         if (paymentDate in filterDateRange) {
             total.add(paymentDate, amountUSD, amount)
             fees.add(paymentDate, Marketplace.feeAmount(paymentDate, amountUSD), Marketplace.feeAmount(paymentDate, amount))

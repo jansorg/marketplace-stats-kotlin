@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -9,8 +9,6 @@ import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.YearMonthDayRange
 
 interface ChurnProcessor<T> {
-    fun init()
-
     /**
      * @param validity Validity of the value. For licenses, use the validity provided by [ChurnValidities],
      *  which covers short gaps between the expiration of a license and its renewal.

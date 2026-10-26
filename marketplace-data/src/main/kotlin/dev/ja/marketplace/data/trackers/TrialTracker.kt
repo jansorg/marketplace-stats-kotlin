@@ -9,6 +9,7 @@ import dev.ja.marketplace.client.CustomerId
 import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
+import dev.ja.marketplace.client.model.PluginInfo
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.client.model.PluginSaleItemType
 import dev.ja.marketplace.client.model.PluginTrial
@@ -68,6 +69,17 @@ interface TrialTracker {
         isPendingTrial: (PluginTrial) -> Boolean = { false },
         isValidConversion: (PluginTrial, PluginSale) -> Boolean = { _, _ -> true },
     ): TrialTrackerInfo
+}
+
+/** The length of the trials of the plugin in days. */
+val PluginInfo.maxTrialDays: Int
+    get() = purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
+
+/**
+ * @return The tooltip of a conversion rate: the trials converted at any time and within [trialConversionDays].
+ */
+fun conversionTooltip(anyDuration: TrialTrackerInfo, trialDuration: TrialTrackerInfo, maxTrialDays: Int): String {
+    return anyDuration.getTooltipConverted() + "\n" + trialDuration.getTooltipConverted(trialConversionDays(maxTrialDays))
 }
 
 /**

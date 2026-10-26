@@ -16,7 +16,8 @@ import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.TrialTracker
 import dev.ja.marketplace.data.trackers.getResultWithinConversionPeriod
-import dev.ja.marketplace.data.trackers.trialConversionDays
+import dev.ja.marketplace.data.trackers.conversionTooltip
+import dev.ja.marketplace.data.trackers.maxTrialDays
 import dev.ja.marketplace.util.sortValue
 import java.math.BigDecimal
 import java.util.*
@@ -39,7 +40,6 @@ class TopCountriesTable(
     "top-countries",
     if (maxItems != null) "table-centered" else "table-centered sortable",
 ), MarketplaceDataSink {
-    private fun String.orEmptyCountry(): String = ifEmpty { NoValue }
 
     private fun String.fromEmptyCountry(): String = if (this == NoValue) "" else this
 
@@ -107,7 +107,7 @@ class TopCountriesTable(
         super.init(data)
 
         allSalesTracker = MonetaryAmountTracker(data.exchangeRates)
-        maxTrialDays = data.getPluginInfo().purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
+        maxTrialDays = data.getPluginInfo().maxTrialDays
         if (showChurn) {
             churn = CountryChurn(data.getLicenses() ?: emptyList(), YearMonthDay.now())
         }
@@ -181,9 +181,7 @@ class TopCountriesTable(
                     tooltips = mapOf(
                         columnChurnAnnual to churnAnnual?.tooltip(),
                         columnChurnMonthly to churnMonthly?.tooltip(),
-                        columnTrialConversion to countryTrialsAnyDuration.getTooltipConverted() +
-                                "\n" +
-                                countryTrialsTrialDuration.getTooltipConverted(trialConversionDays(maxTrialDays))
+                        columnTrialConversion to conversionTooltip(countryTrialsAnyDuration, countryTrialsTrialDuration, maxTrialDays)
                     )
                 )
             }
@@ -216,9 +214,7 @@ class TopCountriesTable(
                                 columnTrialConversion to trialsTrialDuration.convertedTrialsPercentage,
                             ),
                             tooltips = mapOf(
-                                columnTrialConversion to trialsAnyDuration.getTooltipConverted() +
-                                        "\n" +
-                                        trialsTrialDuration.getTooltipConverted(trialConversionDays(maxTrialDays))
+                                columnTrialConversion to conversionTooltip(trialsAnyDuration, trialsTrialDuration, maxTrialDays)
                             )
                         )
                     )

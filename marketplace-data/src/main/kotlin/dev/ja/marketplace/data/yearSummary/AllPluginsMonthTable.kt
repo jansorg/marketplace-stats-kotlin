@@ -15,6 +15,7 @@ import dev.ja.marketplace.data.trackers.AnnualRecurringRevenueTracker
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.data.trackers.MonthlyRecurringRevenueTracker
 import dev.ja.marketplace.data.trackers.PaymentAmountTracker
+import dev.ja.marketplace.data.trackers.RecurringRevenueSales
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 
 /**
@@ -72,7 +73,7 @@ class AllPluginsMonthTable(
     /**
      * Adds the sales, the licenses and the downloads of a plugin, only the data of the current month is used.
      */
-    suspend fun add(sales: List<PluginSale>, licenses: List<LicenseInfo>, downloads: List<DailyDownload>) {
+    fun add(sales: List<PluginSale>, licenses: List<LicenseInfo>, downloads: List<DailyDownload>) {
         for (sale in sales) {
             if (sale.date in month) {
                 totalSales.add(sale.date, sale.amountUSD, sale.amount)
@@ -85,7 +86,7 @@ class AllPluginsMonthTable(
         }
 
         // the trackers of each plugin, the IDs of the licenses of different plugins could be the same
-        val subscriptions = licenses.filter { it.isPaidLicense && it.isSubscriptionLicense && it.validity != null }
+        val subscriptions = licenses.filter(RecurringRevenueSales::isRecurring)
         for (day in days) {
             val mrr = MonthlyRecurringRevenueTracker(YearMonthDayRange(day, day), displayExchangeRates)
             val arr = AnnualRecurringRevenueTracker(YearMonthDayRange(day, day), displayExchangeRates)

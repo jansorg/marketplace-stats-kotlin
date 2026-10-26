@@ -132,5 +132,8 @@ data class LinkedChurnRate(
 
 const val NoValue: String = "—"
 
+/** @return The country or [NoValue] for a customer without a country. */
+fun String.orEmptyCountry(): String = ifEmpty { NoValue }
+
 /** Tooltip of downloads, which may still change. */
 const val IncompleteDownloadsTooltip: String = "The downloads of a day are reported on the next day at the earliest"
