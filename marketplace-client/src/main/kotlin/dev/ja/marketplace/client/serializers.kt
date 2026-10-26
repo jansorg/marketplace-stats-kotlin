@@ -52,6 +52,26 @@ object YearMonthDateSerializer : KSerializer<YearMonthDay> {
     )
 }
 
+/**
+ * A date as array like `[2026, 3, 1]` or as ISO date like `2026-03-01`, also with a time. The documentation of the Check
+ * License API shows both formats.
+ */
+object LenientDateSerializer : KSerializer<YearMonthDay> {
+    override fun deserialize(decoder: Decoder): YearMonthDay {
+        decoder as JsonDecoder
+        return when (val element = decoder.decodeJsonElement()) {
+            is JsonArray -> YearMonthDay(element[0].jsonPrimitive.int, element[1].jsonPrimitive.int, element[2].jsonPrimitive.int)
+            else -> YearMonthDay.parse(element.jsonPrimitive.content.take(10))
+        }
+    }
+
+    override fun serialize(encoder: Encoder, value: YearMonthDay) {
+        encoder.encodeString(value.asIsoString)
+    }
+
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("marketplace.lenientDate", PrimitiveKind.STRING)
+}
+
 object BigDecimalSerializer : KSerializer<BigDecimal> {
     override fun deserialize(decoder: Decoder): BigDecimal {
         return decoder.decodeDouble().toBigDecimal()

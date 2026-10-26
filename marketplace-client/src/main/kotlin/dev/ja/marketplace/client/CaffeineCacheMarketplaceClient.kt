@@ -202,6 +202,18 @@ class CaffeineCacheMarketplaceClient(
         }
     }
 
+    override suspend fun vendors(): List<PluginVendor> {
+        return loadCached("vendors", Category.Daily) {
+            super.vendors()
+        }
+    }
+
+    override suspend fun checkLicense(productCode: String, email: String): LicenseCheckResult {
+        return loadCached("checkLicense.$productCode.${email.lowercase()}", Category.Recent) {
+            super.checkLicense(productCode, email)
+        }
+    }
+
     override suspend fun plugins(userId: UserId, family: List<ProductFamily>?, page: Int, maxResults: Int?): List<PluginInfoSummary> {
         val families = family?.joinToString(",", transform = ProductFamily::jsonId) ?: ""
         return loadCached("plugins.$userId.$families.$page.${maxResults ?: -1}", Category.Daily) {
@@ -212,6 +224,18 @@ class CaffeineCacheMarketplaceClient(
     override suspend fun pluginInfo(plugin: PluginId): PluginInfo {
         return loadCached("pluginInfo.$plugin", Category.Daily) {
             super.pluginInfo(plugin)
+        }
+    }
+
+    override suspend fun pluginRatingByCategory(id: PluginId): Map<PluginRatingCategory, PluginCategoryRating> {
+        return loadCached("pluginRatingByCategory.$id", Category.Daily) {
+            super.pluginRatingByCategory(id)
+        }
+    }
+
+    override suspend fun verificationResults(pluginReleaseId: PluginReleaseId, type: PluginVerificationType): List<PluginVerificationResult> {
+        return loadCached("verificationResults.$pluginReleaseId.$type", Category.Daily) {
+            super.verificationResults(pluginReleaseId, type)
         }
     }
 
@@ -273,12 +297,15 @@ class CaffeineCacheMarketplaceClient(
         groupType: DownloadRequestDimension,
         countType: DownloadCountType,
         startDate: YearMonthDay?,
-        vararg filters: DownloadFilter
+        vararg filters: DownloadFilter,
+        endDate: YearMonthDay?,
     ): DownloadResponse {
         val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
-        val key = "downloads.$plugin.$groupType.$countType.$startDate.$filterString"
+        val key = "downloads.$plugin.$groupType.$countType.$startDate.$filterString" + (endDate?.let { ".$it" } ?: "")
         val loader: suspend (Boolean) -> Stored<DownloadResponse> = { forceFetch ->
-            storedDownloads(plugin, key, DownloadResponse.serializer(), forceFetch) { super.downloads(plugin, groupType, countType, startDate, *filters) }
+            storedDownloads(plugin, key, DownloadResponse.serializer(), forceFetch) {
+                super.downloads(plugin, groupType, countType, startDate, *filters, endDate = endDate)
+            }
         }
         return loadCachedStored(key, Category.Daily, refresh = { loader(true) }) { loader(false) }
     }
@@ -290,12 +317,13 @@ class CaffeineCacheMarketplaceClient(
         countType: DownloadCountType,
         startDate: YearMonthDay?,
         vararg filters: DownloadFilter,
+        endDate: YearMonthDay?,
     ): GroupedDownloadResponse {
         val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
-        val key = "groupedDownloads.$plugin.$dimension.$groupType.$countType.$startDate.$filterString"
+        val key = "groupedDownloads.$plugin.$dimension.$groupType.$countType.$startDate.$filterString" + (endDate?.let { ".$it" } ?: "")
         val loader: suspend (Boolean) -> Stored<GroupedDownloadResponse> = { forceFetch ->
             storedDownloads(plugin, key, GroupedDownloadResponse.serializer(), forceFetch) {
-                super.groupedDownloads(plugin, dimension, groupType, countType, startDate, *filters)
+                super.groupedDownloads(plugin, dimension, groupType, countType, startDate, *filters, endDate = endDate)
             }
         }
         return loadCachedStored(key, Category.Daily, refresh = { loader(true) }) { loader(false) }

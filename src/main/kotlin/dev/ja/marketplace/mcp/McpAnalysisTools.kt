@@ -485,7 +485,7 @@ class McpAnalysisTools(private val provider: McpDataProvider) {
                             put("isDeleted", true)
                         }
                         review.subRating?.takeIf { it.isNotEmpty() }?.let { subRatings ->
-                            put("subRatings", buildJsonObject { subRatings.toSortedMap().forEach { (aspect, value) -> put(aspect, value) } })
+                            put("subRatings", buildJsonObject { subRatings.mapKeys { it.key.id }.toSortedMap().forEach { (aspect, value) -> put(aspect, value) } })
                         }
                         review.ideVersion?.let { put("ideVersion", it) }
                         review.releaseVersion?.let { put("pluginVersion", it) }

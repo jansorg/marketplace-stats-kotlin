@@ -572,7 +572,7 @@ class MarketplaceStatsServer(
 
     suspend fun start() = coroutineScope {
         val countriesAsync = async(Dispatchers.IO) { servicesClient.countries() }
-        val allPluginsAsync = async(Dispatchers.IO) { client.plugins(client.userInfo().id).sortedBy(PluginInfoSummary::name) }
+        val allPluginsAsync = async(Dispatchers.IO) { client.allPlugins(client.userInfo().id).sortedBy(PluginInfoSummary::name) }
 
         countries = countriesAsync.await()
         allPlugins = allPluginsAsync.await()

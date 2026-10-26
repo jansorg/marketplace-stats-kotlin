@@ -51,9 +51,9 @@ data class PluginReviewComment(
     val isResolveRequested: Boolean = false,
     @SerialName("isDeleted")
     val isDeleted: Boolean = false,
-    /** Ratings of aspects of the plugin, e.g. `PERFORMANCE` or `DOCUMENTATION_QUALITY`, with values from 1 to 5. */
+    /** Ratings of categories of the plugin, e.g. of the performance, with values from 1 to 5. */
     @SerialName("subRating")
-    val subRating: Map<String, Int>? = null,
+    val subRating: Map<PluginRatingCategory, Int>? = null,
     /** The IDE version of the author, if it's known. */
     @SerialName("ideVersion")
     val ideVersion: String? = null,
