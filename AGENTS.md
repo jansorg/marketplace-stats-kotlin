@@ -179,7 +179,10 @@ added to the models as optional properties at the end of the constructors, unkno
   annual base price (`PriceChanges`, derived from undiscounted new US sales, the API has no price history) and major
   releases of IntelliJ IDEA (`IdeReleaseProvider`, from the JetBrains product service, cached for a day).
 - Only series of the same period (`DataTable.chartPeriod`: day, month or year) share a line chart and its date range.
-  Values of months and years are located at the end of the period, the current period at today.
+  Values of months and years are located at the end of the period, the current period at today (`ChartValues.xValue`).
+  The ticks of yearly values are at the end of each year and at today (`yearEndTicks` in `model.js`). Line charts of
+  yearly tables can also show the sums of the year before the end of each month (granularity `monthEnd`,
+  `/chart-series?granularity=month`).
 - The chart setup (columns, colors, options) is stored in the browser's local storage (`marketplace-stats.charts`) and
   restored on all pages with the same tables. Values are never stored, they're read from the tables of the current page.
 - uPlot isn't committed. Gradle downloads the npm package (`npm:uplot:<version>@tgz` in `build.gradle.kts`, from an

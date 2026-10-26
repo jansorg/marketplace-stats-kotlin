@@ -50,10 +50,9 @@ object ChartValues {
     private val yearMonthPattern = Regex("""\d{4}-\d{2}""")
 
     /**
-     * The value of a month is located at the end of its period, e.g. the number of licenses at the end of a month,
-     * the value of the current month at the given date, e.g. today.
-     * The value of a year is located in the middle of the year, the value of the current year in the middle of the
-     * elapsed part of the year, so that it's shown between the ticks of the years.
+     * The values of months and years are located at the end of their period, e.g. the number of licenses at the end of a
+     * month, the value of the current month or year at the given date, e.g. today. The ticks of the years are at the end
+     * of the years, and the values per week or per day of yearly tables are the sums of the year before each day.
      *
      * @return The date of a row as ISO date, based on the value of the first column of the row.
      */
@@ -76,11 +75,7 @@ object ChartValues {
         return when (period) {
             ChartPeriod.Day -> date
             ChartPeriod.Month -> minOf(YearMonthDay.lastOfMonth(date.year, date.month), maxOf(today, date))
-            ChartPeriod.Year -> {
-                val start = YearMonthDay(date.year, 1, 1)
-                val end = minOf(YearMonthDay(date.year, 12, 31), maxOf(today, start))
-                start.add(0, 0, (start daysUntil end).toInt() / 2)
-            }
+            ChartPeriod.Year -> minOf(YearMonthDay(date.year, 12, 31), maxOf(today, YearMonthDay(date.year, 1, 1)))
         }.asIsoString
     }
 

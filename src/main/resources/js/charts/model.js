@@ -267,10 +267,45 @@ export function lineChartKey(chart) {
 
 /**
  * Granularities of the line charts of the values of tables. "month" is the period of the table, i.e. also the years of
- * yearly values and the days of tables like the days of the current month. Columns with values for each day, e.g. MRR, can be shown per week or per day. Their values
- * have the scale of the values of the table, see OverviewDailyValues.kt.
+ * yearly values and the days of tables like the days of the current month. Columns with values for each day, e.g. MRR,
+ * can be shown per week or per day, and the values of yearly tables also at the end of each month ("monthEnd").
+ * Their values have the scale of the values of the table, see OverviewDailyValues.kt.
  */
-export const GRANULARITIES = ["month", "week", "day"];
+export const GRANULARITIES = ["month", "monthEnd", "week", "day"];
+
+/**
+ * @param {"day"|"month"|"year"} period The period of the values of the table.
+ * @return {string[]} The granularities of a line chart of the values, the values at the end of each month only for
+ *  yearly values, they would be the values of the table for monthly values.
+ */
+export function granularitiesOf(period) {
+    return GRANULARITIES.filter(granularity => granularity !== "monthEnd" || period === "year");
+}
+
+/**
+ * @param {number} min The first timestamp of the date axis, in seconds.
+ * @param {number} max The last timestamp of the date axis, in seconds.
+ * @param {number|undefined} lastValue The timestamp of the last value, e.g. today for the value of the current year.
+ * @return {number[]} The ticks of yearly values: the last day of each year, where the values of the years are
+ *  located, and the last value of the current year, which is located at today.
+ */
+export function yearEndTicks(min, max, lastValue) {
+    const ticks = [];
+    const firstYear = new Date(min * 1000).getUTCFullYear();
+    const lastYear = new Date(max * 1000).getUTCFullYear();
+    for (let year = firstYear; year <= lastYear; year++) {
+        const end = Date.UTC(year, 11, 31) / 1000;
+        if (end >= min && end <= max) {
+            ticks.push(end);
+        }
+    }
+    const isNewYear = lastValue !== undefined && (ticks.length === 0
+        || new Date(lastValue * 1000).getUTCFullYear() > new Date(ticks[ticks.length - 1] * 1000).getUTCFullYear());
+    if (isNewYear && lastValue >= min && lastValue <= max) {
+        ticks.push(lastValue);
+    }
+    return ticks;
+}
 
 /**
  * @param {{period: string, daily: string|null}[]} seriesList The series of a line chart.
