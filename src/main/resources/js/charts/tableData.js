@@ -25,7 +25,7 @@
  */
 
 import {isoDateToTimestamp, PERIODS} from "./format.js";
-import {chartKey} from "./model.js";
+import {chartKey, tableWindow} from "./model.js";
 
 function cellText(cell) {
     return cell ? cell.textContent.replace(/\s+/g, " ").trim() : "";
@@ -143,9 +143,10 @@ export function readRowHistorySeries(table, columnIndex) {
 }
 
 /**
- * @return {{key: string, metric: string, label: string, unit: string, measure: string|null, row?: string}[]} The
- *  series of a column with a metric, a series for each row of a column with the values of the rows over time, e.g. the
- *  share of each customer type. The values are loaded from /chart-data.
+ * @return {{key: string, metric: string, window: string|null, usesWindow: boolean, label: string, unit: string,
+ *  measure: string|null, row?: string}[]} The series of a column with a metric, a series for each row of a column with
+ *  the values of the rows over time, e.g. the share of each customer type. The values are loaded from /chart-data, sums
+ *  and rates with the window of the table.
  */
 export function readMetricSeries(table, columnIndex) {
     const header = table.querySelector(`th[data-chart-col="${columnIndex}"]`);
@@ -153,18 +154,26 @@ export function readMetricSeries(table, columnIndex) {
     const metric = header.dataset.chartMetric;
     const unit = header.dataset.chartUnit;
     const measure = header.dataset.chartMeasure || null;
+    const usesWindow = header.dataset.chartUsesWindow === "true";
+    // the calendar window of the level of the table follows the level of the chart, e.g. the months of a table of months
+    const window = usesWindow && header.dataset.chartWindow ? tableWindow(header.dataset.chartWindow, header.dataset.chartDetail) : null;
     if (!header.dataset.chartHistory) {
-        return [{key: metricKey(metric), metric, label: column, unit, measure}];
+        return [{key: metricKey(metric, window), metric, window, usesWindow, label: column, unit, measure}];
     }
     return [...table.querySelectorAll("tr[data-chart-category]")].map(row => {
         const name = row.dataset.chartCategory;
-        return {key: metricKey(`${metric}.${name}`), metric: `${metric}.${name}`, label: name + ", " + column, unit, measure, row: name};
+        const rowMetric = `${metric}.${name}`;
+        return {key: metricKey(rowMetric, window), metric: rowMetric, window, usesWindow, label: name + ", " + column, unit, measure, row: name};
     });
 }
 
-/** @return {string} The key of the series of a metric, the same for all tables. */
-export function metricKey(metric) {
-    return "metric:" + metric;
+/**
+ * @param {string|null} [window] The window of sums and rates, e.g. the trials of each month and of each day are
+ *  different series.
+ * @return {string} The key of the series of a metric, the same for all tables.
+ */
+export function metricKey(metric, window = null) {
+    return "metric:" + metric + (window ? "@" + window : "");
 }
 
 /**

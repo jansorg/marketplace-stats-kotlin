@@ -16,7 +16,7 @@
 import {createFormatter} from "./format.js";
 import {
     canCombineUnits, chartLevel, chartLevelKeys, CHART_STYLES, dateRange, DETAILS, detailGranularity, detailPeriod, rangeLabel, rangeOfTimestamps, rangeTimestamps, rangeYears, exportFileName, groupCharts, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES,
-    METRIC_PERIOD, metricLabel, metricPoints, nextColor, pieSlices, storedChartLevel, WINDOW_LABELS, windowApplies, WINDOWS,
+    METRIC_PERIOD, metricLabel, metricPoints, nextColor, pieSlices, shownWindow, storedChartLevel, WINDOW_LABELS, WINDOWS, finestDetail, lineDetail,
     AVERAGE_MONTHS, visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear, trailingAverage,
 } from "./model.js";
 import {browserStorage, createSetupStorage, decodeView, emptySetup, encodeView} from "./storage.js";
@@ -31,7 +31,6 @@ const STYLE_LABELS = {lines: "Lines", bars: "Bars"};
 const LOADING_MESSAGE = "Loading the values…";
 const DETAIL_LABELS = {year: "Year", month: "Month", week: "Week", day: "Day"};
 const DETAIL_HINT = "The dates of the values: the end of each year, of each month or of each week, or each day, and today.";
-const WINDOW_HINT = "The period of the sums and rates at each date: the last days or months before it, or its calendar period until it.";
 
 /**
  * @return {HTMLElement} A new element with the content of the element, which is added to the element.
@@ -49,20 +48,24 @@ function isTextInput(element) {
 }
 
 /**
- * @param {{metric: string, label: string, unit: string, measure?: string|null, row?: string}} series A series of a
- *  metric column or of the stored setup.
+ * @param {{metric: string, window?: string|null, usesWindow?: boolean, label: string, unit: string,
+ *  measure?: string|null, row?: string}} series A series of a metric column, of the menu to add metrics or of the
+ *  stored setup. Sums and rates have a window, e.g. the trials of each month and of each day are two series.
  * @return {object} The series of the metric, its values are loaded when it's shown, see ChartController.metricChartSeries.
  */
-function metricSeries({metric, label, unit, measure, row}, color) {
+function metricSeries({metric, window, usesWindow, label, unit, measure, row}, color) {
+    const hasWindow = usesWindow ?? measure !== "stock";
+    const seriesWindow = hasWindow ? window ?? null : null;
     return {
-        key: metricKey(metric), metric, label, unit, measure: measure ?? null, ...(row ? {row} : {}),
-        period: METRIC_PERIOD, points: new Map(), incomplete: new Set(), color,
+        key: metricKey(metric, seriesWindow), metric, window: seriesWindow, usesWindow: hasWindow, label, unit,
+        measure: measure ?? null, ...(row ? {row} : {}), period: METRIC_PERIOD, points: new Map(), incomplete: new Set(), color,
     };
 }
 
 /** @return {import("./storage.js").ChartEntry} The stored entry of a series of a metric. */
 function metricEntry(s) {
-    return {type: "metric", metric: s.metric, label: s.label, unit: s.unit, ...(s.measure ? {measure: s.measure} : {}), ...(s.row ? {row: s.row} : {}), color: s.color};
+    return {type: "metric", metric: s.metric, ...(s.window ? {window: s.window} : {}), usesWindow: s.usesWindow, label: s.label, unit: s.unit,
+        ...(s.measure ? {measure: s.measure} : {}), ...(s.row ? {row: s.row} : {}), color: s.color};
 }
 
 class ChartController {
@@ -104,13 +107,15 @@ class ChartController {
         this.exports = [];
         // stored entries of tables, which aren't on this page, are kept for other pages
         this.unresolvedEntries = [];
-        this.combineUnits = false;
+        this.combineUnits = true;
         this.maximized = true;
         // style of each line chart, the last selected style is used for new charts
         this.chartStyles = {};
         this.preferredStyle = "lines";
         // the window and the detail level of each line chart of metrics, see chartLevel
         this.chartLevels = {};
+        // the window of metrics, which are added with the menu "Add"
+        this.addWindow = "follow";
         // the loaded values of metrics by window and detail level, see loadMetrics
         this.metricValues = {};
         this.shownStyles = {};
@@ -298,9 +303,12 @@ class ChartController {
     addMetricSeries(table, columnIndex) {
         const level = readMetricLevel(table, columnIndex);
         const allSeries = readMetricSeries(table, columnIndex);
-        const shownSeries = this.series.filter(s => allSeries.some(series => series.key === s.key));
+        // the metric is shown again with the window, the level and the dates of the table, also with another window
+        const shownSeries = this.series.filter(s => s.metric && allSeries.some(series => series.metric === s.metric));
         if (shownSeries.length > 0) {
             this.dateRange = readTableDateRange(table);
+            shownSeries.filter(s => s.usesWindow).forEach(s => this.setSeriesWindow(s, allSeries[0].window));
+            this.removeDuplicateSeries();
             if (level !== null) {
                 new Set(shownSeries.map(s => s.unit)).forEach(unit => this.setTableLevel(unit, level));
             }
@@ -324,6 +332,95 @@ class ChartController {
         }
         this.save();
         this.openDialog(rejection);
+    }
+
+    /**
+     * Adds a metric of the menu "Add" to the chart of its unit, sums and rates with the window.
+     *
+     * @param {{id: string, title: string, unit: string, measure: string, usesWindow: boolean}} metric A metric of /chart-metrics.
+     */
+    addMetric(metric, window) {
+        const series = metricSeries({metric: metric.id, window, usesWindow: metric.usesWindow, label: metric.title,
+            unit: metric.unit, measure: metric.measure}, nextColor(this.series.map(s => s.color)));
+        const rejection = this.rejectSeries(series);
+        if (rejection === null) {
+            this.series.push(series);
+            this.save();
+        }
+        this.dialog.showMessage(rejection || null);
+        this.render();
+    }
+
+    /**
+     * Fills the menu to add a metric: a selection of the window of sums and rates, and the metrics of the page, which
+     * are loaded from /chart-metrics when the menu is opened first.
+     */
+    fillAddMenu(items, close) {
+        if (items.childElementCount > 0) {
+            return;
+        }
+        const url = new URL("/chart-metrics", window.location.href);
+        const pluginId = new URLSearchParams(window.location.search).get("pluginId");
+        if (pluginId !== null) {
+            url.searchParams.set("pluginId", pluginId);
+        }
+        const windowLabel = document.createElement("label");
+        windowLabel.className = "chart-add-window";
+        const windowSelect = document.createElement("select");
+        for (const window of WINDOWS) {
+            windowSelect.append(new Option(WINDOW_LABELS[window], window, false, window === this.addWindow));
+        }
+        windowSelect.addEventListener("change", () => this.addWindow = windowSelect.value);
+        windowLabel.append("Window", windowSelect);
+        items.append(windowLabel);
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("HTTP status " + response.status);
+                }
+                return response.json();
+            })
+            .then(metrics => {
+                // the metrics are grouped by their kind, e.g. the trials and the conversion of the trials
+                let group = null;
+                for (const metric of metrics) {
+                    if (metric.group !== group) {
+                        group = metric.group;
+                        const heading = document.createElement("span");
+                        heading.className = "chart-menu-heading";
+                        heading.textContent = group;
+                        items.append(heading);
+                    }
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    button.setAttribute("role", "menuitem");
+                    button.textContent = metric.title;
+                    // values at a date, e.g. the MRR, don't use the window
+                    button.title = metric.usesWindow ? "Sums or rates of the selected window" : "Values at each date";
+                    button.addEventListener("click", () => {
+                        close();
+                        this.addMetric(metric, windowSelect.value);
+                    });
+                    items.append(button);
+                }
+            })
+            .catch(error => {
+                console.error("Loading the metrics failed", error);
+                items.replaceChildren();
+                close();
+                this.dialog.showMessage("The metrics couldn't be loaded.");
+            });
+    }
+
+    /** Changes the window of a series of a metric, e.g. to show the trials of each day instead of each month. */
+    setSeriesWindow(series, window) {
+        series.window = window;
+        series.key = metricKey(series.metric, window);
+    }
+
+    /** Removes series, which became the same series, e.g. after changing the window of the lines of a chart. */
+    removeDuplicateSeries() {
+        this.series = this.series.filter((s, index) => this.series.findIndex(other => other.key === s.key) === index);
     }
 
     /**
@@ -407,7 +504,9 @@ class ChartController {
 
         for (const entry of setup.entries) {
             if (entry.type === "metric") {
-                const series = metricSeries(entry, nextColor(this.series.map(s => s.color), entry.color));
+                // a series of version 2 without a window has the window of its chart
+                const window = entry.window ?? storedChartLevel({period: METRIC_PERIOD, units: [entry.unit]}, this.chartLevels).window;
+                const series = metricSeries({...entry, window}, nextColor(this.series.map(s => s.color), entry.color));
                 // line charts need uPlot
                 if (!this.lineChartsAvailable) {
                     this.unresolvedEntries.push(entry);
@@ -548,6 +647,7 @@ class ChartController {
                     this.render();
                 },
                 onDateRangeChange: range => this.setDateRange(range),
+                onAddMenuOpen: (items, close) => this.fillAddMenu(items, close),
                 onValueTableVisibilityChange: visible => {
                     this.showValueTable = visible;
                     this.save();
@@ -616,12 +716,15 @@ class ChartController {
         const requests = new Map();
         for (const chart of charts.filter(c => c.period === METRIC_PERIOD)) {
             const level = chartLevel(chart, this.chartLevels);
-            const key = level.window + "/" + level.detail;
-            const ids = this.series.filter(s => s.period === chart.period && chart.units.includes(s.unit))
-                .flatMap(s => [s.metric, ...this.averageIds(s, level).map(([, id]) => id)]);
-            requests.set(key, {level, ids: [...(requests.get(key)?.ids ?? []), ...ids]});
+            for (const s of this.series.filter(s => s.period === chart.period && chart.units.includes(s.unit))) {
+                const window = this.seriesWindow(s, level);
+                const detail = this.seriesDetail(s, window, level);
+                const key = window + "/" + detail;
+                const ids = [s.metric, ...this.averageIds(s, window, detail).map(([, id]) => id)];
+                requests.set(key, {window, detail, ids: [...(requests.get(key)?.ids ?? []), ...ids]});
+            }
         }
-        requests.forEach(({level, ids}) => this.loadMetrics(level.window, level.detail, ids));
+        requests.forEach(({window, detail, ids}) => this.loadMetrics(window, detail, ids));
         // with several charts, each chart can be removed
         const isRemovable = charts.length + this.pies.length > 1;
         const visibleRange = rangeTimestamps(this.dateRange);
@@ -673,10 +776,12 @@ class ChartController {
                 syncKey: "marketplace-charts-" + (detail === null ? chart.period : "detail-" + detail),
                 chartStyle,
                 // the values of tables are shown like monthly values
-                granularity: detail === null ? "month" : detailGranularity(detail),
+                // the dates of a chart with a line per day, e.g. of the sales per day in a chart of months, are days
+                granularity: detail === null ? "month" : detailGranularity(finestDetail([detail, ...chartSeries.map(s => s.detail)])),
                 extremes: this.shownExtremes,
                 valueTable: this.showValueTable,
                 comparisonLines: this.showComparisonLines,
+                detail,
                 averagesOnly: this.averagesOnly,
                 visibleRange,
                 hiddenSeries: this.hiddenSeries,
@@ -690,7 +795,17 @@ class ChartController {
                     this.save();
                 }
             };
-            const plot = createLineChart({...chartOptions, onZoom, onSeriesVisibilityChange, width: dialog.chartWidth, height, container: panel});
+            // the window of a line is selected in the legend
+            const onSeriesWindowChange = (key, window) => {
+                const series = this.series.find(s => s.key === key);
+                if (series) {
+                    this.setSeriesWindow(series, window);
+                    this.removeDuplicateSeries();
+                    this.save();
+                    this.render();
+                }
+            };
+            const plot = createLineChart({...chartOptions, onZoom, onSeriesVisibilityChange, onSeriesWindowChange, width: dialog.chartWidth, height, container: panel});
             this.plots.push(plot);
             const title = document.title;
             const labels = chartSeries.map(s => s.label);
@@ -702,9 +817,6 @@ class ChartController {
             toolbar.append(this.exportMenu(chartExport));
             if (level !== null) {
                 // the window only applies to sums and rates
-                if (chartSeries.some(s => s.usesWindow)) {
-                    toolbar.append(this.windowMenu(chart, level));
-                }
                 toolbar.append(this.detailSwitch(chart, level));
             }
             toolbar.append(this.styleSwitch(key, chartStyle));
@@ -748,33 +860,49 @@ class ChartController {
      *  values are still loading.
      */
     metricChartSeries(seriesList, level) {
-        const data = this.metricValues[level.window + "/" + level.detail]?.data;
-        if (!data) {
-            return [];
-        }
         return seriesList.flatMap(s => {
-            const values = data.series[s.metric];
-            const points = metricPoints(data, s.metric);
+            const window = this.seriesWindow(s, level);
+            // a window shorter than the steps of the dates has finer dates, e.g. the sales per day in a chart of months
+            const detail = this.seriesDetail(s, window, level);
+            const data = this.metricValues[window + "/" + detail]?.data;
+            const values = data?.series[s.metric];
+            const points = data ? metricPoints(data, s.metric) : null;
             if (!values || points === null || points.points.size === 0) {
                 return [];
             }
-            const label = metricLabel({label: values.title, usesWindow: values.usesWindow}, level.window);
-            const averages = Object.fromEntries(this.averageIds(s, level)
+            const label = metricLabel({label: values.title, usesWindow: values.usesWindow}, window);
+            const averages = Object.fromEntries(this.averageIds(s, window, detail)
                 .map(([kind, id]) => [kind, metricPoints(data, id)?.points])
                 .filter(([, averagePoints]) => averagePoints));
             return [{...s, ...points, label, unit: values.unit, measure: values.measure, usesWindow: values.usesWindow,
-                window: level.window, period: detailPeriod(level.detail), averages}];
+                window, selectedWindow: s.window ?? level.window, detail, period: detailPeriod(detail), averages}];
         });
+    }
+
+    /**
+     * @return {string} The shown window of a series of a metric: its window or the window of the chart, the window,
+     *  which follows the level, is the calendar window of the level.
+     */
+    seriesWindow(series, level) {
+        // values at a date, e.g. the MRR, don't use the window, they're loaded with the window of the level
+        return shownWindow(series.usesWindow ? series.window ?? level.window : "follow", level.detail);
+    }
+
+    /**
+     * @return {string} The detail level of the values of a line: the level of the chart, or a finer level for a window,
+     *  which is shorter than the steps of the dates, see lineDetail. Values at a date always have the level of the chart.
+     */
+    seriesDetail(series, window, level) {
+        return series.usesWindow ? lineDetail(window, level.detail) : level.detail;
     }
 
     /**
      * @return {[string, string][]} The shown moving averages, which apply to the series of a metric, and the IDs of
      *  their values, e.g. `sales@avg3`. Sums and rates use the window, values at a date like the MRR don't.
      */
-    averageIds(series, level) {
-        const usesWindow = series.measure !== "stock";
+    averageIds(series, window, detail) {
         return OVERLAYS.filter(kind => this.shownOverlays.includes(kind) && AVERAGE_MONTHS[kind]
-            && overlayApplies(kind, {...series, usesWindow}, level.detail, level.window))
+            && overlayApplies(kind, series, detail, window))
             .map(kind => [kind, `${series.metric}@avg${AVERAGE_MONTHS[kind]}`]);
     }
 
@@ -901,35 +1029,6 @@ class ChartController {
         if (this.dialog?.message.textContent === LOADING_MESSAGE) {
             this.dialog.showMessage(null);
         }
-    }
-
-    /**
-     * @return {HTMLElement} A menu to select the window of the sums and rates of a chart of metrics, see WINDOWS.
-     */
-    windowMenu(chart, level) {
-        const {menu, items} = createMenu("Window: " + WINDOW_LABELS[level.window]);
-        menu.classList.add("chart-window-menu");
-        menu.title = WINDOW_HINT;
-        for (const window of WINDOWS) {
-            const button = document.createElement("button");
-            button.type = "button";
-            button.textContent = WINDOW_LABELS[window];
-            button.setAttribute("role", "menuitemradio");
-            button.setAttribute("aria-checked", String(window === level.window));
-            // a window shorter than the steps between the dates would only show a part of each step
-            if (!windowApplies(window, level.detail)) {
-                button.disabled = true;
-                button.title = "Shorter than the steps between the dates, select a finer level first";
-            }
-            button.addEventListener("click", () => {
-                menu.open = false;
-                this.setChartLevel(chart, {...level, window});
-                this.save();
-                this.render();
-            });
-            items.append(button);
-        }
-        return menu;
     }
 
     /**

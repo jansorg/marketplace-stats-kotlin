@@ -29,6 +29,7 @@
             data-chart-history="${column.rowHistoryPeriod?.name?.lowercase()}"
             data-chart-metric="${metric}" data-chart-unit="${if (metric != null) ChartValues.metricUnit(table, column) else null}"
             data-chart-window="${metricLevel?.window?.id}" data-chart-detail="${metricLevel?.detail?.id}"
+            data-chart-uses-window="${if (metric != null) ChartValues.metricUsesWindow(metric).toString() else null}"
             data-chart-measure="${if (table.isChartable || column.rowHistoryPeriod != null) column.chartMeasure?.name?.lowercase() else null}">
             @if(columnIndex == 0 && title != null && column.title == null && !hasTitleRow)
                 <h2>${title}</h2>

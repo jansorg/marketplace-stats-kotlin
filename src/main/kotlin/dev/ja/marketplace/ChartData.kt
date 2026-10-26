@@ -7,6 +7,7 @@ package dev.ja.marketplace
 
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.YearMonthDay
+import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.data.PluginData
 import dev.ja.marketplace.data.chart.ChartDetail
 import dev.ja.marketplace.data.chart.ChartMetric
@@ -72,6 +73,21 @@ class ChartData {
     companion object {
         /** The maximum number of metrics of a request. */
         const val MAX_METRICS = 32
+
+        /**
+         * Example: `[{"id": "sales", "title": "Sales", "unit": "USD", "measure": "flow", "usesWindow": true, "group": "Sales"}, ...]`.
+         *
+         * @return The metrics with values, e.g. to add them to the charts, ordered like [ChartMetric.all].
+         */
+        fun metricsJson(values: ChartMetricValues): String {
+            // the shares of unknown customer types are no row of the table
+            val metrics = values.metrics.filterNot { it.id.endsWith(".${CustomerType.Unknown}") }
+            return metrics.sortedBy { ChartMetric.all.indexOf(it) }.joinToString(",", "[", "]") { metric ->
+                "{\"id\":${JsonPrimitive(metric.id)},\"title\":${JsonPrimitive(metric.title)}," +
+                        "\"unit\":${JsonPrimitive(metric.unit.id(values.currency))},\"measure\":\"${metric.measure.name.lowercase()}\"," +
+                        "\"usesWindow\":${metric.usesWindow},\"group\":${JsonPrimitive(metric.group)}}"
+            }
+        }
 
         /** The separator of the ID of a metric and the months of its moving average, e.g. `sales@avg3`. */
         const val AVERAGE_SEPARATOR = "@avg"

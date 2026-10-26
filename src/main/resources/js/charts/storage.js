@@ -19,7 +19,8 @@ const READ_VERSIONS = [1, VERSION];
 
 /**
  * @typedef {{type: "line"|"pie", table: string, column: string, row?: string, color?: string}
- *  |{type: "metric", metric: string, label: string, unit: string, measure?: string, row?: string, color?: string}} ChartEntry
+ *  |{type: "metric", metric: string, window?: string, usesWindow?: boolean, label: string, unit: string, measure?: string,
+ *   row?: string, color?: string}} ChartEntry
  * @typedef {{window: string, detail: string}} ChartLevel
  * @typedef {{combineUnits: boolean, maximized: boolean, preferredStyle: "lines"|"bars",
  *  chartStyles: Object<string, "lines"|"bars">, chartLevels: Object<string, ChartLevel>, shownMarkers: string[], shownEvents: string[],
@@ -29,8 +30,8 @@ const READ_VERSIONS = [1, VERSION];
 
 /** @return {ChartSetup} */
 export function emptySetup() {
-    // vertical lines are hidden by default, the dialog is maximized
-    return {combineUnits: false, maximized: true, preferredStyle: "lines", chartStyles: {}, chartLevels: {}, shownMarkers: [], shownEvents: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, showComparisonLines: false, averagesOnly: false, dateRange: null, hiddenSeries: [], entries: []};
+    // vertical lines are hidden by default, the dialog is maximized, two units share a chart with a second y-axis
+    return {combineUnits: true, maximized: true, preferredStyle: "lines", chartStyles: {}, chartLevels: {}, shownMarkers: [], shownEvents: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, showComparisonLines: false, averagesOnly: false, dateRange: null, hiddenSeries: [], entries: []};
 }
 
 const STYLES = ["lines", "bars"];
@@ -44,7 +45,7 @@ function validExtremes(setup) {
     // the option "Minimum and maximum" was split into two options
     return setup.showExtremes === true ? [...EXTREMES] : [];
 }
-const WINDOWS = ["day", "week", "month", "quarter", "year", "calendar-month", "calendar-quarter", "calendar-year"];
+const WINDOWS = ["follow", "day", "week", "month", "quarter", "year", "calendar-month", "calendar-quarter", "calendar-year"];
 const DETAILS = ["year", "month", "week", "day"];
 const MARKER_KINDS = ["release", "price", "ide"];
 
@@ -80,6 +81,8 @@ function isValidMetricEntry(entry) {
     return typeof entry.metric === "string"
         && typeof entry.label === "string"
         && typeof entry.unit === "string"
+        && (entry.window === undefined || WINDOWS.includes(entry.window))
+        && (entry.usesWindow === undefined || typeof entry.usesWindow === "boolean")
         && (entry.measure === undefined || typeof entry.measure === "string")
         && (entry.color === undefined || typeof entry.color === "string")
         && (entry.row === undefined || typeof entry.row === "string");
@@ -106,7 +109,8 @@ function parseSetup(setup) {
         return null;
     }
     return {
-        combineUnits: setup.combineUnits === true,
+        // a second y-axis is used by default
+        combineUnits: setup.combineUnits !== false,
         maximized: setup.maximized !== false,
         preferredStyle: STYLES.includes(setup.preferredStyle) ? setup.preferredStyle : "lines",
         chartStyles: validValues(setup.chartStyles, STYLES),

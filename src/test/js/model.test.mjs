@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
     averageShade, pinchedRange, rangeLabel, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
-    alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, periodEnd, storedChartLevel, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
+    alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, finestDetail, lineDetail, periodEnd, shownWindow, storedChartLevel, tableWindow, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
 } from "../../main/resources/js/charts/model.js";
@@ -48,19 +48,19 @@ test("the level of a chart of metrics", () => {
     assert.deepEqual(chartLevel({period: METRIC_PERIOD, units: ["count"]}, {"metric/count": usd}), usd);
 });
 
-test("windows are at least as long as the steps between the dates", () => {
+test("lines with windows shorter than the steps of the dates have finer dates", () => {
     assert.equal(windowApplies("day", "day"), true);
     assert.equal(windowApplies("day", "year"), false);
-    assert.equal(windowApplies("week", "month"), false);
     assert.equal(windowApplies("calendar-month", "month"), true);
-    assert.equal(windowApplies("quarter", "year"), false);
-    assert.equal(windowApplies("year", "year"), true);
-    // a too short window is replaced by the calendar window of the detail level
-    assert.deepEqual(withDetail({window: "day", detail: "day"}, "year"), {window: "calendar-year", detail: "year"});
-    assert.deepEqual(withDetail({window: "year", detail: "month"}, "day"), {window: "year", detail: "day"});
-    // a stored level, which doesn't apply
-    assert.deepEqual(chartLevel({period: METRIC_PERIOD, units: ["USD"]}, {"metric/USD": {window: "week", detail: "month"}}),
-        {window: "calendar-month", detail: "month"});
+    // the sales per day in a chart of months have values of each day
+    assert.equal(lineDetail("day", "month"), "day");
+    assert.equal(lineDetail("week", "year"), "week");
+    assert.equal(lineDetail("calendar-month", "year"), "month");
+    assert.equal(lineDetail("year", "month"), "month");
+    assert.equal(finestDetail(["month", "day"]), "day");
+    assert.equal(finestDetail(["year", "month"]), "month");
+    // the window is kept
+    assert.deepEqual(withDetail({window: "day", detail: "day"}, "year"), {window: "day", detail: "year"});
 });
 
 test("labels of metrics name the window of sums and rates", () => {
@@ -442,14 +442,13 @@ test("the cursor stays inside the chart at values on its edges", () => {
     assert.equal(cursorPosition(0, i => [-40, 30][i], 2, 150, 5), 30);
 });
 
-test("the selected window is kept for the levels, to which it applies", () => {
+test("the selected window of a chart is kept at all levels", () => {
     const chart = {period: METRIC_PERIOD, units: ["USD"]};
-    // the calendar month at the level Year is shown as the calendar year, but stored as selected
     const levels = {"metric/USD": {window: "calendar-month", detail: "year"}};
-    assert.deepEqual(chartLevel(chart, levels), {window: "calendar-year", detail: "year"});
+    assert.deepEqual(chartLevel(chart, levels), {window: "calendar-month", detail: "year"});
     assert.deepEqual(storedChartLevel(chart, levels), {window: "calendar-month", detail: "year"});
-    // back at the level Month, the selected window applies again
-    assert.deepEqual(chartLevel(chart, {"metric/USD": {window: "calendar-month", detail: "month"}}), {window: "calendar-month", detail: "month"});
+    // the window, which follows the level
+    assert.deepEqual(chartLevel(chart, {"metric/USD": {window: "follow", detail: "year"}}), {window: "calendar-year", detail: "year"});
 });
 
 test("the date axis ends with the period of the last value", () => {
@@ -461,4 +460,18 @@ test("the date axis ends with the period of the last value", () => {
     assert.equal(periodEnd(day("2026-10-26"), "week"), day("2026-11-01"));
     assert.equal(periodEnd(day("2026-11-01"), "week"), day("2026-11-01"));
     assert.equal(periodEnd(day("2026-10-26"), "day"), day("2026-10-26"));
+});
+
+test("the window, which follows the level, is the calendar window of the level", () => {
+    assert.equal(shownWindow("follow", "year"), "calendar-year");
+    assert.equal(shownWindow("follow", "month"), "calendar-month");
+    assert.equal(shownWindow("follow", "week"), "week");
+    assert.equal(shownWindow("follow", "day"), "day");
+    // other windows are kept, if they apply
+    assert.equal(shownWindow("year", "month"), "year");
+    // the calendar window of the level of a table follows the level of the chart
+    assert.equal(tableWindow("calendar-month", "month"), "follow");
+    assert.equal(tableWindow("calendar-year", "year"), "follow");
+    assert.equal(tableWindow("day", "day"), "follow");
+    assert.equal(tableWindow("year", "month"), "year");
 });

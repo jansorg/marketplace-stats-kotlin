@@ -375,6 +375,12 @@ class MarketplaceStatsServer(
                 }
             }
 
+            // the metrics of the charts, e.g. to add them to the charts, see ChartData.metricsJson
+            get("/chart-metrics") {
+                val values = chartMetricValues() ?: return@get
+                call.respondText(ChartData.metricsJson(values), io.ktor.http.ContentType.Application.Json)
+            }
+
             // values of the metrics of the charts, e.g. /chart-data?pluginId=1&metrics=sales,mrr&window=month&detail=day
             get("/chart-data") {
                 val parameters = call.request.queryParameters
@@ -386,21 +392,7 @@ class MarketplaceStatsServer(
                     return@get
                 }
 
-                // errors are answered as text, the charts read JSON
-                val pluginId = parameters["pluginId"]
-                val plugin = when (pluginId) {
-                    null -> allPlugins.singleOrNull()
-                    else -> allPlugins.firstOrNull { it.id == pluginId.toIntOrNull() }
-                }
-                val values = when {
-                    plugin != null -> chartData.values(getDataLoader(plugin).load())
-                    // the summary of all plugins on the list of plugins
-                    pluginId == null && serverConfiguration.showAllPluginsSummary -> allPluginsChartValues()
-                    else -> {
-                        call.respondText("Unknown plugin", status = HttpStatusCode.NotFound)
-                        return@get
-                    }
-                }
+                val values = chartMetricValues() ?: return@get
                 val json = withContext(Dispatchers.Default) { ChartData.json(values, metrics, window, detail) }
                 call.respondText(json, io.ktor.http.ContentType.Application.Json)
             }
@@ -735,6 +727,27 @@ class MarketplaceStatsServer(
                     today,
                 )
             }.also { allPluginsChartValuesCache = AllPluginsCache(allData, today, it) }
+        }
+    }
+
+    /**
+     * @return The values of the charts of the plugin of the request, or of all plugins on the list of plugins, or `null`
+     *  if the plugin is unknown. Errors are answered as text, the charts read JSON.
+     */
+    private suspend fun RoutingContext.chartMetricValues(): ChartMetricValues? {
+        val pluginId = call.request.queryParameters["pluginId"]
+        val plugin = when (pluginId) {
+            null -> allPlugins.singleOrNull()
+            else -> allPlugins.firstOrNull { it.id == pluginId.toIntOrNull() }
+        }
+        return when {
+            plugin != null -> chartData.values(getDataLoader(plugin).load())
+            // the summary of all plugins on the list of plugins
+            pluginId == null && serverConfiguration.showAllPluginsSummary -> allPluginsChartValues()
+            else -> {
+                call.respondText("Unknown plugin", status = HttpStatusCode.NotFound)
+                null
+            }
         }
     }
 

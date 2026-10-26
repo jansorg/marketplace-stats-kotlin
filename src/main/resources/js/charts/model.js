@@ -391,11 +391,18 @@ export function lineChartKey(chart) {
  * e.g. the sales of the 12 months before each date, at the end of a calendar period the period. The calendar windows
  * start at the first day of the period of each date, their values are the values of the tables, also of today.
  */
-export const WINDOWS = ["day", "week", "month", "quarter", "year", "calendar-month", "calendar-quarter", "calendar-year"];
+export const WINDOWS = ["follow", "day", "week", "month", "quarter", "year", "calendar-month", "calendar-quarter", "calendar-year"];
+
+/**
+ * The window, which follows the detail level of the chart: the calendar year at the level Year, the calendar month at
+ * the level Month, the week and the day, see {@link shownWindow}. It's only used by the charts, /chart-data gets the
+ * shown window.
+ */
+export const FOLLOW_WINDOW = "follow";
 
 /** Labels of the windows in the charts. */
 export const WINDOW_LABELS = {
-    day: "Per day", week: "Last 7 days", month: "Last month", quarter: "Last 3 months", year: "Last 12 months",
+    follow: "Follow the level", day: "Per day", week: "Last 7 days", month: "Last month", quarter: "Last 3 months", year: "Last 12 months",
     "calendar-month": "Calendar month", "calendar-quarter": "Calendar quarter", "calendar-year": "Calendar year",
 };
 
@@ -411,7 +418,15 @@ const DETAIL_WINDOWS = {day: "day", week: "week", month: "calendar-month", year:
  *  dates, would only show a part of each step, e.g. the sales of the last day of each year.
  */
 export function windowApplies(window, detail) {
-    return (WINDOW_DAYS[window] ?? 0) >= (DETAIL_DAYS[detail] ?? 0);
+    return window === FOLLOW_WINDOW || (WINDOW_DAYS[window] ?? 0) >= (DETAIL_DAYS[detail] ?? 0);
+}
+
+/**
+ * @return {string} The window of a line of a table: the window, which follows the level, if the table has the
+ *  calendar window of its level, e.g. the calendar month of a table of months, so that the line follows the level.
+ */
+export function tableWindow(window, detail) {
+    return window === DETAIL_WINDOWS[detail] ? FOLLOW_WINDOW : window;
 }
 
 /**
@@ -419,7 +434,33 @@ export function windowApplies(window, detail) {
  *  window of the detail level, if it's too short, see {@link windowApplies}.
  */
 export function withDetail(level, detail) {
-    return {window: windowApplies(level.window, detail) ? level.window : DETAIL_WINDOWS[detail], detail};
+    return {window: shownWindow(level.window, detail), detail};
+}
+
+/**
+ * @param {string} window The selected window of a line, see {@link WINDOWS}.
+ * @return {string} The shown window: the selected window, or the calendar window of the detail level for the window,
+ *  which follows the level. A window, which is shorter than the steps of the dates, gets finer dates, see
+ *  {@link lineDetail}.
+ */
+export function shownWindow(window, detail) {
+    return window === FOLLOW_WINDOW ? DETAIL_WINDOWS[detail] : window;
+}
+
+/**
+ * @param {string} window The shown window of a line, see {@link shownWindow}.
+ * @param {string} detail The detail level of the chart.
+ * @return {string} The detail level of the values of the line: the level of the chart, or a finer level, if the
+ *  window is shorter than the steps of its dates, e.g. the values of each day of a line of the sales per day in a chart
+ *  of months.
+ */
+export function lineDetail(window, detail) {
+    return windowApplies(window, detail) ? detail : DETAILS.find(finer => windowApplies(window, finer)) ?? "day";
+}
+
+/** @return {string} The finest of the detail levels, e.g. "day" of "month" and "day". */
+export function finestDetail(details) {
+    return [...DETAILS].reverse().find(detail => details.includes(detail)) ?? "month";
 }
 
 /**
@@ -435,7 +476,7 @@ export const DETAILS = ["year", "month", "week", "day"];
 export const METRIC_PERIOD = "metric";
 
 /** The level of a new chart of metrics without the level of a table. */
-const DEFAULT_LEVEL = {window: "calendar-month", detail: "month"};
+const DEFAULT_LEVEL = {window: FOLLOW_WINDOW, detail: "month"};
 
 /**
  * @param {{period: string, units: string[]}} chart A line chart of metrics.

@@ -16,6 +16,8 @@ const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const ICON_PATHS = {
     maximize: "M3 8V3h5 M3 3l6 6 M17 8V3h-5 M17 3l-6 6 M3 12v5h5 M3 17l6-6 M17 12v5h-5 M17 17l-6-6",
     restore: "M8 3v5H3 M8 8L2 2 M12 3v5h5 M12 8l6-6 M8 17v-5H3 M8 12l-6 6 M12 17v-5h5 M12 12l6 6",
+    // a plus, to add a metric
+    add: "M10 4v12 M4 10h12",
     // a trash can, to remove all charts
     clear: "M3.5 5h13 M8 5V3h4v2 M5.5 5l1 12h7l1-12 M8.5 8v6 M11.5 8v6",
 };
@@ -73,6 +75,7 @@ export class ChartDialog {
      * @param {(kind: "min"|"max", visible: boolean) => void} callbacks.onExtremeVisibilityChange
      * @param {(visible: boolean) => void} callbacks.onIncompleteVisibilityChange
      * @param {(visible: boolean) => void} callbacks.onValueTableVisibilityChange
+     * @param {(items: HTMLElement, close: () => void) => void} [callbacks.onAddMenuOpen] Fills the menu to add a metric.
      * @param {(visible: boolean) => void} callbacks.onComparisonLinesVisibilityChange
      * @param {(kind: string, visible: boolean) => void} callbacks.onOverlayVisibilityChange
      * @param {(range: {from: string, to: string}|null) => void} callbacks.onDateRangeChange
@@ -81,7 +84,7 @@ export class ChartDialog {
      *  selects the shown events in a menu.
      * @param {boolean} hasLineCharts If the page has columns, which can be shown in line charts.
      */
-    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange, onEventVisibilityChange, onExtremeVisibilityChange, onIncompleteVisibilityChange, onValueTableVisibilityChange, onComparisonLinesVisibilityChange, onOverlayVisibilityChange, onAveragesOnlyChange, onDateRangeChange}, markerKinds, hasLineCharts, customEvents = []) {
+    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange, onEventVisibilityChange, onExtremeVisibilityChange, onIncompleteVisibilityChange, onValueTableVisibilityChange, onComparisonLinesVisibilityChange, onOverlayVisibilityChange, onAveragesOnlyChange, onDateRangeChange, onAddMenuOpen}, markerKinds, hasLineCharts, customEvents = []) {
         this.element = document.createElement("dialog");
         this.element.className = "chart-dialog noprint";
         this.element.setAttribute("aria-labelledby", "chart-dialog-title");
@@ -111,7 +114,21 @@ export class ChartDialog {
         clearButton.title = "Remove all charts, reset their options and close the dialog";
         clearButton.setAttribute("aria-label", "Remove all charts");
 
-        header.append(title, this.combineLabel, clearButton, this.maximizeButton, removeButton("Close", () => this.close()));
+        // a menu to add a metric, its items are added when it's opened
+        const {menu: addMenu, items: addItems} = createMenu("");
+        addMenu.classList.add("chart-add-menu");
+        const addSummary = addMenu.querySelector("summary");
+        addSummary.append(icon("add"));
+        addSummary.title = "Add a chart of a metric";
+        addSummary.setAttribute("aria-label", "Add a chart of a metric");
+        addMenu.addEventListener("toggle", () => {
+            if (addMenu.open) {
+                onAddMenuOpen?.(addItems, () => addMenu.open = false);
+            }
+        });
+        this.addMenu = addMenu;
+
+        header.append(title, this.combineLabel, addMenu, clearButton, this.maximizeButton, removeButton("Close", () => this.close()));
 
         const hint = document.createElement("p");
         hint.className = "chart-dialog-hint";

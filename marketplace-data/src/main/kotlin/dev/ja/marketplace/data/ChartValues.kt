@@ -125,6 +125,14 @@ object ChartValues {
         }
     }
 
+    /**
+     * @return If the values of a metric depend on the window, see [ChartMetric.usesWindow]. The shares of the rows,
+     *  e.g. of the customer types, are shares of the sales of the window.
+     */
+    fun metricUsesWindow(metricId: String): Boolean {
+        return ChartMetric.byId(metricId)?.usesWindow ?: (metricId == ChartMetric.CUSTOMER_TYPE_SHARE)
+    }
+
     fun value(cellValue: Any?): ChartValue? {
         return when (cellValue) {
             is IncompleteValue -> value(cellValue.value)?.copy(isIncomplete = true)
