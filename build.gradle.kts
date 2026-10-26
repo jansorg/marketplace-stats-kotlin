@@ -52,28 +52,26 @@ allprojects {
         }
     }
 
+    // The public API of the modules uses the types of these libraries, so they are api dependencies of the modules,
+    // e.g. for users of the modules as libraries. The web application only uses them internally.
+    val exposedDependency = if (this == rootProject) "implementation" else "api"
+
     dependencies {
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-datetime-jvm
         // the 0.6.x-compat variant is required by Ktor and would win the conflict resolution anyway
-        implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.8.0-0.6.x-compat")
+        exposedDependency("org.jetbrains.kotlinx:kotlinx-datetime:0.8.0-0.6.x-compat")
 
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-serialization-json-jvm
-        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+        exposedDependency("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-coroutines-core
-        implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
+        exposedDependency("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
 
         // https://mvnrepository.com/artifact/it.unimi.dsi/fastutil-core
-        implementation("it.unimi.dsi:fastutil-core:8.5.19")
-
-        // https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
-        implementation("ch.qos.logback:logback-classic:1.6.5")
-
-        // https://github.com/ajalt/clikt
-        implementation("com.github.ajalt.clikt:clikt:5.1.0")
+        exposedDependency("it.unimi.dsi:fastutil-core:8.5.19")
 
         // https://mvnrepository.com/artifact/org.javamoney.moneta/moneta-core
-        implementation("org.javamoney.moneta:moneta-core:1.4.5")
+        exposedDependency("org.javamoney.moneta:moneta-core:1.4.5")
 
         // https://mvnrepository.com/artifact/com.github.ben-manes.caffeine/caffeine
         implementation("com.github.ben-manes.caffeine:caffeine:3.3.1")
@@ -107,7 +105,8 @@ project("marketplace-client") {
 
 project(":marketplace-data") {
     dependencies {
-        implementation(project(":marketplace-client"))
+        // api: the public API of marketplace-data uses the types of marketplace-client
+        api(project(":marketplace-client"))
     }
 }
 
@@ -220,6 +219,13 @@ project(":") {
         // some classes are only used by the precompiled JTE templates, e.g. Formatters and ChartValues
         api(project(":marketplace-client"))
         api(project(":marketplace-data"))
+
+        // https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
+        // only the application, the libraries log with SLF4J and leave the choice of the backend to their users
+        implementation("ch.qos.logback:logback-classic:1.6.5")
+
+        // https://github.com/ajalt/clikt
+        implementation("com.github.ajalt.clikt:clikt:5.1.0")
 
         implementation("io.ktor:ktor-server-core:$ktorVersion")
         implementation("io.ktor:ktor-server-netty:$ktorVersion")
