@@ -321,6 +321,8 @@ export class ChartDialog {
     setDateRange(years, range) {
         const label = rangeLabel(range);
         this.rangeMenu.querySelector("summary").textContent = "Range: " + label;
+        // a limited range is highlighted, e.g. the dates of a table of a few days, so that it isn't missed
+        this.rangeMenu.classList.toggle("chart-menu-modified", range !== null);
         const items = [{label: "All", range: null}, ...years.map(year => ({label: String(year), range: rangeOfYear(year)}))];
         // a zoomed range, which isn't a year
         if (!items.some(item => item.label === label)) {
