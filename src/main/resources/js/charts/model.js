@@ -637,14 +637,18 @@ export function previousYear(series) {
 export const MARKER_KINDS = ["release", "price", "ide"];
 
 /** Labels of the kinds of vertical lines. */
-export const MARKER_LABELS = {release: "Product version", price: "Price changes", ide: "IntelliJ IDEA releases"};
+export const MARKER_LABELS = {release: "Product version", price: "Price changes", ide: "IntelliJ IDEA releases", custom: "Events"};
 
 /**
- * @param {string[]} shownKinds The kinds of vertical lines to show, they are hidden by default.
- * @return {object[]} The markers of the shown kinds, sorted by date, as needed to place their labels.
+ * @param {string[]} shownKinds The kinds of the shown vertical lines, see {@link MARKER_KINDS}.
+ * @param {string[]} shownEvents The IDs of the shown custom events, they are selected one by one.
+ * @return {object[]} The markers of the shown kinds and the shown custom events, sorted by date, as needed to place
+ *  their labels.
  */
-export function visibleMarkers(markers, shownKinds) {
-    return markers.filter(marker => shownKinds.includes(marker.kind)).sort((a, b) => a.timestamp - b.timestamp);
+export function visibleMarkers(markers, shownKinds, shownEvents = []) {
+    return markers
+        .filter(marker => marker.kind === "custom" ? shownEvents.includes(marker.id) : shownKinds.includes(marker.kind))
+        .sort((a, b) => a.timestamp - b.timestamp);
 }
 
 /**

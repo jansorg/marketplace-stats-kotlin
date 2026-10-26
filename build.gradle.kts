@@ -233,6 +233,9 @@ project(":") {
 
         // https://mvnrepository.com/artifact/gg.jte/jte
         implementation("gg.jte:jte:3.2.4")
+
+        // https://github.com/snakeyaml/snakeyaml-engine, the file of the custom events of the charts
+        implementation("org.snakeyaml:snakeyaml-engine:3.2")
     }
 
     configurations.runtimeClasspath {

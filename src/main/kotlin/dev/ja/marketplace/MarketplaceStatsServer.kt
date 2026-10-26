@@ -413,6 +413,7 @@ class MarketplaceStatsServer(
                                 "urls" to client as MarketplaceUrlSupport,
                                 "summaryTables" to allPluginsSummary(),
                                 "ideReleases" to if (serverConfiguration.showAllPluginsSummary) ideReleases.majorReleases() else emptyList(),
+                                "customEvents" to if (serverConfiguration.showAllPluginsSummary) serverConfiguration.customEvents(null) else emptyList(),
                             )
                         )
                     )

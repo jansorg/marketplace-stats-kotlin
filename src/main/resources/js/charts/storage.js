@@ -14,7 +14,7 @@ const VERSION = 1;
 /**
  * @typedef {{type: "line"|"pie", table: string, column: string, row?: string, color?: string}} ChartEntry
  * @typedef {{combineUnits: boolean, maximized: boolean, preferredStyle: "lines"|"bars",
- *  chartStyles: Object<string, "lines"|"bars">, granularities: Object<string, "yearEnd"|"month"|"monthEnd"|"week"|"day">, shownMarkers: string[],
+ *  chartStyles: Object<string, "lines"|"bars">, granularities: Object<string, "yearEnd"|"month"|"monthEnd"|"week"|"day">, shownMarkers: string[], shownEvents: string[],
  *  shownExtremes: ("min"|"max")[], shownOverlays: string[], showIncomplete: boolean, showValueTable: boolean,
  *  entries: ChartEntry[]}} ChartSetup
  */
@@ -22,7 +22,7 @@ const VERSION = 1;
 /** @return {ChartSetup} */
 export function emptySetup() {
     // vertical lines are hidden by default, the dialog is maximized
-    return {combineUnits: false, maximized: true, preferredStyle: "lines", chartStyles: {}, granularities: {}, shownMarkers: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, entries: []};
+    return {combineUnits: false, maximized: true, preferredStyle: "lines", chartStyles: {}, granularities: {}, shownMarkers: [], shownEvents: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, entries: []};
 }
 
 const STYLES = ["lines", "bars"];
@@ -71,6 +71,8 @@ function parseSetup(setup) {
         chartStyles: validValues(setup.chartStyles, STYLES),
         granularities: validValues(setup.granularities, GRANULARITIES),
         shownMarkers: Array.isArray(setup.shownMarkers) ? setup.shownMarkers.filter(kind => MARKER_KINDS.includes(kind)) : [],
+        // the IDs of the shown custom events, also of events of other pages
+        shownEvents: Array.isArray(setup.shownEvents) ? setup.shownEvents.filter(id => typeof id === "string") : [],
         shownExtremes: validExtremes(setup),
         shownOverlays: Array.isArray(setup.shownOverlays) ? OVERLAYS.filter(kind => setup.shownOverlays.includes(kind)) : [],
         // shown by default, also with a setup stored before the option existed

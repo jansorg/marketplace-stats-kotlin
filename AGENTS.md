@@ -98,7 +98,7 @@ added to the models as optional properties at the end of the constructors, unkno
 ```
 
 - `config.json` (git-ignored) holds the API key. Its supported keys are `apiKey`, `displayedCurrency`,
-  `showResellerCharges` and `cacheDir` (see `ApplicationConfig.kt`). The host and port can't be set in the config file. They come from
+  `showResellerCharges`, `cacheDir` and `eventsFile` (see `ApplicationConfig.kt`). The host and port can't be set in the config file. They come from
   `--host`/`--port` or `MARKETPLACE_SERVER_HOSTNAME`/`MARKETPLACE_SERVER_PORT`, and default to `0.0.0.0:8080`.
 - Pass `--port` explicitly and use a port other than 8080, so the server doesn't collide with an instance the user
   is already running. Bind to `127.0.0.1`.
@@ -186,7 +186,9 @@ added to the models as optional properties at the end of the constructors, unkno
   each day, licenses, MRR and ARR the values at each day, so that the last day of a month has the value of the table.
 - Vertical lines in line charts: major releases of the plugin (`MajorReleases`, from the plugin's releases), changes of the
   annual base price (`PriceChanges`, derived from undiscounted new US sales, the API has no price history) and major
-  releases of IntelliJ IDEA (`IdeReleaseProvider`, from the JetBrains product service, cached for a day).
+  releases of IntelliJ IDEA (`IdeReleaseProvider`, from the JetBrains product service, cached for a day), and custom
+  events of a YAML file (`--events`, `CustomEventsFile`, read again when it's modified), which the user selects one by
+  one in the menu "Events" of the dialog (stored as `shownEvents`).
 - Only series of the same period (`DataTable.chartPeriod`: day, month or year) share a line chart and its date range.
   Values of months and years are located at the end of the period, the current period at today (`ChartValues.xValue`).
   The ticks of yearly values are at the end of each year and at today (`yearEndTicks` in `model.js`). Line charts of

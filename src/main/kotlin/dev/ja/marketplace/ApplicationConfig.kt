@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -18,4 +18,7 @@ data class ApplicationConfig(
     val showResellerCharges: Boolean = false,
     @SerialName("cacheDir")
     val cacheDir: String? = null,
+    /** The YAML file of the custom events of the charts, relative to the directory of the configuration file. */
+    @SerialName("eventsFile")
+    val eventsFile: String? = null,
 )
