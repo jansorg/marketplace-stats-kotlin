@@ -246,6 +246,9 @@ added to the models as optional properties at the end of the constructors, unkno
 - Commit messages follow Conventional Commits (`feat:`, `fix:`, `chore:`).
 - New JetBrains product codes are registered in `marketplace-client/.../services/JetBrainsProductCode.kt`; unknown codes must not break at runtime.
 - Monetary amounts must keep their currency; use the existing Moneta-based helpers instead of raw `Double`/`BigDecimal` arithmetic.
+- Tests, which call suspending code, are suspending functions (`@Test suspend fun x() { ... }`, supported by JUnit 6),
+  not `fun x() = runBlocking { ... }`. JUnit needs `kotlin-reflect` for them, which is on the test runtime classpath of
+  all projects. A test, which needs a `CoroutineScope`, e.g. for `async`, uses `= coroutineScope { ... }`.
 
 ## Releases
 
