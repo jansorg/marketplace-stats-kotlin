@@ -96,8 +96,16 @@ internal class PersistentResponseCache(
      * Drops the responses of a file, e.g. of a single plugin.
      */
     fun invalidate(fileName: String) {
-        files[fileName]?.entries?.clear()
-        store.delete(fileName)
+        val file = files[fileName]
+        if (file == null) {
+            store.delete(fileName)
+            return
+        }
+        // a running write must not store the dropped responses again after the file was deleted
+        synchronized(file) {
+            file.entries.clear()
+            store.delete(fileName)
+        }
     }
 
     /**
