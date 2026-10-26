@@ -222,7 +222,7 @@ extend, must not fail a response:
     replaces it with the calendar window of the level.
   - Moving averages: `<metric>@avg<months>` (1, 3 or 12), `ChartMetricValues.average`, are lines of their own
     (`average` of the series), which the submenu of a metric in the "+" menu adds, a click on the metric adds its values. The View menu only has the
-    trend "Previous year". The × of a line in the legend removes it. The windows, which end at the
+    trend "Previous year". Lines of averages have no points, next to lines of values they're dashed (`averageDashOf`). The × of a line in the legend removes it. The windows, which end at the
     date and before each previous window, fill the months: sums are divided by the number of windows (e.g. the average
     month), rates are pooled from their numerators and denominators (`DailyRatio`, e.g. churned and previously active
     licenses), values at a date are averaged over the days. Calendar windows use their rolling windows. The
