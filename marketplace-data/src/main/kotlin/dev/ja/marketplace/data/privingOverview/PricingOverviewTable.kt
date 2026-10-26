@@ -7,6 +7,7 @@ package dev.ja.marketplace.data.privingOverview
 
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.currency.MarketplaceCurrencies
+import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.PluginPriceInfo
 import dev.ja.marketplace.client.model.PriceInfoTypeData
 import dev.ja.marketplace.data.*
@@ -22,10 +23,18 @@ import java.math.BigDecimal
 import java.text.Collator
 import javax.money.MonetaryAmount
 
+/**
+ * The current prices of the plugin in the countries, grouped by currency: the annual prices of the years of a
+ * subscription, or the perpetual prices of a plugin with perpetual licenses. The monthly prices are calculated from
+ * the annual prices by the Marketplace.
+ */
 class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column-wide"),
     MarketplaceDataSink {
     private lateinit var pluginPricing: PluginPricing
     private lateinit var countries: Countries
+
+    // the Marketplace offers either subscriptions or perpetual licenses
+    private var isPerpetual = false
 
     private val columnEmpty = DataTableColumn("pricing-empty", "", columnSpan = 2)
     private val columnPersonal = DataTableColumn("pricing-personal", "Personal", columnSpan = 3)
@@ -39,7 +48,14 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
     private val columnSecondYearCommercial = DataTableColumn("pricing-second-year-commercial", "2nd Year", "num")
     private val columnThirdYearCommercial = DataTableColumn("pricing-third-year-commercial", "3rd Year", "num")
 
-    override val columns: List<DataTableColumn> = listOf(columnEmpty, columnPersonal, columnCommercial)
+    private val columnPerpetualPersonal = DataTableColumn("pricing-perpetual", "Perpetual", "num highlighted")
+    private val columnPerpetualCommercial = DataTableColumn("pricing-perpetual-commercial", "Perpetual", "num")
+
+    override val columns: List<DataTableColumn>
+        get() = when {
+            isPerpetual -> listOf(columnEmpty, columnPersonal.copy(columnSpan = 1), columnCommercial.copy(columnSpan = 1))
+            else -> listOf(columnEmpty, columnPersonal, columnCommercial)
+        }
 
     override val alwaysShowMainColumns: Boolean = true
 
@@ -48,6 +64,7 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
 
         this.countries = data.countries
         this.pluginPricing = data.pluginPricing!!
+        this.isPerpetual = data.getOfferedLicensePeriods()?.let { LicensePeriod.Perpetual in it && LicensePeriod.Annual !in it } ?: false
     }
 
     override suspend fun process(licenseInfo: LicenseInfo) {
@@ -55,15 +72,6 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
     }
 
     override suspend fun createSections(): List<DataTableSection> {
-        val subColumns = listOf(
-            columnCountry,
-            columnFirstYearPersonal,
-            columnSecondYearPersonal,
-            columnThirdYearPersonal,
-            columnFirstYearCommercial,
-            columnSecondYearCommercial,
-            columnThirdYearCommercial,
-        )
 
         val countryComparator = Comparator.comparing<Pair<CountryWithCurrency, PluginPriceInfo>, String>(
             { it.first.country.printableName },
@@ -80,6 +88,24 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
             }.associate { (currency, prices) -> currency to prices.awaitAll().filterNotNull() }
         }
 
+        // without the offered license periods, the prices show if the plugin has perpetual licenses
+        val prices = currencyToPricing.values.flatten().map { it.second.prices }
+        if (!isPerpetual && prices.none { it.personal.annual != null } && prices.any { it.personal.perpetual != null }) {
+            isPerpetual = true
+        }
+        val subColumns = when {
+            isPerpetual -> listOf(columnCountry, columnPerpetualPersonal, columnPerpetualCommercial)
+            else -> listOf(
+                columnCountry,
+                columnFirstYearPersonal,
+                columnSecondYearPersonal,
+                columnThirdYearPersonal,
+                columnFirstYearCommercial,
+                columnSecondYearCommercial,
+                columnThirdYearCommercial,
+            )
+        }
+
         val currencySections = currencyToPricing
             .entries
             .sortedByDescending { it.value.size } // show currencies with most entries first
@@ -88,6 +114,9 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
                     .sortedWith(countryComparator)
                     .map { (countryWithCurrency, priceInfo) ->
                         val currency = countryWithCurrency.currency
+                        if (isPerpetual) {
+                            return@map perpetualRow(countryWithCurrency, priceInfo, currency)
+                        }
                         val (personalA, personalB, personalC) = priceInfo.prices.personal.annual.mapYears(currency)
                         val (personalTaxedA, personalTaxedB, personalTaxedC) = priceInfo.prices.personal.annual.mapYearsTaxed(currency)
 
@@ -95,8 +124,6 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
                         val (commercialTaxedA, commercialTaxedB, commercialTaxedC) = priceInfo.prices.commercial.annual.mapYearsTaxed(
                             currency
                         )
-
-                        // fixme add perpetual pricing
 
                         SimpleDateTableRow(
                             values = mapOf(
@@ -124,6 +151,22 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
             }
 
         return currencySections
+    }
+
+    private fun perpetualRow(countryWithCurrency: CountryWithCurrency, priceInfo: PluginPriceInfo, currency: Currency): SimpleDateTableRow {
+        val personal = priceInfo.prices.personal.perpetual
+        val commercial = priceInfo.prices.commercial.perpetual
+        return SimpleDateTableRow(
+            values = mapOf(
+                columnCountry to countryWithCurrency.country.printableName,
+                columnPerpetualPersonal to listOfNotNull(personal?.price?.withCurrency(currency), personal?.priceTaxed?.withCurrency(currency)),
+                columnPerpetualCommercial to listOfNotNull(commercial?.price?.withCurrency(currency), commercial?.priceTaxed?.withCurrency(currency)),
+            ),
+            sortValues = mapOf(
+                columnPerpetualPersonal to personal?.price?.withCurrency(currency)?.sortValue(),
+                columnPerpetualCommercial to commercial?.price?.withCurrency(currency)?.sortValue(),
+            )
+        )
     }
 
     private fun PriceInfoTypeData?.mapYears(currency: Currency): Triple<MonetaryAmount?, MonetaryAmount?, MonetaryAmount?> {
