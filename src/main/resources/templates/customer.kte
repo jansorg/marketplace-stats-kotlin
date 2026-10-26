@@ -14,6 +14,7 @@
 @param customer: CustomerInfo
 @param licenseTableMonthly: RenderedDataTable
 @param licenseTableAnnual: RenderedDataTable
+@param licenseTablePerpetual: RenderedDataTable
 @param trials: List<PluginTrial>
 @param trialTable: RenderedDataTable
 @param settings: ServerConfiguration
@@ -73,6 +74,13 @@
             @template.dataTable(plugin, licenseTableMonthly)
         @endif
     </div>
+
+    @if(!licenseTablePerpetual.isEmpty)
+        <div class="section-wide">
+            <h2>Perpetual Licenses</h2>
+            @template.dataTable(plugin, licenseTablePerpetual)
+        </div>
+    @endif
 
     <div class="section-small">
         <h2>Trials</h2>

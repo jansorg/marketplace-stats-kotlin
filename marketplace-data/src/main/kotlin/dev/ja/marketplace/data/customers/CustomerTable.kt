@@ -8,10 +8,11 @@ package dev.ja.marketplace.data.customers
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.CustomerInfo
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.licenses.LicensePurchases
+import dev.ja.marketplace.data.licenses.LicenseStatus
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.util.sortValue
 import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 
 data class CustomerTableRowData(
@@ -62,8 +63,8 @@ class CustomerTable(
 
     // linked map to keep the insertion order, which is the order of customers with equal sort values
     private val customerMap = Int2ObjectLinkedOpenHashMap<CustomerTableRowData>()
-    // the end of the latest purchase of each license, of all customers
-    private val licenseLatestEnd = Object2ObjectOpenHashMap<LicenseId, YearMonthDay>()
+    // the purchases of all customers, a license renewed by another customer isn't churned
+    private val allPurchases = LicensePurchases()
     private lateinit var totalSales: MonetaryAmountTracker
 
     private var pluginId: PluginId? = null
@@ -92,6 +93,7 @@ class CustomerTable(
     }
 
     override suspend fun process(licenseInfo: LicenseInfo) {
+        allPurchases.add(licenseInfo)
         totalSales.add(licenseInfo.sale.date, licenseInfo.amountUSD, licenseInfo.amount)
 
         val customer = licenseInfo.sale.customer
@@ -115,7 +117,6 @@ class CustomerTable(
             }
 
             data.subscriptionLicenses += licenseInfo.id
-            licenseLatestEnd[licenseInfo.id] = maxOf(licenseEnd, licenseLatestEnd[licenseInfo.id] ?: licenseEnd)
         }
 
         data.totalLicenses += licenseInfo.id
@@ -123,11 +124,11 @@ class CustomerTable(
     }
 
     private fun churnedLicenses(data: CustomerTableRowData): Int {
-        return data.subscriptionLicenses.count { licenseLatestEnd.getValue(it) < nowDate }
+        return data.subscriptionLicenses.count { allPurchases.status(it, nowDate) == LicenseStatus.Churned }
     }
 
     private fun transferredLicenses(data: CustomerTableRowData): Int {
-        return data.subscriptionLicenses.count { it !in data.activeLicenses && licenseLatestEnd.getValue(it) >= nowDate }
+        return data.subscriptionLicenses.count { it !in data.activeLicenses && allPurchases.status(it, nowDate) == LicenseStatus.Active }
     }
 
     override suspend fun createSections(): List<DataTableSection> {
@@ -174,7 +175,7 @@ class CustomerTable(
                 // a license of several customers, e.g. after a transfer, is counted once
                 columnTotalLicenses to displayedCustomers.flatMapTo(HashSet()) { it.totalLicenses }.size.toBigInteger(),
                 columnActiveLicenses to displayedCustomers.flatMapTo(HashSet()) { it.activeLicenses }.size.toBigInteger(),
-                columnChurnedLicenses to licenseLatestEnd.values.count { it < nowDate }.toBigInteger(),
+                columnChurnedLicenses to allPurchases.licenseIds.count { allPurchases.status(it, nowDate) == LicenseStatus.Churned }.toBigInteger(),
                 columnTransferredLicenses to displayedCustomers.sumOf { transferredLicenses(it) }.toBigInteger(),
                 columnSales to totalSales.getTotalAmount(),
             )

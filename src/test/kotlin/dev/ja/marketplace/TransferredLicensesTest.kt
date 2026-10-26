@@ -113,6 +113,25 @@ class TransferredLicensesTest {
     }
 
     @Test
+    fun perpetualLicensesAreActiveAndDontEnd() = runBlocking {
+        val customer = CustomerInfo(3, "Germany", CustomerType.Individual)
+        val amount = FastMoney.of(150, MarketplaceCurrencies.USD)
+        val lineItem = PerpetualPluginSaleItem(PluginSaleItemType.New, listOf("perpetual"), amount, amount, emptyList())
+        val perpetualSale = PluginSale("ref-4", YearMonthDay(2025, 6, 1), amount, amount, LicensePeriod.Perpetual, customer, null, listOf(lineItem))
+
+        val data = McpTestData.pluginData(sales = sales + perpetualSale)
+        val table = LicenseTable(statusFilter = LicenseStatus.Active, showOnlyLatestLicenseInfo = true, nowDate = today)
+        table.init(data)
+        data.getLicenses()!!.forEach { table.process(it) }
+        val rendered = table.renderTable()
+
+        assertEquals(listOf("transferred", "perpetual"), rendered.licenseIds().sorted().reversed())
+        val row = rendered.rows().single { (rendered.value(it, "license-id") as LinkedLicense).id == "perpetual" }
+        assertEquals(YearMonthDay(2025, 6, 1), rendered.value(row, "license-validity"))
+        assertEquals(NoValue, rendered.value(row, "license-validity-end"))
+    }
+
+    @Test
     fun customerWithAPerpetualLicense() = runBlocking {
         val customer = CustomerInfo(3, "Germany", CustomerType.Individual)
         val amount = FastMoney.of(150, MarketplaceCurrencies.USD)
