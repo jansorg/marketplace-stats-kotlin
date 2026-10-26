@@ -29,40 +29,58 @@
     <h1>Sale ${sale.ref}</h1>
 
     <div class="section-wide">
-        <dl>
-            <dt>RefNum</dt>
-            <dd>${sale.ref}</dd>
+        <dl class="detail-grid">
+            <div>
+                <dt>RefNum</dt>
+                <dd>${sale.ref}</dd>
+            </div>
 
-            <dt>Date</dt>
-            <dd>@template.render(value = sale.date)</dd>
+            <div>
+                <dt>Date</dt>
+                <dd>@template.render(value = sale.date)</dd>
+            </div>
 
-            <dt>Customer</dt>
-            <dd>@template.render(value = LinkedCustomer(sale.customer.code, plugin.id)) @if (!sale.customer.name.isNullOrEmpty()) (${sale.customer.name})@endif</dd>
+            <div>
+                <dt>Customer</dt>
+                <dd>@template.render(value = LinkedCustomer(sale.customer.code, plugin.id)) @if (!sale.customer.name.isNullOrEmpty()) (${sale.customer.name})@endif</dd>
+            </div>
 
-            <dt>Customer Type</dt>
-            <dd>${sale.customer.type.name}</dd>
+            <div>
+                <dt>Customer Type</dt>
+                <dd>${sale.customer.type.name}</dd>
+            </div>
 
-            <dt>Customer Country</dt>
-            <dd>${sale.customer.country}</dd>
+            <div>
+                <dt>Customer Country</dt>
+                <dd>${sale.customer.country}</dd>
+            </div>
 
             @if (sale.amount.currency != sale.amountUSD.currency)
-                <dt>Amount</dt>
-                <dd>@template.render(value = sale.amount)</dd>
+                <div>
+                    <dt>Amount</dt>
+                    <dd>@template.render(value = sale.amount)</dd>
+                </div>
             @endif
 
-            <dt>Amount USD</dt>
-            <dd>@template.render(value = sale.amountUSD)</dd>
+            <div>
+                <dt>Amount USD</dt>
+                <dd>@template.render(value = sale.amountUSD)</dd>
+            </div>
 
-            <dt>License Type</dt>
-            <dd>${sale.licensePeriod}</dd>
+            <div>
+                <dt>License Type</dt>
+                <dd>${sale.licensePeriod}</dd>
+            </div>
 
             !{val reseller = sale.reseller}
-            <dt>Reseller</dt>
-            @if (reseller == null)
-                <dd>—</dd>
-            @else
-                <dd>${reseller.name} (${reseller.type.displayString}, ${reseller.country}, ID: ${reseller.code})</dd>
-            @endif
+            <div>
+                <dt>Reseller</dt>
+                @if (reseller == null)
+                    <dd>—</dd>
+                @else
+                    <dd>${reseller.name} (${reseller.type.displayString}, ${reseller.country}, ID: ${reseller.code})</dd>
+                @endif
+            </div>
         </dl>
     </div>
 
@@ -78,21 +96,31 @@
         !{val subscription = item.subscriptionDates}
         <div class="section-wide">
             <h2>@if(lineItems.size > 1)Line Item ${index + 1}: @endif${item.typeLabel}</h2>
-            <dl>
-                <dt>Licenses</dt>
-                <dd>${item.licenseCount}</dd>
+            <dl class="detail-grid">
+                <div>
+                    <dt>Licenses</dt>
+                    <dd>${item.licenseCount}</dd>
+                </div>
 
-                <dt>Subscription</dt>
-                <dd>@if(subscription == null)Perpetual@else${subscription.start.toString()} — ${subscription.end.toString()}@endif</dd>
+                <div>
+                    <dt>Subscription</dt>
+                    <dd>@if(subscription == null)Perpetual@else${subscription.start.toString()} — ${subscription.end.toString()}@endif</dd>
+                </div>
 
-                <dt>Amount</dt>
-                <dd>@template.render(value = item.amount)@if(!item.isUSD) (@template.render(value = item.amountUSD))@endif</dd>
+                <div>
+                    <dt>Amount</dt>
+                    <dd>@template.render(value = item.amount)@if(!item.isUSD) (@template.render(value = item.amountUSD))@endif</dd>
+                </div>
 
-                <dt>Paid Amount</dt>
-                <dd title="Amount after the share of the Marketplace">@template.render(value = item.paidAmount)@if(!item.isUSD) (@template.render(value = item.paidAmountUSD))@endif</dd>
+                <div>
+                    <dt>Paid Amount</dt>
+                    <dd title="Amount after the share of the Marketplace">@template.render(value = item.paidAmount)@if(!item.isUSD) (@template.render(value = item.paidAmountUSD))@endif</dd>
+                </div>
 
-                <dt>Discount</dt>
-                <dd>@if(item.discounts.isEmpty())—@else@for(discount in item.discounts)<div>${discount}</div>@endfor@endif</dd>
+                <div>
+                    <dt>Discount</dt>
+                    <dd>@if(item.discounts.isEmpty())—@else@for(discount in item.discounts)<div>${discount}</div>@endfor@endif</dd>
+                </div>
             </dl>
 
             @template.dataTable(plugin, licenseTable)
