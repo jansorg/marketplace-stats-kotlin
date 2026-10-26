@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.46.0
+
+- Charts:
+  - The values of the charts are calculated by the server for each day (`/chart-data`, `/chart-metrics`), with the
+    rules of the tables. Each line has its own window (e.g. per day, last 7 days, last 12 months, calendar month or year)
+    and the chart a detail level (year, month, week, day).
+  - The gear of a line in the legend selects its window and whether it's drawn like the chart, as a line or as bars.
+    The × removes a line.
+  - The "+" menu adds metrics with their values or their 1-, 3- or 12-month moving averages. Moving averages are
+    always lines, dashed next to the values.
+  - The titles of the lines describe their values, e.g. "Paid amount" instead of "Invoice".
+  - Two y-axes have their ticks at the same heights, an axis without shown lines is hidden.
+  - The ticks of yearly charts are at the values, the tooltip shows the date of each value in the locale of the server.
+  - Bars at all levels, partial values of the first period of a plugin, the date axis ends with the current period.
+  - View options for the comparison lines and for hiding the values of the axes, the image of a chart can be copied.
+  - Menus work with touch screens.
+- The tables of subscriptions measure the current month at today, like the overview.
+- The footer shows the date and the time of the page.
+- The JavaScript and the stylesheets are minified. Lato is loaded in parallel to the styles, Noto Sans SC isn't
+  loaded anymore.
+
 ## 0.45.1
 
 - Charts on small screens: the dialog has no button to maximize it, it always fills the window, and the lines one month
