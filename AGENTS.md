@@ -170,6 +170,9 @@ extend, must not fail a response:
   - `exportImage.js`: images of the charts with title and legend, for downloads (PNG, pie charts also SVG) and
     printing. Printing adds the images to the page and `print.css` hides everything else (`body.print-charts`).
 - The key C shows and hides the chart dialog.
+- The View option "Hide axis values" (`hideAxisValues`, off by default) hides the values of the y-axes and of the
+  minimum and maximum, e.g. to share a chart without numbers. "Copy PNG" of the Export menu copies the image of
+  "Download PNG" into the clipboard (`copyCanvas`, only in a secure context like localhost).
 - The cursor of a line chart snaps to the closest value. With the option "Comparison lines" of the View menu
   (`showComparisonLines`, off by default), dashed and dotted lines mark the dates one year and one month before and
   after it. The table below the chart compares the values at these dates (`enableComparisons` in `lineChart.js`). The table replaces the uPlot legend, it lists each series followed by its trends, e.g. its moving

@@ -16,7 +16,7 @@ test("a stored setup is loaded", () => {
     const storage = memoryStorage();
     const setupStorage = createSetupStorage(storage);
     const setup = {
-        combineUnits: true, averagesOnly: true, maximized: false, preferredStyle: "bars", chartStyles: {"month/USD": "bars"}, chartLevels: {"metric/USD": {window: "year", detail: "day"}}, shownMarkers: ["ide"], shownEvents: ["price-announcement"], shownExtremes: ["max"], shownOverlays: ["average12", "previousYear"], showIncomplete: false, showValueTable: false, showComparisonLines: true,
+        combineUnits: true, averagesOnly: true, maximized: false, preferredStyle: "bars", chartStyles: {"month/USD": "bars"}, chartLevels: {"metric/USD": {window: "year", detail: "day"}}, shownMarkers: ["ide"], shownEvents: ["price-announcement"], shownExtremes: ["max"], shownOverlays: ["average12", "previousYear"], showIncomplete: false, showValueTable: false, showComparisonLines: true, hideAxisValues: true,
         dateRange: {from: "2024-01-01", to: "2024-12-31"}, hiddenSeries: ["line/Overview/MRR", "line/Overview/MRR:average3"],
         entries: [
             {type: "metric", metric: "mrr", usesWindow: false, label: "MRR", unit: "USD", measure: "stock", color: "#2a78d6"},
@@ -29,7 +29,7 @@ test("a stored setup is loaded", () => {
     assert.deepEqual(setupStorage.load(), setup);
     // only the setup is stored, no values of the tables
     assert.deepEqual(Object.keys(JSON.parse(storage.values.get(STORAGE_KEY))).sort(),
-        ["averagesOnly", "chartLevels", "chartStyles", "combineUnits", "dateRange", "entries", "hiddenSeries", "maximized", "preferredStyle", "showComparisonLines", "showIncomplete", "showValueTable", "shownEvents", "shownExtremes", "shownMarkers", "shownOverlays", "version"]);
+        ["averagesOnly", "chartLevels", "chartStyles", "combineUnits", "dateRange", "entries", "hiddenSeries", "hideAxisValues", "maximized", "preferredStyle", "showComparisonLines", "showIncomplete", "showValueTable", "shownEvents", "shownExtremes", "shownMarkers", "shownOverlays", "version"]);
 });
 
 test("the dialog is maximized by default", () => {
