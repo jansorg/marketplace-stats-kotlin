@@ -24,14 +24,14 @@ const READ_VERSIONS = [1, VERSION];
  * @typedef {{window: string, detail: string}} ChartLevel
  * @typedef {{combineUnits: boolean, maximized: boolean, preferredStyle: "lines"|"bars",
  *  chartStyles: Object<string, "lines"|"bars">, chartLevels: Object<string, ChartLevel>, shownMarkers: string[], shownEvents: string[],
- *  shownExtremes: ("min"|"max")[], shownOverlays: string[], showIncomplete: boolean, showValueTable: boolean, showComparisonLines: boolean, averagesOnly: boolean,
+ *  shownExtremes: ("min"|"max")[], shownOverlays: string[], showIncomplete: boolean, showValueTable: boolean, showComparisonLines: boolean, hideAxisValues: boolean, averagesOnly: boolean,
  *  dateRange: {from: string, to: string}|null, hiddenSeries: string[], entries: ChartEntry[]}} ChartSetup
  */
 
 /** @return {ChartSetup} */
 export function emptySetup() {
     // vertical lines are hidden by default, the dialog is maximized, two units share a chart with a second y-axis
-    return {combineUnits: true, maximized: true, preferredStyle: "lines", chartStyles: {}, chartLevels: {}, shownMarkers: [], shownEvents: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, showComparisonLines: false, averagesOnly: false, dateRange: null, hiddenSeries: [], entries: []};
+    return {combineUnits: true, maximized: true, preferredStyle: "lines", chartStyles: {}, chartLevels: {}, shownMarkers: [], shownEvents: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, showComparisonLines: false, hideAxisValues: false, averagesOnly: false, dateRange: null, hiddenSeries: [], entries: []};
 }
 
 const STYLES = ["lines", "bars"];
@@ -127,6 +127,7 @@ function parseSetup(setup) {
         showValueTable: setup.showValueTable !== false,
         // hidden by default, also with a setup stored before the option existed
         showComparisonLines: setup.showComparisonLines === true,
+        hideAxisValues: setup.hideAxisValues === true,
         averagesOnly: setup.averagesOnly === true,
         dateRange: validDateRange(setup.dateRange ?? null),
         // the keys of the series and overlays, which are hidden by a click on the legend

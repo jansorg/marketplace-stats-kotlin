@@ -250,6 +250,22 @@ export async function downloadCanvas(canvas, fileName) {
     download(blob, fileName);
 }
 
+/** @return {boolean} If the browser can copy images into the clipboard, it needs a secure context, e.g. localhost. */
+export function canCopyImages() {
+    return typeof ClipboardItem !== "undefined" && Boolean(navigator.clipboard?.write);
+}
+
+/**
+ * Copies a PNG image into the clipboard. The image is passed as a promise, the clipboard must be written in the click,
+ * which copies it, e.g. Safari doesn't allow it after the image was created.
+ *
+ * @param {Promise<HTMLCanvasElement>} canvas
+ */
+export async function copyCanvas(canvas) {
+    const blob = canvas.then(image => new Promise(resolve => image.toBlob(resolve, "image/png")));
+    await navigator.clipboard.write([new ClipboardItem({"image/png": blob})]);
+}
+
 export function downloadSvg(svg, fileName) {
     download(svgBlob(svg), fileName);
 }

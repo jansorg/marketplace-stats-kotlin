@@ -25,7 +25,7 @@ import {ChartDialog, removeButton} from "./dialog.js";
 import {createLineChart, lineChartTheme} from "./lineChart.js";
 import {renderPie} from "./pieChart.js";
 import {createMenu} from "./menu.js";
-import {downloadCanvas, downloadSvg, lineChartImage, pieChartSvg, printImages, svgCanvas} from "./exportImage.js";
+import {canCopyImages, copyCanvas, downloadCanvas, downloadSvg, lineChartImage, pieChartSvg, printImages, svgCanvas} from "./exportImage.js";
 
 const STYLE_LABELS = {lines: "Lines", bars: "Bars"};
 const LOADING_MESSAGE = "Loading the values…";
@@ -106,6 +106,8 @@ class ChartController {
         this.showValueTable = true;
         // if vertical lines mark the dates one month and one year before and after the cursor
         this.showComparisonLines = false;
+        // if the y-axes have no values, e.g. to share an image of a trend without its numbers
+        this.hideAxisValues = false;
         // if lines with a moving average only show the average
         // the shown dates of the line charts, null for all dates, see storage.js
         this.dateRange = null;
@@ -546,6 +548,7 @@ class ChartController {
         this.showIncomplete = setup.showIncomplete;
         this.showValueTable = setup.showValueTable;
         this.showComparisonLines = setup.showComparisonLines;
+        this.hideAxisValues = setup.hideAxisValues;
         // the moving averages are lines of the menu "Add", only the previous year is a trend of the lines
         this.shownOverlays = this.shownOverlays.filter(kind => kind === "previousYear");
         this.dateRange = setup.dateRange;
@@ -649,6 +652,7 @@ class ChartController {
             showIncomplete: this.showIncomplete,
             showValueTable: this.showValueTable,
             showComparisonLines: this.showComparisonLines,
+            hideAxisValues: this.hideAxisValues,
             averagesOnly: false,
             dateRange: this.dateRange,
             hiddenSeries: [...this.hiddenSeries],
@@ -708,6 +712,11 @@ class ChartController {
                     this.save();
                     this.render();
                 },
+                onHideAxisValuesChange: hidden => {
+                    this.hideAxisValues = hidden;
+                    this.save();
+                    this.render();
+                },
                 onComparisonLinesVisibilityChange: visible => {
                     this.showComparisonLines = visible;
                     this.save();
@@ -762,6 +771,7 @@ class ChartController {
         dialog.setShowIncomplete(this.showIncomplete);
         dialog.setShowValueTable(this.showValueTable);
         dialog.setShowComparisonLines(this.showComparisonLines);
+        dialog.setHideAxisValues(this.hideAxisValues);
         dialog.setShownOverlays(this.shownOverlays);
         const markers = visibleMarkers(this.markers, this.shownMarkers, this.shownEvents);
 
@@ -835,6 +845,7 @@ class ChartController {
                 extremes: this.shownExtremes,
                 valueTable: this.showValueTable,
                 comparisonLines: this.showComparisonLines,
+                hideAxisValues: this.hideAxisValues,
                 detail,
                 visibleRange,
                 hiddenSeries: this.hiddenSeries,
@@ -1127,6 +1138,8 @@ class ChartController {
             // shown when the menu opens, the other charts are added after this menu
             {label: "Print all charts", run: () => this.print(this.exports), isShown: () => this.exports.length > 1},
             {label: "Download PNG", run: async () => downloadCanvas(await chartExport.image(), chartExport.fileName("png"))},
+            // the same image as the download, e.g. to paste it into a message
+            ...(canCopyImages() ? [{label: "Copy PNG", run: () => this.copyImage(chartExport)}] : []),
             {label: "Bookmark this view", run: () => this.bookmark()},
         ];
         // the bookmark is the last item, after the download of an SVG
@@ -1150,6 +1163,17 @@ class ChartController {
             }
         }
         return menu;
+    }
+
+    /** Copies the image of a chart into the clipboard and shows if it was copied. */
+    async copyImage(chartExport) {
+        try {
+            await copyCanvas(Promise.resolve(chartExport.image()));
+            this.dialog.showMessage("The image of the chart was copied.");
+        } catch (error) {
+            console.error("Copying the image failed", error);
+            this.dialog.showMessage("The image couldn't be copied.");
+        }
     }
 
     /**

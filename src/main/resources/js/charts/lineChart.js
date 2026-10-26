@@ -924,11 +924,13 @@ function yAxis(unit, scale, side, style) {
         labelFont: style.fonts.axisTitle,
         font: style.fonts.ticks,
         stroke: theme.axisColor,
-        size: 64,
+        // without values, the axis only needs the space of its title, the chart gets the rest
+        size: style.hideAxisValues ? 8 : 64,
         // only the left axis has a grid, two grids would be confusing
         grid: {show: side === 3, stroke: theme.gridColor, width: 1},
-        ticks: {stroke: theme.gridColor, width: 1},
-        values: (plot, splits) => splits.map(value => style.formatter.compact(value)),
+        ticks: {show: !style.hideAxisValues, stroke: theme.gridColor, width: 1},
+        // the values can be hidden, e.g. to share a chart of the trend without its numbers
+        values: (plot, splits) => splits.map(value => style.hideAxisValues ? "" : style.formatter.compact(value)),
     };
 }
 
@@ -951,6 +953,7 @@ function yAxis(unit, scale, side, style) {
  *  the × of its legend. Without it, the legend has no buttons to remove lines.
  * @param {((key: string, window: string) => void)|null} [options.onSeriesWindowChange] Called with the key of a line of
  *  a metric and a window, which is selected in the legend. Without it, the legend has no menus of the windows.
+ * @param {boolean} [options.hideAxisValues] If the y-axes have no values, e.g. to share the chart without numbers.
  * @param {boolean} [options.comparisonLines] If vertical lines mark the dates one month and one year before and after
  *  the cursor.
  * @param {{kind: string, base: string, label: string, points: Map<number, number>}[]} [options.overlays] Additional
@@ -972,9 +975,9 @@ function yAxis(unit, scale, side, style) {
  * @param {"light"|"dark"} [options.theme] The colors of the chart, by default the color scheme of the browser.
  * @return {uPlot}
  */
-export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, comparisonLines = false, detail = null, onSeriesWindowChange = null, onSeriesRemove = null, overlays = [], averagesOnly = false, visibleRange = null, onZoom = null, hiddenSeries = new Set(), onSeriesVisibilityChange = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
+export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, comparisonLines = false, hideAxisValues = false, detail = null, onSeriesWindowChange = null, onSeriesRemove = null, overlays = [], averagesOnly = false, visibleRange = null, onZoom = null, hiddenSeries = new Set(), onSeriesVisibilityChange = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
     const theme = CHART_THEMES[themeName];
-    const style = {formatter, fonts: fonts(fontFamily), theme};
+    const style = {formatter, fonts: fonts(fontFamily), theme, hideAxisValues};
     const scaleKeys = ["y", "y2"];
     const chartSeries = units.flatMap((unit, unitIndex) => series
         .filter(s => s.unit === unit)
@@ -1103,7 +1106,9 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                     drawPoints(plot, chartSeries, theme);
                 }
                 if (extremes.length > 0) {
-                    drawExtremes(plot, chartSeries, chartOverlays, {kinds: extremes, isBars, interval, formatter, font: style.fonts.extremeLabel, theme});
+                    // the labels of the minimum and the maximum have no values, if the axes have none
+                    const extremeFormatter = hideAxisValues ? {...formatter, value: () => "", compact: () => ""} : formatter;
+                    drawExtremes(plot, chartSeries, chartOverlays, {kinds: extremes, isBars, interval, formatter: extremeFormatter, font: style.fonts.extremeLabel, theme});
                 }
             }],
             // series and overlays, e.g. moving averages, are shown and hidden one by one by a click on the legend
