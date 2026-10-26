@@ -27,7 +27,7 @@ export function emptySetup() {
 
 const STYLES = ["lines", "bars"];
 const EXTREMES = ["min", "max"];
-const OVERLAYS = ["average3", "average12", "previousYear"];
+const OVERLAYS = ["average1", "average3", "average12", "previousYear"];
 
 function validExtremes(setup) {
     if (Array.isArray(setup.shownExtremes)) {

@@ -46,6 +46,7 @@ export const CHART_STYLE = {
     lineWidth: 2,
     // trends: dashed moving averages, a faint line of the previous year, the alpha is appended to the color of the series
     overlays: {
+        average1: {dash: [3, 3], alpha: "cc"},
         average3: {dash: [6, 3], alpha: "cc"},
         average12: {dash: [14, 4], alpha: "cc"},
         previousYear: {dash: null, alpha: "59"},

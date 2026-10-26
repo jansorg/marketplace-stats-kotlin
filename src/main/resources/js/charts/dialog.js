@@ -143,6 +143,7 @@ export class ChartDialog {
         const monthsOnly = " For monthly values, and for the values per week and per day.";
         this.overlayTitles = {};
         this.overlayCheckboxes = Object.fromEntries([
+            ["average1", "1-month average", "Average of the values of all days of the month before each date. Only for the values per week and per day."],
             ["average3", "3-month average", "Average of each month and the two months before it." + monthsOnly],
             ["average12", "12-month average", "Average of each month and the eleven months before it, without seasonal changes." + monthsOnly],
             ["previousYear", "Previous year", "The values of the previous year as a faint line, e.g. to recognize seasonal changes."],
@@ -298,7 +299,7 @@ export class ChartDialog {
             label.title = this.overlayTitles[kind].title + (isApplicable ? "" : "\nNot available for the shown charts.");
         }
         // without a shown average, the option has no effect
-        const hasAverage = ["average3", "average12"].some(kind => kinds.includes(kind) && (this.shownOverlays ?? []).includes(kind));
+        const hasAverage = ["average1", "average3", "average12"].some(kind => kinds.includes(kind) && (this.shownOverlays ?? []).includes(kind));
         this.averagesOnlyCheckbox.parentElement.classList.toggle("chart-option-unavailable", !hasAverage);
     }
 
