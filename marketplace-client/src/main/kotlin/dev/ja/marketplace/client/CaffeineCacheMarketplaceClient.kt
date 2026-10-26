@@ -19,6 +19,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.job
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.serializer
@@ -131,7 +132,7 @@ class CaffeineCacheMarketplaceClient(
      */
     internal suspend fun awaitPersistentCacheUpdates() {
         do {
-            persistentCacheScope.coroutineContext.job.children.toList().forEach { it.join() }
+            persistentCacheScope.coroutineContext.job.children.toList().joinAll()
             (persistentSales.values + persistentTrials.values).forEach { it.awaitBackgroundFetch() }
         } while (persistentCacheScope.coroutineContext.job.children.any { it.isActive })
     }

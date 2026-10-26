@@ -14,6 +14,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -263,7 +264,7 @@ internal class PersistentHistoryCache<T, C>(
      */
     internal suspend fun awaitBackgroundFetch() {
         val jobs = mutex.withLock { listOfNotNull(incrementalJob, fullFetchJob) }
-        jobs.forEach { it.join() }
+        jobs.joinAll()
     }
 
     private fun isStale(data: HistorySnapshot<T>): Boolean {
