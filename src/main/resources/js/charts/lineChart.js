@@ -21,14 +21,14 @@ export const CHART_THEMES = {
         axisColor: "#52514e",
         gridColor: "#e4e3df",
         surfaceColor: "#ffffff",
-        markerColors: {release: "#7d7c77", price: "#c27c0e", ide: "#6f74b8"},
+        markerColors: {release: "#7d7c77", price: "#c27c0e", ide: "#6f74b8", custom: "#1f8a5b"},
     },
     dark: {
         isDark: true,
         axisColor: "#b0afb8",
         gridColor: "#303038",
         surfaceColor: "#1b1b21",
-        markerColors: {release: "#9a99a2", price: "#e0a040", ide: "#9ea3ec"},
+        markerColors: {release: "#9a99a2", price: "#e0a040", ide: "#9ea3ec", custom: "#5cc795"},
     },
 };
 
@@ -60,6 +60,7 @@ export const CHART_STYLE = {
         release: {dash: [4, 4]},
         price: {dash: [2, 3]},
         ide: {dash: [8, 3]},
+        custom: {dash: [10, 3, 2, 3]},
     },
     pointRadius: 3,
     // series with more values, e.g. per day, have no points, the lighter line marks their incomplete values

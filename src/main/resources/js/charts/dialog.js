@@ -49,14 +49,17 @@ export class ChartDialog {
      * @param {(maximized: boolean) => void} callbacks.onMaximizedChange
      * @param {() => void} callbacks.onResize
      * @param {(kind: string, visible: boolean) => void} callbacks.onMarkerVisibilityChange
+     * @param {(id: string, visible: boolean) => void} callbacks.onEventVisibilityChange
      * @param {(kind: "min"|"max", visible: boolean) => void} callbacks.onExtremeVisibilityChange
      * @param {(visible: boolean) => void} callbacks.onIncompleteVisibilityChange
      * @param {(visible: boolean) => void} callbacks.onValueTableVisibilityChange
      * @param {(kind: string, visible: boolean) => void} callbacks.onOverlayVisibilityChange
      * @param {string[]} markerKinds The kinds of vertical lines, which are available on this page.
+     * @param {{id: string, timestamp: number, label: string}[]} customEvents The custom events of this page, the user
+     *  selects the shown events in a menu.
      * @param {boolean} hasLineCharts If the page has columns, which can be shown in line charts.
      */
-    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange, onExtremeVisibilityChange, onIncompleteVisibilityChange, onValueTableVisibilityChange, onOverlayVisibilityChange}, markerKinds, hasLineCharts) {
+    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange, onEventVisibilityChange, onExtremeVisibilityChange, onIncompleteVisibilityChange, onValueTableVisibilityChange, onOverlayVisibilityChange}, markerKinds, hasLineCharts, customEvents = []) {
         this.element = document.createElement("dialog");
         this.element.className = "chart-dialog noprint";
         this.element.setAttribute("aria-labelledby", "chart-dialog-title");
@@ -101,6 +104,22 @@ export class ChartDialog {
             this.markerToggles.append(label);
             this.markerCheckboxes[kind] = checkbox;
         }
+        // the custom events of the configured file, each event is shown separately
+        this.eventCheckboxes = {};
+        if (customEvents.length > 0) {
+            const {menu: eventMenu, items: eventItems} = createMenu("Events");
+            eventMenu.classList.add("chart-event-menu");
+            for (const event of customEvents) {
+                const date = new Date(event.timestamp * 1000).toISOString().substring(0, 10);
+                this.eventCheckboxes[event.id] = this.addToggle(eventItems, `${date} ${event.label}`,
+                    "Show the event as a vertical line", visible => onEventVisibilityChange(event.id, visible));
+            }
+            const sample = document.createElement("span");
+            sample.className = "chart-marker-sample chart-marker-custom";
+            eventMenu.querySelector("summary").prepend(sample);
+            this.markerToggles.append(eventMenu);
+        }
+
         // options of the line charts
         const {menu: viewMenu, items: viewOptions} = createMenu("View");
         viewMenu.classList.add("chart-view-menu");
@@ -311,6 +330,13 @@ export class ChartDialog {
     setShownMarkers(shownKinds) {
         for (const [kind, checkbox] of Object.entries(this.markerCheckboxes)) {
             checkbox.checked = shownKinds.includes(kind);
+        }
+    }
+
+    /** @param {string[]} shownIds The IDs of the shown custom events. */
+    setShownEvents(shownIds) {
+        for (const [id, checkbox] of Object.entries(this.eventCheckboxes)) {
+            checkbox.checked = shownIds.includes(id);
         }
     }
 

@@ -339,3 +339,14 @@ test("the ticks of years are at the end of each year and at the value of the cur
     assert.deepEqual(yearEndTicks(day("2022-07-01"), day("2024-01-05"), day("2023-12-31")), [day("2022-12-31"), day("2023-12-31")]);
     assert.deepEqual(yearEndTicks(day("2026-01-01"), day("2026-10-26"), undefined), []);
 });
+
+test("custom events are shown one by one", () => {
+    const markers = [
+        {kind: "custom", id: "b", timestamp: 20, label: "Blog post"},
+        {kind: "release", timestamp: 10, label: "v2"},
+        {kind: "custom", id: "a", timestamp: 5, label: "Trial period"},
+    ];
+    assert.deepEqual(visibleMarkers(markers, ["release"], ["b"]).map(m => m.label), ["v2", "Blog post"]);
+    assert.deepEqual(visibleMarkers(markers, [], ["a", "b"]).map(m => m.label), ["Trial period", "Blog post"]);
+    assert.deepEqual(visibleMarkers(markers, ["release"]).map(m => m.label), ["v2"]);
+});

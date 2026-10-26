@@ -53,6 +53,9 @@ Options:
                                      restarts. The data is kept in memory only if no directory is set or if it's empty. A leading ~ is the
                                      home directory.
   --show-reseller-charges            Show incorrect charges for sales through resellers.
+  --events=<file>                    YAML file with custom events, which the charts can show as vertical lines, e.g. blog posts or
+                                     changes of the trial period. The file is read again when it's modified. See README.md for the
+                                     format.
   --auto-refresh[=<minutes>]         Refreshes the data of the plugins, which were requested in the last 24 hours, in the background every
                                      MINUTES (default: 30), so that the pages don't wait for the Marketplace. Use --auto-refresh or
                                      --auto-refresh=MINUTES, 0 disables it. Disabled by default.
@@ -103,6 +106,7 @@ Instead of options, you can use the following environment variables:
                      MARKETPLACE_ALL_PLUGINS_SUMMARY (true or false)
 --mcp-allowed-hosts: MARKETPLACE_MCP_ALLOWED_HOSTS
 --auto-refresh:      MARKETPLACE_AUTO_REFRESH (interval in minutes, 0 disables it)
+--events:            MARKETPLACE_EVENTS_FILE
 ```
 
 For example:
@@ -152,6 +156,51 @@ java -jar ./build/libs/marketplace-stats-all.jar \
   --cache-dir="$HOME/.cache/marketplace-stats" \
   --auto-refresh
 ```
+
+### Custom Events in the Charts
+
+The line charts can show vertical lines for the releases of the plugin, its price changes and the releases of IntelliJ IDEA.
+Other events aren't part of the data of the Marketplace, e.g. blog posts or a change of the trial period.
+They can be added with a YAML file, set with `--events` (or `MARKETPLACE_EVENTS_FILE`, or `eventsFile` in the configuration file):
+
+```yaml
+events:
+  - id: price-announcement           # optional, the ID of the event, the default is the date and the label
+    plugin: 12345                    # required, the ID of the plugin, e.g. of the address of its report
+    date: 2026-10-16                 # required, YYYY-MM-DD
+    label: "Announced price change"  # required, shown above the line
+  - trial-period:                    # a key without value is the ID, too
+    plugin: 12345
+    date: 2026-03-01
+    label: "Trial period of 30 days"
+```
+
+The menu "Events" of the chart dialog lists the events of the plugin, each selected event is shown as a vertical line.
+The summary of all plugins on the list of plugins shows the events of all plugins.
+The selection is stored in the browser, by the IDs of the events.
+The file is read again when it's modified. If it's invalid at the start, the server doesn't start. If it becomes invalid
+while the server is running, the error is logged and the previous events are used.
+
+```bash
+java -jar ./build/libs/marketplace-stats-all.jar \
+  --api-key="Your JetBrains API key" \
+  --events="$HOME/marketplace-stats/events.yaml"
+```
+
+A leading `~` is the home directory. A relative `eventsFile` of the configuration file is relative to the directory of
+the file, a relative `--events` or `MARKETPLACE_EVENTS_FILE` to the working directory.
+
+With Docker, mount the directory of the file read-only and set the path in the container, e.g. with `docker-compose.yml`:
+
+```yaml
+    environment:
+      - MARKETPLACE_EVENTS_FILE=/config/events.yaml
+    volumes:
+      - ./config:/config:ro
+```
+
+Mount the directory, not the file itself: many editors replace a file when it's saved, and a mounted file would keep its
+old content in the container.
 
 ### Persistent Cache
 
@@ -315,7 +364,8 @@ An empty `MARKETPLACE_CACHE_DIR` disables the cache.
 Please refer to `docker-compose.yml` for a template setup.
 
 1. Copy `docker-compose.yml` to your server.
-2. Add your API key in the file.
+2. Add your API key in the file. Optionally, enable the [custom events](#custom-events-in-the-charts) and the
+   [automatic refresh](#automatic-refresh).
 3. Run `docker-compose up` to test it and `docker-compose up -d` to launch it in the background.
 
 ## License

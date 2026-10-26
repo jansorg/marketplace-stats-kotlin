@@ -1,0 +1,12 @@
+@import dev.ja.marketplace.CustomEvent
+
+@param events: List<CustomEvent>
+
+<%-- The custom events of the charts, see CustomEventsFile. The charts show the events, which the user selected. --%>
+@if(events.isNotEmpty())
+    <ul id="chart-custom-events" hidden>
+        @for(event in events)
+            <li data-date="${event.date.asIsoString}" data-event-id="${event.id}">${event.label}</li>
+        @endfor
+    </ul>
+@endif

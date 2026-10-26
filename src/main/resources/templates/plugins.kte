@@ -7,6 +7,7 @@
 @param urls: MarketplaceUrlSupport
 @param summaryTables: List<RenderedDataTable>
 @param ideReleases: List<dev.ja.marketplace.data.releases.MajorRelease>
+@param customEvents: List<dev.ja.marketplace.CustomEvent> = emptyList()
 
 <!DOCTYPE html>
 <html lang="en">
@@ -41,6 +42,9 @@
             <li data-date="${release.date.asIsoString}">${release.version}</li>
         @endfor
     </ul>
+@endif
+@if(summaryTables.isNotEmpty())
+    @template.customEvents(events = customEvents)
 @endif
 <ul class="plugin-cards">
     @for(plugin in plugins.filter { it.isPaidOrFreemium })

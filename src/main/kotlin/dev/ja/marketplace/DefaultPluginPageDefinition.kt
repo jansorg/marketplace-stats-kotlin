@@ -79,6 +79,7 @@ class DefaultPluginPageDefinition(
             "majorReleases" to majorReleases.await(),
             "ideReleases" to ideReleases.await(),
             "priceChanges" to (data.getSales()?.let(PriceChanges::find) ?: emptyList()),
+            "customEvents" to serverConfiguration.customEvents(data.pluginId),
         )
     }
 

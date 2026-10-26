@@ -88,6 +88,12 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
         )
         .check("The interval of the automatic refresh must not be negative") { it >= 0 }
 
+    private val eventsFile: String? by option("--events", envvar = "MARKETPLACE_EVENTS_FILE", metavar = "FILE")
+        .help(
+            "YAML file with custom events, which the charts can show as vertical lines, e.g. blog posts or changes of the " +
+                    "trial period. The file is read again when it's modified. See README.md for the format."
+        )
+
     private val mcpEnabled: Boolean by option("--mcp", envvar = "MARKETPLACE_MCP")
         .flag("--no-mcp", default = true, defaultForHelp = "enabled")
         .help("Serve the MCP server for AI agents at /mcp of the integrated webserver.")
@@ -137,6 +143,27 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
         if (cacheDir != null) {
             EcbExchangeRateData.Default.enablePersistentCache(PersistentCacheStore(cacheDir))
         }
+
+        // like the cache directory, a relative path of the configuration file is relative to its directory
+        val eventsPath = when (val option = this.eventsFile) {
+            null -> applicationConfigFile?.let { (config, file) ->
+                config.eventsFile?.let { configuredPath(it, file.toAbsolutePath().parent) }
+            }
+
+            else -> configuredPath(option, baseDirectory = null)
+        }
+        val customEvents = eventsPath?.let { path ->
+            if (!Files.isRegularFile(path)) {
+                throw BadParameterValue("The events file $path doesn't exist.")
+            }
+            CustomEventsFile(path).also {
+                try {
+                    it.load()
+                } catch (e: IllegalArgumentException) {
+                    throw BadParameterValue(e.message ?: "The events file $path is invalid.")
+                }
+            }
+        }
         // the wildcard addresses accept connections for any hostname, they can't be used to validate the Host header
         val mcpAllowedHosts = (McpDefaultAllowedHosts + serverHostname.takeUnless { it == "0.0.0.0" || it == "::" } + mcpAllowedHosts)
             .filterNotNull()
@@ -158,7 +185,7 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
                 CachingJetBrainsServiceClient(KtorJetBrainsServiceClient(logLevel = logging), cacheDir?.let { PersistentCacheStore(it).subStore("jetbrains") }),
                 serverHostname,
                 serverPort,
-                ServerConfiguration(displayCurrencyCode, showResellerCharges, allPluginsSummary),
+                ServerConfiguration(displayCurrencyCode, showResellerCharges, allPluginsSummary, customEvents),
                 mcpAllowedHosts.takeIf { mcpEnabled },
                 PluginAutoRefresh(client, cachingStrategy).takeIf { cachingStrategy.autoRefreshInterval != null },
             )

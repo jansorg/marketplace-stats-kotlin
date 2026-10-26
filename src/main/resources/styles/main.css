@@ -53,6 +53,7 @@
     --chart-release-color: #7d7c77;
     --chart-price-color: #c27c0e;
     --chart-ide-color: #6f74b8;
+    --chart-custom-color: #1f8a5b;
     --chart-compare-color: #8a8984;
 }
 
@@ -100,6 +101,7 @@
         --chart-release-color: #9a99a2;
         --chart-price-color: #e0a040;
         --chart-ide-color: #9ea3ec;
+        --chart-custom-color: #5cc795;
         --chart-compare-color: #8a8993;
     }
 }
@@ -1216,6 +1218,17 @@ dl.detail-grid dd {
 
 .chart-marker-ide {
     background: repeating-linear-gradient(to bottom, var(--chart-ide-color) 0 8px, transparent 8px 11px);
+}
+
+.chart-marker-custom {
+    background: repeating-linear-gradient(to bottom, var(--chart-custom-color) 0 10px, transparent 10px 13px,
+        var(--chart-custom-color) 13px 15px, transparent 15px 18px);
+}
+
+/* the sample of the events is in the label of their menu */
+.chart-event-menu summary .chart-marker-sample {
+    margin-right: 0.4rem;
+    vertical-align: middle;
 }
 
 .chart-dialog-hint, .chart-dialog-message {

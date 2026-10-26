@@ -33,6 +33,11 @@ services:
         # so that the pages don't wait for the slow Marketplace API. Disabled by default, the value is the interval in minutes.
       #- MARKETPLACE_AUTO_REFRESH=30
 
+        # custom events, e.g. blog posts or changes of the trial period, which the charts can show as vertical lines.
+        # The YAML file is read from the directory of the host, which is mounted below, see README.md for its format.
+        # Changes of the file are used without a restart.
+      #- MARKETPLACE_EVENTS_FILE=/config/events.yaml
+
         # language settings, change this to configure formatting of numbers and currency amounts
       - LANG=en_US.UTF-8
       - LANGUAGE=en_US:en
@@ -40,6 +45,10 @@ services:
     # keeps the persistent cache when the container is replaced, e.g. by a new version
     volumes:
       - marketplace-stats-cache:/root/.cache/marketplace-stats
+      # the directory of the custom events, read-only, e.g. ./config/events.yaml next to this file.
+      # Mount the directory instead of the file: editors often replace a file when it's saved, a mounted file would keep
+      # its old content in the container.
+      #- ./config:/config:ro
       # To store the cache in a directory of the host instead, replace the line above with a bind mount, e.g.
       # "- ./cache:/root/.cache/marketplace-stats" (relative to this file) or an absolute path like
       # "- /srv/marketplace-stats/cache:/root/.cache/marketplace-stats", and remove the "volumes:" section at the end.

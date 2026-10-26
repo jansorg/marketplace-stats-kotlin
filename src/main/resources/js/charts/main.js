@@ -62,6 +62,8 @@ class ChartController {
         this.markers = readMarkers(document);
         // the vertical lines are hidden by default
         this.shownMarkers = [];
+        // the IDs of the shown custom events, see readMarkers
+        this.shownEvents = [];
         // the marked extremes of the line charts, "min" and "max"
         this.shownExtremes = [];
         // if incomplete values, e.g. of the current month, are shown in the line charts
@@ -287,6 +289,7 @@ class ChartController {
         this.granularities = setup.granularities;
         this.preferredStyle = setup.preferredStyle;
         this.shownMarkers = setup.shownMarkers;
+        this.shownEvents = setup.shownEvents;
         this.shownExtremes = setup.shownExtremes;
         this.shownOverlays = setup.shownOverlays;
         this.showIncomplete = setup.showIncomplete;
@@ -354,6 +357,7 @@ class ChartController {
             chartStyles: this.chartStyles,
             granularities: this.granularities,
             shownMarkers: this.shownMarkers,
+            shownEvents: this.shownEvents,
             shownExtremes: this.shownExtremes,
             shownOverlays: this.shownOverlays,
             showIncomplete: this.showIncomplete,
@@ -386,6 +390,11 @@ class ChartController {
                     this.save();
                     this.render();
                 },
+                onEventVisibilityChange: (id, visible) => {
+                    this.shownEvents = visible ? [...new Set([...this.shownEvents, id])] : this.shownEvents.filter(e => e !== id);
+                    this.save();
+                    this.render();
+                },
                 onExtremeVisibilityChange: (kind, visible) => {
                     this.shownExtremes = visible ? [...new Set([...this.shownExtremes, kind])] : this.shownExtremes.filter(k => k !== kind);
                     this.save();
@@ -410,7 +419,8 @@ class ChartController {
                     this.save();
                     this.render();
                 },
-            }, MARKER_KINDS.filter(kind => this.markers.some(marker => marker.kind === kind)), this.hasLineCharts);
+            }, MARKER_KINDS.filter(kind => this.markers.some(marker => marker.kind === kind)), this.hasLineCharts,
+            this.markers.filter(marker => marker.kind === "custom"));
         }
         return this.dialog;
     }
@@ -431,11 +441,12 @@ class ChartController {
         dialog.setMaximized(this.maximized);
         dialog.setCombineUnits(this.combineUnits, canCombineUnits(this.series));
         dialog.setShownMarkers(this.shownMarkers);
+        dialog.setShownEvents(this.shownEvents);
         dialog.setShownExtremes(this.shownExtremes);
         dialog.setShowIncomplete(this.showIncomplete);
         dialog.setShowValueTable(this.showValueTable);
         dialog.setShownOverlays(this.shownOverlays);
-        const markers = visibleMarkers(this.markers, this.shownMarkers);
+        const markers = visibleMarkers(this.markers, this.shownMarkers, this.shownEvents);
 
         const charts = groupCharts(this.series, this.combineUnits);
         const height = dialog.chartHeight(charts.length);

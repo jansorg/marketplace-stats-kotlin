@@ -21,6 +21,7 @@
 @param ideReleases: List<dev.ja.marketplace.data.releases.MajorRelease>
 @param priceChanges: List<dev.ja.marketplace.data.prices.PriceChange>
 @param otherPlugins: List<dev.ja.marketplace.client.model.PluginInfoSummary> = emptyList()
+@param customEvents: List<dev.ja.marketplace.CustomEvent> = emptyList()
 
 <!DOCTYPE html>
 <html lang="en">
@@ -72,6 +73,7 @@
         @endfor
     </ul>
 @endif
+@template.customEvents(events = customEvents)
 
 <section class="tables">
     @for(table in tables)
