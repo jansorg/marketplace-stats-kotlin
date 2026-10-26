@@ -140,7 +140,7 @@ export class ChartDialog {
         trendHeading.className = "chart-menu-heading";
         trendHeading.textContent = "Trend";
         viewOptions.append(trendHeading);
-        const monthsOnly = " Only for monthly values with the granularity Month.";
+        const monthsOnly = " For monthly values, and for the values per week and per day.";
         this.overlayTitles = {};
         this.overlayCheckboxes = Object.fromEntries([
             ["average3", "3-month average", "Average of each month and the two months before it." + monthsOnly],

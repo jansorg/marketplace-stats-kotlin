@@ -167,8 +167,9 @@ added to the models as optional properties at the end of the constructors, unkno
   the option "Value table" of the View menu, the uPlot legend is shown instead, it only shows and hides the series.
 - Columns declare what they measure with `DataTableColumn.chartMeasure` (`ChartMeasure`: flow, stock or ratio), written
   as `data-chart-measure`. The trends of the View menu (3- and 12-month moving averages, previous year) are only added
-  to suitable series (`overlayApplies` in `model.js`): averages to monthly values with the granularity Month, because
-  the values per week or day are already sums of the month before each day. Options without effect on the shown
+  to suitable series (`overlayApplies` in `model.js`): averages to monthly values with the granularity Month, and to
+  all series with values per day with the granularity Week or Day (the average of the values per day at the same day of
+  the previous months, `trailingAverageOfDays`). Options without effect on the shown
   charts are dimmed in the menu.
 - Incomplete values are drawn as dotted lines, hollow points and striped bars in a lighter color of their series
   (`incompleteColor` in `model.js`, darker in the dark mode).

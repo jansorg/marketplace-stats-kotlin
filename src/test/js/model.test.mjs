@@ -328,6 +328,11 @@ test("monthly values with values per year can also be shown per year", () => {
     const shares = {period: "month", measure: "ratio", unit: "%", daily: "share.month.Individual"};
     assert.equal(overlayApplies("average3", shares, "yearEnd"), false);
     assert.equal(overlayApplies("average3", shares, "week"), true);
+    // the values per day of other tables, e.g. of the years
+    const years = {period: "year", unit: "USD", daily: "all-plugins-sales"};
+    assert.equal(overlayApplies("average12", years, "day"), true);
+    assert.equal(overlayApplies("average12", years, "month"), false);
+    assert.equal(overlayApplies("average12", {...years, daily: null}, "week"), false);
 });
 
 test("the ticks of years are at the end of each year and at the value of the current year", () => {
