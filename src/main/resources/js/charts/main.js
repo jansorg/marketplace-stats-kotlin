@@ -17,7 +17,7 @@ import {createFormatter} from "./format.js";
 import {
     canCombineUnits, chartLevel, chartLevelKeys, CHART_STYLES, dateRange, DETAILS, detailGranularity, detailPeriod, rangeLabel, rangeOfPreset, rangeOfTimestamps, rangeTimestamps, rangeYears, exportFileName, groupCharts, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES,
     METRIC_PERIOD, metricLabel, metricPoints, nextColor, pieSlices, shownWindow, storedChartLevel, WINDOW_LABELS, WINDOWS, finestDetail, lineDetail,
-    visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear,
+    visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear, chartExportUrl,
 } from "./model.js";
 import {browserStorage, createSetupStorage, decodeView, emptySetup, encodeView} from "./storage.js";
 import {chartColumns, metricKey, readLineSeries, readMarkers, readMetricLevel, readMetricSeries, readPieRows, readRowHistorySeries, readTableDateRange} from "./tableData.js";
@@ -947,6 +947,11 @@ class ChartController {
             const chartExport = {
                 fileName: extension => exportFileName([title, ...labels], extension),
                 image: () => this.lightLineChartImage(plot, chartOptions, title),
+                // the values of the shown lines of metrics, the values of tables have no address
+                ...(level !== null ? {dataUrl: () => chartExportUrl(window.location.href, {
+                    series: chartSeries, detail, shownOverlays: this.shownOverlays, hiddenSeries: this.hiddenSeries,
+                    dateRange: this.dateRange, showIncomplete: this.showIncomplete,
+                })} : {}),
             };
             this.exports.push(chartExport);
             toolbar.append(this.exportMenu(chartExport));
@@ -1208,6 +1213,8 @@ class ChartController {
             {label: "Download PNG", run: async () => downloadCanvas(await chartExport.image(), chartExport.fileName("png"))},
             // the same image as the download, e.g. to paste it into a message
             ...(canCopyImages() ? [{label: "Copy PNG", run: () => this.copyImage(chartExport)}] : []),
+            // the values of the chart for an AI agent or another program
+            ...(chartExport.dataUrl ? [{label: "Copy data URL", run: () => this.copyDataUrl(chartExport)}] : []),
             {label: "Bookmark this view", run: () => this.bookmark()},
         ];
         // the bookmark is the last item, after the download of an SVG
@@ -1231,6 +1238,25 @@ class ChartController {
             }
         }
         return menu;
+    }
+
+    /**
+     * Copies the address of the values of the shown lines of a chart as CSV, see chartExportUrl. Without access to the
+     * clipboard, the message shows the address.
+     */
+    async copyDataUrl(chartExport) {
+        const url = chartExport.dataUrl();
+        if (url === null) {
+            this.dialog.showMessage("The chart has no shown lines.");
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(url);
+            this.dialog.showMessage("The data URL was copied. It returns the values of the shown lines as CSV, e.g. for an AI agent, "
+                + "with &format=json as JSON with the units and incomplete values.");
+        } catch (error) {
+            this.dialog.showMessage("The data URL of the values: " + url);
+        }
     }
 
     /** Copies the image of a chart into the clipboard and shows if it was copied. */

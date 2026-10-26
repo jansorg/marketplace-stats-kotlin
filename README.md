@@ -25,6 +25,7 @@ instead of Go.
 - [Automatic Refresh](#automatic-refresh)
 - [Custom Events in the Charts](#custom-events-in-the-charts)
 - [MCP Server for AI Agents](#mcp-server-for-ai-agents)
+- [Chart Data for AI Agents](#chart-data-for-ai-agents)
 - [Building From Source](#building-from-source)
 - [Libraries](#libraries)
 - [License](#license)
@@ -371,6 +372,39 @@ requests for the hostnames `localhost`, `127.0.0.1`, `[::1]` and the hostname of
 
 - If you use another hostname, e.g. with Docker on a server, add it with `--mcp-allowed-hosts`.
 - `--no-mcp` disables the MCP server.
+
+## Chart Data for AI Agents
+
+"Copy data URL" in the Export menu of a line chart copies an address, which returns the values of the shown lines of
+the chart, e.g. to paste it into a chat with an AI agent or to load it with `curl`. The address describes the chart:
+the lines with their windows and moving averages, the lines of the previous year, the detail level and the selected
+range. Hidden lines are left out. Only charts of metrics have an address. Charts of table columns without a metric
+and pie charts aren't available.
+
+```
+http://localhost:8080/chart-export?pluginId=12345&detail=month&lines=sales:calendar-month,sales@avg3:calendar-month,mrr&from=2025-01-01&to=2025-12-31
+```
+
+| Parameter    | Description                                                                                                                                                                                                                    |
+|--------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `pluginId`   | The plugin. Without it, the summary of all paid plugins.                                                                                                                                                                       |
+| `lines`      | Up to 32 lines, separated by commas: `<metric>[@avg<1\|3\|12>][@previous-year][:<window>]`, e.g. `sales@avg3:year`. The windows are `day`, `week`, `month`, `quarter`, `year`, `calendar-month`, `calendar-quarter` and `calendar-year`. Without a window, the calendar window of the detail level. Values at a date like the MRR ignore the window. |
+| `detail`     | The dates of the values: `day`, `week`, `month` (default) or `year`, and today. A line with a shorter window has finer dates, e.g. each day for `sales:day` at the level `month`.                                                 |
+| `from`, `to` | The first and the last date, ISO dates, optional.                                                                                                                                                                              |
+| `incomplete` | `false` leaves out the values, which may still change, e.g. of the current month.                                                                                                                                             |
+| `format`     | `csv` (default) or `json`.                                                                                                                                                                                                     |
+
+The default format is CSV: one row per date and one column per line, the headers contain the label of the line and
+its unit, e.g. `"Sales before fees, calendar month (EUR)"`. Numbers have a dot as decimal separator and no grouping,
+dates are ISO dates, an empty cell has no value. The last column `status` marks the dates with `incomplete` values
+(they may still change) and `partial` values (their window starts before the first data). CSV needs the fewest tokens
+for agents and opens in spreadsheets. `format=json` returns the same values with metadata: the plugin, the currency,
+the time of the export and, for each line, its metric, unit, measure (`flow`, `stock` or `ratio`), window, detail
+level and the dates of its incomplete and partial values. Its rows are arrays of the date and the values.
+Errors are answered with status 400 or 404 and a text.
+
+The address needs no cookies, but like the web interface it's only reachable where the server is, e.g. by an agent on
+the same computer.
 
 ## Building From Source
 

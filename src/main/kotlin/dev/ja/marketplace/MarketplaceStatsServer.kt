@@ -408,6 +408,26 @@ class MarketplaceStatsServer(
                 call.respondJsonStream(ChartDataResponse.serializer(), response)
             }
 
+            // the values of the lines of a chart as CSV or JSON, e.g. for AI agents, see ChartExport
+            // e.g. /chart-export?pluginId=1&detail=month&lines=sales:calendar-month,sales@avg3:calendar-month,mrr
+            get("/chart-export") {
+                val request = try {
+                    ChartExport.parse(call.request.queryParameters)
+                } catch (e: ChartExport.InvalidRequestException) {
+                    call.respondText(e.message ?: "Invalid request", status = HttpStatusCode.BadRequest)
+                    return@get
+                }
+
+                val (plugin, values) = chartSource() ?: return@get
+                val table = withContext(Dispatchers.Default) { ChartExport.table(values, request, plugin?.let { it.id to it.name }) }
+                // the values are calculated with the current data
+                call.response.header(HttpHeaders.CacheControl, "no-store")
+                when (request.format) {
+                    ChartExport.Format.Csv -> call.respondText(ChartExport.csv(table), request.format.contentType)
+                    ChartExport.Format.Json -> call.respondJsonStream(ChartExportJson.serializer(), ChartExport.json(table))
+                }
+            }
+
             get("/") {
                 val loader = getDataLoader()
                     ?: allPlugins.singleOrNull()?.let(::getDataLoader)
@@ -755,16 +775,22 @@ class MarketplaceStatsServer(
      * @return The values of the charts of the plugin of the request, or of all plugins on the list of plugins, or `null`
      *  if the plugin is unknown. Errors are answered as text, the charts read JSON.
      */
-    private suspend fun RoutingContext.chartMetricValues(): ChartMetricValues? {
+    private suspend fun RoutingContext.chartMetricValues(): ChartMetricValues? = chartSource()?.second
+
+    /**
+     * @return The plugin of the request, `null` for the summary of all plugins, and the values of its charts, or `null`
+     *  if the plugin is unknown, see [chartMetricValues].
+     */
+    private suspend fun RoutingContext.chartSource(): Pair<PluginInfoSummary?, ChartMetricValues>? {
         val pluginId = call.request.queryParameters["pluginId"]
         val plugin = when (pluginId) {
             null -> allPlugins.singleOrNull()
             else -> allPlugins.firstOrNull { it.id == pluginId.toIntOrNull() }
         }
         return when {
-            plugin != null -> chartData.values(getDataLoader(plugin).load())
+            plugin != null -> plugin to chartData.values(getDataLoader(plugin).load())
             // the summary of all plugins on the list of plugins
-            pluginId == null && serverConfiguration.showAllPluginsSummary -> allPluginsChartValues()
+            pluginId == null && serverConfiguration.showAllPluginsSummary -> null to allPluginsChartValues()
             else -> {
                 call.respondText("Unknown plugin", status = HttpStatusCode.NotFound)
                 null

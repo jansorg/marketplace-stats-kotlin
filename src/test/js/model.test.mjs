@@ -7,7 +7,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
-    alignedRanges, niceStep, rangeTicks, seriesMenuSections, seriesStyle, SERIES_STYLES, WINDOWS, RANGE_PRESETS, rangeOfPreset,
+    alignedRanges, chartExportUrl, exportLineId, niceStep, rangeTicks, seriesMenuSections, seriesStyle, SERIES_STYLES, WINDOWS, RANGE_PRESETS, rangeOfPreset,
     averageShade, pinchedRange, rangeLabel, rangeMenuItems, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, finestDetail, lineDetail, periodEnd, shownWindow, storedChartLevel, tableWindow, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
@@ -561,4 +561,38 @@ test("the ranges until today are the days of today, the past 7 days and the curr
     // the label of a range until today is its name, not its dates
     assert.equal(rangeLabel(rangeOfPreset("past-7-days", now)), RANGE_PRESETS["past-7-days"]);
     assert.equal(rangeLabel({from: "2026-10-20", to: "2026-10-26"}), "2026-10-20 – 2026-10-26");
+});
+
+test("the lines of the data URL have their metric, average, previous year and window", () => {
+    assert.equal(exportLineId({metric: "sales", window: "calendar-month", usesWindow: true}), "sales:calendar-month");
+    assert.equal(exportLineId({metric: "sales", window: "year", usesWindow: true, average: 3}), "sales@avg3:year");
+    assert.equal(exportLineId({metric: "trials", window: "day", usesWindow: true}, true), "trials@previous-year:day");
+    // values at a date don't use the window
+    assert.equal(exportLineId({metric: "mrr", window: "calendar-month", usesWindow: false, average: 12}, true), "mrr@avg12@previous-year");
+});
+
+test("the data URL describes the shown lines of a chart", () => {
+    const sales = {key: "metric:sales", metric: "sales", window: "calendar-month", usesWindow: true};
+    const average = {key: "metric:sales@avg3", metric: "sales", window: "calendar-month", usesWindow: true, average: 3};
+    const trials = {key: "metric:trials@day", metric: "trials", window: "day", usesWindow: true};
+    const chart = {series: [sales, average, trials], detail: "month", shownOverlays: [], hiddenSeries: new Set(), dateRange: null, showIncomplete: true};
+
+    assert.equal(chartExportUrl("https://localhost:8080/licenses?pluginId=12&rows=all#charts=x", chart),
+        "https://localhost:8080/chart-export?pluginId=12&detail=month&lines=sales:calendar-month,sales@avg3:calendar-month,trials:day");
+    // the summary of all plugins has no plugin
+    assert.equal(chartExportUrl("http://127.0.0.1:18080/", {...chart, series: [sales]}),
+        "http://127.0.0.1:18080/chart-export?detail=month&lines=sales:calendar-month");
+
+    // hidden lines are left out, the previous year is added after its line, unless it's hidden
+    const withTrends = {...chart, shownOverlays: ["previousYear"], hiddenSeries: new Set(["metric:sales@avg3", "metric:trials@day:previousYear"]),
+        dateRange: {from: "2025-01-01", to: "2025-12-31", preset: "this-month"}, showIncomplete: false};
+    assert.equal(chartExportUrl("http://localhost/?pluginId=1", withTrends),
+        "http://localhost/chart-export?pluginId=1&detail=month&lines=sales:calendar-month,sales@previous-year:calendar-month,"
+        + "sales@avg3@previous-year:calendar-month,trials:day&from=2025-01-01&to=2025-12-31&incomplete=false");
+    // yearly values have no previous year
+    assert.equal(chartExportUrl("http://localhost/", {...chart, series: [{...sales, window: "calendar-year"}], detail: "year", shownOverlays: ["previousYear"]}),
+        "http://localhost/chart-export?detail=year&lines=sales:calendar-year");
+
+    // a chart without shown lines has no data URL
+    assert.equal(chartExportUrl("http://localhost/", {...chart, series: [sales], hiddenSeries: new Set([sales.key])}), null);
 });
