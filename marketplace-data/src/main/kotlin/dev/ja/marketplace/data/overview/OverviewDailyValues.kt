@@ -10,7 +10,6 @@ import dev.ja.marketplace.client.model.DailyDownload
 import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.client.model.PluginTrial
-import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.javamoney.moneta.FastMoney
 import java.math.BigDecimal
@@ -135,11 +134,7 @@ class OverviewDailyValues private constructor(
 
         /** The amount in the displayed currency, like [dev.ja.marketplace.data.trackers.MonetaryAmountTracker]. */
         private fun convert(date: YearMonthDay, amountUSD: MonetaryAmount, amount: MonetaryAmount): MonetaryAmount {
-            return when (exchangeRates.targetCurrency) {
-                MarketplaceCurrencies.USD -> amountUSD
-                amount.currency -> amount
-                else -> exchangeRates.convert(date, amount)
-            }
+            return exchangeRates.targetAmount(date, amountUSD, amount)
         }
 
         private fun amountSeries(values: List<MonetaryAmount>, incompleteFrom: Int): DailySeries {

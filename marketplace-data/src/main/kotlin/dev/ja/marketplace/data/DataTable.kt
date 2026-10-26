@@ -5,7 +5,6 @@
 
 package dev.ja.marketplace.data
 
-import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.currency.WithAmounts
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.exchangeRate.ExchangeRates
@@ -111,11 +110,7 @@ abstract class SimpleDataTable(
     }
 
     protected fun WithAmounts.renderAmount(date: YearMonthDay): MonetaryAmount {
-        return when (exchangeRates.targetCurrency) {
-            MarketplaceCurrencies.USD -> amountUSD
-            amount.currency -> amount
-            else -> exchangeRates.convert(date, this.amount)
-        }
+        return exchangeRates.targetAmount(date, amountUSD, amount)
     }
 }
 

@@ -6,7 +6,6 @@
 package dev.ja.marketplace.data.customerType
 
 import dev.ja.marketplace.client.YearMonthDay
-import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.overview.DailySeries
@@ -107,11 +106,6 @@ object CustomerTypeDailyValues {
     private val HUNDRED = BigDecimal(100)
 
     private fun amount(sale: PluginSale, exchangeRates: ExchangeRates): BigDecimal {
-        val amount = when (exchangeRates.targetCurrency) {
-            MarketplaceCurrencies.USD -> sale.amountUSD
-            sale.amount.currency -> sale.amount
-            else -> exchangeRates.convert(sale.date, sale.amount)
-        }
-        return amount.number.numberValue(BigDecimal::class.java)
+        return exchangeRates.targetAmount(sale.date, sale.amountUSD, sale.amount).number.numberValue(BigDecimal::class.java)
     }
 }

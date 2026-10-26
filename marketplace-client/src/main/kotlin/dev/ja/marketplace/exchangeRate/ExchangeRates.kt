@@ -8,6 +8,7 @@ package dev.ja.marketplace.exchangeRate
 import com.github.benmanes.caffeine.cache.Caffeine
 import dev.ja.marketplace.client.CacheAware
 import dev.ja.marketplace.client.YearMonthDay
+import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import org.javamoney.moneta.FastMoney
 import java.math.BigDecimal
 import java.math.MathContext
@@ -37,6 +38,18 @@ class ExchangeRates(
     override fun invalidateCache() {
         cachedExchangeRates.invalidateAll()
         rateData.invalidate()
+    }
+
+    /**
+     * The amount of a sale in the target currency, used by all tables and charts: the amount in USD for the target
+     * currency USD, the amount itself if it's in the target currency, otherwise the amount converted with the exchange
+     * rate of [date], e.g. of the date of the sale.
+     */
+    fun targetAmount(date: YearMonthDay, amountUSD: MonetaryAmount, amount: MonetaryAmount): MonetaryAmount {
+        return when (targetCurrency) {
+            MarketplaceCurrencies.USD -> amountUSD
+            else -> convert(date, amount)
+        }
     }
 
     fun convert(date: YearMonthDay, amount: MonetaryAmount): MonetaryAmount {

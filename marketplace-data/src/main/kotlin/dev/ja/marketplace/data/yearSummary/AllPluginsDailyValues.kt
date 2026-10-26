@@ -10,7 +10,6 @@ import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.minus
 import dev.ja.marketplace.client.plus
-import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.DailyDownload
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.client.model.PluginTrial
@@ -102,13 +101,7 @@ class AllPluginsDailyValues private constructor(val days: List<YearMonthDay>, va
 
             // the amounts in the displayed currency, like MonetaryAmountTracker
             val zero: MonetaryAmount = FastMoney.zero(exchangeRates.targetCurrency)
-            fun convert(date: YearMonthDay, amountUSD: MonetaryAmount, amount: MonetaryAmount): MonetaryAmount {
-                return when (exchangeRates.targetCurrency) {
-                    MarketplaceCurrencies.USD -> amountUSD
-                    amount.currency -> amount
-                    else -> exchangeRates.convert(date, amount)
-                }
-            }
+            val convert = exchangeRates::targetAmount
 
             val totals = Array(dayCount) { zero }
             val fees = Array(dayCount) { zero }

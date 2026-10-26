@@ -22,11 +22,7 @@ class MonetaryAmountTracker(private val exchangeRates: ExchangeRates) {
 
     fun add(date: YearMonthDay, amountUSD: MonetaryAmount, amount: MonetaryAmount) {
         sumUSD += amountUSD
-        sumTargetCurrency += when (exchangeRates.targetCurrency) {
-            MarketplaceCurrencies.USD -> amountUSD
-            amount.currency -> amount
-            else -> exchangeRates.convert(date, amount)
-        }
+        sumTargetCurrency += exchangeRates.targetAmount(date, amountUSD, amount)
     }
 
     /**
