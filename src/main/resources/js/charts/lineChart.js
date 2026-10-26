@@ -681,6 +681,30 @@ const GEAR_PATH = Array.from({length: 32}, (_, i) => {
 }).join(" ") + " Z";
 
 /**
+ * Of two y-axes, an axis without a shown line is hidden, e.g. after its line was hidden in the legend, an axis without
+ * lines would be confusing. A chart without any shown line keeps its axes.
+ */
+function showUsedAxes(plot) {
+    const yAxes = plot.axes.filter(axis => axis.scale !== "x");
+    if (yAxes.length < 2) {
+        return;
+    }
+    const usedScales = new Set(plot.series.slice(1).filter(series => series.show).map(series => series.scale));
+    let changed = false;
+    for (const axis of yAxes) {
+        const show = usedScales.size === 0 || usedScales.has(axis.scale);
+        if (axis.show !== show) {
+            axis.show = show;
+            changed = true;
+        }
+    }
+    // the size of the chart is calculated again with the shown axes
+    if (changed) {
+        plot.setSize({width: plot.width, height: plot.height});
+    }
+}
+
+/**
  * @param {{average?: number}} series A line of a chart.
  * @param {{average?: number}[]} chartSeries All lines of the chart.
  * @return {number[]|null} The dashes of a line of a moving average, if the chart also shows values, so that the
@@ -1106,7 +1130,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
             points: {size: 11, width: 2.5, stroke: () => theme.axisColor, fill: (plot, seriesIndex) => seriesColors[seriesIndex] ?? theme.surfaceColor},
             sync: {key: syncKey},
             // a range selected with the mouse zooms in, see onZoom
-            drag: {x: onZoom !== null, y: false, setScale: false},
+            // uPlot stops the propagation of clicks by default, a click on the chart must close the open menus of the dialog
+            drag: {x: onZoom !== null, y: false, setScale: false, click: () => {}},
             // the vertical line of the cursor is at the closest value, the comparisons start at its date, and the
             // horizontal line at the closest value at the date, so that the y-axis shows the value
             move: (plot, left, top) => {
@@ -1141,6 +1166,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                     onSeriesVisibilityChange?.(seriesKey(seriesIndex), plot.series[seriesIndex].show);
                 }
                 updateComparisons?.();
+                showUsedAxes(plot);
             }],
             setSelect: [plot => {
                 const {left, width} = plot.select;
@@ -1259,6 +1285,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     let updateTooltip = null;
     let updateComparisons = null;
     const plot = new uPlot(options, [timestamps, ...values, ...overlayValues], container);
+    // the lines, which were hidden before, e.g. of another level, don't show their axis
+    showUsedAxes(plot);
     // without the value table, the legend of uPlot has the menus of the windows
     if (!valueTable) {
         const legendLabels = [...plot.root.querySelectorAll(".u-legend .u-series .u-label")];

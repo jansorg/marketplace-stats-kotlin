@@ -1483,6 +1483,11 @@ dl.detail-grid dd {
     outline-offset: 1px;
 }
 
+/* the items of a menu, which are placed in the window, see menu.js */
+.chart-menu-items.chart-menu-fixed {
+    position: fixed;
+}
+
 /* a menu, which opens above its button, see menu.js */
 .chart-menu.chart-menu-up .chart-menu-items {
     bottom: 100%;
@@ -1618,6 +1623,22 @@ dl.detail-grid dd {
     color: var(--text-color);
     font-weight: 700;
     background-color: var(--button-bgcolor);
+}
+
+/* touch screens: larger targets of the menus, the gear and the × of the lines */
+@media (pointer: coarse) {
+    .chart-menu-items button, .chart-add-metric > button, .chart-add-submenu button {
+        padding-top: 0.6rem;
+        padding-bottom: 0.6rem;
+    }
+
+    .chart-series-window summary, .chart-series-remove {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 32px;
+        min-height: 32px;
+    }
 }
 
 /* the hint of a dialog without charts */
