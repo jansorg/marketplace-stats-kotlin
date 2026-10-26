@@ -61,7 +61,7 @@ class ChartImageRendererTest {
         assertTrue("New trials, calendar month (right axis)" in svg, "the second unit is on the right axis")
         assertTrue("Amount (EUR)" in svg)
         assertTrue("Count" in svg)
-        assertTrue("Incomplete values" in svg)
+        assertEquals(1, Regex(">Incomplete values<").findAll(svg).count(), "a single entry for the incomplete lines and bars")
         assertTrue("Product version" in svg)
         assertTrue(">2.0<" in svg, "the label of the marker")
         assertTrue(">200 EUR<" in svg, "the label of the maximum, without the incomplete value")
