@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.44.0
+
+- Charts:
+  - Line charts can be zoomed in by dragging, on touch devices with two fingers. The menu "Range" shows all dates or
+    a year. The range is stored with the chart setup and is part of bookmarked views.
+  - "Bookmark this view" of the export menu writes the view of the charts into the address of the page.
+  - Values per week and per day for the table of the years and the churn, the line charts of yearly tables show the
+    sums of the year before the end of each month. The churn and the shares of the customer types also show the
+    values per year.
+  - The share of the sales of the customer types is a line chart of the share of each customer type per month.
+  - Trends: a 1-month moving average of the values per week and per day, the moving averages are also shown per week
+    and per day, "Only averages" shows only the averages of lines with an average.
+  - Custom events of a YAML file as vertical lines (`--events`, `MARKETPLACE_EVENTS_FILE`, `eventsFile`), see
+    `events-template.yml`.
+  - The dialog is maximized by default, each chart can be removed with a button, the labels of the minimum and
+    maximum only show the value in a larger font.
+- `--auto-refresh` refreshes the data of the requested plugins in the background, so that the pages don't wait for
+  the Marketplace. The durations of all caches are defined in one place.
+- Perpetual licenses: the license tables show perpetual licenses, the page of a customer has a table of its perpetual
+  licenses, the table of the customers supports them, the pricing page shows the perpetual prices.
+- The pages of a sale, a license and a customer show the header of the plugin, the details are a grid. The licenses of
+  a line item show the paid amount of each license and the totals.
+- The tables Today and Yesterday only show the license periods offered for the plugin, the totals of their sections are
+  bold. The top countries and top trial countries of the overview show 5 countries, the tables of the countries and of
+  the trial funnel 20 rows and a row to show all.
+- The button "Drop caches" is a small button with an icon in the footer.
+- Fixes:
+  - The MRR and ARR of the current month and year are the values of today, not of the end of the period.
+  - The churn, the renewal rates and the license cohorts use the same grace period and count only renewal sales as
+    renewals, free subscriptions aren't renewals.
+  - The price of the third year of a subscription is the price of the third year.
+  - The expected amounts of sales through resellers use the percentage of the discount of the reseller.
+  - The rates of the subscription metrics are 0 % if nothing was retained, and have no value without anything to
+    compare. The MRR movements per day count a customer as new in the same month as the table.
+  - The table of the past 7 days shows 7 days and the amounts of the sales.
+  - The footer of the customers counts a license of several customers once, the overview counts licenses with several
+    sales once.
+  - The shares of the sortable country tables are sorted by their exact values, the shares of the top trial countries
+    include the trials without a country.
+  - The pricing page doesn't fail for a currency without countries.
+- Faster reports: fewer passes over the licenses and trials.
+- The README has a clear structure and a table of all settings.
+
 ## 0.43.0
 
 - Licenses churn, not customers: a license, which another customer renewed, e.g. after a transfer to an organization,
