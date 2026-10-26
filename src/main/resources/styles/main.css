@@ -611,7 +611,9 @@ kbd {
     background-color: var(--stripe-bgcolor);
 }
 
-.table-card > table > tbody > tr:hover > :first-child {
+/* the hovered row also covers the stripes of the first column */
+.table-card > table > tbody > tr:hover > :first-child,
+.table-card > .table-striped > tbody > tr:nth-child(even):hover > :first-child {
     background-color: var(--row-hover-bgcolor);
 }
 
