@@ -55,11 +55,11 @@ data class CohortAnniversary(
     /** `true` if the anniversary of some customers of the cohort is still in the future. */
     val isIncomplete: Boolean,
 ) {
-    val customerRetention: PercentageValue
-        get() = PercentageValue.of(retainedCustomers, customers)
+    val customerRetention: PercentageValue?
+        get() = PercentageValue.rateOf(retainedCustomers, customers)
 
-    val revenueRetention: PercentageValue
-        get() = PercentageValue.of(mrr, initialMrr)
+    val revenueRetention: PercentageValue?
+        get() = PercentageValue.rateOf(mrr, initialMrr)
 
     companion object {
         /**

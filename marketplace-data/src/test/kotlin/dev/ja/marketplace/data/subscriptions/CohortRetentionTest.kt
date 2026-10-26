@@ -44,7 +44,7 @@ class CohortRetentionTest {
         val firstYear = cohort2024.anniversaries[0]
         assertEquals(2, firstYear.customers)
         assertEquals(1, firstYear.retainedCustomers)
-        assertEquals(BigDecimal("100.00"), firstYear.revenueRetention.value.setScale(2))
+        assertEquals(BigDecimal("100.00"), firstYear.revenueRetention!!.value.setScale(2))
         assertFalse(firstYear.isIncomplete)
 
         // only the anniversary of the 1st customer in March 2026 is not in the future

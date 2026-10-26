@@ -113,7 +113,7 @@ object SubscriptionDailyValues {
         }
 
         fun amount(value: BigDecimal?): BigDecimal? = value?.setScale(2, RoundingMode.HALF_UP)
-        fun percentage(value: PercentageValue): BigDecimal = value.value.setScale(2, RoundingMode.HALF_UP)
+        fun percentage(value: PercentageValue?): BigDecimal? = value?.value?.setScale(2, RoundingMode.HALF_UP)
 
         // retention needs a year of recurring revenue, like the table
         val firstRetentionDay = revenue.months.firstOrNull()

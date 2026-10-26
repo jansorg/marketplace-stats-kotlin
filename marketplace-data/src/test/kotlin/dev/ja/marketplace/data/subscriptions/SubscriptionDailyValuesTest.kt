@@ -141,7 +141,7 @@ class SubscriptionDailyValuesTest {
         assertEquals(expected?.setScale(2, RoundingMode.HALF_UP), value(column, index), "$column $message")
     }
 
-    private fun assertPercentage(expected: PercentageValue, column: SubscriptionDailyColumn, index: Int, message: String) {
-        assertEquals(expected.value.setScale(2, RoundingMode.HALF_UP), value(column, index), "$column $message")
+    private fun assertPercentage(expected: PercentageValue?, column: SubscriptionDailyColumn, index: Int, message: String) {
+        assertEquals(expected?.value?.setScale(2, RoundingMode.HALF_UP), value(column, index), "$column $message")
     }
 }
