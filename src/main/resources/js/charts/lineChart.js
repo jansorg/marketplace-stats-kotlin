@@ -8,7 +8,7 @@
  */
 
 import {formatDate, SECONDS_PER_DAY, unitTitle} from "./format.js";
-import {alignSeries, availableComparisons, barLayout, displayColor, extremeIndices, incompleteColor, averageShade, pinchedRange, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange} from "./model.js";
+import {alignSeries, availableComparisons, barLayout, cursorPosition, displayColor, extremeIndices, incompleteColor, averageShade, pinchedRange, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange} from "./model.js";
 
 /**
  * The colors of the charts in the light and the dark mode. The surface is the background of the charts in the chart
@@ -554,6 +554,27 @@ function enableTooltip(plot, chartSeries, describe) {
 }
 
 /**
+ * @return {number} The position on the y-axis of the shown value at the index, which is closest to the position of the
+ *  mouse, or the position of the mouse without a value.
+ */
+function closestValuePosition(plot, index, top) {
+    let closest = top;
+    let distance = Infinity;
+    plot.series.forEach((series, seriesIndex) => {
+        const value = plot.data[seriesIndex]?.[index];
+        if (seriesIndex === 0 || !series.show || value === null || value === undefined) {
+            return;
+        }
+        const position = plot.valToPos(value, series.scale);
+        if (Math.abs(position - top) < distance) {
+            closest = position;
+            distance = Math.abs(position - top);
+        }
+    });
+    return closest;
+}
+
+/**
  * Compares the values at the cursor with the values one month and one year before and after it: vertical lines mark
  * the dates, if they're shown, and a table below the chart shows the values and their changes. Without a cursor on
  * the chart, the table shows the latest values.
@@ -952,6 +973,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         axes.push(yAxis(units[1], "y2", 1, style));
     }
 
+    // the colors of the uPlot series, the first one is the date
+    const seriesColors = [null, ...chartSeries.map(s => s.color), ...chartOverlays.map(overlayColor)];
     const options = {
         width,
         height,
@@ -964,14 +987,22 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         // space for the labels of the vertical lines above the plot, and for points and tick labels at the right edge
         padding: [markers.length > 0 ? 20 : null, units.length > 1 ? null : 28, null, null],
         cursor: {
-            points: {size: 8},
+            // the point at the cursor has the color of the axes around the color of its line, so that it's visible on the line
+            points: {size: 11, width: 2.5, stroke: () => theme.axisColor, fill: (plot, seriesIndex) => seriesColors[seriesIndex] ?? theme.surfaceColor},
             sync: {key: syncKey},
             // a range selected with the mouse zooms in, see onZoom
             drag: {x: onZoom !== null, y: false, setScale: false},
-            // the vertical line of the cursor is at the closest value, the comparisons start at its date
+            // the vertical line of the cursor is at the closest value, the comparisons start at its date, and the
+            // horizontal line at the closest value at the date, so that the y-axis shows the value
             move: (plot, left, top) => {
                 const index = left >= 0 ? plot.posToIdx(left) : null;
-                return [index === null || plot.data[0][index] === undefined ? left : plot.valToPos(plot.data[0][index], "x"), top];
+                if (index === null || plot.data[0][index] === undefined) {
+                    return [left, top];
+                }
+                const timestamps = plot.data[0];
+                const margin = CHART_STYLE.pointRadius + CHART_STYLE.pointRing;
+                const position = cursorPosition(index, i => plot.valToPos(timestamps[i], "x"), timestamps.length, plot.over.clientWidth, margin);
+                return [position, closestValuePosition(plot, plot.posToIdx(position), top)];
             },
         },
         hooks: {
