@@ -263,6 +263,7 @@ class ChartController {
         const series = readLineSeries(table, columnIndex);
         const rejection = this.rejectSeries(series);
         if (rejection === null) {
+            this.setTableDateRange(table);
             this.series.push({...series, color: nextColor(this.series.map(s => s.color))});
             this.save();
         }
@@ -273,6 +274,7 @@ class ChartController {
      * Adds a series for each row of a column with the values of the rows over time, e.g. one for each customer type.
      */
     addRowHistorySeries(table, columnIndex) {
+        this.setTableDateRange(table);
         let rejection = null;
         for (const series of readRowHistorySeries(table, columnIndex)) {
             rejection = this.rejectSeries(series);
@@ -296,6 +298,7 @@ class ChartController {
      */
     addMetricSeries(table, columnIndex) {
         const level = readMetricLevel(table, columnIndex);
+        this.setTableDateRange(table);
         let rejection = null;
         for (const series of readMetricSeries(table, columnIndex)) {
             rejection = this.rejectSeries(series);
@@ -314,12 +317,19 @@ class ChartController {
             }
             this.series.push(metricSeries(series, nextColor(this.series.map(s => s.color))));
         }
-        const dateRange = readTableDateRange(table);
-        if (dateRange !== null && (rejection === null || rejection === "")) {
-            this.dateRange = dateRange;
-        }
         this.save();
         this.openDialog(rejection);
+    }
+
+    /**
+     * The first line chart shows the dates of its table, e.g. all dates or the past 7 days, a stored range of earlier
+     * charts doesn't apply to it. The charts of a table of a few days always show its dates.
+     */
+    setTableDateRange(table) {
+        const dateRange = readTableDateRange(table);
+        if (dateRange !== null || this.series.length === 0) {
+            this.dateRange = dateRange;
+        }
     }
 
     /** Sets the window and the detail level of a chart of metrics. */

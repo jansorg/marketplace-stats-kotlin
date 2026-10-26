@@ -11,7 +11,8 @@ import java.math.BigDecimal
 
 /**
  * The retention of the customers with recurring revenue at the end of a month,
- * compared to the end of the same month in the previous year.
+ * compared to the end of the same month in the previous year. The current month is measured at today and compared with
+ * the same day of the previous year.
  */
 data class RevenueRetention(
     /** Number of customers with recurring revenue a year ago. */
@@ -47,7 +48,9 @@ data class RevenueRetention(
                 return null
             }
 
-            return of(revenue.customers(monthIndex), revenue.customers(monthIndex - MONTHS))
+            // the current month at today compares with the same day of the previous year
+            val previous = if (revenue.isCurrentMonth(monthIndex)) revenue.customersYearBeforeToday else revenue.customers(monthIndex - MONTHS)
+            return of(revenue.customers(monthIndex), previous)
         }
 
         /**

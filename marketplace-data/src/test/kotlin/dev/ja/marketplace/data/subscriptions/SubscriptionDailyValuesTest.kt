@@ -111,6 +111,27 @@ class SubscriptionDailyValuesTest {
     }
 
     @Test
+    fun theCurrentMonthOfTheTablesIsTheValueOfToday() {
+        // the tables measure the current month at today, like the charts with the calendar month
+        val values = SubscriptionDailyValues.create(days, licenses, revenue, today, ChartWindow.CalendarMonth) + dayValues
+        val monthIndex = revenue.currentMonthIndex
+        val index = days.lastIndex
+        assertEquals(today, days[index])
+        val movements = MrrMovements.of(revenue, monthIndex)
+        assertAmount(movements.new, ChartMetric.MrrNew, index, "current month", values)
+        assertAmount(movements.churned.negate(), ChartMetric.MrrChurned, index, "current month", values)
+        assertAmount(movements.netChange, ChartMetric.MrrNetChange, index, "current month", values)
+        val average = AverageRevenuePerCustomer.of(revenue, monthIndex)
+        assertEquals(BigDecimal.valueOf(average.customers.toLong()), value(ChartMetric.PayingCustomers, index, values), "current month")
+        assertAmount(average.average, ChartMetric.AverageRevenue, index, "current month", values)
+        // the retention compares with the same day of the previous year
+        val retention = RevenueRetention.of(revenue, monthIndex)!!
+        assertEquals(BigDecimal.valueOf(retention.previousCustomers.toLong()), value(ChartMetric.PreviousCustomers, index, values), "current month")
+        assertPercentage(retention.netRevenueRetention, ChartMetric.NetRevenueRetention, index, "current month", values)
+        assertPercentage(retention.grossRevenueRetention, ChartMetric.GrossRevenueRetention, index, "current month", values)
+    }
+
+    @Test
     fun movementsOfTheYearCompareWithTheMrrOfTheYearBefore() {
         // at the end of a year, the movements between the MRR at the end of the previous year and at the end of the year
         for (year in listOf(2024)) {
