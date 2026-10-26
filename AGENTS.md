@@ -222,7 +222,8 @@ extend, must not fail a response:
 - Only series of the same period (`DataTable.chartPeriod`: day, month or year) share a line chart and its date range.
   Per week and per day, the charts of different periods with the same units are merged (`mergeFinerCharts` in
   `model.js`), e.g. the trials of the tables of months and years. The labels then name the window of sums and rates
-  (`finerWindowLabel`: last month or last 12 months), and the buttons of the level apply to all merged charts.
+  (`finerWindowLabel`: last month or last 12 months), and the buttons of the level apply to all merged charts. Year
+  and Month show each table in its own chart again, with the matching level of each table (`partGranularity`).
   Values of months and years are located at the end of the period, the current period at today (`ChartValues.xValue`).
   The ticks of yearly values are at the end of each year and at today (`yearEndTicks` in `model.js`). Line charts of
   yearly tables can also show the sums of the year before the end of each month (granularity `monthEnd`,

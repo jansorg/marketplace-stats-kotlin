@@ -9,7 +9,7 @@ import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/chart
 import {
     averageShade, pinchedRange, rangeLabel, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, granularitiesOf, rollingAverageOfDays, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear, trailingAverageOfDays,
-    seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, finerWindowLabel, groupCharts, mergeFinerCharts, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
+    seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, finerWindowLabel, groupCharts, mergedGranularities, mergeFinerCharts, partGranularity, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
 } from "../../main/resources/js/charts/model.js";
 
@@ -28,14 +28,18 @@ test("colors are assigned in the order of the palette", () => {
 });
 
 test("charts of months and years with the same units share a chart per week or per day", () => {
+    const monthly = granularitiesOf("month", true);
+    const yearly = granularitiesOf("year");
     const charts = mergeFinerCharts([
-        {period: "month", units: ["count"], dateRange: [100, 200], granularity: "day"},
-        {period: "month", units: ["USD"], dateRange: [100, 200], granularity: "day"},
-        {period: "year", units: ["count"], dateRange: [50, 150], granularity: "day"},
+        {period: "month", units: ["count"], dateRange: [100, 200], granularity: "day", granularities: monthly},
+        {period: "month", units: ["USD"], dateRange: [100, 200], granularity: "day", granularities: monthly},
+        {period: "year", units: ["count"], dateRange: [50, 150], granularity: "day", granularities: yearly},
     ]);
+    const monthPart = {key: "month/count", period: "month", granularities: monthly};
+    const yearPart = {key: "year/count", period: "year", granularities: yearly};
     assert.deepEqual(charts, [
-        {periods: ["month", "year"], keys: ["month/count", "year/count"], units: ["count"], dateRange: [50, 200], granularity: "day"},
-        {periods: ["month"], keys: ["month/USD"], units: ["USD"], dateRange: [100, 200], granularity: "day"},
+        {periods: ["month", "year"], parts: [monthPart, yearPart], units: ["count"], dateRange: [50, 200], granularity: "day", granularities: monthly},
+        {periods: ["month"], parts: [{key: "month/USD", period: "month", granularities: monthly}], units: ["USD"], dateRange: [100, 200], granularity: "day", granularities: monthly},
     ]);
     // the values of the tables and different granularities keep their own charts
     assert.equal(mergeFinerCharts([
@@ -46,6 +50,24 @@ test("charts of months and years with the same units share a chart per week or p
         {period: "month", units: ["count"], dateRange: [100, 200], granularity: "week"},
         {period: "year", units: ["count"], dateRange: [50, 150], granularity: "day"},
     ]).length, 2);
+});
+
+test("the levels of a merged chart select the matching level of each table", () => {
+    const monthPart = {key: "month/count", period: "month", granularities: granularitiesOf("month", true)};
+    const yearPart = {key: "year/count", period: "year", granularities: granularitiesOf("year")};
+    assert.deepEqual(mergedGranularities([monthPart, yearPart]), ["yearEnd", "month", "week", "day"]);
+    // Year: the values per year of the table of months and the values of the table of years
+    assert.equal(partGranularity("yearEnd", monthPart), "yearEnd");
+    assert.equal(partGranularity("yearEnd", yearPart), "month");
+    // Month: the values of the table of months and the sums of the year at the end of each month
+    assert.equal(partGranularity("month", monthPart), "month");
+    assert.equal(partGranularity("month", yearPart), "monthEnd");
+    assert.equal(partGranularity("day", yearPart), "day");
+    // without values per year, a table of months has no level Year
+    const withoutYears = {key: "month/USD", period: "month", granularities: granularitiesOf("month")};
+    const dayPart = {key: "day/USD", period: "day", granularities: granularitiesOf("day")};
+    assert.deepEqual(mergedGranularities([withoutYears, dayPart]), ["month", "week", "day"]);
+    assert.equal(partGranularity("yearEnd", withoutYears), "month");
 });
 
 test("labels of merged charts name the window of sums and rates", () => {
