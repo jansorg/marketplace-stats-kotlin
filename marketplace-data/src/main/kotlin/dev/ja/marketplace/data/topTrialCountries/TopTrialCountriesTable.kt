@@ -90,7 +90,8 @@ class TopTrialCountriesTable(
     }
 
     override suspend fun createSections(): List<DataTableSection> {
-        val totalTrialCount = countryToTrialCount.values.sumOf { it }
+        // the share of all trials, also if the trials without a country aren't shown
+        val totalTrialCount = allTrialsTracker.getResult(YearMonthDayRange.MAX).totalTrials
         val rows = countryToTrialCount.object2IntEntrySet()
             .sortedByDescending { it.intValue }
             .take(maxItems ?: Int.MAX_VALUE)
