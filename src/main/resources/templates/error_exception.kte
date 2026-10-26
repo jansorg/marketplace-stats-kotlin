@@ -8,8 +8,8 @@
     <title>Request Error</title>
     @template.favicons()
     @template.fonts()
-    <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
-    <link rel="stylesheet" type="text/css" media="print" href="/styles/print.css"/>
+    <link rel="stylesheet" type="text/css" href="/styles/main.min.css"/>
+    <link rel="stylesheet" type="text/css" media="print" href="/styles/print.min.css"/>
 </head>
 <body>
 <h1>Error</h1>
