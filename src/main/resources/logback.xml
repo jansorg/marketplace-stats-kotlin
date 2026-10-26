@@ -10,6 +10,7 @@
     </logger>
 
     <logger name="dev.ja.marketplace.client.persistentCache" level="info"/>
+    <logger name="dev.ja.marketplace.client.PluginAutoRefresh" level="info"/>
 
     <root level="warn">
         <appender-ref ref="CONSOLE"/>

@@ -53,6 +53,9 @@ Options:
                                      restarts. The data is kept in memory only if no directory is set or if it's empty. A leading ~ is the
                                      home directory.
   --show-reseller-charges            Show incorrect charges for sales through resellers.
+  --auto-refresh[=<minutes>]         Refreshes the data of the plugins, which were requested in the last 24 hours, in the background every
+                                     MINUTES (default: 30), so that the pages don't wait for the Marketplace. Use --auto-refresh or
+                                     --auto-refresh=MINUTES, 0 disables it. Disabled by default.
   --all-plugins-summary / --no-all-plugins-summary
                                      Show the sales and downloads of all paid plugins above the list of plugins. The data of these plugins is
                                      loaded at the start, or taken from the persistent cache. (default: enabled)
@@ -99,6 +102,7 @@ Instead of options, you can use the following environment variables:
 --all-plugins-summary, --no-all-plugins-summary:
                      MARKETPLACE_ALL_PLUGINS_SUMMARY (true or false)
 --mcp-allowed-hosts: MARKETPLACE_MCP_ALLOWED_HOSTS
+--auto-refresh:      MARKETPLACE_AUTO_REFRESH (interval in minutes, 0 disables it)
 ```
 
 For example:
@@ -126,6 +130,29 @@ java -jar ./build/libs/marketplace-stats-all.jar
 
 The configuration file also supports the keys `displayedCurrency`, `showResellerCharges` and `cacheDir`.
 
+### Automatic Refresh
+
+The Marketplace API is slow. Without the automatic refresh, a report loads the data again when it's older than
+30 minutes, and the page waits for it.
+
+With `--auto-refresh` (or `MARKETPLACE_AUTO_REFRESH=30`), the data of the plugins, which were requested, is loaded again
+in the background every 30 minutes, and the pages use the cached data without waiting. `--auto-refresh=15` sets another
+interval in minutes. It's disabled by default.
+
+- Only plugins, which were requested, are refreshed: a report page, a request of the MCP server for the plugin, or the
+  summary of all paid plugins on the list of plugins for these plugins. Other plugins aren't refreshed.
+- The refresh of a plugin stops 24 hours after the last request for it. Its data is loaded again by the next request.
+- Recent data, e.g. the sales and trials of the last 45 days, is loaded at each refresh. Data, which changes less often,
+  e.g. downloads and releases (daily) or prices (weekly), is loaded when it would be outdated before the next refresh.
+- If a refresh fails, the previous data is kept and used.
+
+```bash
+java -jar ./build/libs/marketplace-stats-all.jar \
+  --api-key="Your JetBrains API key" \
+  --cache-dir="$HOME/.cache/marketplace-stats" \
+  --auto-refresh
+```
+
 ### Persistent Cache
 
 Loading the sales, trials, prices and downloads of a plugin takes many requests to the JetBrains Marketplace.
@@ -146,7 +173,8 @@ After a restart, the stored data is shown immediately. The sales and trials of t
 loaded again in the background right after the start, for all plugins with stored data and also if the stored data is
 recent, to catch changes like refunds. If the stored data is
 older than a day, for example after a long downtime, they are loaded before the report is shown.
-While the server is running, they are loaded again when a report is shown and the data is older than 30 minutes.
+While the server is running, they are loaded again when a report is shown and the data is older than 30 minutes,
+or in the background with the [automatic refresh](#automatic-refresh).
 The complete history is loaded again once a week.
 Prices are loaded again after a week, exchange rates after six hours, downloads and the products and releases of JetBrains after a day.
 The button "Drop caches" in the footer of a report (`POST /refresh?reload=true`) ignores the stored data and loads everything again.

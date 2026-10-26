@@ -28,6 +28,7 @@ import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 import dev.ja.marketplace.client.CachingStrategy.Category
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Client, which caches the API responses in memory.
@@ -128,6 +129,52 @@ class CaffeineCacheMarketplaceClient(
     }
 
     /**
+     * Fetches the cached data of a plugin again, which would be outdated before the next automatic refresh,
+     * see [CachingStrategy.isRefreshDue]. Requests use the cached data, while it's fetched.
+     * Failures are logged and the cached data is kept. Nothing is fetched without the automatic refresh.
+     */
+    suspend fun refreshPlugin(plugin: PluginId) {
+        if (cachingStrategy.autoRefreshInterval == null) {
+            return
+        }
+
+        val now = System.currentTimeMillis()
+        val segment = plugin.toString()
+        // taken before the sales are updated, which drops the cached licenses of the plugin
+        val entries = cache.synchronous().asMap().entries
+            .filter { (key, value) ->
+                key.split('.').getOrNull(1) == segment && cachingStrategy.isRefreshDue(value.category, (now - value.createdMillis).milliseconds)
+            }
+            .map { it.key to it.value }
+            .sortedBy { (key, _) -> refreshOrder(key) }
+
+        persistentSales[plugin]?.refresh()
+        persistentTrials[plugin]?.refresh()
+        for ((key, value) in entries) {
+            try {
+                val refreshed = value.refresh() ?: continue
+                cache.synchronous().put(key, CacheValue(value.category, cachingStrategy.expiry(value.category), refreshed, null, value.refresh))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn("Unable to refresh the cached data $key of plugin $plugin, the cached data is kept: $e")
+            }
+        }
+    }
+
+    /**
+     * Data is refreshed before the data derived from it, e.g. the sales before the licenses and the downloads
+     * before the monthly downloads.
+     */
+    private fun refreshOrder(key: String): Int {
+        return when (key.substringBefore('.')) {
+            "loadSalesInfo", "loadTrialsInfo", "downloads", "downloadsTotal", "groupedDownloads" -> 0
+            "licenseInfo", "downloadsMonthly", "downloadsDaily", "downloadsByProduct" -> 2
+            else -> 1
+        }
+    }
+
+    /**
      * Waits until the background updates of the persistent cache are done, for tests.
      */
     internal suspend fun awaitPersistentCacheUpdates() {
@@ -213,9 +260,10 @@ class CaffeineCacheMarketplaceClient(
     override suspend fun downloadsTotal(plugin: PluginId, vararg filters: DownloadFilter): Long {
         val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
         val key = "downloadsTotal.$plugin.$filterString"
-        return loadCached(key, Category.Daily) {
-            storedDownloads(plugin, key, Long.serializer()) { super.downloadsTotal(plugin, *filters) }
+        val loader: suspend (Boolean) -> Long = { forceFetch ->
+            storedDownloads(plugin, key, Long.serializer(), forceFetch) { super.downloadsTotal(plugin, *filters) }
         }
+        return loadCached(key, Category.Daily, refresh = { loader(true) }) { loader(false) }
     }
 
     override suspend fun downloads(
@@ -227,9 +275,10 @@ class CaffeineCacheMarketplaceClient(
     ): DownloadResponse {
         val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
         val key = "downloads.$plugin.$groupType.$countType.$startDate.$filterString"
-        return loadCached(key, Category.Daily) {
-            storedDownloads(plugin, key, DownloadResponse.serializer()) { super.downloads(plugin, groupType, countType, startDate, *filters) }
+        val loader: suspend (Boolean) -> DownloadResponse = { forceFetch ->
+            storedDownloads(plugin, key, DownloadResponse.serializer(), forceFetch) { super.downloads(plugin, groupType, countType, startDate, *filters) }
         }
+        return loadCached(key, Category.Daily, refresh = { loader(true) }) { loader(false) }
     }
 
     override suspend fun groupedDownloads(
@@ -242,20 +291,28 @@ class CaffeineCacheMarketplaceClient(
     ): GroupedDownloadResponse {
         val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
         val key = "groupedDownloads.$plugin.$dimension.$groupType.$countType.$startDate.$filterString"
-        return loadCached(key, Category.Daily) {
-            storedDownloads(plugin, key, GroupedDownloadResponse.serializer()) {
+        val loader: suspend (Boolean) -> GroupedDownloadResponse = { forceFetch ->
+            storedDownloads(plugin, key, GroupedDownloadResponse.serializer(), forceFetch) {
                 super.groupedDownloads(plugin, dimension, groupType, countType, startDate, *filters)
             }
         }
+        return loadCached(key, Category.Daily, refresh = { loader(true) }) { loader(false) }
     }
 
     /**
+     * @param forceFetch If the downloads are fetched also if they're stored, e.g. by the automatic refresh.
      * @return The downloads of the persistent cache, which are fetched again after a day, or the loaded downloads without a persistent cache.
      */
-    private suspend fun <T> storedDownloads(plugin: PluginId, key: String, serializer: KSerializer<T>, loader: suspend () -> T): T {
+    private suspend fun <T> storedDownloads(
+        plugin: PluginId,
+        key: String,
+        serializer: KSerializer<T>,
+        forceFetch: Boolean,
+        loader: suspend () -> T,
+    ): T {
         return when (val store = persistentDownloads) {
             null -> loader()
-            else -> store.get(downloadsFileName(plugin), key, serializer, loader)
+            else -> store.get(downloadsFileName(plugin), key, serializer, forceFetch, loader)
         }
     }
 
@@ -401,12 +458,13 @@ class CaffeineCacheMarketplaceClient(
     }
 
     override suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo {
-        return loadCached("priceInfo.$plugin.$isoCountryCode", Category.Static) {
+        val loader: suspend (Boolean) -> PluginPriceInfo = { forceFetch ->
             when (persistentPrices) {
                 null -> super.priceInfo(plugin, isoCountryCode)
-                else -> persistentPrices.get(plugin, isoCountryCode) { super.priceInfo(plugin, isoCountryCode) }
+                else -> persistentPrices.get(plugin, isoCountryCode, forceFetch) { super.priceInfo(plugin, isoCountryCode) }
             }
         }
+        return loadCached("priceInfo.$plugin.$isoCountryCode", Category.Static, refresh = { loader(true) }) { loader(false) }
     }
 
     override suspend fun loadSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
@@ -423,14 +481,19 @@ class CaffeineCacheMarketplaceClient(
 
     private fun licenseInfoKey(plugin: PluginId): String = "licenseInfo.$plugin"
 
+    /**
+     * @param refresh Fetches the data again for the automatic refresh, `null` to use the [loader].
+     *  It must not use stored data, which would be outdated.
+     */
     @Suppress("UNCHECKED_CAST")
-    private suspend fun <T> loadCached(key: String, category: Category, loader: suspend () -> T): T {
-        val expireAfterCreate = cachingStrategy.maxAge(category)
+    private suspend fun <T> loadCached(key: String, category: Category, refresh: (suspend () -> T)? = null, loader: suspend () -> T): T {
+        val expiry = cachingStrategy.expiry(category)
+        val refresh = refresh ?: loader
         val cachedValue = cache.get(key) {
             try {
-                CacheValue(expireAfterCreate, loader(), null)
+                CacheValue(category, expiry, loader(), null, refresh)
             } catch (e: ClientRequestException) {
-                CacheValue(expireAfterCreate, null, e)
+                CacheValue(category, expiry, null, e, refresh)
             }
         } ?: throw IllegalStateException("Failed to compute cache value for $key")
 
@@ -442,7 +505,18 @@ class CaffeineCacheMarketplaceClient(
     }
 }
 
-private data class CacheValue(val expireAfterWrite: Duration, val result: Any?, val exception: ClientRequestException?) {
+/**
+ * @param expireAfterWrite How long requests use the value, see [CachingStrategy.expiry].
+ * @param refresh Fetches the value again, see [CaffeineCacheMarketplaceClient.refreshPlugin].
+ */
+private class CacheValue(
+    val category: Category,
+    val expireAfterWrite: Duration,
+    val result: Any?,
+    val exception: ClientRequestException?,
+    val refresh: suspend () -> Any?,
+    val createdMillis: Long = System.currentTimeMillis(),
+) {
     init {
         require(result != null || exception != null)
     }
@@ -453,8 +527,9 @@ private class CacheExpiry : Expiry<String, CacheValue> {
         return value.expireAfterWrite.inWholeNanoseconds
     }
 
+    // a refreshed value replaces the previous value, it expires after its own duration
     override fun expireAfterUpdate(key: String, value: CacheValue, currentTime: Long, currentDuration: Long): Long {
-        return currentDuration
+        return value.expireAfterWrite.inWholeNanoseconds
     }
 
     override fun expireAfterRead(key: String, value: CacheValue, currentTime: Long, currentDuration: Long): Long {

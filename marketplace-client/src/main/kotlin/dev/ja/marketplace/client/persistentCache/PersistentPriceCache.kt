@@ -65,11 +65,14 @@ internal class PersistentPriceCache(
     @Volatile
     private var invalidatedMillis = 0L
 
-    suspend fun get(plugin: PluginId, countryIsoCode: String, loader: suspend () -> PluginPriceInfo): PluginPriceInfo {
+    /**
+     * @param forceFetch If the prices are fetched, also if the stored prices aren't outdated yet, e.g. by the automatic refresh.
+     */
+    suspend fun get(plugin: PluginId, countryIsoCode: String, forceFetch: Boolean = false, loader: suspend () -> PluginPriceInfo): PluginPriceInfo {
         val prices = plugins[plugin] ?: withContext(Dispatchers.IO) { plugins.computeIfAbsent(plugin, ::readStored) }
         val now = currentTimeMillis()
         val cached = prices.entries[countryIsoCode]
-        if (cached != null && cached.fetchedMillis >= invalidatedMillis && now - cached.fetchedMillis < maxAge.inWholeMilliseconds) {
+        if (!forceFetch && cached != null && cached.fetchedMillis >= invalidatedMillis && now - cached.fetchedMillis < maxAge.inWholeMilliseconds) {
             return cached.priceInfo
         }
 
