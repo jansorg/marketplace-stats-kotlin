@@ -438,7 +438,16 @@ class ChartController {
         button.textContent = metric.title;
         // values at a date, e.g. the MRR, don't use the window
         button.title = metric.usesWindow ? "Sums or rates of the selected window" : "Values at each date";
-        button.addEventListener("click", () => add(null));
+        // a mouse shows the submenu on hover and a click adds the values, a tap of a touch screen shows the submenu
+        let pointerType = "mouse";
+        button.addEventListener("pointerdown", event => pointerType = event.pointerType);
+        button.addEventListener("click", event => {
+            if (event.detail > 0 && pointerType !== "mouse") {
+                show();
+            } else {
+                add(null);
+            }
+        });
 
         const submenu = document.createElement("div");
         submenu.className = "chart-add-submenu";
@@ -452,18 +461,23 @@ class ChartController {
             subButton.addEventListener("click", () => add(average));
             submenu.append(subButton);
         }
-        // the submenu is placed beside the item in the window, the list of the menu scrolls
+        // the submenu is placed beside the item in the window, to the left like the menu, the list of the menu scrolls.
+        // On a narrow screen without space beside the item, the submenu is placed below it.
         const show = () => {
+            item.parentElement?.querySelectorAll(".chart-add-open").forEach(open => open !== item && open.classList.remove("chart-add-open"));
             item.classList.add("chart-add-open");
             const bounds = item.getBoundingClientRect();
             const {width, height} = submenu.getBoundingClientRect();
-            const left = bounds.right + width <= window.innerWidth ? bounds.right : bounds.left - width;
+            const fitsRight = bounds.right + width <= window.innerWidth;
+            const fitsLeft = bounds.left - width >= 0;
+            const left = fitsLeft ? bounds.left - width : fitsRight ? bounds.right : Math.min(bounds.left, window.innerWidth - width);
+            const top = fitsLeft || fitsRight ? bounds.top : bounds.bottom;
             submenu.style.left = Math.max(0, left) + "px";
-            submenu.style.top = Math.max(0, Math.min(bounds.top, window.innerHeight - height)) + "px";
+            submenu.style.top = Math.max(0, Math.min(top, window.innerHeight - height)) + "px";
         };
-        item.addEventListener("mouseenter", show);
+        item.addEventListener("pointerenter", event => event.pointerType === "mouse" && show());
         item.addEventListener("focusin", show);
-        item.addEventListener("mouseleave", () => item.classList.remove("chart-add-open"));
+        item.addEventListener("pointerleave", event => event.pointerType === "mouse" && item.classList.remove("chart-add-open"));
         item.addEventListener("focusout", event => {
             if (!item.contains(event.relatedTarget)) {
                 item.classList.remove("chart-add-open");

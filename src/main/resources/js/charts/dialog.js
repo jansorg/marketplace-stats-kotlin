@@ -10,6 +10,9 @@
 import {createMenu} from "./menu.js";
 import {eventMenuItems, MARKER_LABELS, rangeLabel, rangeOfYear} from "./model.js";
 
+/** The maximum height of the menu to add a metric in pixels, a longer menu scrolls. */
+const ADD_MENU_MAX_HEIGHT = 420;
+
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
 /** Arrows pointing to the corners to maximize, and to the center to restore. */
@@ -116,7 +119,8 @@ export class ChartDialog {
         clearButton.setAttribute("aria-label", "Remove all charts");
 
         // a menu to add a metric, its items are added when it's opened
-        const {menu: addMenu, items: addItems} = createMenu("");
+        // the long menu is placed in the window and scrolls, so that it doesn't enlarge the dialog
+        const {menu: addMenu, items: addItems} = createMenu("", {fixed: true, alignEnd: true, maxHeight: ADD_MENU_MAX_HEIGHT});
         addMenu.classList.add("chart-add-menu");
         const addSummary = addMenu.querySelector("summary");
         addSummary.append(icon("add"));
