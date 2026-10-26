@@ -1483,6 +1483,11 @@ dl.detail-grid dd {
 }
 
 /* the items of a menu, which are placed in the window, see menu.js */
+/* the browser shows an opened menu before the toggle event places it, the items of a fixed menu are hidden until then */
+.chart-menu-items.chart-menu-fixed:not(.chart-menu-placed) {
+    visibility: hidden;
+}
+
 .chart-menu-items.chart-menu-fixed {
     position: fixed;
 }
