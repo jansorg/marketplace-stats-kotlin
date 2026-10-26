@@ -7,6 +7,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
+    alignedRanges, niceStep, rangeTicks,
     averageShade, pinchedRange, rangeLabel, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, finestDetail, lineDetail, periodEnd, shownWindow, storedChartLevel, tableWindow, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
@@ -474,4 +475,23 @@ test("the window, which follows the level, is the calendar window of the level",
     assert.equal(tableWindow("calendar-year", "year"), "follow");
     assert.equal(tableWindow("day", "day"), "follow");
     assert.equal(tableWindow("year", "month"), "year");
+});
+
+test("the step of an axis is 1, 2, 2.5 or 5 times a power of ten", () => {
+    assert.equal(niceStep(450, 5), 100);
+    assert.equal(niceStep(120, 5), 25);
+    assert.equal(niceStep(0.9, 5), 0.2);
+    assert.equal(niceStep(0, 5), 1);
+});
+
+test("two y-axes have their ticks at the same heights", () => {
+    const [left, right] = alignedRanges([[0, 450], [0, 31]], 5);
+    assert.deepEqual(left, {min: 0, max: 500, step: 100});
+    assert.deepEqual(right, {min: 0, max: 50, step: 10});
+    assert.equal(rangeTicks(left).length, rangeTicks(right).length);
+    // negative values of one axis add steps below zero to both axes
+    const [amounts, rates] = alignedRanges([[-120, 400], [0, 80]], 5);
+    assert.deepEqual(rangeTicks(amounts), [-200, -100, 0, 100, 200, 300, 400]);
+    assert.deepEqual(rangeTicks(rates), [-40, -20, 0, 20, 40, 60, 80]);
+    assert.deepEqual(rangeTicks({min: 0, max: 0.6, step: 0.2}), [0, 0.2, 0.4, 0.6]);
 });

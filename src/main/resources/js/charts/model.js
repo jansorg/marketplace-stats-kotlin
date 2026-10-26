@@ -225,6 +225,67 @@ export function zeroBasedRange(min, max) {
 }
 
 /**
+ * @param {number} span The difference of the largest and the smallest value of an axis.
+ * @param {number} count The preferred number of steps of the axis.
+ * @return {number} The smallest step of 1, 2, 2.5 or 5 times a power of ten, with at most `count` steps over the span.
+ */
+export function niceStep(span, count) {
+    const raw = span / Math.max(1, count);
+    if (!(raw > 0)) {
+        return 1;
+    }
+    const magnitude = 10 ** Math.floor(Math.log10(raw));
+    return [1, 2, 2.5, 5, 10].map(factor => factor * magnitude).find(step => step >= raw * (1 - 1e-9));
+}
+
+/** @return {number} The smallest step of 1, 2, 2.5 or 5 times a power of ten, which isn't smaller than the value. */
+function niceCeil(value) {
+    const magnitude = 10 ** Math.floor(Math.log10(value));
+    return [1, 2, 2.5, 5, 10].map(factor => factor * magnitude).find(step => step >= value * (1 - 1e-9));
+}
+
+/**
+ * Ranges of y-axes, whose ticks are at the same heights, so that the grid lines of one axis are also at the values of
+ * the other axes. Each axis has its own step, all axes have the same number of steps below and above zero. Of the
+ * possible numbers of steps, the one with the least unused space of the axes is used.
+ *
+ * @param {[number, number][]} extents The smallest and the largest value of each axis, the ranges include zero.
+ * @param {number} count The preferred number of steps.
+ * @return {{min: number, max: number, step: number}[]} The range and the step of the ticks of each axis.
+ */
+export function alignedRanges(extents, count) {
+    const ranges = extents.map(([min, max]) => zeroBasedRange(min, max));
+    let best = null;
+    for (let total = Math.max(2, count - 2); total <= count + 3; total++) {
+        for (let below = 0; below < total; below++) {
+            const above = total - below;
+            if (below === 0 && ranges.some(([min]) => min < 0)) {
+                continue;
+            }
+            const steps = ranges.map(([min, max]) => {
+                const needed = Math.max(max / above, below > 0 ? -min / below : 0);
+                return needed > 0 ? niceCeil(needed) : niceStep(1, total);
+            });
+            // the unused part of each axis, more steps than preferred are slightly worse
+            const unused = ranges.reduce((sum, [min, max], index) => sum + 1 - (max - min) / (total * steps[index]), 0);
+            const score = unused + 0.05 * Math.abs(total - count);
+            if (best === null || score < best.score - 1e-9) {
+                best = {score, below, above, steps};
+            }
+        }
+    }
+    return best.steps.map(step => ({min: best.below === 0 ? 0 : -best.below * step, max: best.above * step, step}));
+}
+
+/**
+ * @return {number[]} The ticks of a range of {@link alignedRanges}, without rounding errors of the floating point numbers.
+ */
+export function rangeTicks({min, max, step}) {
+    const count = Math.round((max - min) / step);
+    return Array.from({length: count + 1}, (_, index) => Number((min + index * step).toPrecision(12)));
+}
+
+/**
  * Creates the slices of a pie chart.
  *
  * @param {{label: string, value: number, details: string[][]}[]} rows Rows of the table with their share in percent.

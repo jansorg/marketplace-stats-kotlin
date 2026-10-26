@@ -184,6 +184,8 @@ extend, must not fail a response:
   to suitable series (`overlayApplies` in `model.js`). The moving averages of metrics come from `/chart-data` (see
   below), of the values of tables they're calculated by `trailingAverage` (3 and 12 months of monthly values). Options
   without effect on the shown charts are dimmed in the menu.
+- Two y-axes have their ticks at the same heights (`alignedRanges` in `model.js`), so that the grid lines match the
+  values of both axes. An axis without shown lines is hidden, the other axis then has the grid (`showUsedAxes`).
 - Incomplete values are drawn as dotted lines, hollow points and striped bars in a lighter color of their series
   (`incompleteColor` in `model.js`, darker in the dark mode).
 - Colors of the dark mode: `CHART_THEMES` in `lineChart.js` (axes, grid, surface, vertical lines) and
