@@ -76,7 +76,7 @@ object McpReleasesJson {
                 for ((type, patches) in release.patches) {
                     for (patch in patches) {
                         add(buildJsonObject {
-                            put("platform", type.jsonId)
+                            put("platform", type)
                             put("fromBuild", patch.fromBuild)
                             put("link", patch.downloadLink)
                             put("checksumLink", patch.checksumLink)

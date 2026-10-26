@@ -254,7 +254,7 @@ object McpTestData {
             xmlId = plugin.xmlId,
             description = "",
             customIdeList = false,
-            family = ProductFamily.IntelliJ,
+            family = IntelliJFamily,
             downloads = 100,
             hasUnapprovedUpdate = false,
             pricingModel = PluginPricingModel.Paid,

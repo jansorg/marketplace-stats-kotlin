@@ -29,8 +29,9 @@ data class ProductRelease(
     val whatsNewHtml: String? = null,
     @SerialName("licenseRequired")
     val licenseRequired: Boolean? = null,
+    /** The patches by the platform, e.g. `mac` or `unix`. Unknown platforms are kept, releases without patches are valid. */
     @SerialName("patches")
-    val patches: Map<ProductPatchType, List<ProductPatchRelease>>,
+    val patches: Map<String, List<ProductPatchRelease>> = emptyMap(),
     @SerialName("downloads")
     val downloads: Map<ProductDownloadType, ProductReleaseDownload> = emptyMap(),
     @SerialName("uninstallFeedbackLinks")

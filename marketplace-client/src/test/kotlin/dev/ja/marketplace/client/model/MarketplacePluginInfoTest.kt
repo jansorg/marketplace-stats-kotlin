@@ -49,12 +49,12 @@ class MarketplacePluginInfoTest {
 
         // all periods, if the Marketplace supports subscriptions and perpetual licenses of the same plugin
         assertEquals(
-            LicensePeriod.entries.toSet(),
+            (LicensePeriod.entries - LicensePeriod.Unknown).toSet(),
             info(LicensingType.Perpetual, LicensePeriod.Annual, LicensePeriod.Monthly).offeredLicensePeriods
         )
         assertEquals(
-            LicensePeriod.entries.toSet(),
-            info(LicensingType.Subscription, *LicensePeriod.entries.toTypedArray()).offeredLicensePeriods
+            (LicensePeriod.entries - LicensePeriod.Unknown).toSet(),
+            info(LicensingType.Subscription, *(LicensePeriod.entries - LicensePeriod.Unknown).toTypedArray()).offeredLicensePeriods
         )
     }
 }

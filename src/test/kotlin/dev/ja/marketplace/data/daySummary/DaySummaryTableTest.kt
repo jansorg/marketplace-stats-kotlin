@@ -35,10 +35,10 @@ class DaySummaryTableTest {
     @Test
     suspend fun allPeriods() {
         // unknown licensing, e.g. if the info couldn't be loaded
-        assertEquals(LicensePeriod.entries, periods(null, year2024))
+        assertEquals(LicensePeriod.entries - LicensePeriod.Unknown, periods(null, year2024))
 
         // subscriptions and perpetual licenses
-        assertEquals(LicensePeriod.entries, periods(LicensingType.Perpetual, year2024, LicensePeriod.Annual, LicensePeriod.Monthly))
+        assertEquals(LicensePeriod.entries - LicensePeriod.Unknown, periods(LicensingType.Perpetual, year2024, LicensePeriod.Annual, LicensePeriod.Monthly))
     }
 
     private suspend fun periods(

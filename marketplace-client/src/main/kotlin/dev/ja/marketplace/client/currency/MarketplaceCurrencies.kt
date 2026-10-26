@@ -30,7 +30,8 @@ object MarketplaceCurrencies : Iterable<CurrencyUnit> {
             "GBP" -> GBP
             "CZK" -> CZK
             "CNY" -> CNY
-            else -> throw IllegalStateException("Unknown currency $id")
+            // a new currency of the Marketplace must not break the sales, the ECB rates convert most currencies
+            else -> Monetary.getCurrency(id)
         }
     }
 }

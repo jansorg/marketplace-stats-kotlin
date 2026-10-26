@@ -24,7 +24,11 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         AnnualFree,
         AnnualPaying,
         MonthlyFree,
-        MonthlyPaying;
+        MonthlyPaying,
+
+        // a license period, which the Marketplace added later
+        OtherFree,
+        OtherPaying;
 
         companion object {
             fun of(licenseInfo: LicenseInfo): CustomerSegment {
@@ -34,12 +38,14 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                         LicensePeriod.Perpetual -> PerpetualPaying
                         LicensePeriod.Monthly -> MonthlyPaying
                         LicensePeriod.Annual -> AnnualPaying
+                        LicensePeriod.Unknown -> OtherPaying
                     }
 
                     else -> when (licenseInfo.sale.licensePeriod) {
                         LicensePeriod.Perpetual -> PerpetualFree
                         LicensePeriod.Annual -> AnnualFree
                         LicensePeriod.Monthly -> MonthlyFree
+                        LicensePeriod.Unknown -> OtherFree
                     }
                 }
             }

@@ -27,7 +27,7 @@ class CachingJetBrainsServiceClientTest {
         majorVersion = "2025.1",
         version = "2025.1",
         build = BuildNumber.of("251.23774.435"),
-        patches = mapOf(ProductPatchType.UNIX to listOf(ProductPatchRelease("243.1", "https://example.com/patch", 100, "https://example.com/sum"))),
+        patches = mapOf("unix" to listOf(ProductPatchRelease("243.1", "https://example.com/patch", 100, "https://example.com/sum"))),
         downloads = mapOf(LinuxDownloadType to ProductReleaseDownload("https://example.com/linux", "https://example.com/linux.sha", 1000)),
     )
 

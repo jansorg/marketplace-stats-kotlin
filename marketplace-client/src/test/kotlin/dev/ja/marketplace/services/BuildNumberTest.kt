@@ -14,6 +14,8 @@ class BuildNumberTest {
         assertEquals(BuildNumber(intArrayOf(1, 2, 3)), BuildNumber.of("1.2.3"))
         assertEquals(BuildNumber(intArrayOf(221, 123)), BuildNumber.of("221.123"))
         assertEquals(BuildNumber(intArrayOf(162, 1236)), BuildNumber.of("162.1236"))
+        // a build with a suffix
+        assertEquals(BuildNumber(intArrayOf(251)), BuildNumber.of("251.SNAPSHOT"))
     }
 
     @Test
