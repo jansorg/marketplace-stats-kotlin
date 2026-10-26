@@ -975,18 +975,10 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                     drawExtremes(plot, chartSeries, {kinds: extremes, isBars, interval, formatter, font: style.fonts.extremeLabel, theme});
                 }
             }],
-            // series are shown and hidden by a click on the legend, the overlays of a series are shown and hidden with it
+            // series and overlays, e.g. moving averages, are shown and hidden one by one by a click on the legend
             setSeries: [(plot, seriesIndex) => {
                 if (seriesIndex !== null) {
                     onSeriesVisibilityChange?.(seriesKey(seriesIndex), plot.series[seriesIndex].show);
-                }
-                if (seriesIndex !== null && seriesIndex <= chartSeries.length) {
-                    const base = chartSeries[seriesIndex - 1];
-                    chartOverlays.forEach((overlay, i) => {
-                        if (overlay.base === base && plot.series[overlayIndex(i)].show !== plot.series[seriesIndex].show) {
-                            plot.setSeries(overlayIndex(i), {show: plot.series[seriesIndex].show});
-                        }
-                    });
                 }
                 updateComparisons?.();
             }],
@@ -1025,7 +1017,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                 ...(CHART_STYLE.overlays[overlay.kind].dash && !overlay.isMainLine ? {dash: CHART_STYLE.overlays[overlay.kind].dash} : {}),
                 spanGaps: true,
                 points: {show: false},
-                show: !hiddenSeries.has(overlay.base.key) && !hiddenSeries.has(overlayKey(overlay)),
+                show: !hiddenSeries.has(overlayKey(overlay)),
             })),
         ],
     };
@@ -1052,19 +1044,16 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     }
 
     /**
-     * @return The rows of the value table: a row of each series, or of each of its averages, if it only shows its
-     *  average. A click on the row of a series shows or hides the series and its averages, a click on the row of an
-     *  average only the average.
+     * @return The rows of the value table: a row of each series, followed by its overlays, e.g. its moving averages.
+     *  A series, which only shows its averages, has no row. A click on a row only shows or hides its line.
      */
     function valueTableRows() {
         return chartSeries.flatMap((s, seriesIndex) => {
             const label = s.isRightAxis ? s.label + " (right axis)" : s.label;
-            if (!s.isValueHidden) {
-                return [{label, color: s.color, unit: s.unit, incomplete: s.incomplete, values: values[seriesIndex], plotIndex: seriesIndex + 1}];
-            }
-            return chartOverlays
+            const seriesRow = s.isValueHidden ? [] : [{label, color: s.color, unit: s.unit, incomplete: s.incomplete, values: values[seriesIndex], plotIndex: seriesIndex + 1}];
+            return seriesRow.concat(chartOverlays
                 .map((overlay, overlayIndex) => ({overlay, overlayIndex}))
-                .filter(({overlay}) => overlay.base === s && overlay.kind.startsWith("average"))
+                .filter(({overlay}) => overlay.base === s)
                 .map(({overlay, overlayIndex}) => ({
                     label: s.isRightAxis ? overlay.label + " (right axis)" : overlay.label,
                     color: overlayColor(overlay),
@@ -1072,7 +1061,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                     incomplete: new Set(),
                     values: overlayValues[overlayIndex],
                     plotIndex: chartSeries.length + overlayIndex + 1,
-                }));
+                })));
         });
     }
 

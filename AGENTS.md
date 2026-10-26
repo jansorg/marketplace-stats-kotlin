@@ -172,8 +172,10 @@ extend, must not fail a response:
 - The key C shows and hides the chart dialog.
 - The cursor of a line chart snaps to the closest value. Dashed and dotted lines mark the dates one year and one month
   before and after it, the table below the chart compares the values at these dates (`enableComparisons` in
-  `lineChart.js`). The table replaces the uPlot legend, a click on the label of a series shows or hides it. Without
-  the option "Value table" of the View menu, the uPlot legend is shown instead, it only shows and hides the series.
+  `lineChart.js`). The table replaces the uPlot legend, it lists each series followed by its trends, e.g. its moving
+  averages (`valueTableRows`). A click on the label of a line only shows or hides this line, not the trends of a
+  series. Without the option "Value table" of the View menu, the uPlot legend is shown instead, it only shows and
+  hides the lines.
 - Columns declare what they measure with `DataTableColumn.chartMeasure` (`ChartMeasure`: flow, stock or ratio), written
   as `data-chart-measure`. The trends of the View menu (1-, 3- and 12-month moving averages, previous year) are only added
   to suitable series (`overlayApplies` in `model.js`): averages to monthly values with the granularity Month, and to
