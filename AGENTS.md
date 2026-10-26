@@ -161,7 +161,8 @@ extend, must not fail a response:
 
 ## Cached Tables
 
-- `DefaultPluginPageDefinition` reuses the calculated tables of a page (`VersionedCache`, by plugin and `rows`) while
+- `DefaultPluginPageDefinition` reuses the calculated tables of a page (`VersionedCache`, by plugin and `rows`, at
+  most 20 keys per page, soft values, which the garbage collector removes when the memory gets scarce) while
   the data of the plugin is the same: `PluginData.dataVersion()` contains today, the currency, the version of the
   exchange rates (`ExchangeRates.dataVersion`, a new object after an update of the ECB rates) and all loaded data.
   The cached client returns the same objects until it loads data again (expiry, refresh, reload, auto-refresh,
