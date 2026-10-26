@@ -26,6 +26,13 @@ test("a stored setup is loaded", () => {
         ["chartStyles", "combineUnits", "entries", "granularities", "maximized", "preferredStyle", "showIncomplete", "showValueTable", "shownExtremes", "shownMarkers", "shownOverlays", "version"]);
 });
 
+test("the dialog is maximized by default", () => {
+    const load = stored => createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 1, entries: [], ...stored})})).load();
+    assert.equal(emptySetup().maximized, true);
+    assert.equal(load({}).maximized, true);
+    assert.equal(load({maximized: false}).maximized, false);
+});
+
 test("invalid data is ignored", () => {
     assert.deepEqual(createSetupStorage(memoryStorage({[STORAGE_KEY]: "{invalid"})).load(), emptySetup());
     assert.deepEqual(createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 99, entries: []})})).load(), emptySetup());
