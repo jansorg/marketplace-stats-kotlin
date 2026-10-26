@@ -219,7 +219,6 @@ events:
 
 - You find the ID of a plugin in the address of its report, e.g. `?pluginId=12345`.
 - The IDs of the events must be unique.
-- `events.yml` in this repository is an example.
 
 ### Use the File
 
