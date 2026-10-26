@@ -132,6 +132,13 @@ html {
     -webkit-text-size-adjust: 100%;
 }
 
+/* small screens show more of the tables with a slightly smaller font, the sizes in rem follow it */
+@media (max-width: 600px) {
+    html {
+        font-size: 93.75%;
+    }
+}
+
 @media screen and (prefers-color-scheme: dark) {
     html {
         -webkit-font-smoothing: antialiased;
@@ -1434,6 +1441,26 @@ dl.detail-grid dd {
 
 /* on small screens, the levels and the styles of a chart are dropdown menus, they need less space than the buttons */
 @media (max-width: 600px) {
+    /* the menus of the dialog and of the first chart fit into one row, e.g. on an iPhone SE. The hint is hidden,
+       the menus have some space below the title. */
+    .chart-dialog .chart-marker-toggles {
+        gap: 0.4rem 0.3rem;
+        margin-top: 0.6rem;
+    }
+
+    .chart-dialog .chart-toolbar {
+        gap: 0.3rem;
+    }
+
+    .chart-dialog .chart-menu summary {
+        padding: 0.1rem 0.3rem;
+    }
+
+    /* the menu of the range only shows the range, e.g. "Past 7 days" */
+    .chart-range-prefix {
+        display: none;
+    }
+
     .chart-switch .chart-full-switch {
         display: none;
     }
