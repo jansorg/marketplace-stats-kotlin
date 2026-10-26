@@ -5,8 +5,9 @@
 
 package dev.ja.marketplace.data
 
-import dev.ja.marketplace.client.currency.WithAmounts
 import dev.ja.marketplace.client.YearMonthDay
+import dev.ja.marketplace.client.currency.WithAmounts
+import dev.ja.marketplace.data.chart.ChartLevel
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import java.util.concurrent.atomic.AtomicReference
 import javax.money.MonetaryAmount
@@ -56,6 +57,12 @@ interface DataTable : MarketplaceDataSink {
      * The period of the rows of a chartable table.
      */
     val chartPeriod: ChartPeriod get() = ChartPeriod.Day
+
+    /**
+     * The window and the detail level of a new chart of a column with a [DataTableColumn.chartMetric], so that the
+     * chart shows the values of the table, e.g. the sums of each month at the end of each month.
+     */
+    val chartLevel: ChartLevel get() = ChartLevel.of(chartPeriod)
 
     suspend fun renderTable(): RenderedDataTable
 }
@@ -132,15 +139,13 @@ data class DataTableColumn(
      */
     val isShareOfTotal: Boolean = false,
     /**
-     * ID of the values of this column for each day, which charts load from `/chart-series`,
-     * see [dev.ja.marketplace.data.overview.OverviewDailyValues].
+     * ID of the [dev.ja.marketplace.data.chart.ChartMetric] of this column, whose values the charts load from
+     * `/chart-data`. The same metric of different tables is shown as the same series.
+     * Columns with [rowHistoryPeriod] have a metric for each row, the ID is the prefix of their IDs, e.g.
+     * [dev.ja.marketplace.data.chart.ChartMetric.CUSTOMER_TYPE_SHARE]. Charts of columns without a metric show the
+     * values of the table.
      */
-    val dailyChartSeries: String? = null,
-    /**
-     * ID of the values of this column at the end of each year, which charts load from `/chart-series`, e.g. the churn of
-     * each year in a table of months.
-     */
-    val yearlyChartSeries: String? = null,
+    val chartMetric: String? = null,
     /**
      * What the values of this column measure, e.g. sums of a period. Charts offer trends like moving averages only for
      * suitable columns, see [ChartMeasure].

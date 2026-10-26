@@ -9,7 +9,10 @@ import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.data.PercentageValue
-import dev.ja.marketplace.data.overview.DailySeries
+import dev.ja.marketplace.data.chart.ChartMetric
+import dev.ja.marketplace.data.chart.ChartWindow
+import dev.ja.marketplace.data.chart.DailyRatio
+import dev.ja.marketplace.data.chart.DailySeries
 import dev.ja.marketplace.data.trackers.RecurringRevenueSales
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap
@@ -19,63 +22,52 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 
 /**
- * The columns of the monthly tables of the subscription metrics, which have values for each day.
- * The [id] is used by the charts.
- */
-enum class SubscriptionDailyColumn(val id: String) {
-    Mrr("subscriptions-mrr"),
-    New("mrr-new"),
-    Expansion("mrr-expansion"),
-    Contraction("mrr-contraction"),
-    Churned("mrr-churned"),
-    Reactivation("mrr-reactivation"),
-    NetChange("mrr-net-change"),
-
-    // the MRR movements of the year before each day, between the MRR a year before the day and at the day
-    NewOfYear("mrr-new.year"),
-    ExpansionOfYear("mrr-expansion.year"),
-    ContractionOfYear("mrr-contraction.year"),
-    ChurnedOfYear("mrr-churned.year"),
-    ReactivationOfYear("mrr-reactivation.year"),
-    NetChangeOfYear("mrr-net-change.year"),
-
-    CustomersYearAgo("customers-year-ago"),
-    CustomerRetention("customer-retention"),
-    GrossRevenueRetention("grr"),
-    NetRevenueRetention("nrr"),
-    PayingCustomers("paying-customers"),
-    AverageRevenue("arpa"),
-    AverageRevenueOrganizations("arpa-organizations"),
-    AverageRevenueIndividuals("arpa-individuals"),
-}
-
-/**
- * The values of the monthly tables of the subscription metrics for each day, for charts with a finer resolution than
- * the months of the tables.
+ * The values of the monthly tables of the subscription metrics for each day, for the charts, see
+ * [dev.ja.marketplace.data.chart.ChartMetricValues].
  *
- * The values have the meaning and the scale of the values of the tables, like
- * [dev.ja.marketplace.data.overview.OverviewDailyValues]: the MRR of each customer at a day is compared with the MRR
- * one month before the day (MRR movements) or one year before the day (revenue retention). At the last day of a month,
- * it's compared with the last day of the previous month or of the same month of the previous year,
- * so that the values of the last day of a month are the values of the tables.
+ * The values have the meaning and the scale of the values of the tables: the MRR of each customer at a day is compared
+ * with the MRR at the day before the window of the day (MRR movements and retention), see [ChartWindow]. At the last day
+ * of a month, the window of a month is compared with the last day of the previous month and the window of a year with
+ * the last day of the same month of the previous year, so that the values of the last day of a month are the values of
+ * the tables.
  *
  * The MRR of the customers at each day uses the rules of [CustomerRecurringRevenue] for the end of a month:
  * only the latest sale of each paid subscription license, which is valid at the day, contributes.
  */
 object SubscriptionDailyValues {
+    private val HUNDRED = BigDecimal(100)
+
     /** Days, whose MRR of the customers is kept to compare it, a year and a few days. */
     private const val KEPT_DAYS = 400
+
+    /** The movements of the MRR between the start and the end of a window. */
+    val windowMetrics: List<ChartMetric> = listOf(
+        ChartMetric.MrrNew, ChartMetric.MrrExpansion, ChartMetric.MrrContraction, ChartMetric.MrrChurned,
+        ChartMetric.MrrReactivation, ChartMetric.MrrNetChange, ChartMetric.QuickRatio,
+    )
+
+    /** The values at each day: the paying customers, their average revenue and the retention of a year. */
+    val dayMetrics: List<ChartMetric> = listOf(
+        ChartMetric.PreviousCustomers, ChartMetric.CustomerRetention, ChartMetric.GrossRevenueRetention,
+        ChartMetric.NetRevenueRetention,
+        ChartMetric.PayingCustomers, ChartMetric.AverageRevenue, ChartMetric.AverageRevenueOrganizations,
+        ChartMetric.AverageRevenueIndividuals,
+    )
 
     /**
      * @param days The days of the values, ordered and without gaps, up to [today].
      * @param licenses The licenses, which were used to create [revenue].
+     * @param window The window of the movements of the MRR, or `null` for the values at each day, which don't depend
+     *  on a window. The retention compares with the year before each day, like the table.
+     * @return The values of the [windowMetrics], or of the [dayMetrics] without a window.
      */
     fun create(
         days: List<YearMonthDay>,
         licenses: Iterable<LicenseInfo>,
         revenue: CustomerRecurringRevenue,
         today: YearMonthDay = YearMonthDay.now(),
-    ): Map<SubscriptionDailyColumn, DailySeries> {
+        window: ChartWindow?,
+    ): Map<ChartMetric, DailySeries> {
         if (days.isEmpty()) {
             return emptyMap()
         }
@@ -117,9 +109,24 @@ object SubscriptionDailyValues {
             }
         }
 
-        val columns = SubscriptionDailyColumn.entries.associateWith { MutableList<BigDecimal?>(dayCount) { null } }
-        fun set(column: SubscriptionDailyColumn, index: Int, value: BigDecimal?) {
+        val metrics = if (window != null) windowMetrics else dayMetrics
+        val columns = metrics.associateWith { MutableList<BigDecimal?>(dayCount) { null } }
+        fun set(column: ChartMetric, index: Int, value: BigDecimal?) {
             columns.getValue(column)[index] = value
+        }
+
+        // the numerators and the denominators of the rates, e.g. to pool the rates of several months
+        val ratioMetrics = mapOf(
+            ChartMetric.QuickRatio to BigDecimal.ONE,
+            ChartMetric.CustomerRetention to HUNDRED,
+            ChartMetric.GrossRevenueRetention to HUNDRED,
+            ChartMetric.NetRevenueRetention to HUNDRED,
+        ).filterKeys { it in metrics }
+        val numerators = ratioMetrics.mapValues { MutableList<BigDecimal?>(dayCount) { null } }
+        val denominators = ratioMetrics.mapValues { MutableList<BigDecimal?>(dayCount) { null } }
+        fun setRatio(metric: ChartMetric, index: Int, numerator: BigDecimal, denominator: BigDecimal) {
+            numerators.getValue(metric)[index] = numerator
+            denominators.getValue(metric)[index] = denominator
         }
 
         fun amount(value: BigDecimal?): BigDecimal? = value?.setScale(2, RoundingMode.HALF_UP)
@@ -156,54 +163,43 @@ object SubscriptionDailyValues {
             snapshots[index] = current
             snapshots.remove(index - KEPT_DAYS)
 
-            val day = days[index]
-            val isLastOfMonth = day == YearMonthDay.lastOfMonth(day.year, day.month)
-
-            val previousMonthDay = when {
-                isLastOfMonth -> day.add(0, -1, 0).let { YearMonthDay.lastOfMonth(it.year, it.month) }
-                else -> day.add(0, -1, 0)
+            if (window != null) {
+                // the MRR at the day before the window
+                val previousIndex = index(window.start(days[index]).add(0, 0, -1))
+                // the kept snapshots cover the longest window
+                check(previousIndex < 0 || previousIndex >= index - KEPT_DAYS) { "The window $window is too long" }
+                val previous = snapshots[previousIndex] ?: Int2ObjectMaps.emptyMap()
+                val movements = MrrMovements.of(current, previous) { customer ->
+                    firstPaidDay(customer) > previousIndex
+                }
+                set(ChartMetric.MrrNew, index, amount(movements.new))
+                set(ChartMetric.MrrExpansion, index, amount(movements.expansion))
+                set(ChartMetric.MrrContraction, index, amount(movements.contraction.negate()))
+                set(ChartMetric.MrrChurned, index, amount(movements.churned.negate()))
+                set(ChartMetric.MrrReactivation, index, amount(movements.reactivation))
+                set(ChartMetric.MrrNetChange, index, amount(movements.netChange))
+                set(ChartMetric.QuickRatio, index, movements.quickRatio)
+                setRatio(ChartMetric.QuickRatio, index, movements.new + movements.expansion + movements.reactivation, movements.contraction + movements.churned)
+                continue
             }
-            val previousMonthIndex = index(previousMonthDay)
-            val previousMonth = snapshots[previousMonthIndex] ?: Int2ObjectMaps.emptyMap()
-            val movements = MrrMovements.of(current, previousMonth) { customer ->
-                firstPaidDay(customer) > previousMonthIndex
-            }
-            set(SubscriptionDailyColumn.Mrr, index, amount(movements.mrr))
-            set(SubscriptionDailyColumn.New, index, amount(movements.new))
-            set(SubscriptionDailyColumn.Expansion, index, amount(movements.expansion))
-            set(SubscriptionDailyColumn.Contraction, index, amount(movements.contraction.negate()))
-            set(SubscriptionDailyColumn.Churned, index, amount(movements.churned.negate()))
-            set(SubscriptionDailyColumn.Reactivation, index, amount(movements.reactivation))
-            set(SubscriptionDailyColumn.NetChange, index, amount(movements.netChange))
 
             val average = AverageRevenuePerCustomer.of(current, revenue::customerType)
-            set(SubscriptionDailyColumn.PayingCustomers, index, BigDecimal.valueOf(average.customers.toLong()))
-            set(SubscriptionDailyColumn.AverageRevenue, index, amount(average.average))
-            set(SubscriptionDailyColumn.AverageRevenueOrganizations, index, amount(average.average(CustomerType.Organization)))
-            set(SubscriptionDailyColumn.AverageRevenueIndividuals, index, amount(average.average(CustomerType.Individual)))
+            set(ChartMetric.PayingCustomers, index, BigDecimal.valueOf(average.customers.toLong()))
+            set(ChartMetric.AverageRevenue, index, amount(average.average))
+            set(ChartMetric.AverageRevenueOrganizations, index, amount(average.average(CustomerType.Organization)))
+            set(ChartMetric.AverageRevenueIndividuals, index, amount(average.average(CustomerType.Individual)))
 
-            val previousYearDay = when {
-                isLastOfMonth -> YearMonthDay.lastOfMonth(day.year - 1, day.month)
-                else -> day.add(-1, 0, 0)
-            }
-            val previousYearIndex = index(previousYearDay)
-            val previousYear = snapshots[previousYearIndex] ?: Int2ObjectMaps.emptyMap()
-            val movementsOfYear = MrrMovements.of(current, previousYear) { customer ->
-                firstPaidDay(customer) > previousYearIndex
-            }
-            set(SubscriptionDailyColumn.NewOfYear, index, amount(movementsOfYear.new))
-            set(SubscriptionDailyColumn.ExpansionOfYear, index, amount(movementsOfYear.expansion))
-            set(SubscriptionDailyColumn.ContractionOfYear, index, amount(movementsOfYear.contraction.negate()))
-            set(SubscriptionDailyColumn.ChurnedOfYear, index, amount(movementsOfYear.churned.negate()))
-            set(SubscriptionDailyColumn.ReactivationOfYear, index, amount(movementsOfYear.reactivation))
-            set(SubscriptionDailyColumn.NetChangeOfYear, index, amount(movementsOfYear.netChange))
-
-            if (firstRetentionDay != null && previousYearDay >= firstRetentionDay) {
-                val retention = RevenueRetention.of(current, previousYear)
-                set(SubscriptionDailyColumn.CustomersYearAgo, index, BigDecimal.valueOf(retention.previousCustomers.toLong()))
-                set(SubscriptionDailyColumn.CustomerRetention, index, percentage(retention.customerRetention))
-                set(SubscriptionDailyColumn.GrossRevenueRetention, index, percentage(retention.grossRevenueRetention))
-                set(SubscriptionDailyColumn.NetRevenueRetention, index, percentage(retention.netRevenueRetention))
+            // the retention compares with the MRR a year before the day, it needs a year of recurring revenue
+            val previousYearIndex = index(ChartWindow.Year.start(days[index]).add(0, 0, -1))
+            if (firstRetentionDay != null && previousYearIndex >= index(firstRetentionDay)) {
+                val retention = RevenueRetention.of(current, snapshots[previousYearIndex] ?: Int2ObjectMaps.emptyMap())
+                set(ChartMetric.PreviousCustomers, index, BigDecimal.valueOf(retention.previousCustomers.toLong()))
+                set(ChartMetric.CustomerRetention, index, percentage(retention.customerRetention))
+                set(ChartMetric.GrossRevenueRetention, index, percentage(retention.grossRevenueRetention))
+                set(ChartMetric.NetRevenueRetention, index, percentage(retention.netRevenueRetention))
+                setRatio(ChartMetric.CustomerRetention, index, BigDecimal.valueOf(retention.retainedCustomers.toLong()), BigDecimal.valueOf(retention.previousCustomers.toLong()))
+                setRatio(ChartMetric.GrossRevenueRetention, index, retention.currentMrrWithoutExpansion, retention.previousMrr)
+                setRatio(ChartMetric.NetRevenueRetention, index, retention.currentMrr, retention.previousMrr)
             }
         }
 
@@ -211,15 +207,9 @@ object SubscriptionDailyValues {
         // it's the value of today, it changes until the end of the month
         val incompleteFrom = maxOf(0, index(YearMonthDay.firstOfMonth(today.year, today.month)))
         val currency = revenue.currency.currencyCode
-        return columns.mapValues { (column, values) ->
-            val unit = when (column) {
-                SubscriptionDailyColumn.CustomersYearAgo, SubscriptionDailyColumn.PayingCustomers -> "count"
-                SubscriptionDailyColumn.CustomerRetention, SubscriptionDailyColumn.GrossRevenueRetention,
-                SubscriptionDailyColumn.NetRevenueRetention -> "%"
-
-                else -> currency
-            }
-            DailySeries(unit, values, incompleteFrom)
+        return columns.mapValues { (metric, values) ->
+            val ratio = ratioMetrics[metric]?.let { factor -> DailyRatio(numerators.getValue(metric), denominators.getValue(metric), factor) }
+            DailySeries(metric.unit.id(currency), values, incompleteFrom, ratio)
         }
     }
 }

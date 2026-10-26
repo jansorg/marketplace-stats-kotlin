@@ -8,14 +8,16 @@
  *
  * The server writes the data as attributes:
  * - tables: `data-chart-title` and `data-chart-period` (day, month or year) for line charts
- * - column headers: `data-chart-col` (index), `data-chart-label`, `data-chart-pie` for share columns and
- *   `data-chart-daily` for columns with values for each day, which are loaded from `/chart-series`,
- *   `data-chart-yearly` for columns with values at the end of each year, also loaded from `/chart-series`,
+ * - column headers: `data-chart-col` (index), `data-chart-label`, `data-chart-pie` for share columns,
  *   `data-chart-measure` (flow, stock or ratio) for what the values measure,
  *   `data-chart-history` (day, month or year) for columns with the values of each row over time
- * - cells of columns with the values of the rows over time: `data-chart-history`, JSON like
+ * - column headers of metrics, whose values are loaded from `/chart-data`: `data-chart-metric` (ID of the metric, the
+ *   prefix of the metrics of the rows of columns with `data-chart-history`), `data-chart-unit`, and `data-chart-window`
+ *   and `data-chart-detail`, the level of a new chart, which shows the values of the table
+ * - cells of columns without a metric with the values of the rows over time: `data-chart-history`, JSON like
  *   `{"unit": "%", "points": [["2026-09-30", 45.2, false], ...]}`, the last value of a point is true for incomplete values
- * - rows of line charts: `data-chart-x` (ISO date), cells: `data-chart-value`, `data-chart-unit`, `data-chart-incomplete`
+ * - rows of line charts: `data-chart-x` (ISO date), cells of columns without a metric: `data-chart-value`,
+ *   `data-chart-unit`, `data-chart-incomplete`
  * - rows of pie charts: `data-chart-category`, cells: `data-chart-share` (percentage)
  * - vertical lines: `#chart-major-releases`, `#chart-price-changes`, `#chart-ide-releases` and `#chart-custom-events`
  *   with `li[data-date]`, the custom events also with `data-event-id`
@@ -33,18 +35,20 @@ function headerLabel(header) {
 }
 
 /**
- * @return {{header: HTMLElement, type: "line"|"pie", table: string, column: string, columnIndex: number, isRowHistory: boolean}[]}
+ * @return {{header: HTMLElement, type: "line"|"pie"|"metric", table: string, column: string, columnIndex: number, isRowHistory: boolean}[]}
  *  The columns of a table, which can be shown in a chart. Columns with the values of the rows over time are line
- *  charts with a series for each row, see {@link readRowHistorySeries}.
+ *  charts with a series for each row, see {@link readRowHistorySeries} and {@link readMetricSeries}.
  */
 export function chartColumns(table) {
     const columns = [];
     for (const header of table.querySelectorAll("th[data-chart-col]")) {
         const columnIndex = Number.parseInt(header.dataset.chartCol, 10);
         const isRowHistory = Boolean(header.dataset.chartHistory);
-        const type = header.dataset.chartPie === "true" ? "pie" : "line";
+        const type = header.dataset.chartPie === "true" ? "pie" : header.dataset.chartMetric ? "metric" : "line";
         const cells = `tr[data-chart-category] > :nth-child(${columnIndex + 1})`;
-        const hasValues = isRowHistory ? table.querySelector(`${cells}[data-chart-history]`) !== null
+        // a column of a metric has a unit, if the table has values
+        const hasValues = type === "metric" ? Boolean(header.dataset.chartUnit)
+            : isRowHistory ? table.querySelector(`${cells}[data-chart-history]`) !== null
             : type === "pie" ? table.querySelector(`${cells}[data-chart-share]`) !== null
                 : table.querySelector(`td[data-chart-col="${columnIndex}"]`) !== null;
         if (hasValues) {
@@ -60,7 +64,7 @@ function chartLabel(table, column) {
 
 /**
  * @return {{key: string, table: string, column: string, label: string, period: string, unit: string|null,
- *  points: Map<number, number>, incomplete: Set<number>, daily: string|null, yearly: string|null, measure: string|null}}
+ *  points: Map<number, number>, incomplete: Set<number>, measure: string|null}}
  *  The values of a column for a line chart.
  */
 export function readLineSeries(table, columnIndex) {
@@ -93,9 +97,6 @@ export function readLineSeries(table, columnIndex) {
         unit,
         points,
         incomplete,
-        daily: header.dataset.chartDaily || null,
-        // the values at the end of each year, e.g. the churn of each year in the table of months
-        yearly: header.dataset.chartYearly || null,
         measure: header.dataset.chartMeasure || null,
     };
 }
@@ -134,13 +135,45 @@ export function readRowHistorySeries(table, columnIndex) {
             unit: history.unit,
             points,
             incomplete,
-            // the values per day and per year, e.g. customer-type-share.month.Individual, see CustomerTypeDailyValues.kt
-            daily: header.dataset.chartDaily ? `${header.dataset.chartDaily}.month.${name}` : null,
-            yearly: header.dataset.chartDaily ? `${header.dataset.chartDaily}.year.${name}` : null,
             measure: header.dataset.chartMeasure || null,
         });
     }
     return series;
+}
+
+/**
+ * @return {{key: string, metric: string, label: string, unit: string, measure: string|null, row?: string}[]} The
+ *  series of a column with a metric, a series for each row of a column with the values of the rows over time, e.g. the
+ *  share of each customer type. The values are loaded from /chart-data.
+ */
+export function readMetricSeries(table, columnIndex) {
+    const header = table.querySelector(`th[data-chart-col="${columnIndex}"]`);
+    const column = headerLabel(header);
+    const metric = header.dataset.chartMetric;
+    const unit = header.dataset.chartUnit;
+    const measure = header.dataset.chartMeasure || null;
+    if (!header.dataset.chartHistory) {
+        return [{key: metricKey(metric), metric, label: column, unit, measure}];
+    }
+    return [...table.querySelectorAll("tr[data-chart-category]")].map(row => {
+        const name = row.dataset.chartCategory;
+        return {key: metricKey(`${metric}.${name}`), metric: `${metric}.${name}`, label: name + ", " + column, unit, measure, row: name};
+    });
+}
+
+/** @return {string} The key of the series of a metric, the same for all tables. */
+export function metricKey(metric) {
+    return "metric:" + metric;
+}
+
+/**
+ * @return {{window: string, detail: string}|null} The window and the detail level of a new chart of a metric column,
+ *  so that it shows the values of the table.
+ */
+export function readMetricLevel(table, columnIndex) {
+    const header = table.querySelector(`th[data-chart-col="${columnIndex}"]`);
+    const {chartWindow: window, chartDetail: detail} = header.dataset;
+    return window && detail ? {window, detail} : null;
 }
 
 /** @return {{unit: string, points: [string, number, boolean][]}|null} */

@@ -11,6 +11,7 @@ import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.model.MonthlyDownload
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.chart.ChartMetric
 import dev.ja.marketplace.data.trackers.AnnualRecurringRevenueTracker
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.data.trackers.MonthlyRecurringRevenueTracker
@@ -28,20 +29,20 @@ import java.util.*
  */
 class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : SimpleDataTable("Years", "all-plugins", "table-column-wide table-fixed-columns") {
     private val columnYear = DataTableColumn("year", null)
-    private val columnSalesTotal = DataTableColumn("sales", "Sales Total", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.SALES)
-    private val columnSalesFees = DataTableColumn("fees", "Fees", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.FEES)
-    private val columnSalesPaid = DataTableColumn("paid", "Invoice", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.PAID)
+    private val columnSalesTotal = DataTableColumn("sales", "Sales Total", "num", chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Sales.id)
+    private val columnSalesFees = DataTableColumn("fees", "Fees", "num", chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Fees.id)
+    private val columnSalesPaid = DataTableColumn("paid", "Invoice", "num", chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Invoice.id)
     private val columnMrr = DataTableColumn(
         "mrr", "MRR", "num", tooltip = "Monthly recurring revenue at the end of the year",
-        chartMeasure = ChartMeasure.Stock, dailyChartSeries = AllPluginsDailyValues.MRR,
+        chartMeasure = ChartMeasure.Stock, chartMetric = ChartMetric.Mrr.id,
     )
     private val columnArr = DataTableColumn(
         "arr", "ARR", "num", tooltip = "Annual recurring revenue at the end of the year",
-        chartMeasure = ChartMeasure.Stock, dailyChartSeries = AllPluginsDailyValues.ARR,
+        chartMeasure = ChartMeasure.Stock, chartMetric = ChartMetric.Arr.id,
     )
     private val columnDownloads = DataTableColumn(
         "downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Downloads",
-        chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.DOWNLOADS,
+        chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Downloads.id,
     )
 
     private val totalSales = PaymentAmountTracker(YearMonthDayRange.MAX, displayExchangeRates)

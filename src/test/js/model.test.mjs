@@ -8,8 +8,8 @@ import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
     averageShade, pinchedRange, rangeLabel, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
-    alignSeries, availableComparisons, granularitiesOf, rollingAverageOfDays, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear, trailingAverageOfDays,
-    seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, finerWindowLabel, groupCharts, mergedGranularities, mergeFinerCharts, partGranularity, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
+    alignSeries, availableComparisons, chartLevel, chartLevelKeys, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
+    seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
 } from "../../main/resources/js/charts/model.js";
 
@@ -27,54 +27,50 @@ test("colors are assigned in the order of the palette", () => {
     assert.equal(nextColor(SERIES_COLORS), undefined);
 });
 
-test("charts of months and years with the same units share a chart per week or per day", () => {
-    const monthly = granularitiesOf("month", true);
-    const yearly = granularitiesOf("year");
-    const charts = mergeFinerCharts([
-        {period: "month", units: ["count"], dateRange: [100, 200], granularity: "day", granularities: monthly},
-        {period: "month", units: ["USD"], dateRange: [100, 200], granularity: "day", granularities: monthly},
-        {period: "year", units: ["count"], dateRange: [50, 150], granularity: "day", granularities: yearly},
+test("the same metric of different tables is one series in the chart of its unit", () => {
+    const sales = {key: "metric:sales", metric: "sales", period: METRIC_PERIOD, unit: "USD", points: new Map()};
+    const trials = {key: "metric:trials", metric: "trials", period: METRIC_PERIOD, unit: "count", points: new Map()};
+    const renewals = series("year", "%", [[50, 1]]);
+    assert.deepEqual(groupCharts([sales, trials, renewals], false).map(({period, units}) => ({period, units})), [
+        {period: METRIC_PERIOD, units: ["USD"]},
+        {period: METRIC_PERIOD, units: ["count"]},
+        {period: "year", units: ["%"]},
     ]);
-    const monthPart = {key: "month/count", period: "month", granularities: monthly};
-    const yearPart = {key: "year/count", period: "year", granularities: yearly};
-    assert.deepEqual(charts, [
-        {periods: ["month", "year"], parts: [monthPart, yearPart], units: ["count"], dateRange: [50, 200], granularity: "day", granularities: monthly},
-        {periods: ["month"], parts: [{key: "month/USD", period: "month", granularities: monthly}], units: ["USD"], dateRange: [100, 200], granularity: "day", granularities: monthly},
-    ]);
-    // the values of the tables and different granularities keep their own charts
-    assert.equal(mergeFinerCharts([
-        {period: "month", units: ["count"], dateRange: [100, 200], granularity: "month"},
-        {period: "year", units: ["count"], dateRange: [50, 150], granularity: "month"},
-    ]).length, 2);
-    assert.equal(mergeFinerCharts([
-        {period: "month", units: ["count"], dateRange: [100, 200], granularity: "week"},
-        {period: "year", units: ["count"], dateRange: [50, 150], granularity: "day"},
-    ]).length, 2);
 });
 
-test("the levels of a merged chart select the matching level of each table", () => {
-    const monthPart = {key: "month/count", period: "month", granularities: granularitiesOf("month", true)};
-    const yearPart = {key: "year/count", period: "year", granularities: granularitiesOf("year")};
-    assert.deepEqual(mergedGranularities([monthPart, yearPart]), ["yearEnd", "month", "week", "day"]);
-    // Year: the values per year of the table of months and the values of the table of years
-    assert.equal(partGranularity("yearEnd", monthPart), "yearEnd");
-    assert.equal(partGranularity("yearEnd", yearPart), "month");
-    // Month: the values of the table of months and the sums of the year at the end of each month
-    assert.equal(partGranularity("month", monthPart), "month");
-    assert.equal(partGranularity("month", yearPart), "monthEnd");
-    assert.equal(partGranularity("day", yearPart), "day");
-    // without values per year, a table of months has no level Year
-    const withoutYears = {key: "month/USD", period: "month", granularities: granularitiesOf("month")};
-    const dayPart = {key: "day/USD", period: "day", granularities: granularitiesOf("day")};
-    assert.deepEqual(mergedGranularities([withoutYears, dayPart]), ["month", "week", "day"]);
-    assert.equal(partGranularity("yearEnd", withoutYears), "month");
+test("the level of a chart of metrics", () => {
+    const chart = {period: METRIC_PERIOD, units: ["USD", "count"]};
+    assert.deepEqual(chartLevelKeys(chart), ["metric/USD+count", "metric/USD", "metric/count"]);
+    // the level of the first unit until the combined chart has its own level
+    const usd = {window: "year", detail: "day"};
+    assert.deepEqual(chartLevel(chart, {"metric/USD": usd}), usd);
+    assert.deepEqual(chartLevel(chart, {}), {window: "calendar-month", detail: "month"});
+    assert.deepEqual(chartLevel({period: METRIC_PERIOD, units: ["count"]}, {"metric/count": usd}), usd);
 });
 
-test("labels of merged charts name the window of sums and rates", () => {
-    assert.equal(finerWindowLabel({label: "Trials (Years)", period: "year", measure: "flow"}), "Trials (Years), last 12 months");
-    assert.equal(finerWindowLabel({label: "Trials (Overview)", period: "month", measure: "flow"}), "Trials (Overview), last month");
-    assert.equal(finerWindowLabel({label: "Conv. (Overview)", period: "month", measure: "ratio"}), "Conv. (Overview), last month");
-    assert.equal(finerWindowLabel({label: "ARR (Years)", period: "year", measure: "stock"}), "ARR (Years)");
+test("windows are at least as long as the steps between the dates", () => {
+    assert.equal(windowApplies("day", "day"), true);
+    assert.equal(windowApplies("day", "year"), false);
+    assert.equal(windowApplies("week", "month"), false);
+    assert.equal(windowApplies("calendar-month", "month"), true);
+    assert.equal(windowApplies("quarter", "year"), false);
+    assert.equal(windowApplies("year", "year"), true);
+    // a too short window is replaced by the calendar window of the detail level
+    assert.deepEqual(withDetail({window: "day", detail: "day"}, "year"), {window: "calendar-year", detail: "year"});
+    assert.deepEqual(withDetail({window: "year", detail: "month"}, "day"), {window: "year", detail: "day"});
+    // a stored level, which doesn't apply
+    assert.deepEqual(chartLevel({period: METRIC_PERIOD, units: ["USD"]}, {"metric/USD": {window: "week", detail: "month"}}),
+        {window: "calendar-month", detail: "month"});
+});
+
+test("labels of metrics name the window of sums and rates", () => {
+    assert.equal(metricLabel({label: "Trials", usesWindow: true}, "year"), "Trials, last 12 months");
+    assert.equal(metricLabel({label: "Trials", usesWindow: true}, "calendar-month"), "Trials, calendar month");
+    assert.equal(metricLabel({label: "MRR", usesWindow: false}, "year"), "MRR");
+    assert.equal(detailPeriod("year"), "year");
+    assert.equal(detailPeriod("day"), "month");
+    assert.equal(detailGranularity("month"), "monthEnd");
+    assert.equal(detailGranularity("week"), "week");
 });
 
 test("units have separate charts, amounts are on the left axis with a second y-axis", () => {
@@ -195,24 +191,16 @@ test("file names of exported charts contain only letters, digits and dashes", ()
     assert.equal(exportFileName(["", "***"], "png"), "chart.png");
 });
 
-test("charts of columns with values per day can be finer", () => {
-    assert.equal(hasFinerValues([{period: "month", daily: null}, {period: "month", daily: "mrr"}]), true);
-    assert.equal(hasFinerValues([{period: "month", daily: null}]), false);
-    assert.equal(hasFinerValues([{period: "year", daily: "all-plugins-sales"}]), true);
-    assert.equal(hasFinerValues([{period: "day", daily: "all-plugins-month-sales"}]), true);
-    assert.equal(hasFinerValues([{period: "day", daily: null}]), false);
-});
-
 test("values per day are read from the response of the server", () => {
     const data = {
         dates: ["2026-01-01", "2026-01-02", "2026-01-03"],
         series: {mrr: {unit: "USD", values: [1, 2.5, 3], incompleteFrom: 2}},
     };
-    const {points, incomplete} = finerPoints(data, "mrr");
+    const {points, incomplete} = metricPoints(data, "mrr");
     assert.deepEqual([...points.entries()], [[1767225600, 1], [1767312000, 2.5], [1767398400, 3]]);
     assert.deepEqual([...incomplete], [1767398400]);
-    assert.equal(finerPoints(data, "arr"), null);
-    assert.equal(finerPoints(null, "mrr"), null);
+    assert.equal(metricPoints(data, "arr"), null);
+    assert.equal(metricPoints(null, "mrr"), null);
 });
 
 test("dates are shifted by years and months, at most to the last day of the month", () => {
@@ -323,22 +311,23 @@ test("values per day start with the last zero before the first value", () => {
         dates: ["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-04"],
         series: {mrr: {values: [0, 0, 5, 0], incompleteFrom: 4}, arr: {values: [0, 0, 0, 0], incompleteFrom: 4}},
     };
-    assert.deepEqual([...finerPoints(data, "mrr").points.values()], [0, 5, 0]);
-    assert.deepEqual([...finerPoints(data, "arr").points.values()], [0, 0, 0, 0]);
+    assert.deepEqual([...metricPoints(data, "mrr").points.values()], [0, 5, 0]);
+    assert.deepEqual([...metricPoints(data, "arr").points.values()], [0, 0, 0, 0]);
 });
 
 test("averages apply to monthly values, the previous year to all except yearly values", () => {
+    // the values of tables
     const flow = {period: "month", measure: "flow", unit: "USD"};
-    assert.equal(overlayApplies("average3", flow, "month"), true);
-    // values per week or per day need the values per day of the series
-    assert.equal(overlayApplies("average12", flow, "day"), false);
-    assert.equal(overlayApplies("average12", {...flow, daily: "sales"}, "day"), true);
-    assert.equal(overlayApplies("average3", {...flow, daily: "sales"}, "week"), true);
-    assert.equal(overlayApplies("average3", {period: "month", measure: "stock", unit: "count"}, "month"), true);
-    assert.equal(overlayApplies("average12", {period: "month", unit: "%"}, "month"), true);
-    assert.equal(overlayApplies("average3", {period: "year", measure: "flow", unit: "USD"}, "month"), false);
-    assert.equal(overlayApplies("previousYear", {period: "month", measure: "stock", unit: "USD"}, "day"), true);
-    assert.equal(overlayApplies("previousYear", {period: "year", measure: "flow", unit: "USD"}, "month"), false);
+    assert.equal(overlayApplies("average3", flow, null), true);
+    assert.equal(overlayApplies("average1", flow, null), false);
+    assert.equal(overlayApplies("average3", {period: "year", measure: "flow", unit: "USD"}, null), false);
+    assert.equal(overlayApplies("previousYear", {period: "year", measure: "flow", unit: "USD"}, null), false);
+    // metrics, the averages are loaded from the server
+    const metric = {period: "month", metric: "sales", unit: "USD", usesWindow: true};
+    assert.equal(overlayApplies("average12", metric, "day", "month"), true);
+    assert.equal(overlayApplies("average3", metric, "year", "calendar-month"), true);
+    assert.equal(overlayApplies("previousYear", metric, "day"), true);
+    assert.equal(overlayApplies("previousYear", {...metric, period: "year"}, "year"), false);
     assert.equal(seriesMeasure({unit: "%"}), "ratio");
     assert.equal(seriesMeasure({unit: "count"}), null);
 });
@@ -358,22 +347,6 @@ test("moving averages of months", () => {
     assert.equal(trailingAverage(monthly([["2025-01-31", 10]]), 3).size, 0);
 });
 
-test("moving averages of values per day use the same day of the previous months", () => {
-    const series = monthly([
-        ["2025-01-15", 10], ["2025-01-31", 1], ["2025-02-15", 20], ["2025-02-28", 2], ["2025-03-15", 30], ["2025-03-30", 99],
-        ["2025-03-31", 3], ["2025-04-15", 40],
-    ], ["2025-04-15"]);
-    const averages = trailingAverageOfDays(series, 3);
-    // the last day of a month is compared with the last days of the previous months
-    assert.deepEqual([...averages.entries()], [[isoDateToTimestamp("2025-03-15"), 20], [isoDateToTimestamp("2025-03-31"), 2]]);
-    // only at the given dates, e.g. the ends of the weeks
-    assert.deepEqual([...trailingAverageOfDays(series, 2, [isoDateToTimestamp("2025-02-15")]).values()], [15]);
-    // a month before 2025-03-30 is the last day of February, like the values per day of the server
-    assert.deepEqual([...trailingAverageOfDays(series, 2, [isoDateToTimestamp("2025-03-30")]).values()], [50.5]);
-    // there's no average without the values of all months
-    assert.equal(trailingAverageOfDays(series, 3, [isoDateToTimestamp("2025-02-15")]).size, 0);
-});
-
 test("the previous year is shifted by a year and ends with the series", () => {
     const series = monthly([["2024-01-31", 1], ["2024-02-29", 2], ["2025-01-31", 3], ["2025-02-28", 4]], ["2025-02-28"]);
     const shifted = previousYear(series);
@@ -381,27 +354,6 @@ test("the previous year is shifted by a year and ends with the series", () => {
     assert.equal(shifted.incomplete.size, 0);
 });
 
-
-test("the values of yearly tables can also be shown at the end of each month", () => {
-    assert.deepEqual(granularitiesOf("year"), ["month", "monthEnd", "week", "day"]);
-    assert.deepEqual(granularitiesOf("month"), ["month", "week", "day"]);
-    assert.deepEqual(granularitiesOf("day"), ["month", "week", "day"]);
-});
-
-test("monthly values with values per year can also be shown per year", () => {
-    assert.deepEqual(granularitiesOf("month", true), ["yearEnd", "month", "week", "day"]);
-    assert.deepEqual(granularitiesOf("year", true), ["month", "monthEnd", "week", "day"]);
-    assert.equal(hasFinerValues([{period: "month", daily: null, yearly: "share.year.Individual"}]), true);
-    // the averages of months don't apply to the values of years
-    const shares = {period: "month", measure: "ratio", unit: "%", daily: "share.month.Individual"};
-    assert.equal(overlayApplies("average3", shares, "yearEnd"), false);
-    assert.equal(overlayApplies("average3", shares, "week"), true);
-    // the values per day of other tables, e.g. of the years
-    const years = {period: "year", unit: "USD", daily: "all-plugins-sales"};
-    assert.equal(overlayApplies("average12", years, "day"), true);
-    assert.equal(overlayApplies("average12", years, "month"), false);
-    assert.equal(overlayApplies("average12", {...years, daily: null}, "week"), false);
-});
 
 test("the ticks of years are at the end of each year and at the value of the current year", () => {
     const day = isoDateToTimestamp;
@@ -424,25 +376,15 @@ test("custom events are shown one by one", () => {
     assert.deepEqual(visibleMarkers(markers, ["release"]).map(m => m.label), ["v2"]);
 });
 
-test("the 1-month average is the average of the days of the month before each date", () => {
-    const day = isoDateToTimestamp;
-    // a value per day from 2026-08-01 until 2026-10-31, the value is the day of the month
-    const points = new Map();
-    for (let timestamp = day("2026-08-01"); timestamp <= day("2026-10-31"); timestamp += SECONDS_PER_DAY) {
-        points.set(timestamp, new Date(timestamp * 1000).getUTCDate());
-    }
-    const averages = rollingAverageOfDays({points, incomplete: new Set()}, [day("2026-09-30"), day("2026-10-31"), day("2026-08-15")]);
-    // September: 1 to 30, October: 1 to 31
-    assert.equal(averages.get(day("2026-09-30")), 15.5);
-    assert.equal(averages.get(day("2026-10-31")), 16);
-    // the days before 2026-08-01 have no values
-    assert.equal(averages.has(day("2026-08-15")), false);
-
-    // only the values per week and per day
-    const series = {period: "month", unit: "USD", daily: "sales"};
-    assert.equal(overlayApplies("average1", series, "month"), false);
-    assert.equal(overlayApplies("average1", series, "week"), true);
-    assert.equal(overlayApplies("average1", series, "day"), true);
+test("averages of metrics apply to values at a date and to months longer than the window", () => {
+    const sums = {period: "month", unit: "USD", metric: "sales", usesWindow: true};
+    assert.equal(overlayApplies("average1", sums, "day", "day"), true);
+    assert.equal(overlayApplies("average1", sums, "month", "calendar-month"), false);
+    assert.equal(overlayApplies("average3", sums, "month", "month"), true);
+    assert.equal(overlayApplies("average3", sums, "month", "quarter"), false);
+    assert.equal(overlayApplies("average12", sums, "year", "year"), false);
+    // values at a date don't depend on the window
+    assert.equal(overlayApplies("average1", {...sums, usesWindow: false}, "year", "year"), true);
 });
 
 test("date ranges of the line charts", () => {

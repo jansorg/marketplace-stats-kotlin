@@ -118,7 +118,7 @@ extend, must not fail a response:
   loaded lazily on the first request for a plugin and then cached in memory, so the first page load for a plugin is slow.
   For testing, prefer a plugin with few sales, because plugins with a long sales history take much longer to load.
 - Useful routes: `/` (plugin list with the summary of all paid plugins, `--no-all-plugins-summary` disables it, or report with `?pluginId=<id>`), `/licenses`, `/customers`, `/trials`, `/countries`,
-  `/pricing`, `/downloads/monthly`, `/chart-series` (JSON), all with `?pluginId=<id>`. `POST /refresh?pluginId=<id>&reload=true` drops cached data.
+  `/pricing`, `/downloads/monthly`, `/chart-data` (JSON), all with `?pluginId=<id>`. `POST /refresh?pluginId=<id>&reload=true` drops cached data.
   See the routing in `MarketplaceStatsServer.kt`.
 - The MCP server is served at `/mcp` (Streamable HTTP, `src/main/kotlin/dev/ja/marketplace/mcp/`, see README.md).
   It's disabled with `--no-mcp`. Requests must use one of the allowed hostnames (`localhost`, `127.0.0.1`, `[::1]`, `--host`,
@@ -178,11 +178,9 @@ extend, must not fail a response:
   hides the lines.
 - Columns declare what they measure with `DataTableColumn.chartMeasure` (`ChartMeasure`: flow, stock or ratio), written
   as `data-chart-measure`. The trends of the View menu (1-, 3- and 12-month moving averages, previous year) are only added
-  to suitable series (`overlayApplies` in `model.js`): averages to monthly values with the granularity Month, and to
-  all series with values per day with the granularity Week or Day (the average of the values per day at the same day of
-  the previous months, `trailingAverageOfDays`). The 1-month average only applies to the values per week and per day, it's
-  the average of all days of the month before each date (`rollingAverageOfDays`). Options without effect on the shown
-  charts are dimmed in the menu.
+  to suitable series (`overlayApplies` in `model.js`). The moving averages of metrics come from `/chart-data` (see
+  below), of the values of tables they're calculated by `trailingAverage` (3 and 12 months of monthly values). Options
+  without effect on the shown charts are dimmed in the menu.
 - Incomplete values are drawn as dotted lines, hollow points and striped bars in a lighter color of their series
   (`incompleteColor` in `model.js`, darker in the dark mode).
 - Colors of the dark mode: `CHART_THEMES` in `lineChart.js` (axes, grid, surface, vertical lines) and
@@ -197,18 +195,34 @@ extend, must not fail a response:
   have different shades of its color (`averageShade` in `model.js`).
 - In sortable tables (`sortable` CSS class), a click on the label of a column header opens the chart and a click on
   the rest of the header, e.g. the arrow, sorts the table.
-- Line charts of the overview table can show the values per week or per day. Columns with values per day set
-  `DataTableColumn.dailyChartSeries`, the charts load the values from `/chart-series?pluginId=<id>&granularity=day|week`
-  (`DailyChartSeries`, calculated by `OverviewDailyValues`). Sums, e.g. of sales, are the sums of the month before
-  each day, licenses, MRR and ARR the values at each day, so that the last day of a month has the value of the table.
-  The churn is the churn of the month before each day. Columns with `DataTableColumn.yearlyChartSeries`
-  (`data-chart-yearly`) also have values at the end of each year (granularity Year), e.g. the churn of the year
-  before each day (`churn-annual-paid.year`). The conversion rate of the trials is the rate of the trials of the month or
-  the year before each day (`trials-converted-length`, `.year`), the table of the years uses the series of the year.
-  All columns of monthly tables with values per day also have values per year: stocks (licenses, MRR, ARR, customers,
-  averages) and the revenue retention use their series per day, the values at the end of each year. Sums use the sums
-  of the year before each day (`AllPluginsDailyValues.SALES` etc.), the MRR movements the movements between the MRR a
-  year before each day and at the day (`mrr-new.year` etc.).
+- Charts of metrics: columns with `DataTableColumn.chartMetric` (written as `data-chart-metric`, with
+  `data-chart-unit`) show a metric (`ChartMetric` in `marketplace-data/.../data/chart/`, e.g. `sales`, `mrr`,
+  `churn-annual`, `customer-type-share.<type>`). The same metric of different tables is the same series
+  (`metric:<id>`), and series of the same unit share a chart. The values aren't read from the table, they're loaded
+  from `/chart-data?pluginId=<id>&metrics=<ids>&window=<window>&detail=<detail>` (`ChartData`, without `pluginId` the
+  summary of all paid plugins, errors are answered with 400 or 404 as text). `ChartMetricValues` calculates the values of each day lazily for a metric and a window,
+  with the rules of the tables:
+  - Window (`ChartWindow`): the sums and rates of each date are those of the window, which ends at the date. Rolling
+    windows: day, week, month, quarter, year (the 12 months before the date), at the end of a period the calendar
+    period. Calendar windows (`calendar-month` etc.) start at the first day of the period of each date, so the value at
+    today is the value of the table. Values at a date (stocks like the MRR, `ChartMetric.usesWindow`) and the revenue
+    retention (compared with a year ago, like the table) ignore the window. `SubscriptionDailyValues` calculates the
+    movements of the MRR per window and the values at each day once.
+  - Detail level (`ChartDetail`): the dates of the values, each day or the end of each week, month or year, and today.
+  - The chart dialog has a menu "Window" and the buttons Year/Month/Week/Day for each chart of metrics, stored as
+    `chartLevels`. A new chart takes the level of the table (`DataTable.chartLevel`, `data-chart-window` and
+    `data-chart-detail`), e.g. calendar month and month for the overview. A window, which is shorter than the steps
+    of the dates (`windowApplies` in `model.js`), e.g. a day at the level Year, is disabled, a change of the level
+    replaces it with the calendar window of the level.
+  - Moving averages: `<metric>@avg<months>` (1, 3 or 12), `ChartMetricValues.average`. The windows, which end at the
+    date and before each previous window, fill the months: sums are divided by the number of windows (e.g. the average
+    month), rates are pooled from their numerators and denominators (`DailyRatio`, e.g. churned and previously active
+    licenses), values at a date are averaged over the days. Calendar windows use their rolling windows. Sums and rates
+    only have averages of months longer than the window (`averageApplies`).
+  - New metrics are registered in `ChartMetric` and calculated in `ChartMetricValues.calculate`, new windows only need
+    `ChartWindow.start` and `currentPeriodStart`.
+  Columns of chartable tables without a metric, e.g. the renewal rates and the cohorts, and the pie charts still show
+  the values of their tables (`data-chart-value`, `data-chart-history`, `data-chart-share`).
 - Vertical lines in line charts: major releases of the plugin (`MajorReleases`, from the plugin's releases), changes of the
   annual base price (`PriceChanges`, derived from undiscounted new US sales, the API has no price history) and major
   releases of IntelliJ IDEA (`IdeReleaseProvider`, from the JetBrains product service, cached for a day), and custom
@@ -219,15 +233,10 @@ extend, must not fail a response:
 - On screens up to 600px wide, the chart dialog fills the window and hides its hint, the button to maximize it and the
   lines of the dates one month and one year before and after the cursor. The button to close the dialog is
   the × of `removeButton` (`dialog.js`), which also removes a chart.
-- Only series of the same period (`DataTable.chartPeriod`: day, month or year) share a line chart and its date range.
-  Per week and per day, the charts of different periods with the same units are merged (`mergeFinerCharts` in
-  `model.js`), e.g. the trials of the tables of months and years. The labels then name the window of sums and rates
-  (`finerWindowLabel`: last month or last 12 months), and the buttons of the level apply to all merged charts. Year
-  and Month show each table in its own chart again, with the matching level of each table (`partGranularity`).
+- Only series of the same period (`DataTable.chartPeriod`: day, month or year) share a line chart and its date range,
+  the series of metrics have their own period `metric`.
   Values of months and years are located at the end of the period, the current period at today (`ChartValues.xValue`).
-  The ticks of yearly values are at the end of each year and at today (`yearEndTicks` in `model.js`). Line charts of
-  yearly tables can also show the sums of the year before the end of each month (granularity `monthEnd`,
-  `/chart-series?granularity=month`).
+  The ticks of yearly values are at the end of each year and at today (`yearEndTicks` in `model.js`).
 - The menu "Range" of the dialog selects the shown dates of all line charts: all dates or a year with values
   (`rangeYears`). Dragging over a line chart zooms in (`onZoom` in `lineChart.js`), on touch devices two fingers zoom
   in and out (`enablePinchZoom`, `pinchedRange` in `model.js`). The range is part of the stored
@@ -235,8 +244,9 @@ extend, must not fail a response:
   value table and the averages. The y-axis, the minimum and maximum and the latest values use the shown dates.
 - Series and averages, which were hidden by a click on the legend or the value table, stay hidden when the charts are
   drawn again, e.g. after changing the level (`hiddenSeries` of the setup, keys `<series>` and `<series>:<kind>`).
-- The chart setup (columns, colors, options) is stored in the browser's local storage (`marketplace-stats.charts`) and
-  restored on all pages with the same tables. Values are never stored, they're read from the tables of the current page.
+- The chart setup (columns, colors, options) is stored in the browser's local storage (`marketplace-stats.charts`,
+  version 2, version 1 is still read). The series of metrics are restored on all pages, the other series and the pie
+  charts on all pages with the same tables. Values are never stored.
 - "Bookmark this view" of the Export menu writes the setup into the fragment of the address (`#charts=<base64url JSON>`,
   `encodeView`/`decodeView` in `storage.js`) and copies the address. Opening it replaces the stored setup with the
   view, opens the dialog and removes the fragment. Changing the charts also removes it.
@@ -245,12 +255,10 @@ extend, must not fail a response:
   `build/generated/javascript/js`, which is added to the resources and served at `/js/`. To upgrade, change the version.
 - Tables opt in with `DataTable.isChartable` (line charts over the date in the first column) or columns with
   `DataTableColumn.isShareOfTotal` (pie charts with one slice per row) or `DataTableColumn.rowHistoryPeriod` (line
-  charts with one series per row, e.g. the share of each customer type per month, from `DataTableRow.getChartHistory`,
-  written as `data-chart-history` JSON by `ChartValues.history`). With `dailyChartSeries`, the series of a row also have
-  values per day and per year from `/chart-series` (`<id>.month.<row>` and `<id>.year.<row>`, e.g.
-  `CustomerTypeDailyValues`), the chart then offers Year (granularity `yearEnd`, `/chart-series?granularity=year`),
-  Month, Week and Day. The templates write the raw values and units as
-  `data-chart-*` attributes, computed by `ChartValues`, so the JavaScript doesn't parse formatted numbers.
+  charts with one series per row, e.g. the share of each customer type, with a metric for each row
+  `<chartMetric>.<row>`, without a metric from `DataTableRow.getChartHistory`, written as `data-chart-history` JSON by
+  `ChartValues.history`). The templates write the raw values and units of columns without a metric as `data-chart-*`
+  attributes, computed by `ChartValues`, so the JavaScript doesn't parse formatted numbers.
 
 ## Styling of the Rendered HTML
 

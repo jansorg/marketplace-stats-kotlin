@@ -19,6 +19,9 @@ import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.client.model.PluginSaleItemType
 import dev.ja.marketplace.data.PercentageValue
+import dev.ja.marketplace.data.chart.ChartMetric
+import dev.ja.marketplace.data.chart.ChartWindow
+import dev.ja.marketplace.data.chart.DailySeries
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.customer
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.licenses
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.sale
@@ -67,7 +70,9 @@ class SubscriptionDailyValuesTest {
 
     private val licenses = licenses(*sales.toTypedArray())
     private val revenue = CustomerRecurringRevenue(licenses, exchangeRates, today)
-    private val values = SubscriptionDailyValues.create(days, licenses, revenue, today)
+    private val dayValues = SubscriptionDailyValues.create(days, licenses, revenue, today, null)
+    private val values = SubscriptionDailyValues.create(days, licenses, revenue, today, ChartWindow.Month) + dayValues
+    private val yearValues = SubscriptionDailyValues.create(days, licenses, revenue, today, ChartWindow.Year) + dayValues
 
     @Test
     fun valuesAtTheEndOfEachMonthAreTheValuesOfTheTables() {
@@ -78,29 +83,28 @@ class SubscriptionDailyValuesTest {
             val label = revenue.monthLabel(monthIndex)
 
             val movements = MrrMovements.of(revenue, monthIndex)
-            assertAmount(movements.mrr, SubscriptionDailyColumn.Mrr, index, label)
-            assertAmount(movements.new, SubscriptionDailyColumn.New, index, label)
-            assertAmount(movements.expansion, SubscriptionDailyColumn.Expansion, index, label)
-            assertAmount(movements.contraction.negate(), SubscriptionDailyColumn.Contraction, index, label)
-            assertAmount(movements.churned.negate(), SubscriptionDailyColumn.Churned, index, label)
-            assertAmount(movements.reactivation, SubscriptionDailyColumn.Reactivation, index, label)
-            assertAmount(movements.netChange, SubscriptionDailyColumn.NetChange, index, label)
+            assertAmount(movements.new, ChartMetric.MrrNew, index, label)
+            assertAmount(movements.expansion, ChartMetric.MrrExpansion, index, label)
+            assertAmount(movements.contraction.negate(), ChartMetric.MrrContraction, index, label)
+            assertAmount(movements.churned.negate(), ChartMetric.MrrChurned, index, label)
+            assertAmount(movements.reactivation, ChartMetric.MrrReactivation, index, label)
+            assertAmount(movements.netChange, ChartMetric.MrrNetChange, index, label)
 
             val average = AverageRevenuePerCustomer.of(revenue, monthIndex)
-            assertEquals(BigDecimal.valueOf(average.customers.toLong()), value(SubscriptionDailyColumn.PayingCustomers, index), label)
-            assertAmount(average.average, SubscriptionDailyColumn.AverageRevenue, index, label)
-            assertAmount(average.average(CustomerType.Organization), SubscriptionDailyColumn.AverageRevenueOrganizations, index, label)
-            assertAmount(average.average(CustomerType.Individual), SubscriptionDailyColumn.AverageRevenueIndividuals, index, label)
+            assertEquals(BigDecimal.valueOf(average.customers.toLong()), value(ChartMetric.PayingCustomers, index), label)
+            assertAmount(average.average, ChartMetric.AverageRevenue, index, label)
+            assertAmount(average.average(CustomerType.Organization), ChartMetric.AverageRevenueOrganizations, index, label)
+            assertAmount(average.average(CustomerType.Individual), ChartMetric.AverageRevenueIndividuals, index, label)
 
             val retention = RevenueRetention.of(revenue, monthIndex)
             if (retention == null) {
-                assertNull(value(SubscriptionDailyColumn.CustomersYearAgo, index), label)
-                assertNull(value(SubscriptionDailyColumn.NetRevenueRetention, index), label)
+                assertNull(value(ChartMetric.PreviousCustomers, index, yearValues), label)
+                assertNull(value(ChartMetric.NetRevenueRetention, index, yearValues), label)
             } else {
-                assertEquals(BigDecimal.valueOf(retention.previousCustomers.toLong()), value(SubscriptionDailyColumn.CustomersYearAgo, index), label)
-                assertPercentage(retention.customerRetention, SubscriptionDailyColumn.CustomerRetention, index, label)
-                assertPercentage(retention.grossRevenueRetention, SubscriptionDailyColumn.GrossRevenueRetention, index, label)
-                assertPercentage(retention.netRevenueRetention, SubscriptionDailyColumn.NetRevenueRetention, index, label)
+                assertEquals(BigDecimal.valueOf(retention.previousCustomers.toLong()), value(ChartMetric.PreviousCustomers, index, yearValues), label)
+                assertPercentage(retention.customerRetention, ChartMetric.CustomerRetention, index, label, yearValues)
+                assertPercentage(retention.grossRevenueRetention, ChartMetric.GrossRevenueRetention, index, label, yearValues)
+                assertPercentage(retention.netRevenueRetention, ChartMetric.NetRevenueRetention, index, label, yearValues)
             }
         }
         assertTrue(revenue.currentMonthIndex > 24, "the test data must cover the retention of several months")
@@ -116,12 +120,12 @@ class SubscriptionDailyValuesTest {
                 (revenue.firstPaidMonthIndex(customer) ?: -1) > previousIndex
             }
             val index = (firstDay daysUntil YearMonthDay(year, 12, 31)).toInt()
-            assertAmount(movements.new, SubscriptionDailyColumn.NewOfYear, index, "$year")
-            assertAmount(movements.expansion, SubscriptionDailyColumn.ExpansionOfYear, index, "$year")
-            assertAmount(movements.contraction.negate(), SubscriptionDailyColumn.ContractionOfYear, index, "$year")
-            assertAmount(movements.churned.negate(), SubscriptionDailyColumn.ChurnedOfYear, index, "$year")
-            assertAmount(movements.reactivation, SubscriptionDailyColumn.ReactivationOfYear, index, "$year")
-            assertAmount(movements.netChange, SubscriptionDailyColumn.NetChangeOfYear, index, "$year")
+            assertAmount(movements.new, ChartMetric.MrrNew, index, "$year", yearValues)
+            assertAmount(movements.expansion, ChartMetric.MrrExpansion, index, "$year", yearValues)
+            assertAmount(movements.contraction.negate(), ChartMetric.MrrContraction, index, "$year", yearValues)
+            assertAmount(movements.churned.negate(), ChartMetric.MrrChurned, index, "$year", yearValues)
+            assertAmount(movements.reactivation, ChartMetric.MrrReactivation, index, "$year", yearValues)
+            assertAmount(movements.netChange, ChartMetric.MrrNetChange, index, "$year", yearValues)
             assertTrue(movements.new.signum() != 0 || movements.churned.signum() != 0, "the test data must have movements")
         }
     }
@@ -135,18 +139,18 @@ class SubscriptionDailyValuesTest {
         )
         val revenue = CustomerRecurringRevenue(licenses, exchangeRates, YearMonthDay(2025, 4, 30))
         val days = List(120) { YearMonthDay(2025, 1, 1).add(0, 0, it) }
-        val values = SubscriptionDailyValues.create(days, licenses, revenue, YearMonthDay(2025, 4, 30))
-        fun valueAt(column: SubscriptionDailyColumn, date: YearMonthDay) =
-            values.getValue(column).values[(YearMonthDay(2025, 1, 1) daysUntil date).toInt()]
+        val values = SubscriptionDailyValues.create(days, licenses, revenue, YearMonthDay(2025, 4, 30), ChartWindow.Month) +
+                SubscriptionDailyValues.create(days, licenses, revenue, YearMonthDay(2025, 4, 30), null)
+        fun valueAt(metric: ChartMetric, date: YearMonthDay) =
+            values.getValue(metric).values[(YearMonthDay(2025, 1, 1) daysUntil date).toInt()]
 
-        assertEquals(BigDecimal("10.00"), valueAt(SubscriptionDailyColumn.New, YearMonthDay(2025, 1, 10)))
+        assertEquals(BigDecimal("10.00"), valueAt(ChartMetric.MrrNew, YearMonthDay(2025, 1, 10)))
         // a month after the first sale, the customer isn't new anymore
-        assertEquals(BigDecimal("0.00"), valueAt(SubscriptionDailyColumn.New, YearMonthDay(2025, 2, 10)))
-        assertEquals(BigDecimal("5.00"), valueAt(SubscriptionDailyColumn.Expansion, YearMonthDay(2025, 2, 10)))
+        assertEquals(BigDecimal("0.00"), valueAt(ChartMetric.MrrNew, YearMonthDay(2025, 2, 10)))
+        assertEquals(BigDecimal("5.00"), valueAt(ChartMetric.MrrExpansion, YearMonthDay(2025, 2, 10)))
         // the renewal ended at 2025-03-09
-        assertEquals(BigDecimal("0.00"), valueAt(SubscriptionDailyColumn.Mrr, YearMonthDay(2025, 3, 10)))
-        assertEquals(BigDecimal("-15.00"), valueAt(SubscriptionDailyColumn.Churned, YearMonthDay(2025, 3, 10)))
-        assertNull(valueAt(SubscriptionDailyColumn.AverageRevenue, YearMonthDay(2025, 3, 10)))
+        assertEquals(BigDecimal("-15.00"), valueAt(ChartMetric.MrrChurned, YearMonthDay(2025, 3, 10)))
+        assertNull(valueAt(ChartMetric.AverageRevenue, YearMonthDay(2025, 3, 10)))
     }
 
     @Test
@@ -158,19 +162,19 @@ class SubscriptionDailyValuesTest {
 
     @Test
     fun noDays() {
-        assertTrue(SubscriptionDailyValues.create(emptyList(), licenses, revenue, today).isEmpty())
+        assertTrue(SubscriptionDailyValues.create(emptyList(), licenses, revenue, today, ChartWindow.Month).isEmpty())
     }
 
-    private fun value(column: SubscriptionDailyColumn, index: Int): BigDecimal? {
-        return values.getValue(column).values[index]
+    private fun value(metric: ChartMetric, index: Int, values: Map<ChartMetric, DailySeries> = this.values): BigDecimal? {
+        return values.getValue(metric).values[index]
     }
 
-    private fun assertAmount(expected: BigDecimal?, column: SubscriptionDailyColumn, index: Int, message: String) {
-        assertEquals(expected?.setScale(2, RoundingMode.HALF_UP), value(column, index), "$column $message")
+    private fun assertAmount(expected: BigDecimal?, metric: ChartMetric, index: Int, message: String, values: Map<ChartMetric, DailySeries> = this.values) {
+        assertEquals(expected?.setScale(2, RoundingMode.HALF_UP), value(metric, index, values), "$metric $message")
     }
 
-    private fun assertPercentage(expected: PercentageValue?, column: SubscriptionDailyColumn, index: Int, message: String) {
-        assertEquals(expected?.value?.setScale(2, RoundingMode.HALF_UP), value(column, index), "$column $message")
+    private fun assertPercentage(expected: PercentageValue?, metric: ChartMetric, index: Int, message: String, values: Map<ChartMetric, DailySeries> = this.values) {
+        assertEquals(expected?.value?.setScale(2, RoundingMode.HALF_UP), value(metric, index, values), "$metric $message")
     }
 
     @Test
@@ -190,12 +194,12 @@ class SubscriptionDailyValuesTest {
         val revenue = CustomerRecurringRevenue(licenses, exchangeRates, today)
         val firstDay = YearMonthDay(2024, 3, 1)
         val days = List((firstDay daysUntil today).toInt() + 1) { firstDay.add(0, 0, it) }
-        val values = SubscriptionDailyValues.create(days, licenses, revenue, today)
+        val values = SubscriptionDailyValues.create(days, licenses, revenue, today, ChartWindow.Month)
 
         val mayIndex = revenue.months.indexOfFirst { it == YearMonthDay(2024, 5, 1) }
         val movements = MrrMovements.of(revenue, mayIndex)
         val dayIndex = days.indexOf(YearMonthDay(2024, 5, 31))
-        assertEquals(movements.new.setScale(2), values.getValue(SubscriptionDailyColumn.New).values[dayIndex])
-        assertEquals(movements.reactivation.setScale(2), values.getValue(SubscriptionDailyColumn.Reactivation).values[dayIndex])
+        assertEquals(movements.new.setScale(2), values.getValue(ChartMetric.MrrNew).values[dayIndex])
+        assertEquals(movements.reactivation.setScale(2), values.getValue(ChartMetric.MrrReactivation).values[dayIndex])
     }
 }

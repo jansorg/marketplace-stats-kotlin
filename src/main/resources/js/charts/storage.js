@@ -9,12 +9,20 @@
  */
 
 export const STORAGE_KEY = "marketplace-stats.charts";
-const VERSION = 1;
+/**
+ * Version 2 stores the series of metrics with the ID of the metric instead of the table and the column, and the window
+ * and the detail level of each chart of metrics. A setup of version 1 is still read: its series of tables are shown
+ * as metrics, if their columns have a metric, its levels of the charts are dropped.
+ */
+const VERSION = 2;
+const READ_VERSIONS = [1, VERSION];
 
 /**
- * @typedef {{type: "line"|"pie", table: string, column: string, row?: string, color?: string}} ChartEntry
+ * @typedef {{type: "line"|"pie", table: string, column: string, row?: string, color?: string}
+ *  |{type: "metric", metric: string, label: string, unit: string, measure?: string, row?: string, color?: string}} ChartEntry
+ * @typedef {{window: string, detail: string}} ChartLevel
  * @typedef {{combineUnits: boolean, maximized: boolean, preferredStyle: "lines"|"bars",
- *  chartStyles: Object<string, "lines"|"bars">, granularities: Object<string, "yearEnd"|"month"|"monthEnd"|"week"|"day">, shownMarkers: string[], shownEvents: string[],
+ *  chartStyles: Object<string, "lines"|"bars">, chartLevels: Object<string, ChartLevel>, shownMarkers: string[], shownEvents: string[],
  *  shownExtremes: ("min"|"max")[], shownOverlays: string[], showIncomplete: boolean, showValueTable: boolean, averagesOnly: boolean,
  *  dateRange: {from: string, to: string}|null, hiddenSeries: string[], entries: ChartEntry[]}} ChartSetup
  */
@@ -22,7 +30,7 @@ const VERSION = 1;
 /** @return {ChartSetup} */
 export function emptySetup() {
     // vertical lines are hidden by default, the dialog is maximized
-    return {combineUnits: false, maximized: true, preferredStyle: "lines", chartStyles: {}, granularities: {}, shownMarkers: [], shownEvents: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, averagesOnly: false, dateRange: null, hiddenSeries: [], entries: []};
+    return {combineUnits: false, maximized: true, preferredStyle: "lines", chartStyles: {}, chartLevels: {}, shownMarkers: [], shownEvents: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, averagesOnly: false, dateRange: null, hiddenSeries: [], entries: []};
 }
 
 const STYLES = ["lines", "bars"];
@@ -36,7 +44,8 @@ function validExtremes(setup) {
     // the option "Minimum and maximum" was split into two options
     return setup.showExtremes === true ? [...EXTREMES] : [];
 }
-const GRANULARITIES = ["yearEnd", "month", "monthEnd", "week", "day"];
+const WINDOWS = ["day", "week", "month", "quarter", "year", "calendar-month", "calendar-quarter", "calendar-year"];
+const DETAILS = ["year", "month", "week", "day"];
 const MARKER_KINDS = ["release", "price", "ide"];
 
 /** @return {object} The entries of the map with valid values. */
@@ -57,7 +66,29 @@ function validDateRange(range) {
     return range.from <= range.to && !isNaN(Date.parse(range.from)) && !isNaN(Date.parse(range.to)) ? {from: range.from, to: range.to} : null;
 }
 
+/** @return {Object<string, ChartLevel>} The valid levels of the charts by the keys of the charts. */
+function validLevels(levels) {
+    if (levels === null || typeof levels !== "object") {
+        return {};
+    }
+    return Object.fromEntries(Object.entries(levels)
+        .filter(([, level]) => level !== null && typeof level === "object" && WINDOWS.includes(level.window) && DETAILS.includes(level.detail))
+        .map(([key, level]) => [key, {window: level.window, detail: level.detail}]));
+}
+
+function isValidMetricEntry(entry) {
+    return typeof entry.metric === "string"
+        && typeof entry.label === "string"
+        && typeof entry.unit === "string"
+        && (entry.measure === undefined || typeof entry.measure === "string")
+        && (entry.color === undefined || typeof entry.color === "string")
+        && (entry.row === undefined || typeof entry.row === "string");
+}
+
 function isValidEntry(entry) {
+    if (entry !== null && typeof entry === "object" && entry.type === "metric") {
+        return isValidMetricEntry(entry);
+    }
     return entry !== null && typeof entry === "object"
         && (entry.type === "line" || entry.type === "pie")
         && typeof entry.table === "string"
@@ -71,7 +102,7 @@ function isValidEntry(entry) {
  * @return {ChartSetup|null} The setup with the valid values, or null if it isn't a setup of this version.
  */
 function parseSetup(setup) {
-    if (setup === null || typeof setup !== "object" || setup.version !== VERSION || !Array.isArray(setup.entries)) {
+    if (setup === null || typeof setup !== "object" || !READ_VERSIONS.includes(setup.version) || !Array.isArray(setup.entries)) {
         return null;
     }
     return {
@@ -79,7 +110,8 @@ function parseSetup(setup) {
         maximized: setup.maximized !== false,
         preferredStyle: STYLES.includes(setup.preferredStyle) ? setup.preferredStyle : "lines",
         chartStyles: validValues(setup.chartStyles, STYLES),
-        granularities: validValues(setup.granularities, GRANULARITIES),
+        // the levels of version 1 were the levels of the tables, they don't apply to the charts of metrics
+        chartLevels: setup.version === VERSION ? validLevels(setup.chartLevels) : {},
         shownMarkers: Array.isArray(setup.shownMarkers) ? setup.shownMarkers.filter(kind => MARKER_KINDS.includes(kind)) : [],
         // the IDs of the shown custom events, also of events of other pages
         shownEvents: Array.isArray(setup.shownEvents) ? setup.shownEvents.filter(id => typeof id === "string") : [],

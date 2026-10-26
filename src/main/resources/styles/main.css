@@ -1216,7 +1216,7 @@ dl.detail-grid dd {
     width: 18px;
     height: 18px;
     /* the larger icon would also have thicker lines */
-    stroke-width: 1.4;
+    stroke-width: 1.5;
 }
 
 /* the button to close the dialog is the button to remove a chart, as high as the other buttons,
@@ -1501,8 +1501,14 @@ dl.detail-grid dd {
     cursor: pointer;
 }
 
-.chart-menu-items button:hover {
+.chart-menu-items button:hover:not(:disabled) {
     background-color: var(--button-bgcolor);
+}
+
+/* e.g. a window, which is shorter than the steps between the dates of a chart */
+.chart-menu-items button:disabled {
+    color: var(--text-color-disabled);
+    cursor: default;
 }
 
 /* the selected item of a menu with one choice, e.g. the date range */

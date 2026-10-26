@@ -5,6 +5,8 @@
 
 package dev.ja.marketplace.data
 
+import dev.ja.marketplace.data.chart.ChartMetric
+import dev.ja.marketplace.data.chart.ChartUnit
 import dev.ja.marketplace.client.YearMonthDay
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -104,6 +106,22 @@ object ChartValues {
             null, NoValue -> null
             is IncompleteValue -> category(firstColumnValue.value)
             else -> firstColumnValue.toString().takeIf(String::isNotBlank)
+        }
+    }
+
+    /**
+     * @return The unit of the values of a column with a [DataTableColumn.chartMetric], e.g. the currency code of
+     *  amounts, or `null` if the table has no amounts in the column.
+     */
+    fun metricUnit(table: RenderedDataTable, column: DataTableColumn): String? {
+        val metricId = column.chartMetric ?: return null
+        val unit = ChartMetric.byId(metricId)?.unit
+        // the shares of the rows, e.g. of the customer types, are percentages
+            ?: if (metricId == ChartMetric.CUSTOMER_TYPE_SHARE) ChartUnit.Percentage else null
+        return when (unit) {
+            ChartUnit.Count, ChartUnit.Percentage, ChartUnit.Ratio -> unit.id("")
+            // the displayed currency of the amounts
+            else -> table.sections.asSequence().flatMap { it.rows }.firstNotNullOfOrNull { value(it.getValue(column)) }?.unit
         }
     }
 

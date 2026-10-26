@@ -14,6 +14,9 @@ import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.MarketplaceDataTableFactory
 import dev.ja.marketplace.data.RenderedDataTable
 import dev.ja.marketplace.data.chargeOverview.ChargeOverviewTableFactory
+import dev.ja.marketplace.data.chart.ChartDetail
+import dev.ja.marketplace.data.chart.ChartMetricValues
+import dev.ja.marketplace.data.chart.ChartWindow
 import dev.ja.marketplace.data.customerType.CustomerTypeFactory
 import dev.ja.marketplace.data.customers.CustomerTableFactory
 import dev.ja.marketplace.data.daySummary.DaySummaryFactory
@@ -39,7 +42,6 @@ import dev.ja.marketplace.data.topCountries.TopCountriesFactory
 import dev.ja.marketplace.data.topTrialCountries.TopTrialCountriesFactory
 import dev.ja.marketplace.data.trials.TrialsTable
 import dev.ja.marketplace.data.trials.TrialsTableFactory
-import dev.ja.marketplace.data.yearSummary.AllPluginsDailyValues
 import dev.ja.marketplace.data.yearSummary.AllPluginsMonthTable
 import dev.ja.marketplace.data.yearSummary.AllPluginsSummaryTable
 import dev.ja.marketplace.data.yearSummary.YearlySummaryFactory
@@ -77,7 +79,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
@@ -103,7 +107,7 @@ class MarketplaceStatsServer(
     private lateinit var exchangeRates: ExchangeRates
     private val ideReleases = IdeReleaseProvider(servicesClient)
 
-    private val dailyChartSeries = DailyChartSeries()
+    private val chartData = ChartData()
 
     /** Work in the background, e.g. loading the data of all plugins after the start. */
     private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -371,26 +375,33 @@ class MarketplaceStatsServer(
                 }
             }
 
-            // values of the overview table for each day, week or month, loaded by the charts
-            get("/chart-series") {
-                val granularity = when (call.request.queryParameters["granularity"]) {
-                    "week" -> DailyChartSeries.Granularity.Week
-                    "month" -> DailyChartSeries.Granularity.Month
-                    "year" -> DailyChartSeries.Granularity.Year
-                    else -> DailyChartSeries.Granularity.Day
+            // values of the metrics of the charts, e.g. /chart-data?pluginId=1&metrics=sales,mrr&window=month&detail=day
+            get("/chart-data") {
+                val parameters = call.request.queryParameters
+                val window = ChartWindow.byId(parameters["window"] ?: ChartWindow.Month.id)
+                val detail = ChartDetail.byId(parameters["detail"] ?: ChartDetail.Month.id)
+                val metrics = parameters["metrics"]?.split(',')?.map(String::trim)?.filter(String::isNotEmpty) ?: emptyList()
+                if (window == null || detail == null || metrics.size > ChartData.MAX_METRICS) {
+                    call.respondText("Invalid window, detail or metrics", status = HttpStatusCode.BadRequest)
+                    return@get
                 }
-                val loader = getDataLoader()
-                    ?: allPlugins.singleOrNull()?.let(::getDataLoader)
-                val json = when {
-                    loader != null -> dailyChartSeries.json(loader.load(), granularity)
-                    // the summary of all plugins on the list of plugins
-                    serverConfiguration.showAllPluginsSummary -> {
-                        val values = allPluginsDailyValues()
-                        dailyChartSeries.toJson(values.days, values.series, granularity)
-                    }
 
-                    else -> throw IllegalStateException("Unable to find plugin")
+                // errors are answered as text, the charts read JSON
+                val pluginId = parameters["pluginId"]
+                val plugin = when (pluginId) {
+                    null -> allPlugins.singleOrNull()
+                    else -> allPlugins.firstOrNull { it.id == pluginId.toIntOrNull() }
                 }
+                val values = when {
+                    plugin != null -> chartData.values(getDataLoader(plugin).load())
+                    // the summary of all plugins on the list of plugins
+                    pluginId == null && serverConfiguration.showAllPluginsSummary -> allPluginsChartValues()
+                    else -> {
+                        call.respondText("Unknown plugin", status = HttpStatusCode.NotFound)
+                        return@get
+                    }
+                }
+                val json = withContext(Dispatchers.Default) { ChartData.json(values, metrics, window, detail) }
                 call.respondText(json, io.ktor.http.ContentType.Application.Json)
             }
 
@@ -636,7 +647,10 @@ class MarketplaceStatsServer(
     private var allPluginsSummaryCache: AllPluginsCache<List<RenderedDataTable>>? = null
 
     @Volatile
-    private var allPluginsDailyValuesCache: AllPluginsCache<AllPluginsDailyValues>? = null
+    private var allPluginsChartValuesCache: AllPluginsCache<ChartMetricValues>? = null
+
+    /** Concurrent requests of the charts of all plugins share their values. */
+    private val allPluginsChartValuesLock = Mutex()
 
     /**
      * The sales and downloads of all paid and freemium plugins for their summary. Free plugins are left out.
@@ -707,23 +721,21 @@ class MarketplaceStatsServer(
     /**
      * The values of the summary of all plugins for each day, for the charts of the list of plugins.
      */
-    private suspend fun allPluginsDailyValues(): AllPluginsDailyValues {
+    private suspend fun allPluginsChartValues(): ChartMetricValues {
         onAllPluginsRequest()
         val allData = loadAllPluginsData()
         val today = YearMonthDay.now()
-        allPluginsDailyValuesCache?.takeIf { it.isValid(allData, today) }?.let { return it.value }
-
-        val values = withContext(Dispatchers.Default) {
-            AllPluginsDailyValues.create(
-                allData.flatMap { it.sales },
-                allData.flatMap { it.dailyDownloads },
-                allData.map { it.licenses },
-                exchangeRates,
-                today,
-            )
+        return allPluginsChartValuesLock.withLock {
+            allPluginsChartValuesCache?.takeIf { it.isValid(allData, today) }?.value ?: withContext(Dispatchers.Default) {
+                ChartMetricValues.allPlugins(
+                    allData.flatMap { it.sales },
+                    allData.flatMap { it.dailyDownloads },
+                    allData.map { it.licenses },
+                    exchangeRates,
+                    today,
+                )
+            }.also { allPluginsChartValuesCache = AllPluginsCache(allData, today, it) }
         }
-        allPluginsDailyValuesCache = AllPluginsCache(allData, today, values)
-        return values
     }
 
     private fun getDataLoader(plugin: PluginInfoSummary): PluginDataLoader {

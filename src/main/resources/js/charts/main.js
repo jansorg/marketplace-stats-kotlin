@@ -6,16 +6,21 @@
 /**
  * Charts of the columns of tables. Clicking a column header adds the column to the charts, which are shown in a dialog.
  * Columns with dates are shown as line charts, share columns like "% of Sales" as pie charts.
- * The chart setup is stored in the browser and restored on all pages with the same tables.
+ * Columns with a metric, e.g. the sales, show the values of the metric, which are loaded from /chart-data with the
+ * window and the detail level of their chart. The same metric of different tables is the same series. Other columns
+ * show the values of their table.
+ * The chart setup is stored in the browser. The series of metrics are restored on all pages, the other series and the
+ * pie charts on all pages with the same tables.
  */
 
 import {createFormatter} from "./format.js";
 import {
-    canCombineUnits, CHART_STYLES, dateRange, rangeLabel, rangeOfTimestamps, rangeTimestamps, rangeYears, exportFileName, finerPoints, finerWindowLabel, granularitiesOf, groupCharts, hasFinerValues, lineChartKey, mergedGranularities, mergeFinerCharts, partGranularity, MARKER_KINDS, MAX_PIES, MAX_SERIES, nextColor, pieSlices,
-    visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear, rollingAverageOfDays, trailingAverage, trailingAverageOfDays,
+    canCombineUnits, chartLevel, chartLevelKeys, CHART_STYLES, dateRange, DETAILS, detailGranularity, detailPeriod, rangeLabel, rangeOfTimestamps, rangeTimestamps, rangeYears, exportFileName, groupCharts, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES,
+    METRIC_PERIOD, metricLabel, metricPoints, nextColor, pieSlices, WINDOW_LABELS, windowApplies, WINDOWS, withDetail,
+    AVERAGE_MONTHS, visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear, trailingAverage,
 } from "./model.js";
 import {browserStorage, createSetupStorage, decodeView, encodeView} from "./storage.js";
-import {chartColumns, readLineSeries, readMarkers, readPieRows, readRowHistorySeries} from "./tableData.js";
+import {chartColumns, metricKey, readLineSeries, readMarkers, readMetricLevel, readMetricSeries, readPieRows, readRowHistorySeries} from "./tableData.js";
 import {ChartDialog, removeButton} from "./dialog.js";
 import {createLineChart, lineChartTheme} from "./lineChart.js";
 import {renderPie} from "./pieChart.js";
@@ -23,22 +28,13 @@ import {createMenu} from "./menu.js";
 import {downloadCanvas, downloadSvg, lineChartImage, pieChartSvg, printImages, svgCanvas} from "./exportImage.js";
 
 const STYLE_LABELS = {lines: "Lines", bars: "Bars"};
-const GRANULARITY_LABELS = {yearEnd: "Year", month: "Month", monthEnd: "Month", week: "Week", day: "Day"};
-/** The value of the parameter "granularity" of /chart-series. */
-const GRANULARITY_PARAMETERS = {yearEnd: "year", monthEnd: "month", week: "week", day: "day"};
-const GRANULARITY_HINTS = {
-    month: "Week and Day show the sums of the month before each date, e.g. the sales of the last month, "
-        + "and the licenses, MRR and ARR at each date. Year shows the values of each year, e.g. the shares of the "
-        + "customer types. Columns without these values are shown per month.",
-    year: "Month, Week and Day show the sums of the year before each date, e.g. the sales of the last 12 months. "
-        + "Columns without values per day are shown per year.",
-    merged: "Week and Day show the values of tables of months and years in one chart: the sums of the month or "
-        + "of the year before each date, e.g. the sales of the last month and of the last 12 months, and the MRR and "
-        + "ARR at each date. Year and Month show each table in its own chart: Year the values of the years, Month "
-        + "the values of the months and the sums of the year at the end of each month.",
-    day: "Month shows the days of the table. Week and Day show the whole history, the sums of the month before each "
-        + "date, e.g. the sales of the last month, and the MRR and ARR at each date.",
-};
+const LOADING_MESSAGE = "Loading the values…";
+const DETAIL_LABELS = {year: "Year", month: "Month", week: "Week", day: "Day"};
+const DETAIL_HINT = "The dates of the values: the end of each year, of each month or of each week, or each day, and today.";
+const WINDOW_HINT = "The sums and rates of each date are the sums and rates of the window before the date, e.g. the sales "
+    + "of the last 12 months. At the end of a month, quarter or year, the window is the calendar period. "
+    + "The calendar windows start at the first day of the period, e.g. the sales of the month until the date, "
+    + "like the tables. Values at a date, like the MRR, don't depend on the window.";
 
 /**
  * @return {HTMLElement} A new element with the content of the element, which is added to the element.
@@ -53,6 +49,23 @@ function wrapContent(element) {
 function isTextInput(element) {
     return element instanceof HTMLElement
         && (element.isContentEditable || element.matches("textarea, select, input:not([type=checkbox], [type=radio], [type=button])"));
+}
+
+/**
+ * @param {{metric: string, label: string, unit: string, measure?: string|null, row?: string}} series A series of a
+ *  metric column or of the stored setup.
+ * @return {object} The series of the metric, its values are loaded when it's shown, see ChartController.metricChartSeries.
+ */
+function metricSeries({metric, label, unit, measure, row}, color) {
+    return {
+        key: metricKey(metric), metric, label, unit, measure: measure ?? null, ...(row ? {row} : {}),
+        period: METRIC_PERIOD, points: new Map(), incomplete: new Set(), color,
+    };
+}
+
+/** @return {import("./storage.js").ChartEntry} The stored entry of a series of a metric. */
+function metricEntry(s) {
+    return {type: "metric", metric: s.metric, label: s.label, unit: s.unit, ...(s.measure ? {measure: s.measure} : {}), ...(s.row ? {row: s.row} : {}), color: s.color};
 }
 
 class ChartController {
@@ -97,10 +110,10 @@ class ChartController {
         // style of each line chart, the last selected style is used for new charts
         this.chartStyles = {};
         this.preferredStyle = "lines";
-        // granularity of each line chart with values per day, e.g. "day"
-        this.granularities = {};
-        // values per week and per day, loaded from the server when they're shown first
-        this.finerValues = {};
+        // the window and the detail level of each line chart of metrics, see chartLevel
+        this.chartLevels = {};
+        // the loaded values of metrics by window and detail level, see loadMetrics
+        this.metricValues = {};
         this.shownStyles = {};
         this.dialog = null;
     }
@@ -109,7 +122,7 @@ class ChartController {
         const columns = [...document.querySelectorAll("table[data-chart-title]")].flatMap(table => {
             const tableColumns = chartColumns(table).filter(column => column.type === "pie" || this.lineChartsAvailable);
             tableColumns.forEach(column => this.makeClickable(column, table));
-            this.hasLineCharts ||= tableColumns.some(column => column.type === "line");
+            this.hasLineCharts ||= tableColumns.some(column => column.type !== "pie");
             return tableColumns.map(column => ({...column, element: table}));
         });
         const isBookmarkedView = this.restore(columns);
@@ -182,7 +195,8 @@ class ChartController {
     makeClickable(column, table) {
         const {header, type, columnIndex, isRowHistory} = column;
         const show = () => type === "pie" ? this.addPie(table, columnIndex)
-            : isRowHistory ? this.addRowHistorySeries(table, columnIndex) : this.addSeries(table, columnIndex);
+            : type === "metric" ? this.addMetricSeries(table, columnIndex)
+                : isRowHistory ? this.addRowHistorySeries(table, columnIndex) : this.addSeries(table, columnIndex);
         // a click on the header of a sortable table sorts it, only a click on the label of the header opens the chart
         const isSortable = table.classList.contains("sortable") && !header.classList.contains("no-sort");
         const target = isSortable ? wrapContent(header) : header;
@@ -214,7 +228,8 @@ class ChartController {
         if (this.series.some(s => s.key === series.key)) {
             return "";
         }
-        if (series.points.size === 0) {
+        // the values of metrics are loaded when they're shown
+        if (!series.metric && series.points.size === 0) {
             return series.label + " has no values to show.";
         }
         if (this.series.length >= MAX_SERIES) {
@@ -272,6 +287,39 @@ class ChartController {
         this.openDialog(rejection);
     }
 
+    /**
+     * Adds the series of a metric column, a series for each row of a column with the values of the rows over time.
+     * A new chart shows the values of the table, an existing chart of the unit keeps its level.
+     */
+    addMetricSeries(table, columnIndex) {
+        const level = readMetricLevel(table, columnIndex);
+        let rejection = null;
+        for (const series of readMetricSeries(table, columnIndex)) {
+            rejection = this.rejectSeries(series);
+            // the rows, which are already shown, are skipped
+            if (rejection === "") {
+                continue;
+            }
+            if (rejection !== null) {
+                break;
+            }
+            if (level !== null && !this.series.some(s => s.period === METRIC_PERIOD && s.unit === series.unit)) {
+                // the stored levels of combined charts with the unit don't apply to the new chart
+                this.chartLevels = Object.fromEntries(Object.entries(this.chartLevels)
+                    .filter(([key]) => !(key.startsWith(METRIC_PERIOD + "/") && key.includes("+") && key.substring(METRIC_PERIOD.length + 1).split("+").includes(series.unit))));
+                this.setChartLevel({period: METRIC_PERIOD, units: [series.unit]}, level);
+            }
+            this.series.push(metricSeries(series, nextColor(this.series.map(s => s.color))));
+        }
+        this.save();
+        this.openDialog(rejection);
+    }
+
+    /** Sets the window and the detail level of a chart of metrics. */
+    setChartLevel(chart, level) {
+        this.chartLevels = {...this.chartLevels, ...Object.fromEntries(chartLevelKeys(chart).map(key => [key, level]))};
+    }
+
     addPie(table, columnIndex) {
         const pie = this.readPie(table, columnIndex);
         const rejection = this.rejectPie(pie);
@@ -303,7 +351,7 @@ class ChartController {
         this.combineUnits = setup.combineUnits;
         this.maximized = setup.maximized;
         this.chartStyles = setup.chartStyles;
-        this.granularities = setup.granularities;
+        this.chartLevels = setup.chartLevels;
         this.preferredStyle = setup.preferredStyle;
         this.shownMarkers = setup.shownMarkers;
         this.shownEvents = setup.shownEvents;
@@ -316,13 +364,30 @@ class ChartController {
         this.hiddenSeries = new Set(setup.hiddenSeries);
 
         for (const entry of setup.entries) {
-            const column = columns.find(c => c.type === entry.type && c.table === entry.table && c.column === entry.column);
+            if (entry.type === "metric") {
+                const series = metricSeries(entry, nextColor(this.series.map(s => s.color), entry.color));
+                // line charts need uPlot
+                if (!this.lineChartsAvailable) {
+                    this.unresolvedEntries.push(entry);
+                } else if (this.rejectSeries(series) === null) {
+                    this.series.push(series);
+                }
+                continue;
+            }
+            // a series of a table of version 1 of the setup is a metric, if the column has a metric
+            const column = columns.find(c => (c.type === entry.type || (entry.type === "line" && c.type === "metric"))
+                && c.table === entry.table && c.column === entry.column);
             if (column === undefined) {
                 this.unresolvedEntries.push(entry);
             } else if (entry.type === "pie") {
                 const pie = this.readPie(column.element, column.columnIndex);
                 if (this.rejectPie(pie) === null) {
                     this.pies.push(pie);
+                }
+            } else if (column.type === "metric") {
+                const series = readMetricSeries(column.element, column.columnIndex).find(s => s.row === entry.row);
+                if (series !== undefined && this.rejectSeries(series) === null) {
+                    this.series.push(metricSeries(series, nextColor(this.series.map(s => s.color), entry.color)));
                 }
             } else {
                 const series = column.isRowHistory
@@ -375,7 +440,7 @@ class ChartController {
             maximized: this.maximized,
             preferredStyle: this.preferredStyle,
             chartStyles: this.chartStyles,
-            granularities: this.granularities,
+            chartLevels: this.chartLevels,
             shownMarkers: this.shownMarkers,
             shownEvents: this.shownEvents,
             shownExtremes: this.shownExtremes,
@@ -386,7 +451,9 @@ class ChartController {
             dateRange: this.dateRange,
             hiddenSeries: [...this.hiddenSeries],
             entries: [
-                ...this.series.map(s => ({type: "line", table: s.table, column: s.column, ...(s.row ? {row: s.row} : {}), color: s.color})),
+                ...this.series.map(s => s.metric
+                    ? metricEntry(s)
+                    : {type: "line", table: s.table, column: s.column, ...(s.row ? {row: s.row} : {}), color: s.color}),
                 ...this.pies.map(p => ({type: "pie", table: p.table, column: p.column})),
                 ...this.unresolvedEntries,
             ],
@@ -427,8 +494,8 @@ class ChartController {
                     this.shownOverlays = visible ? [...new Set([...this.shownOverlays, kind])] : this.shownOverlays.filter(k => k !== kind);
                     this.save();
                     this.render();
-                    // an option without effect is explained
-                    if (visible && !this.dialog.isOverlayApplicable(kind)) {
+                    // an option without effect is explained, the values of the averages may still load
+                    if (visible && !this.isLoadingMetrics() && !this.dialog.isOverlayApplicable(kind)) {
                         this.dialog.showMessage(this.dialog.overlayHint(kind));
                     }
                 },
@@ -495,54 +562,57 @@ class ChartController {
         dialog.setAveragesOnly(this.averagesOnly);
         const markers = visibleMarkers(this.markers, this.shownMarkers, this.shownEvents);
 
-        // charts of different periods with the same units share a chart per week or per day
-        const charts = mergeFinerCharts(groupCharts(this.series, this.combineUnits).map(chart => {
-            const unitSeries = this.series.filter(s => s.period === chart.period && chart.units.includes(s.unit));
-            const canBeFiner = hasFinerValues(unitSeries);
-            const granularities = granularitiesOf(chart.period, unitSeries.some(s => s.yearly));
-            const storedGranularity = this.granularities[lineChartKey(chart)];
-            const granularity = canBeFiner && granularities.includes(storedGranularity) ? storedGranularity : "month";
-            return {...chart, canBeFiner, granularities, granularity};
-        }));
+        const charts = groupCharts(this.series, this.combineUnits);
+        // one request for each level with the missing values of all charts of metrics
+        const requests = new Map();
+        for (const chart of charts.filter(c => c.period === METRIC_PERIOD)) {
+            const level = chartLevel(chart, this.chartLevels);
+            const key = level.window + "/" + level.detail;
+            const ids = this.series.filter(s => s.period === chart.period && chart.units.includes(s.unit))
+                .flatMap(s => [s.metric, ...this.averageIds(s, level).map(([, id]) => id)]);
+            requests.set(key, {level, ids: [...(requests.get(key)?.ids ?? []), ...ids]});
+        }
+        requests.forEach(({level, ids}) => this.loadMetrics(level.window, level.detail, ids));
         // with several charts, each chart can be removed
         const isRemovable = charts.length + this.pies.length > 1;
         const visibleRange = rangeTimestamps(this.dateRange);
-        dialog.setDateRange(rangeYears(this.series), this.dateRange);
         const height = dialog.chartHeight(charts.length);
         // the styles of the shown charts, a new style of one chart must not change the others
         this.shownStyles = {};
         // the trends, which apply to at least one series of the shown line charts
         const applicableOverlays = new Set();
+        // the series with values, e.g. for the years of the menu "Range"
+        const shownSeries = [];
+        let shownCharts = 0;
         for (const chart of charts) {
-            const key = chart.parts[0].key;
-            const isMerged = chart.periods.length > 1;
-            let chartSeries = this.series.filter(s => chart.periods.includes(s.period));
-            const {canBeFiner, granularity} = chart;
-            // the buttons of a merged chart apply to all of its charts, Year and Month show them in their own charts again
-            const granularities = isMerged ? mergedGranularities(chart.parts) : chart.granularities;
-            const finerValues = granularity === "month" ? null : this.loadFinerValues(granularity);
-            if (finerValues !== null) {
-                // the values per year replace the values of the table, the values per day the values per week and day
-                const id = s => granularity === "yearEnd" ? s.yearly : s.daily;
-                chartSeries = chartSeries.map(s => ({...s, ...(id(s) ? finerPoints(finerValues, id(s)) : null)}));
-                if (isMerged) {
-                    chartSeries = chartSeries.map(s => ({...s, label: finerWindowLabel(s)}));
+            const key = lineChartKey(chart);
+            const level = chart.period === METRIC_PERIOD ? chartLevel(chart, this.chartLevels) : null;
+            let chartSeries = this.series.filter(s => s.period === chart.period && chart.units.includes(s.unit));
+            if (level !== null) {
+                chartSeries = this.metricChartSeries(chartSeries, level);
+                // the values are still loading, or the metrics have no values
+                if (chartSeries.length === 0) {
+                    continue;
                 }
             }
+            shownSeries.push(...chartSeries);
+            shownCharts++;
             if (!this.showIncomplete) {
                 chartSeries = chartSeries.map(withoutIncomplete);
             }
+            const detail = level?.detail ?? null;
             // bars of every day would be too thin
-            const chartStyle = granularity === "month" ? this.chartStyles[key] ?? this.preferredStyle : "lines";
-            chart.parts.forEach(({key}) => this.shownStyles[key] = this.chartStyles[key] ?? this.preferredStyle);
-            const overlays = this.trends(chartSeries.filter(s => chart.units.includes(s.unit)), granularity);
-            for (const series of chartSeries.filter(s => chart.units.includes(s.unit))) {
-                OVERLAYS.filter(kind => overlayApplies(kind, series, granularity)).forEach(kind => applicableOverlays.add(kind));
+            const canBeBars = detail === null || detail === "month" || detail === "year";
+            const chartStyle = canBeBars ? this.chartStyles[key] ?? this.preferredStyle : "lines";
+            this.shownStyles[key] = this.chartStyles[key] ?? this.preferredStyle;
+            const overlays = this.trends(chartSeries, detail);
+            for (const series of chartSeries) {
+                OVERLAYS.filter(kind => overlayApplies(kind, series, detail, level?.window)).forEach(kind => applicableOverlays.add(kind));
             }
-            // charts per week or day and charts without incomplete values have their own date range
-            const chartDateRange = finerValues === null && this.showIncomplete
+            // charts of metrics and charts without incomplete values have their own date range
+            const chartDateRange = level === null && this.showIncomplete
                 ? chart.dateRange
-                : dateRange(chartSeries.filter(s => chart.units.includes(s.unit))) ?? chart.dateRange;
+                : dateRange(chartSeries) ?? chart.dateRange;
             const panel = dialog.addPanel("chart-panel");
             const toolbar = this.toolbar(panel);
             const chartOptions = {
@@ -552,9 +622,11 @@ class ChartController {
                 dateRange: chartDateRange,
                 markers,
                 formatter: this.formatter,
-                syncKey: "marketplace-charts-" + chart.periods.join("+") + "-" + granularity,
+                // the cursors of the charts with the same dates are synchronized
+                syncKey: "marketplace-charts-" + (detail === null ? chart.period : "detail-" + detail),
                 chartStyle,
-                granularity,
+                // the values of tables are shown like monthly values
+                granularity: detail === null ? "month" : detailGranularity(detail),
                 extremes: this.shownExtremes,
                 valueTable: this.showValueTable,
                 averagesOnly: this.averagesOnly,
@@ -573,24 +645,29 @@ class ChartController {
             const plot = createLineChart({...chartOptions, onZoom, onSeriesVisibilityChange, width: dialog.chartWidth, height, container: panel});
             this.plots.push(plot);
             const title = document.title;
-            const labels = chartSeries.filter(s => chart.units.includes(s.unit)).map(s => s.label);
+            const labels = chartSeries.map(s => s.label);
             const chartExport = {
                 fileName: extension => exportFileName([title, ...labels], extension),
                 image: () => this.lightLineChartImage(plot, chartOptions, title),
             };
             this.exports.push(chartExport);
             toolbar.append(this.exportMenu(chartExport));
-            if (canBeFiner) {
-                toolbar.append(this.granularitySwitch(chart.parts, granularity, isMerged ? null : chart.periods[0], granularities));
+            if (level !== null) {
+                // the window only applies to sums and rates
+                if (chartSeries.some(s => s.usesWindow)) {
+                    toolbar.append(this.windowMenu(chart, level));
+                }
+                toolbar.append(this.detailSwitch(chart, level));
             }
             // disabled instead of hidden, so that the buttons don't move
-            toolbar.append(this.styleSwitch(key, chartStyle, granularity !== "month"));
+            toolbar.append(this.styleSwitch(key, chartStyle, !canBeBars));
             if (isRemovable) {
                 toolbar.append(this.removeButton(() => {
-                    this.series = this.series.filter(s => !chart.periods.includes(s.period) || !chart.units.includes(s.unit));
+                    this.series = this.series.filter(s => s.period !== chart.period || !chart.units.includes(s.unit));
                 }));
             }
         }
+        dialog.setDateRange(rangeYears(shownSeries), this.dateRange);
 
         for (const pie of this.pies) {
             const panel = dialog.addPanel("chart-panel chart-pie-panel");
@@ -609,7 +686,7 @@ class ChartController {
             renderPie(pie, panel, this.formatter);
         }
 
-        if (charts.length === 0 && this.pies.length === 0) {
+        if (this.series.length === 0 && this.pies.length === 0) {
             dialog.showEmptyHint();
         }
         // measured after the browser has laid out the charts
@@ -618,19 +695,58 @@ class ChartController {
     }
 
     /**
+     * @param {object[]} seriesList The series of metrics of a line chart.
+     * @param {{window: string, detail: string}} level The window and the detail level of the chart.
+     * @return {object[]|null} The series with the values of the metrics, without series without values, or null if the
+     *  values are still loading.
+     */
+    metricChartSeries(seriesList, level) {
+        const data = this.metricValues[level.window + "/" + level.detail]?.data;
+        if (!data) {
+            return [];
+        }
+        return seriesList.flatMap(s => {
+            const values = data.series[s.metric];
+            const points = metricPoints(data, s.metric);
+            if (!values || points === null || points.points.size === 0) {
+                return [];
+            }
+            const label = metricLabel({label: values.title, usesWindow: values.usesWindow}, level.window);
+            const averages = Object.fromEntries(this.averageIds(s, level)
+                .map(([kind, id]) => [kind, metricPoints(data, id)?.points])
+                .filter(([, averagePoints]) => averagePoints));
+            return [{...s, ...points, label, unit: values.unit, measure: values.measure, usesWindow: values.usesWindow,
+                window: level.window, period: detailPeriod(level.detail), averages}];
+        });
+    }
+
+    /**
+     * @return {[string, string][]} The shown moving averages, which apply to the series of a metric, and the IDs of
+     *  their values, e.g. `sales@avg3`. Sums and rates use the window, values at a date like the MRR don't.
+     */
+    averageIds(series, level) {
+        const usesWindow = series.measure !== "stock";
+        return OVERLAYS.filter(kind => this.shownOverlays.includes(kind) && AVERAGE_MONTHS[kind]
+            && overlayApplies(kind, {...series, usesWindow}, level.detail, level.window))
+            .map(kind => [kind, `${series.metric}@avg${AVERAGE_MONTHS[kind]}`]);
+    }
+
+    /**
      * @param {object[]} chartSeries The series of a line chart.
+     * @param {string|null} detail The detail level of a chart of metrics, null for the values of tables.
      * @return {object[]} The shown trends of the series, which apply to them, as additional lines of the series.
      */
-    trends(chartSeries, granularity) {
+    trends(chartSeries, detail) {
         const overlays = [];
         for (const series of chartSeries) {
-            for (const kind of OVERLAYS.filter(k => this.shownOverlays.includes(k) && overlayApplies(k, series, granularity))) {
+            for (const kind of OVERLAYS.filter(k => this.shownOverlays.includes(k) && overlayApplies(k, series, detail, series.window))) {
                 switch (kind) {
                     case "average1":
                     case "average3":
                     case "average12": {
                         const months = {average1: 1, average3: 3, average12: 12}[kind];
-                        const points = this.movingAverage(series, months, granularity);
+                        // the averages of metrics are loaded from the server
+                        const points = series.metric ? series.averages?.[kind] ?? null : trailingAverage(series, months);
                         if (points !== null) {
                             overlays.push({kind, base: series.key, label: `${series.label}, ${months}-month average`, points});
                         }
@@ -645,47 +761,40 @@ class ChartController {
         return overlays.filter(overlay => overlay.points.size > 0);
     }
 
-    /**
-     * Moving averages of values per week are calculated with the values per day, which are loaded if needed.
-     *
-     * @return {Map<number, number>|null} The moving average at the dates of the series, or null if the values per day
-     *  are still loading.
-     */
-    movingAverage(series, months, granularity) {
-        // the 1-month average of the days, the other averages of the same day of the previous months
-        const ofDays = (daily, timestamps) => months === 1
-            ? rollingAverageOfDays(daily, timestamps)
-            : trailingAverageOfDays(daily, months, timestamps);
-        switch (granularity) {
-            case "month":
-                return trailingAverage(series, months);
-            case "day":
-                return ofDays(series);
-            default: {
-                const daily = finerPoints(this.loadFinerValues("day"), series.daily);
-                return daily === null ? null : ofDays(daily, series.points.keys());
-            }
-        }
+    /** @return {boolean} If values of metrics are loading. */
+    isLoadingMetrics() {
+        return Object.values(this.metricValues).some(entry => entry.pending);
     }
 
     /**
-     * @return {object|null} The values per week or per day, or null if they're still loading or couldn't be loaded.
-     * The charts are shown again when the values are loaded.
+     * Loads the missing values of metrics of a window and a detail level, the values of all metrics of a level have
+     * the same dates. The charts are drawn again when the values are loaded. While values are loading, the charts show
+     * the values, which are already loaded.
+     *
+     * @param {string} chartWindow The window of the values, see WINDOWS.
+     * @param {string[]} ids The IDs of the metrics and of their averages, e.g. `sales@avg3`.
      */
-    loadFinerValues(granularity) {
-        const values = this.finerValues[granularity];
-        if (values !== undefined) {
-            return values;
+    loadMetrics(chartWindow, detail, ids) {
+        const key = chartWindow + "/" + detail;
+        const entry = this.metricValues[key] ??= {data: null, pending: false, failed: new Set()};
+        const missing = [...new Set(ids)].filter(id => !entry.failed.has(id) && !(entry.data?.series[id] || entry.data?.missing.has(id)));
+        // the missing values of other charts are requested when the current request is done
+        if (missing.length === 0 || entry.pending) {
+            return;
         }
-        this.finerValues[granularity] = null;
-        this.dialog.showMessage("Loading the values per " + GRANULARITY_LABELS[granularity].toLowerCase() + "…");
+        entry.pending = true;
+        if (this.dialog?.isOpen && this.dialog.message.hidden) {
+            this.dialog.showMessage(LOADING_MESSAGE);
+        }
 
-        const url = new URL("/chart-series", window.location.href);
+        const url = new URL("/chart-data", window.location.href);
         const pluginId = new URLSearchParams(window.location.search).get("pluginId");
         if (pluginId !== null) {
             url.searchParams.set("pluginId", pluginId);
         }
-        url.searchParams.set("granularity", GRANULARITY_PARAMETERS[granularity]);
+        url.searchParams.set("metrics", missing.join(","));
+        url.searchParams.set("window", chartWindow);
+        url.searchParams.set("detail", detail);
         fetch(url)
             .then(response => {
                 if (!response.ok) {
@@ -694,45 +803,105 @@ class ChartController {
                 return response.json();
             })
             .then(data => {
-                this.finerValues[granularity] = data;
-                this.dialog.showMessage(null);
-                this.render();
+                // the values of other metrics of the level are kept, they have the same dates
+                const series = data.dates.join() === entry.data?.dates.join() ? {...entry.data.series, ...data.series} : data.series;
+                const missingIds = new Set([...(entry.data?.missing ?? []), ...missing.filter(id => !data.series[id])]);
+                entry.data = {dates: data.dates, series, missing: missingIds};
+                this.updateMetricSeries(data, missing);
+                this.clearLoadingMessage();
             })
             .catch(error => {
-                console.error("Loading the values per " + granularity + " failed", error);
-                // loaded again when the charts are shown the next time
-                delete this.finerValues[granularity];
-                this.dialog.showMessage("The values per " + GRANULARITY_LABELS[granularity].toLowerCase() + " couldn't be loaded.");
+                console.error("Loading the values of " + missing.join(", ") + " failed", error);
+                // loaded again when the charts are opened the next time
+                missing.forEach(id => entry.failed.add(id));
+                this.dialog?.showMessage("The values couldn't be loaded.");
+                setTimeout(() => missing.forEach(id => entry.failed.delete(id)));
+            })
+            .finally(() => {
+                entry.pending = false;
+                if (this.dialog?.isOpen) {
+                    this.render();
+                }
             });
-        return null;
     }
 
     /**
-     * @param {{key: string, period: string, granularities: string[]}[]} parts The charts, which the buttons apply to,
-     *  several for a merged chart, see {@link mergeFinerCharts}.
-     * @param {"day"|"month"|"year"|null} period The period of the values of the table, the button "Month" (or "Year" for
-     *  yearly tables) shows them. Tables of days, e.g. the days of the current month, show them with the button "Month".
-     *  `null` for a merged chart of several periods.
-     * @param {string[]} granularities The granularities of the chart, see {@link granularitiesOf}.
-     * @return {HTMLElement} Buttons to show a line chart per month or year, per week or per day, the values of
-     *  yearly tables at the end of each month and the values of years of monthly values with values per year.
+     * The series of metrics take the units of the loaded values, e.g. after the displayed currency changed. Series of
+     * metrics without values on this page, e.g. the trials on the list of plugins, aren't shown, but they're kept for
+     * other pages.
      */
-    granularitySwitch(parts, current, period, granularities) {
+    updateMetricSeries(data, requested) {
+        let changed = false;
+        for (const series of this.series.filter(s => s.metric && requested.includes(s.metric))) {
+            const values = data.series[series.metric];
+            if (values && values.unit !== series.unit) {
+                series.unit = values.unit;
+                changed = true;
+            }
+        }
+        const withoutValues = this.series.filter(s => s.metric && requested.includes(s.metric) && !data.series[s.metric]);
+        if (withoutValues.length > 0) {
+            this.series = this.series.filter(s => !withoutValues.includes(s));
+            this.unresolvedEntries.push(...withoutValues.map(metricEntry));
+            changed = true;
+        }
+        if (changed) {
+            this.save();
+        }
+    }
+
+    clearLoadingMessage() {
+        if (this.dialog?.message.textContent === LOADING_MESSAGE) {
+            this.dialog.showMessage(null);
+        }
+    }
+
+    /**
+     * @return {HTMLElement} A menu to select the window of the sums and rates of a chart of metrics, see WINDOWS.
+     */
+    windowMenu(chart, level) {
+        const {menu, items} = createMenu("Window: " + WINDOW_LABELS[level.window]);
+        menu.classList.add("chart-window-menu");
+        menu.title = WINDOW_HINT;
+        for (const window of WINDOWS) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.textContent = WINDOW_LABELS[window];
+            button.setAttribute("role", "menuitemradio");
+            button.setAttribute("aria-checked", String(window === level.window));
+            // a window shorter than the steps between the dates would only show a part of each step
+            if (!windowApplies(window, level.detail)) {
+                button.disabled = true;
+                button.title = "Shorter than the steps between the dates, select a finer level first";
+            }
+            button.addEventListener("click", () => {
+                menu.open = false;
+                this.setChartLevel(chart, {...level, window});
+                this.save();
+                this.render();
+            });
+            items.append(button);
+        }
+        return menu;
+    }
+
+    /**
+     * @return {HTMLElement} Buttons to show the values of a chart of metrics at the end of each year, month or week, or
+     *  of each day.
+     */
+    detailSwitch(chart, level) {
         const group = document.createElement("div");
         group.className = "chart-button-group";
         group.setAttribute("role", "group");
         group.setAttribute("aria-label", "Values per");
-        group.title = GRANULARITY_HINTS[period ?? "merged"];
-        for (const granularity of granularities) {
+        group.title = DETAIL_HINT;
+        for (const detail of DETAILS) {
             const button = document.createElement("button");
             button.type = "button";
-            button.textContent = granularity === "month" && period === "year" ? "Year" : GRANULARITY_LABELS[granularity];
-            button.setAttribute("aria-pressed", String(granularity === current));
+            button.textContent = DETAIL_LABELS[detail];
+            button.setAttribute("aria-pressed", String(detail === level.detail));
             button.addEventListener("click", () => {
-                const selected = period === null
-                    ? parts.map(part => [part.key, partGranularity(granularity, part)])
-                    : [[parts[0].key, granularity]];
-                this.granularities = {...this.granularities, ...Object.fromEntries(selected)};
+                this.setChartLevel(chart, withDetail(level, detail));
                 this.save();
                 this.render();
             });

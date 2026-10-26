@@ -341,111 +341,100 @@ export function lineChartKey(chart) {
 }
 
 /**
- * Merges the line charts of different periods with the same units, which are shown per week or per day, e.g. the trials
- * of the table of months and of the table of years. Their values per day share a date range, so they're compared in
- * one chart. Charts per month or year keep their own chart, because their dates differ.
- *
- * @param {{period: string, units: string[], dateRange: [number, number], granularity: string, granularities: string[]}[]} charts
- *  The line charts of {@link groupCharts} with their granularity and their granularities, see {@link granularitiesOf}.
- * @return {{periods: string[], parts: {key: string, period: string, granularities: string[]}[], units: string[],
- *  dateRange: [number, number], granularity: string}[]} The line charts with the periods of their series and the
- *  merged charts with their keys, see {@link lineChartKey}, at the position of the first merged chart.
+ * The windows of the values of metrics, see ChartWindow.kt: sums and rates of the windows, which end at each date,
+ * e.g. the sales of the 12 months before each date, at the end of a calendar period the period. The calendar windows
+ * start at the first day of the period of each date, their values are the values of the tables, also of today.
  */
-export function mergeFinerCharts(charts) {
-    const merged = [];
-    const byUnits = new Map();
-    for (const chart of charts) {
-        const isFiner = chart.granularity === "week" || chart.granularity === "day";
-        const groupKey = chart.granularity + "/" + chart.units.join("+");
-        const target = isFiner ? byUnits.get(groupKey) : undefined;
-        if (target === undefined) {
-            const {period, ...rest} = chart;
-            const entry = {...rest, periods: [period], parts: [chartPart(chart)]};
-            merged.push(entry);
-            if (isFiner) {
-                byUnits.set(groupKey, entry);
-            }
-        } else {
-            target.periods.push(chart.period);
-            target.parts.push(chartPart(chart));
-            target.dateRange = [Math.min(target.dateRange[0], chart.dateRange[0]), Math.max(target.dateRange[1], chart.dateRange[1])];
-        }
-    }
-    return merged;
-}
+export const WINDOWS = ["day", "week", "month", "quarter", "year", "calendar-month", "calendar-quarter", "calendar-year"];
 
-function chartPart(chart) {
-    return {key: lineChartKey(chart), period: chart.period, granularities: chart.granularities};
+/** Labels of the windows in the charts. */
+export const WINDOW_LABELS = {
+    day: "Per day", week: "Last 7 days", month: "Last month", quarter: "Last 3 months", year: "Last 12 months",
+    "calendar-month": "Calendar month", "calendar-quarter": "Calendar quarter", "calendar-year": "Calendar year",
+};
+
+/** The approximate length of the windows and of the steps between the dates of the detail levels, in days. */
+const WINDOW_DAYS = {day: 1, week: 7, month: 28, quarter: 90, year: 365, "calendar-month": 28, "calendar-quarter": 90, "calendar-year": 365};
+const DETAIL_DAYS = {day: 1, week: 7, month: 28, year: 365};
+
+/** The window of a detail level, if the window of a chart is shorter than the steps of its dates. */
+const DETAIL_WINDOWS = {day: "day", week: "week", month: "calendar-month", year: "calendar-year"};
+
+/**
+ * @return {boolean} If the window applies to the detail level: a window, which is shorter than the steps between the
+ *  dates, would only show a part of each step, e.g. the sales of the last day of each year.
+ */
+export function windowApplies(window, detail) {
+    return (WINDOW_DAYS[window] ?? 0) >= (DETAIL_DAYS[detail] ?? 0);
 }
 
 /**
- * The levels of a merged chart, see {@link mergeFinerCharts}: Year, Month, Week and Day. Year and Month show the
- * merged charts in their own charts again, see {@link partGranularity}.
- *
- * @param {{period: string, granularities: string[]}[]} parts The merged charts.
- * @return {string[]} The levels, Year only if a chart has values per year.
+ * @return {{window: string, detail: string}} The level with the detail level, the window is replaced by the calendar
+ *  window of the detail level, if it's too short, see {@link windowApplies}.
  */
-export function mergedGranularities(parts) {
-    return ["yearEnd", "month", "week", "day"].filter(level => level !== "yearEnd"
-        || parts.some(part => part.period === "year" || part.granularities.includes("yearEnd")));
+export function withDetail(level, detail) {
+    return {window: windowApplies(level.window, detail) ? level.window : DETAIL_WINDOWS[detail], detail};
 }
 
 /**
- * @param {string} level The level of a merged chart, see {@link mergedGranularities}.
- * @param {{period: string, granularities: string[]}} part A merged chart.
- * @return {string} The granularity of the merged chart for the level: Year shows the values of the years, i.e. the
- *  values of a yearly table and the values at the end of each year of a monthly table, Month the values of a monthly
- *  table and the sums of the year at the end of each month of a yearly table. Charts without the level show the values
- *  of their table.
+ * The detail levels of the charts of metrics, see ChartDetail.kt: the values at each day, at the end of each week,
+ * of each month or of each year, and today.
  */
-export function partGranularity(level, part) {
-    const isYearly = part.period === "year";
-    const granularity = level === "yearEnd" ? (isYearly ? "month" : "yearEnd")
-        : level === "month" ? (isYearly ? "monthEnd" : "month")
-            : level;
-    return part.granularities.includes(granularity) ? granularity : "month";
+export const DETAILS = ["year", "month", "week", "day"];
+
+/**
+ * The series of metrics have this period, their values are loaded from /chart-data with the window and the detail
+ * level of their chart, see {@link chartLevel}. Series of the same unit share a chart.
+ */
+export const METRIC_PERIOD = "metric";
+
+/** The level of a new chart of metrics without the level of a table. */
+const DEFAULT_LEVEL = {window: "calendar-month", detail: "month"};
+
+/**
+ * @param {{period: string, units: string[]}} chart A line chart of metrics.
+ * @param {Object<string, {window: string, detail: string}>} levels The stored levels by the keys of the charts, also of
+ *  each unit, see {@link chartLevelKeys}.
+ * @return {{window: string, detail: string}} The window and the detail level of the chart, the level of a combined
+ *  chart is the level of its first unit until it's changed.
+ */
+export function chartLevel(chart, levels) {
+    const level = levels[lineChartKey(chart)] ?? levels[lineChartKey({...chart, units: [chart.units[0]]})] ?? DEFAULT_LEVEL;
+    return withDetail(level, level.detail);
 }
 
 /**
- * @param {{label: string, period: string, measure?: string|null}} series A series with values per week or per day.
- * @return {string} The label of the series with the window of its values per day, e.g. the sums of the 12 months
- *  before each day of a yearly table, to tell them apart from the values of monthly tables in the same chart.
- *  Values at each day, e.g. MRR, have no window.
+ * @return {string[]} The keys of the levels of a chart: its key and the keys of its units, so that the level stays the
+ *  same when units are combined in a chart or shown in their own charts.
  */
-export function finerWindowLabel(series) {
-    if (series.measure !== "flow" && series.measure !== "ratio") {
-        return series.label;
-    }
-    return series.label + (series.period === "year" ? ", last 12 months" : ", last month");
+export function chartLevelKeys(chart) {
+    const keys = chart.units.map(unit => lineChartKey({...chart, units: [unit]}));
+    return [...new Set([lineChartKey(chart), ...keys])];
 }
 
 /**
- * Granularities of the line charts of the values of tables. "month" is the period of the table, i.e. also the years of
- * yearly values and the days of tables like the days of the current month. Columns with values for each day, e.g. MRR,
- * can be shown per week or per day, and the values of yearly tables also at the end of each month ("monthEnd").
- * Their values have the scale of the values of the table, see OverviewDailyValues.kt. Monthly values with values per
- * year, e.g. the shares of the customer types, can also be shown at the end of each year ("yearEnd").
+ * @param {{label: string, usesWindow?: boolean}} series A series of a metric.
+ * @param {string} window The window of the values, see {@link WINDOWS}.
+ * @return {string} The label of the series with the window of sums and rates, e.g. "Trials, last 12 months".
  */
-export const GRANULARITIES = ["yearEnd", "month", "monthEnd", "week", "day"];
+export function metricLabel(series, window) {
+    return series.usesWindow ? `${series.label}, ${(WINDOW_LABELS[window] ?? window).toLowerCase()}` : series.label;
+}
 
 /**
- * @param {"day"|"month"|"year"} period The period of the values of the table.
- * @param {boolean} hasYearValues If a series of the chart has values per year, see {@link readRowHistorySeries}.
- * @return {string[]} The granularities of a line chart of the values, the values at the end of each month only for
- *  yearly values, they would be the values of the table for monthly values, and the values at the end of each year
- *  only for monthly values with values per year.
+ * @param {string} detail The detail level of a chart of metrics, see {@link DETAILS}.
+ * @return {"month"|"year"} The period of the values, the dates of the chart are shown with it, values of days and
+ *  weeks with their day, see {@link detailGranularity}.
  */
-export function granularitiesOf(period, hasYearValues = false) {
-    return GRANULARITIES.filter(granularity => {
-        switch (granularity) {
-            case "monthEnd":
-                return period === "year";
-            case "yearEnd":
-                return period === "month" && hasYearValues;
-            default:
-                return true;
-        }
-    });
+export function detailPeriod(detail) {
+    return detail === "year" ? "year" : "month";
+}
+
+/**
+ * @return {"day"|"week"|"monthEnd"|"yearEnd"} The granularity of a line chart of the detail level, see lineChart.js.
+ */
+export function detailGranularity(detail) {
+    return {day: "day", week: "week", month: "monthEnd", year: "yearEnd"}[detail] ?? "monthEnd";
 }
 
 /**
@@ -474,21 +463,13 @@ export function yearEndTicks(min, max, lastValue) {
 }
 
 /**
- * @param {{period: string, daily: string|null}[]} seriesList The series of a line chart.
- * @return {boolean} If the chart can show the values per week or per day.
- */
-export function hasFinerValues(seriesList) {
-    return seriesList.some(series => (series.daily || series.yearly) && ["day", "month", "year"].includes(series.period));
-}
-
-/**
  * @param {{dates: string[], series: Object<string, {values: number[], incompleteFrom: number}>}} data
- *  The values per day or per week, loaded from the server.
- * @param {string} id The ID of the values of a column.
- * @return {{points: Map<number, number>, incomplete: Set<number>}|null} The values of the column, or null if there are none.
- *  The values start with the last zero before the first value, the data of all columns starts with the first activity.
+ *  The values of metrics, loaded from /chart-data.
+ * @param {string} id The ID of a metric.
+ * @return {{points: Map<number, number>, incomplete: Set<number>}|null} The values of the metric, or null if there are none.
+ *  The values start with the last zero before the first value, the data of all metrics starts with the first activity.
  */
-export function finerPoints(data, id) {
+export function metricPoints(data, id) {
     const series = data?.series?.[id];
     if (!series) {
         return null;
@@ -720,34 +701,34 @@ export function seriesMeasure(series) {
     return series.measure ?? (series.unit === "%" ? "ratio" : null);
 }
 
+/** The months of the moving averages. */
+export const AVERAGE_MONTHS = {average1: 1, average3: 3, average12: 12};
+
 /**
- * The 3- and 12-month averages apply to monthly values with the granularity Month, and to all series with values per
- * day with the granularity Week or Day, e.g. also of the table of the years: the average of each date is the average
- * of the values per day at the same day of the previous months, see {@link trailingAverageOfDays}.
- * The 1-month average only applies to the values per week and per day, see {@link rollingAverageOfDays}.
- * The previous year can be compared for all values, except yearly values.
+ * The moving averages of metrics are loaded from /chart-data, see ChartMetricValues.average: values at a date can
+ * always be averaged, sums and rates only if the months are longer than the window. Of series of the values of tables,
+ * the 3- and 12-month averages only apply to monthly values. The previous year can be compared for all values, except
+ * yearly values.
  *
  * @param {string} kind One of {@link OVERLAYS}.
- * @param {{period: string, measure?: string|null, unit: string, daily?: string|null}} series
- * @param {string} granularity The granularity of the chart, see {@link GRANULARITIES}.
+ * @param {{period: string, metric?: string, usesWindow?: boolean}} series
+ * @param {string|null} detail The detail level of a chart of metrics, see {@link DETAILS}.
+ * @param {string|null} [window] The window of a chart of metrics, see {@link WINDOWS}.
  */
-export function overlayApplies(kind, series, granularity) {
-    if (kind === "previousYear") {
-        return series.period !== "year";
+export function overlayApplies(kind, series, detail, window = null) {
+    if (series.metric) {
+        if (kind === "previousYear") {
+            return detail !== "year";
+        }
+        return !series.usesWindow || AVERAGE_MONTHS[kind] * WINDOW_DAYS.month > (WINDOW_DAYS[window] ?? Infinity);
     }
-    // the average of a month of monthly values would be the values
-    if (kind === "average1" && granularity === "month") {
-        return false;
-    }
-    switch (granularity) {
-        case "month":
-            return series.period === "month";
-        case "week":
-        case "day":
-            return Boolean(series.daily);
-        default:
-            // the values at the end of each month and of each year
+    switch (kind) {
+        case "previousYear":
+            return series.period !== "year";
+        case "average1":
             return false;
+        default:
+            return series.period === "month";
     }
 }
 
@@ -773,71 +754,6 @@ export function trailingAverage(series, months) {
         // the first value of the window must be at the end of the first month of the window
         if (window[0][0] >= shiftDate(points[i][0], 0, -(months - 1)) - SECONDS_PER_DAY) {
             result.set(points[i][0], window.reduce((sum, [, value]) => sum + value, 0) / months);
-        }
-    }
-    return result;
-}
-
-/**
- * The moving average of values per day, which have the scale of monthly values, e.g. the sales of the month before
- * each day: the average of the value of each day and the values of the same day of the previous months. At the last
- * day of a month, it's the average of the monthly values. Incomplete values are ignored, there's no average if one of
- * the values is missing.
- *
- * @param {{points: Map<number, number>, incomplete: Set<number>}} dailySeries Values of each day.
- * @param {number} months The number of months of each average.
- * @param {Iterable<number>} [timestamps] The dates of the averages, e.g. the ends of the weeks. Defaults to all days.
- * @return {Map<number, number>} The averages at the dates.
- */
-export function trailingAverageOfDays(dailySeries, months, timestamps = dailySeries.points.keys()) {
-    const values = new Map(completePoints(dailySeries));
-    const result = new Map();
-    for (const timestamp of timestamps) {
-        let sum = 0;
-        let count = 0;
-        for (let month = 0; month < months; month++) {
-            const value = values.get(shiftDate(timestamp, 0, -month));
-            if (value === undefined) {
-                break;
-            }
-            sum += value;
-            count++;
-        }
-        if (count === months) {
-            result.set(timestamp, sum / months);
-        }
-    }
-    return result;
-}
-
-/**
- * The average of the values of all days of the month before each date, i.e. from the day after the same day of the
- * previous month until the date. It smooths values per day, which are already sums of the month before each day.
- * Incomplete values are ignored, there's no average if a day of the month has no value.
- *
- * @param {{points: Map<number, number>, incomplete: Set<number>}} dailySeries Values of each day.
- * @param {Iterable<number>} [timestamps] The dates of the averages, e.g. the ends of the weeks. Defaults to all days.
- * @return {Map<number, number>} The averages at the dates.
- */
-export function rollingAverageOfDays(dailySeries, timestamps = dailySeries.points.keys()) {
-    const values = new Map(completePoints(dailySeries));
-    const result = new Map();
-    for (const timestamp of timestamps) {
-        const start = shiftDate(timestamp, 0, -1) + SECONDS_PER_DAY;
-        let sum = 0;
-        let count = 0;
-        let isComplete = true;
-        for (let day = start; day <= timestamp; day += SECONDS_PER_DAY) {
-            const value = values.get(day);
-            if (value === undefined) {
-                isComplete = false;
-                break;
-            }
-            sum += value;
-            count++;
-        }
-        if (isComplete && count > 0) {
-            result.set(timestamp, sum / count);
         }
     }
     return result;
