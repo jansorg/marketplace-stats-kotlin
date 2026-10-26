@@ -34,9 +34,11 @@ Dependency direction: root → `marketplace-data` → `marketplace-client`. All 
 - MCP Kotlin SDK (`io.modelcontextprotocol:kotlin-sdk-server`) for the MCP server at `/mcp`
 - Moneta (JSR 354, `moneta-core` only) for monetary amounts. Currency conversion uses the ECB reference rates, loaded
   lazily by our own `EcbExchangeRateData` (`marketplace-client/.../exchangeRate/`), not by Moneta's ECB providers.
-- fastutil for collections on hot paths (per-license sets and maps), Caffeine for caching, Logback for logging
+- fastutil for collections on hot paths (per-license sets and maps), Caffeine for caching, SLF4J for logging in the
+  modules and Logback as its backend in the web application
 - JUnit 6 for tests
-- Gradle plugins: Shadow (fat JAR), gmazzo BuildConfig (`BuildConfig.APP_VERSION` from `VERSION.txt`)
+- Gradle plugins: Shadow (fat JAR), gmazzo BuildConfig (`BuildConfig.APP_VERSION` from `VERSION.txt`), `maven-publish`
+  (the modules as libraries, see "Publishing the Libraries")
 
 All dependencies and plugin versions are declared centrally in the root `build.gradle.kts`; the Ktor version is in `gradle.properties`.
 
@@ -273,4 +275,31 @@ extend, must not fail a response:
 ## Releases
 
 The version is stored in `VERSION.txt` and exposed via the generated `BuildConfig.APP_VERSION`.
-`deploy.bash` builds, tags, creates the GitHub release and pushes Docker images — only run it when explicitly asked.
+`deploy.bash` builds, publishes the libraries to maven.j-a.dev, tags, creates the GitHub release and pushes Docker
+images — only run it when explicitly asked.
+
+## Publishing the Libraries
+
+- `marketplace-client` and `marketplace-data` are published with `maven-publish` as
+  `dev.j-a.jetbrains-marketplace:marketplace-client` and `dev.j-a.jetbrains-marketplace:marketplace-data`, with the
+  version of `VERSION.txt` (the block `configure(listOf(project(":marketplace-client"), ...))` in `build.gradle.kts`,
+  like the setup of jetbrains-dap). The root project, the web application, isn't published.
+- Each publication has the JAR, a sources JAR, an empty javadoc JAR (no Dokka), the POM (AGPL-3.0-or-later, developer,
+  SCM) and the Gradle module metadata. The bytecode targets Java 25, so users need Java 25 or later.
+- The repository `jaDev` of the build is the self-hosted Reposilite, which isn't public: `https://maven.j-a.dev/releases`, or
+  `https://maven.j-a.dev/snapshots` for a `-SNAPSHOT` version. Its credentials are the Gradle properties `jaDevUsername`
+  and `jaDevPassword` (the name and the secret of an access token, e.g. `ORG_GRADLE_PROJECT_jaDevUsername`). Never
+  print or commit them. Publish with `./gradlew publishAllPublicationsToJaDevRepository --no-configuration-cache`
+  (part of `deploy.bash`), the same version can't be published twice. Only publish when explicitly asked, test with
+  `./gradlew publishToMavenLocal` (`-Dmaven.repo.local=<dir>` writes to another directory than `~/.m2`).
+- The POMs list the dependencies of the modules: `api` dependencies with scope compile, `implementation` with scope
+  runtime. Types of a library, which are used in the public API of a module (e.g. kotlinx-datetime, Moneta,
+  fastutil, Ktor, the classes of `marketplace-client` in `marketplace-data`), must be `api` dependencies of the modules,
+  otherwise users can't compile against the module. The shared dependencies of `allprojects` are `api` for the modules
+  (`exposedDependency`), but `implementation` for the root project. Dependencies, which only the web application needs
+  (Logback, Clikt, the Ktor server, JTE, the MCP SDK), belong to the root project and must not be added to the modules.
+- The dependencies of the modules must be resolvable from Maven Central. The Ivy repository of the npm packages is
+  only defined for the root project and must not be used by the modules.
+- Shadow's `minimize` keeps all classes of the `api` dependencies of the root project, also those of its `api` project
+  dependencies. After changing the dependencies of the modules, compare the files of the fat JAR with
+  `./gradlew shadowJar --no-build-cache --rerun-tasks`.

@@ -26,6 +26,7 @@ instead of Go.
 - [Custom Events in the Charts](#custom-events-in-the-charts)
 - [MCP Server for AI Agents](#mcp-server-for-ai-agents)
 - [Building From Source](#building-from-source)
+- [Libraries](#libraries)
 - [License](#license)
 
 ## Quick Start
@@ -379,6 +380,34 @@ You need JDK 27. Gradle downloads it, if it isn't installed.
 ./gradlew build      # compiles the code and runs the tests
 ./gradlew shadowJar  # creates build/libs/marketplace-stats-all.jar
 ```
+
+## Libraries
+
+The client of the API and the reports are published as Maven libraries to the repository `https://maven.j-a.dev/releases`,
+with the version of the application. The repository isn't public.
+
+| Artifact                                                 | Contents                                                                                                    |
+|----------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
+| `dev.j-a.jetbrains-marketplace:marketplace-client:<version>` | Client of the API of the JetBrains Marketplace and of the services of JetBrains, caching, exchange rates |
+| `dev.j-a.jetbrains-marketplace:marketplace-data:<version>`   | Reports of the sales, licenses, customers and trials, it depends on `marketplace-client`                |
+
+They need Java 25 or later. They are licensed under the AGPL-3.0-or-later, like the application.
+The libraries log with SLF4J, add a backend like Logback to see their logs.
+
+### Publishing
+
+`./gradlew publishToMavenLocal` publishes the libraries to the local Maven repository.
+
+`deploy.bash` publishes a release to `https://maven.j-a.dev/releases`, with:
+
+```bash
+./gradlew publishAllPublicationsToJaDevRepository --no-configuration-cache
+```
+
+It needs the Gradle properties `jaDevUsername` and `jaDevPassword`, the name and the secret of an access token of the
+repository, e.g. in `~/.gradle/gradle.properties` or as the environment variables `ORG_GRADLE_PROJECT_jaDevUsername` and
+`ORG_GRADLE_PROJECT_jaDevPassword`. A version ending with `-SNAPSHOT` is published to `https://maven.j-a.dev/snapshots`.
+A version can't be published twice, update `VERSION.txt` before.
 
 ## License
 
