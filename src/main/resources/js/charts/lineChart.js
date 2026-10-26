@@ -8,7 +8,7 @@
  */
 
 import {formatDate, SECONDS_PER_DAY, unitTitle} from "./format.js";
-import {alignSeries, availableComparisons, barLayout, displayColor, extremeIndices, incompleteColor, pinchedRange, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange} from "./model.js";
+import {alignSeries, availableComparisons, barLayout, displayColor, extremeIndices, incompleteColor, averageShade, pinchedRange, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange} from "./model.js";
 
 /**
  * The colors of the charts in the light and the dark mode. The surface is the background of the charts in the chart
@@ -87,19 +87,21 @@ export function lineChartLegend(plot) {
     const {chartSeries, markers, isBars, chartOverlays, theme} = legendData.get(plot);
     const min = plot.scales.x.min;
     const max = plot.scales.x.max;
-    const shown = chartSeries.filter((series, index) => plot.series[index + 1].show);
+    // series, which only show their average, aren't drawn, their averages are part of the legend
+    const shown = chartSeries.filter((series, index) => plot.series[index + 1].show && !series.isValueHidden);
     const entries = shown.map(series => ({
         label: series.isRightAxis ? series.label + " (right axis)" : series.label,
         color: series.color,
         shape: isBars ? "box" : "line",
     }));
-    if (shown.some(series => [...series.incomplete].some(timestamp => timestamp >= min && timestamp <= max))) {
+    if (shown.length > 0 && shown.some(series => [...series.incomplete].some(timestamp => timestamp >= min && timestamp <= max))) {
         entries.push({label: "Incomplete values", color: incompleteColor(shown[0].color, theme.isDark), shape: isBars ? "stripes" : "dotted"});
     }
     const kinds = new Set(markers.filter(marker => marker.timestamp >= min && marker.timestamp <= max).map(marker => marker.kind));
     for (const overlay of chartOverlays ?? []) {
         if (plot.series[chartSeries.length + chartOverlays.indexOf(overlay) + 1].show) {
-            entries.push({label: overlay.label, color: overlayColor(overlay), shape: "line"});
+            const dash = overlay.isMainLine ? null : CHART_STYLE.overlays[overlay.kind].dash;
+            entries.push({label: overlay.label, color: overlayColor(overlay), shape: "line", ...(dash ? {dash} : {})});
         }
     }
     for (const kind of kinds) {
@@ -359,8 +361,12 @@ function barGeometry(plot, chartSeries, interval) {
     return {visible, width, offsets};
 }
 
+/**
+ * @return The color of an overlay: the shade of the color of its series for several averages, opaque if the series only
+ *  shows its average.
+ */
 function overlayColor(overlay) {
-    return overlay.base.color + CHART_STYLE.overlays[overlay.kind].alpha;
+    return (overlay.shade ?? overlay.base.color) + (overlay.isMainLine ? "" : CHART_STYLE.overlays[overlay.kind].alpha);
 }
 
 /**
@@ -538,11 +544,11 @@ function enableTooltip(plot, chartSeries, describe) {
  * the dates and a table below the chart shows the values and their changes. Without a cursor on the chart, the table
  * shows the latest values.
  */
-function enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, formatter, valueTable, shownRange}) {
-    // the values of each series without gaps, and the tolerance to find a value near a date
-    const seriesPoints = chartSeries.map((series, index) => {
+function enableComparisons(plot, {rows, timestamps, datePeriod, formatter, valueTable, shownRange}) {
+    // the values of each row without gaps, and the tolerance to find a value near a date
+    const seriesPoints = rows.map(row => {
         const points = timestamps
-            .map((timestamp, i) => ({timestamp, value: values[index][i]}))
+            .map((timestamp, i) => ({timestamp, value: row.values[i]}))
             .filter(point => point.value !== null && point.value !== undefined);
         return {points, tolerance: smallestInterval(points.map(point => point.timestamp), SECONDS_PER_DAY) / 2};
     });
@@ -588,14 +594,14 @@ function enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, f
             }
         }
 
-        const visibleSeries = chartSeries.map((series, i) => plot.series[i + 1].show).join();
+        const visibleSeries = rows.map(row => plot.series[row.seriesIndex + 1].show).join();
         if (index === shownIndex && visibleSeries === shownSeries) {
             return;
         }
         shownIndex = index;
         shownSeries = visibleSeries;
         if (valueTable) {
-            renderComparisonTable(table, {plot, chartSeries, seriesPoints, comparisons, timestamp, datePeriod, formatter});
+            renderComparisonTable(table, {plot, rows, seriesPoints, comparisons, timestamp, datePeriod, formatter});
         }
     };
     update();
@@ -617,7 +623,7 @@ function cell(tagName, className, text) {
  * The columns are in chronological order, the values at the cursor in the middle. Each other value shows the change
  * between its date and the date of the cursor, e.g. the change since the previous year.
  */
-function renderComparisonTable(table, {plot, chartSeries, seriesPoints, comparisons, timestamp, datePeriod, formatter}) {
+function renderComparisonTable(table, {plot, rows, seriesPoints, comparisons, timestamp, datePeriod, formatter}) {
     if (timestamp === undefined) {
         table.replaceChildren();
         return;
@@ -639,8 +645,9 @@ function renderComparisonTable(table, {plot, chartSeries, seriesPoints, comparis
     head.append(headerRow);
 
     const body = document.createElement("tbody");
-    chartSeries.forEach((series, index) => {
-        const {points, tolerance} = seriesPoints[index];
+    rows.forEach((series, rowIndex) => {
+        const index = series.seriesIndex;
+        const {points, tolerance} = seriesPoints[rowIndex];
         const found = columns.map(column => valueNear(points, column.timestamp, tolerance));
         const current = found[columns.findIndex(column => column.isCursor)];
 
@@ -663,7 +670,7 @@ function renderComparisonTable(table, {plot, chartSeries, seriesPoints, comparis
         });
         const key = cell("span", "chart-tooltip-key");
         key.style.backgroundColor = series.color;
-        label.append(key, series.isRightAxis ? series.label + " (right axis)" : series.label);
+        label.append(key, series.label);
         row.append(label);
 
         columns.forEach((column, i) => {
@@ -853,6 +860,15 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     const chartOverlays = overlays
         .map(overlay => ({...overlay, base: chartSeries.find(s => s.key === overlay.base)}))
         .filter(overlay => overlay.base !== undefined);
+    // several averages of a series have different shades of its color, the averages of a series, which only shows its
+    // averages, are drawn like the series: solid and opaque
+    for (const s of chartSeries) {
+        const averages = chartOverlays.filter(overlay => overlay.base === s && overlay.kind.startsWith("average"));
+        averages.forEach((overlay, index) => {
+            overlay.shade = averageShade(s.color, index, averages.length);
+            overlay.isMainLine = s.isValueHidden;
+        });
+    }
     const {timestamps, values: allValues} = alignSeries([...chartSeries, ...chartOverlays]);
     const values = allValues.slice(0, chartSeries.length);
     const overlayValues = allValues.slice(chartSeries.length);
@@ -869,9 +885,10 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     // the tooltip lists the series, which are shown, series can be hidden by a click on the legend
     const describe = (plot, index) => ({
         date: formatDate(timestamps[index], datePeriod),
+        // series, which only show their average, are listed with the average
         rows: chartSeries
             .map((s, seriesIndex) => ({s, seriesIndex}))
-            .filter(({seriesIndex}) => plot.series[seriesIndex + 1].show)
+            .filter(({s, seriesIndex}) => plot.series[seriesIndex + 1].show && !s.isValueHidden)
             .map(({s, seriesIndex}) => {
                 const value = values[seriesIndex][index];
                 const incomplete = value !== null && s.incomplete.has(timestamps[index]);
@@ -991,8 +1008,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                 label: overlay.label,
                 scale: overlay.base.scale,
                 stroke: overlayColor(overlay),
-                width: CHART_STYLE.overlayWidth,
-                ...(CHART_STYLE.overlays[overlay.kind].dash ? {dash: CHART_STYLE.overlays[overlay.kind].dash} : {}),
+                width: overlay.isMainLine ? CHART_STYLE.lineWidth : CHART_STYLE.overlayWidth,
+                ...(CHART_STYLE.overlays[overlay.kind].dash && !overlay.isMainLine ? {dash: CHART_STYLE.overlays[overlay.kind].dash} : {}),
                 spanGaps: true,
                 points: {show: false},
             })),
@@ -1015,11 +1032,40 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         return drawn.length === 0 ? [min, max] : [Math.min(...drawn), Math.max(...drawn)];
     }
 
+    /**
+     * @return The rows of the value table: a row of each series, or of each of its averages, if it only shows its
+     *  average. A click on a row shows or hides the series and its averages.
+     */
+    function valueTableRows() {
+        return chartSeries.flatMap((s, seriesIndex) => {
+            const label = s.isRightAxis ? s.label + " (right axis)" : s.label;
+            if (!s.isValueHidden) {
+                return [{label, color: s.color, unit: s.unit, incomplete: s.incomplete, values: values[seriesIndex], seriesIndex}];
+            }
+            return chartOverlays
+                .map((overlay, overlayIndex) => ({overlay, overlayIndex}))
+                .filter(({overlay}) => overlay.base === s && overlay.kind.startsWith("average"))
+                .map(({overlay, overlayIndex}) => ({
+                    label: s.isRightAxis ? overlay.label + " (right axis)" : overlay.label,
+                    color: overlayColor(overlay),
+                    unit: s.unit,
+                    incomplete: new Set(),
+                    values: overlayValues[overlayIndex],
+                    seriesIndex,
+                }));
+        });
+    }
+
     let updateTooltip = null;
     let updateComparisons = null;
     const plot = new uPlot(options, [timestamps, ...values, ...overlayValues], container);
     updateTooltip = enableTooltip(plot, chartSeries, describe);
-    updateComparisons = enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, formatter, valueTable, shownRange: xRange});
+    updateComparisons = enableComparisons(plot, {rows: valueTableRows(), timestamps, datePeriod, formatter, valueTable, shownRange: xRange});
+    // the legend of uPlot doesn't list series, which only show their average
+    const hiddenLabels = new Set(chartSeries.flatMap((s, index) => s.isValueHidden ? [plot.series[index + 1].label] : []));
+    for (const row of plot.root.querySelectorAll(".u-legend .u-series")) {
+        row.classList.toggle("chart-legend-hidden", hiddenLabels.has(row.querySelector(".u-label")?.textContent));
+    }
     enableTouchCursor(plot);
     if (onZoom !== null) {
         enablePinchZoom(plot, {limits: fullRange, onZoom, setPreview: range => pinchPreview = range});

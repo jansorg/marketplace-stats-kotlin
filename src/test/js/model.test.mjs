@@ -7,7 +7,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
-    pinchedRange, rangeLabel, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
+    averageShade, pinchedRange, rangeLabel, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, granularitiesOf, rollingAverageOfDays, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear, trailingAverageOfDays,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, groupCharts, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
@@ -424,4 +424,15 @@ test("pinching keeps the dates under the fingers", () => {
     assert.deepEqual(pinchedRange([800, 1000], [400, 600], [450, 550], 1000, limits), [600, 1000]);
     // fingers at the same position don't change the range
     assert.deepEqual(pinchedRange([0, 1000], [500, 500], [300, 700], 1000, limits), [0, 1000]);
+});
+
+test("several averages of a series have different shades of its color", () => {
+    assert.equal(averageShade("#2a78d6", 0, 1), "#2a78d6");
+    const shades = [0, 1, 2].map(index => averageShade("#2a78d6", index, 3));
+    assert.equal(new Set(shades).size, 3);
+    // the middle shade is the color of the series, the first is lighter and the last darker
+    assert.equal(shades[1], "#2a78d6");
+    const lightness = color => [1, 3, 5].reduce((sum, i) => sum + Number.parseInt(color.substring(i, i + 2), 16), 0);
+    assert.ok(lightness(shades[0]) > lightness(shades[1]) && lightness(shades[1]) > lightness(shades[2]));
+    assert.equal(averageShade("not a color", 0, 2), "not a color");
 });
