@@ -5,14 +5,18 @@
 
 package dev.ja.marketplace.data.overview
 
+import dev.ja.marketplace.churn.ChurnValidities
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.DailyDownload
+import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.client.model.PluginTrial
+import dev.ja.marketplace.data.PercentageValue
 import dev.ja.marketplace.data.trackers.RecurringRevenueSales
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.javamoney.moneta.FastMoney
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.time.DayOfWeek
 import javax.money.MonetaryAmount
 
@@ -37,6 +41,10 @@ enum class OverviewDailyColumn(val id: String) {
     Arr("arr"),
     Downloads("downloads"),
     Trials("trials"),
+    ChurnAnnual("churn-annual-paid"),
+    ChurnMonthly("churn-monthly-paid"),
+    ChurnAnnualOfYear("churn-annual-paid.year"),
+    ChurnMonthlyOfYear("churn-monthly-paid.year"),
 }
 
 /**
@@ -49,6 +57,9 @@ enum class OverviewDailyColumn(val id: String) {
  * - Licenses, MRR and ARR are the values at each day, like the values at the end of each month in the table.
  *   They use the rules of [dev.ja.marketplace.data.trackers.LicenseTracker] and
  *   [dev.ja.marketplace.data.trackers.RecurringRevenueTracker].
+ * - The churn is the churn of the month before each day, i.e. of the paid licenses, which were active a month before
+ *   the day and aren't active at the day. At the last day of a month, it's the churn of the calendar month like in the
+ *   table. The series `*.year` are the churn of the year before each day, at the end of a year the churn of the year.
  *
  * @param days The days from the first month with data until today.
  */
@@ -99,9 +110,29 @@ class OverviewDailyValues private constructor(
                         put(OverviewDailyColumn.Arr, arr)
                         put(OverviewDailyColumn.Downloads, countsOfMonth(downloads.map { it.day to it.downloads }))
                         put(OverviewDailyColumn.Trials, countsOfMonth(trials.map { it.date to 1L }))
+                        // the churn of the current month and year is incomplete like in the table
+                        val validities = ChurnValidities(licenses)
+                        val currentMonth = YearMonthDay.firstOfMonth(today.year, today.month)
+                        val currentYear = YearMonthDay(today.year, 1, 1)
+                        put(OverviewDailyColumn.ChurnAnnual, churn(licenses, validities, LicensePeriod.Annual, ::monthBefore, currentMonth))
+                        put(OverviewDailyColumn.ChurnMonthly, churn(licenses, validities, LicensePeriod.Monthly, ::monthBefore, currentMonth))
+                        put(OverviewDailyColumn.ChurnAnnualOfYear, churn(licenses, validities, LicensePeriod.Annual, ::yearBefore, currentYear))
+                        put(OverviewDailyColumn.ChurnMonthlyOfYear, churn(licenses, validities, LicensePeriod.Monthly, ::yearBefore, currentYear))
                     }
                 )
             }
+        }
+
+        /** @return The day before the month before [day], the last day of the previous month at the end of a month. */
+        private fun monthBefore(day: YearMonthDay): YearMonthDay = when (day) {
+            YearMonthDay.lastOfMonth(day.year, day.month) -> YearMonthDay.firstOfMonth(day.year, day.month).add(0, 0, -1)
+            else -> day.add(0, -1, 0)
+        }
+
+        /** @return The day before the year before [day], the last day of the previous year at the end of a year. */
+        private fun yearBefore(day: YearMonthDay): YearMonthDay = when {
+            day.month == 12 && day.day == 31 -> YearMonthDay(day.year - 1, 12, 31)
+            else -> day.add(-1, 0, 0)
         }
 
         /** @return The MRR and the ARR at each day of [windows], like [OverviewDailyColumn.Mrr] and [OverviewDailyColumn.Arr]. */
@@ -177,6 +208,72 @@ class OverviewDailyValues private constructor(
             if (from <= to) {
                 action(from, to)
             }
+        }
+
+        /**
+         * @return The churn rate in percent at each day, like [dev.ja.marketplace.churn.LicenseChurnProcessor]: the
+         * share of the paid licenses of the [period], which were active at the [previous] day, and which aren't active
+         * at the day, e.g. not renewed within the grace period. `null` without licenses at the previous day.
+         * The rates from [incompleteFrom] are incomplete, licenses expiring later may still be renewed.
+         */
+        fun churn(
+            licenses: List<LicenseInfo>,
+            validities: ChurnValidities,
+            period: LicensePeriod,
+            previous: (YearMonthDay) -> YearMonthDay,
+            incompleteFrom: YearMonthDay,
+        ): DailySeries {
+            val previousDays = windows.days.map(previous)
+            val previousChanges = IntArray(dayCount + 1)
+            val churnedChanges = IntArray(dayCount + 1)
+            for (sales in licenses.groupBy { it.id }.values) {
+                val accepted = mergeRanges(sales.filter { it.isPaidLicense && it.sale.licensePeriod == period }.mapNotNull(validities::validity))
+                if (accepted.isEmpty()) {
+                    continue
+                }
+                val active = mergeRanges(sales.mapNotNull(validities::validity))
+                for ((start, end) in accepted) {
+                    // the days, whose previous day is within the range, the previous days are ordered
+                    val from = lowerBound(previousDays, start)
+                    val to = lowerBound(previousDays, end.add(0, 0, 1)) - 1
+                    if (from > to) {
+                        continue
+                    }
+                    previousChanges[from]++
+                    previousChanges[to + 1]--
+                    churnedChanges[from]++
+                    churnedChanges[to + 1]--
+                    // not churned at the days, at which the license is active
+                    for ((activeStart, activeEnd) in active) {
+                        val activeFrom = maxOf(from, windows.index(activeStart))
+                        val activeTo = minOf(to, windows.index(activeEnd))
+                        if (activeFrom <= activeTo) {
+                            churnedChanges[activeFrom]--
+                            churnedChanges[activeTo + 1]++
+                        }
+                    }
+                }
+            }
+
+            var previousCount = 0
+            var churnedCount = 0
+            val rates = List(dayCount) { index ->
+                previousCount += previousChanges[index]
+                churnedCount += churnedChanges[index]
+                PercentageValue.rateOf(churnedCount, previousCount)?.value?.setScale(2, RoundingMode.HALF_UP)
+            }
+            return DailySeries("%", rates, maxOf(0, windows.index(incompleteFrom)))
+        }
+
+        /** @return The index of the first day, which isn't before [day]. */
+        private fun lowerBound(days: List<YearMonthDay>, day: YearMonthDay): Int {
+            var low = 0
+            var high = days.size
+            while (low < high) {
+                val middle = (low + high) / 2
+                if (days[middle] < day) low = middle + 1 else high = middle
+            }
+            return low
         }
 
         /**

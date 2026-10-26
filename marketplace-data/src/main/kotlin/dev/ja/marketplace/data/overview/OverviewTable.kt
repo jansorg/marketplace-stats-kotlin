@@ -113,11 +113,15 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     private val columnLicenseChurnAnnual = DataTableColumn(
         "churn-annual-paid", "Churn (annual)", "num num-percentage", tooltip = "Churn of paid annual licenses",
         chartMeasure = ChartMeasure.Ratio,
+        dailyChartSeries = OverviewDailyColumn.ChurnAnnual.id,
+        yearlyChartSeries = OverviewDailyColumn.ChurnAnnualOfYear.id,
     )
 
     private val columnLicenseChurnMonthly = DataTableColumn(
         "churn-monthly-paid", "Churn (monthly)", "num num-percentage", tooltip = "Churn of paid monthly licenses",
         chartMeasure = ChartMeasure.Ratio,
+        dailyChartSeries = OverviewDailyColumn.ChurnMonthly.id,
+        yearlyChartSeries = OverviewDailyColumn.ChurnMonthlyOfYear.id,
     )
     private val columnDownloads = DataTableColumn(
         "downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Number of downloads in the month",

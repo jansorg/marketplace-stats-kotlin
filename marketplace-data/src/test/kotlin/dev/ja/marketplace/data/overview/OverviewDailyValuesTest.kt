@@ -5,6 +5,8 @@
 
 package dev.ja.marketplace.data.overview
 
+import dev.ja.marketplace.churn.ChurnValidities
+import dev.ja.marketplace.churn.LicenseChurnProcessor
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.model.DailyDownload
@@ -12,6 +14,7 @@ import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.client.model.PluginSaleItemType
 import dev.ja.marketplace.client.model.PluginTrial
+import dev.ja.marketplace.client.model.SubscriptionPluginSaleItem
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.customer
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.inCurrency
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.licenses
@@ -114,6 +117,61 @@ class OverviewDailyValuesTest {
 
             month = month.add(0, 1, 0)
         }
+    }
+
+    @Test
+    fun churnIsTheChurnOfTheTable() {
+        // licenses, which are renewed several times, sometimes late, and then end
+        val random = Random(3)
+        val churnSales = (1..80).flatMap { customerId ->
+            val period = if (customerId % 2 == 0) LicensePeriod.Annual else LicensePeriod.Monthly
+            var start = YearMonthDay(2023, 1, 1).add(0, 0, random.nextInt(600))
+            (0..random.nextInt(if (period == LicensePeriod.Annual) 3 else 12)).map { renewal ->
+                val sale = sale(customer(customerId), "churn-$customerId", start, 10, period, if (renewal == 0) PluginSaleItemType.New else PluginSaleItemType.Renew)
+                start = sale.lineItems.single().let { (it as SubscriptionPluginSaleItem).subscriptionDates.end }
+                    .add(0, 0, 1 + if (random.nextInt(4) == 0) random.nextInt(120) else 0)
+                sale
+            }
+        }.filter { it.date <= today }
+        val licenses = licenses(*churnSales.toTypedArray())
+        val values = OverviewDailyValues.create(churnSales, licenses, emptyList(), emptyList(), exchangeRates, today)
+        val validities = ChurnValidities(licenses)
+        // the churn of the table, like OverviewTable: the licenses active at the previous day and not active at the day
+        fun expected(previous: YearMonthDay, day: YearMonthDay, period: LicensePeriod): BigDecimal? {
+            val processor = LicenseChurnProcessor(previous, day)
+            licenses.forEach { license ->
+                validities.validity(license)?.let { processor.processValue(license, it, license.isPaidLicense && license.sale.licensePeriod == period) }
+            }
+            val result = processor.getResult(period)
+            return if (result.previousActiveItemCount == 0) null else BigDecimal(result.churnRate * 100).setScale(2, RoundingMode.HALF_UP)
+        }
+        fun assertChurn(column: OverviewDailyColumn, period: LicensePeriod, previous: YearMonthDay, day: YearMonthDay) {
+            val actual = values.series.getValue(column).values[values.days.indexOf(day)]
+            assertEquals(expected(previous, day, period), actual, "$column $day")
+        }
+
+        var month = YearMonthDay(2023, 1, 1)
+        var churnedMonths = 0
+        while (YearMonthDay.lastOfMonth(month.year, month.month) <= today) {
+            val end = YearMonthDay.lastOfMonth(month.year, month.month)
+            for ((column, period) in listOf(OverviewDailyColumn.ChurnAnnual to LicensePeriod.Annual, OverviewDailyColumn.ChurnMonthly to LicensePeriod.Monthly)) {
+                assertChurn(column, period, month.add(0, 0, -1), end)
+                // within a month, the churn of the month before the day
+                assertChurn(column, period, month.add(0, 0, 14).add(0, -1, 0), month.add(0, 0, 14))
+            }
+            if ((values.series.getValue(OverviewDailyColumn.ChurnMonthly).values[values.days.indexOf(end)] ?: BigDecimal.ZERO).signum() > 0) {
+                churnedMonths++
+            }
+            month = month.add(0, 1, 0)
+        }
+        assertTrue(churnedMonths > 3, "months with churn: $churnedMonths")
+
+        // the churn of the years
+        assertChurn(OverviewDailyColumn.ChurnAnnualOfYear, LicensePeriod.Annual, YearMonthDay(2023, 12, 31), YearMonthDay(2024, 12, 31))
+        assertChurn(OverviewDailyColumn.ChurnMonthlyOfYear, LicensePeriod.Monthly, YearMonthDay(2023, 12, 31), YearMonthDay(2024, 12, 31))
+        assertChurn(OverviewDailyColumn.ChurnMonthlyOfYear, LicensePeriod.Monthly, today.add(-1, 0, 0), today)
+        assertEquals(values.days.indexOf(YearMonthDay(2025, 1, 1)), values.series.getValue(OverviewDailyColumn.ChurnAnnualOfYear).incompleteFrom)
+        assertEquals(values.days.indexOf(YearMonthDay(2025, 9, 1)), values.series.getValue(OverviewDailyColumn.ChurnMonthly).incompleteFrom)
     }
 
     @Test

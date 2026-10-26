@@ -10,6 +10,7 @@
  * - tables: `data-chart-title` and `data-chart-period` (day, month or year) for line charts
  * - column headers: `data-chart-col` (index), `data-chart-label`, `data-chart-pie` for share columns and
  *   `data-chart-daily` for columns with values for each day, which are loaded from `/chart-series`,
+ *   `data-chart-yearly` for columns with values at the end of each year, also loaded from `/chart-series`,
  *   `data-chart-measure` (flow, stock or ratio) for what the values measure,
  *   `data-chart-history` (day, month or year) for columns with the values of each row over time
  * - cells of columns with the values of the rows over time: `data-chart-history`, JSON like
@@ -59,7 +60,7 @@ function chartLabel(table, column) {
 
 /**
  * @return {{key: string, table: string, column: string, label: string, period: string, unit: string|null,
- *  points: Map<number, number>, incomplete: Set<number>, daily: string|null, measure: string|null}}
+ *  points: Map<number, number>, incomplete: Set<number>, daily: string|null, yearly: string|null, measure: string|null}}
  *  The values of a column for a line chart.
  */
 export function readLineSeries(table, columnIndex) {
@@ -93,6 +94,8 @@ export function readLineSeries(table, columnIndex) {
         points,
         incomplete,
         daily: header.dataset.chartDaily || null,
+        // the values at the end of each year, e.g. the churn of each year in the table of months
+        yearly: header.dataset.chartYearly || null,
         measure: header.dataset.chartMeasure || null,
     };
 }

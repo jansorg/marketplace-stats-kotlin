@@ -137,6 +137,11 @@ data class DataTableColumn(
      */
     val dailyChartSeries: String? = null,
     /**
+     * ID of the values of this column at the end of each year, which charts load from `/chart-series`, e.g. the churn of
+     * each year in a table of months.
+     */
+    val yearlyChartSeries: String? = null,
+    /**
      * What the values of this column measure, e.g. sums of a period. Charts offer trends like moving averages only for
      * suitable columns, see [ChartMeasure].
      */
