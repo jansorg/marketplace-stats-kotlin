@@ -50,4 +50,30 @@ class RenewalRatesTest {
             .map { "${it.year}-${it.month} ${it.previousRenewals}: ${it.renewed}/${it.due} ${it.isIncomplete}" }
         assertEquals(listOf("2026-1 0: 1/1 false", "2026-3 1: 0/0 true"), monthlyRates)
     }
+
+    @Test
+    fun renewalAfterAtMostTheGracePeriodWithoutALicense() {
+        val annual = LicensePeriod.Annual
+        // the subscriptions end at 2024-12-31, the renewals start after 90 and after 91 days without a license
+        val licenses = licenses(
+            sale(customer(1), "a", YearMonthDay(2024, 1, 1), 100, annual),
+            sale(customer(1), "a", YearMonthDay(2025, 4, 1), 100, annual, PluginSaleItemType.Renew),
+            sale(customer(2), "b", YearMonthDay(2024, 1, 1), 100, annual),
+            sale(customer(2), "b", YearMonthDay(2025, 4, 2), 100, annual, PluginSaleItemType.Renew),
+        )
+        val rate = RenewalRates.of(licenses, today = YearMonthDay(2026, 10, 1)).single { it.year == 2024 }
+        assertEquals(1, rate.renewed)
+        assertEquals(2, rate.due)
+    }
+
+    @Test
+    fun freeSubscriptionsAreNoRenewals() {
+        val annual = LicensePeriod.Annual
+        val licenses = licenses(
+            sale(customer(1), "a", YearMonthDay(2023, 1, 1), 100, annual),
+            sale(customer(1), "a", YearMonthDay(2024, 1, 1), 0, annual, PluginSaleItemType.Renew),
+        )
+        val rate = RenewalRates.of(licenses, today = YearMonthDay(2026, 10, 1)).single()
+        assertEquals("2023 0: 0/1", "${rate.year} ${rate.previousRenewals}: ${rate.renewed}/${rate.due}")
+    }
 }

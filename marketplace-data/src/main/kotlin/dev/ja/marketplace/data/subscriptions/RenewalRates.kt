@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.data.PercentageValue
+import dev.ja.marketplace.data.licenses.Renewals
 
 /**
  * How many paid subscriptions were renewed, grouped by the year or the month of their end, the license period and the
@@ -34,9 +35,9 @@ data class RenewalRate(
 
 object RenewalRates {
     /**
-     * A subscription is renewed if a subscription of the same license starts later,
-     * at most [graceDays] days after the end of the subscription.
-     * Subscriptions, which ended less than [graceDays] days ago and aren't renewed yet, are pending.
+     * A paid subscription is renewed if a paid subscription of the same license starts later, after at most
+     * [graceDays] days without a license, see [Renewals].
+     * Subscriptions, which can still be renewed and aren't renewed yet, are pending.
      *
      * @param maxPreviousRenewals Subscriptions with more previous renewals are counted with this value.
      * @param byMonth Groups the subscriptions by the month of their end instead of the year.
@@ -65,9 +66,10 @@ object RenewalRates {
                 }
 
                 val validity = subscription.validity!!
-                val renewalDeadline = validity.end.add(0, 0, graceDays)
+                val renewalDeadline = Renewals.deadline(validity.end, graceDays)
+                // a free subscription isn't a renewal of a paid subscription
                 val isRenewed = sorted.subList(index + 1, sorted.size).any {
-                    it.validity!!.start > validity.start && it.validity!!.start <= renewalDeadline
+                    it.isPaidLicense && it.validity!!.start > validity.start && it.validity!!.start <= renewalDeadline
                 }
 
                 // still valid, i.e. not due yet

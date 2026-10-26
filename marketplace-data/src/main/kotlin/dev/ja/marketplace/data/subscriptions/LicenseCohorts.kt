@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.data.PercentageValue
+import dev.ja.marketplace.data.licenses.Renewals
 
 /**
  * The new paid subscription licenses of a month and how many of them were renewed.
@@ -55,8 +56,8 @@ data class LicenseCohortRenewal(
 object LicenseCohorts {
     /**
      * Groups the subscription licenses by the month of their first paid subscription and the license period of that sale.
-     * A subscription is renewed, like in [RenewalRates], if another subscription of the same license starts later,
-     * at most [graceDays] days after its end.
+     * A subscription is renewed, like in [RenewalRates], if another paid subscription of the same license starts later,
+     * after at most [graceDays] days without a license, see [Renewals].
      *
      * @param maxRenewals The maximum number of renewals of each cohort.
      */
@@ -85,15 +86,16 @@ object LicenseCohorts {
             var renewals = 0
             while (true) {
                 val validity = current.validity!!
-                val deadline = validity.end.add(0, 0, graceDays)
-                current = sorted.firstOrNull { it.validity!!.start > validity.start && it.validity!!.start <= deadline } ?: break
+                val deadline = Renewals.deadline(validity.end, graceDays)
+                // free subscriptions aren't renewals of the paid subscriptions
+                current = sorted.firstOrNull { it.isPaidLicense && it.validity!!.start > validity.start && it.validity!!.start <= deadline } ?: break
                 renewals++
             }
 
             val first = sorted[firstIndex]
             val start = first.validity!!.start
             val key = Key(YearMonthDay(start.year, start.month, 1), first.sale.licensePeriod)
-            val isOpen = current.validity!!.end.add(0, 0, graceDays) >= today
+            val isOpen = Renewals.deadline(current.validity!!.end, graceDays) >= today
             chains.getOrPut(key, ::mutableListOf) += LicenseChain(renewals, isOpen)
         }
 
