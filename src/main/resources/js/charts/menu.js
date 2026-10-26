@@ -80,9 +80,12 @@ function limitHeight(items, available) {
  *
  * @param {boolean} alignEnd The items end at the right edge of the button and open to the left, e.g. for a button at
  *  the right of the dialog.
- * @param {number} maxHeight The maximum height of the items in pixels, a longer menu scrolls.
+ * @param {number|(() => number)} maxHeight The maximum height of the items in pixels, a longer menu scrolls.
  */
 function placeInWindow(menu, items, alignEnd, maxHeight) {
+    if (!menu.open) {
+        return;
+    }
     items.style.position = "fixed";
     items.style.maxHeight = "";
     const button = menu.getBoundingClientRect();
@@ -90,7 +93,7 @@ function placeInWindow(menu, items, alignEnd, maxHeight) {
     const below = window.innerHeight - button.bottom;
     const isBelow = below >= height || below >= button.top;
     // a long menu scrolls within the window
-    const available = Math.min(maxHeight, (isBelow ? below : button.top) - MENU_MARGIN);
+    const available = Math.min(typeof maxHeight === "function" ? maxHeight() : maxHeight, (isBelow ? below : button.top) - MENU_MARGIN);
     limitHeight(items, available);
     const shownHeight = Math.min(height, Math.max(80, available));
     const top = isBelow ? button.bottom + 2 : button.top - shownHeight - 2;
@@ -106,10 +109,10 @@ function placeInWindow(menu, items, alignEnd, maxHeight) {
  * A click outside of an open menu closes it, see {@link ChartDialog}.
  *
  * @param {string} label The text of the button, which opens the menu.
- * @param {{fixed?: boolean, hover?: boolean, alignEnd?: boolean, maxHeight?: number}} [options] `fixed` places the
- *  items in the window, e.g. for a menu in a scrolled container, which would cut off the items. Without `hover`, only a
- *  click opens the menu, e.g. a small icon. `alignEnd` opens the items of a fixed menu to the left of the button,
- *  `maxHeight` limits their height in pixels.
+ * @param {{fixed?: boolean, hover?: boolean, alignEnd?: boolean, maxHeight?: number|(() => number)}} [options] `fixed`
+ *  places the items in the window, e.g. for a menu in a scrolled container, which would cut off the items. Without
+ *  `hover`, only a click opens the menu, e.g. a small icon. `alignEnd` opens the items of a fixed menu to the left of
+ *  the button, `maxHeight` limits their height in pixels, a function is called when the menu opens.
  * @return {{menu: HTMLDetailsElement, items: HTMLElement}} The menu and the element for its items.
  */
 export function createMenu(label, {fixed = false, hover = true, alignEnd = false, maxHeight = Infinity} = {}) {
@@ -126,11 +129,28 @@ export function createMenu(label, {fixed = false, hover = true, alignEnd = false
     }
     // the items of a fixed menu never take space in the dialog, also before they're placed
     items.classList.toggle("chart-menu-fixed", fixed);
+    // The items of a fixed menu are a popover in the top layer, outside of the scrolled dialog. Otherwise, browsers
+    // like Safari scroll the dialog instead of a long list, when it's moved with a finger.
+    const isPopover = fixed && typeof items.showPopover === "function";
+    if (isPopover) {
+        items.popover = "manual";
+    }
     menu.addEventListener("toggle", () => {
         if (menu.open) {
-            fixed ? placeInWindow(menu, items, alignEnd, maxHeight) : openUpwards(menu, items);
+            if (isPopover && !items.matches(":popover-open")) {
+                items.showPopover();
+            }
+            if (fixed) {
+                // after the other listeners of the event, which may add the items, e.g. of the menu to add metrics
+                setTimeout(() => placeInWindow(menu, items, alignEnd, maxHeight));
+            } else {
+                openUpwards(menu, items);
+            }
         } else {
             items.classList.remove("chart-menu-placed");
+            if (isPopover && items.matches(":popover-open")) {
+                items.hidePopover();
+            }
         }
     });
     // Escape closes the menu, but not the dialog

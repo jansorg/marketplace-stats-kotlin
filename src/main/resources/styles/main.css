@@ -1490,6 +1490,15 @@ dl.detail-grid dd {
 
 .chart-menu-items.chart-menu-fixed {
     position: fixed;
+    /* a long list scrolls with a finger, without scrolling the dialog or the page */
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+}
+
+/* the items of a fixed menu are a popover in the top layer, they're placed by menu.js instead of the browser */
+.chart-menu-items.chart-menu-fixed[popover] {
+    inset: auto;
+    margin: 0;
 }
 
 /* a menu, which opens above its button, see menu.js */
