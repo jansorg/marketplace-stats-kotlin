@@ -1155,6 +1155,12 @@ dl.detail-grid dd {
         display: none;
     }
 
+    /* the dialog always fills small screens, maximizing it has no effect.
+       More specific than the general rule of the buttons of the header, which follows. */
+    .chart-dialog .chart-dialog-header button.chart-dialog-maximize {
+        display: none;
+    }
+
     /* more specific than the general rule of the panels, which follows */
     .chart-dialog .chart-panel:not(:last-child) {
         margin-bottom: 1rem;
