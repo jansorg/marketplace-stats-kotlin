@@ -46,4 +46,16 @@ class DailyChartSeriesTest {
         // today is the last date
         assertEquals(YearMonthDay.now().asIsoString, dates.last())
     }
+
+    @Test
+    suspend fun valuesAtTheEndOfEachYear() {
+        val json = Json.parseToJsonElement(DailyChartSeries().json(McpTestData.pluginData(), DailyChartSeries.Granularity.Year)).jsonObject
+        val dates = json["dates"]!!.jsonArray.map { it.jsonPrimitive.content }
+        assertEquals("2024-12-31", dates.first())
+        assertEquals(YearMonthDay.now().asIsoString, dates.last())
+
+        // the shares of the customer types of 2024
+        val shares = json["series"]!!.jsonObject["customer-type-share.year.Individual"]!!.jsonObject["values"]!!.jsonArray
+        assertEquals("25.00", shares.first().jsonPrimitive.content)
+    }
 }

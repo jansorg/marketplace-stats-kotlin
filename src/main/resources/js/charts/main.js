@@ -23,12 +23,13 @@ import {createMenu} from "./menu.js";
 import {downloadCanvas, downloadSvg, lineChartImage, pieChartSvg, printImages, svgCanvas} from "./exportImage.js";
 
 const STYLE_LABELS = {lines: "Lines", bars: "Bars"};
-const GRANULARITY_LABELS = {month: "Month", monthEnd: "Month", week: "Week", day: "Day"};
+const GRANULARITY_LABELS = {yearEnd: "Year", month: "Month", monthEnd: "Month", week: "Week", day: "Day"};
 /** The value of the parameter "granularity" of /chart-series. */
-const GRANULARITY_PARAMETERS = {monthEnd: "month", week: "week", day: "day"};
+const GRANULARITY_PARAMETERS = {yearEnd: "year", monthEnd: "month", week: "week", day: "day"};
 const GRANULARITY_HINTS = {
     month: "Week and Day show the sums of the month before each date, e.g. the sales of the last month, "
-        + "and the licenses, MRR and ARR at each date. Columns without values per day are shown per month.",
+        + "and the licenses, MRR and ARR at each date. Year shows the values of each year, e.g. the shares of the "
+        + "customer types. Columns without these values are shown per month.",
     year: "Month, Week and Day show the sums of the year before each date, e.g. the sales of the last 12 months. "
         + "Columns without values per day are shown per year.",
     day: "Month shows the days of the table. Week and Day show the whole history, the sums of the month before each "
@@ -445,12 +446,16 @@ class ChartController {
         for (const chart of charts) {
             const key = lineChartKey(chart);
             let chartSeries = this.series.filter(s => s.period === chart.period);
-            const canBeFiner = hasFinerValues(chartSeries.filter(s => chart.units.includes(s.unit)));
+            const unitSeries = chartSeries.filter(s => chart.units.includes(s.unit));
+            const canBeFiner = hasFinerValues(unitSeries);
+            const granularities = granularitiesOf(chart.period, unitSeries.some(s => s.yearly));
             const storedGranularity = this.granularities[key];
-            const granularity = canBeFiner && granularitiesOf(chart.period).includes(storedGranularity) ? storedGranularity : "month";
+            const granularity = canBeFiner && granularities.includes(storedGranularity) ? storedGranularity : "month";
             const finerValues = granularity === "month" ? null : this.loadFinerValues(granularity);
             if (finerValues !== null) {
-                chartSeries = chartSeries.map(s => ({...s, ...(s.daily ? finerPoints(finerValues, s.daily) : null)}));
+                // the values per year replace the values of the table, the values per day the values per week and day
+                const id = s => granularity === "yearEnd" ? s.yearly : s.daily;
+                chartSeries = chartSeries.map(s => ({...s, ...(id(s) ? finerPoints(finerValues, id(s)) : null)}));
             }
             if (!this.showIncomplete) {
                 chartSeries = chartSeries.map(withoutIncomplete);
@@ -493,7 +498,7 @@ class ChartController {
             this.exports.push(chartExport);
             toolbar.append(this.exportMenu(chartExport));
             if (canBeFiner) {
-                toolbar.append(this.granularitySwitch(key, granularity, chart.period));
+                toolbar.append(this.granularitySwitch(key, granularity, chart.period, granularities));
             }
             // disabled instead of hidden, so that the buttons don't move
             toolbar.append(this.styleSwitch(key, chartStyle, granularity !== "month"));
@@ -606,18 +611,19 @@ class ChartController {
     }
 
     /**
-     * @param {"day"|"month"|"year"} period The period of the values of the table, the first button shows them.
-     *  Tables of days, e.g. the days of the current month, show them with the first button "Month".
-     * @return {HTMLElement} Buttons to show a line chart per month or year, per week or per day, and the values of
-     *  yearly tables at the end of each month.
+     * @param {"day"|"month"|"year"} period The period of the values of the table, the button "Month" (or "Year" for
+     *  yearly tables) shows them. Tables of days, e.g. the days of the current month, show them with the button "Month".
+     * @param {string[]} granularities The granularities of the chart, see {@link granularitiesOf}.
+     * @return {HTMLElement} Buttons to show a line chart per month or year, per week or per day, the values of
+     *  yearly tables at the end of each month and the values of years of monthly values with values per year.
      */
-    granularitySwitch(key, current, period) {
+    granularitySwitch(key, current, period, granularities) {
         const group = document.createElement("div");
         group.className = "chart-button-group";
         group.setAttribute("role", "group");
         group.setAttribute("aria-label", "Values per");
         group.title = GRANULARITY_HINTS[period];
-        for (const granularity of granularitiesOf(period)) {
+        for (const granularity of granularities) {
             const button = document.createElement("button");
             button.type = "button";
             button.textContent = granularity === "month" && period === "year" ? "Year" : GRANULARITY_LABELS[granularity];

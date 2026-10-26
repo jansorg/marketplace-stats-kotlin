@@ -376,6 +376,7 @@ class MarketplaceStatsServer(
                 val granularity = when (call.request.queryParameters["granularity"]) {
                     "week" -> DailyChartSeries.Granularity.Week
                     "month" -> DailyChartSeries.Granularity.Month
+                    "year" -> DailyChartSeries.Granularity.Year
                     else -> DailyChartSeries.Granularity.Day
                 }
                 val loader = getDataLoader()

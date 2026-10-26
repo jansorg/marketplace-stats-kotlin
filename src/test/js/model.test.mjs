@@ -320,6 +320,16 @@ test("the values of yearly tables can also be shown at the end of each month", (
     assert.deepEqual(granularitiesOf("day"), ["month", "week", "day"]);
 });
 
+test("monthly values with values per year can also be shown per year", () => {
+    assert.deepEqual(granularitiesOf("month", true), ["yearEnd", "month", "week", "day"]);
+    assert.deepEqual(granularitiesOf("year", true), ["month", "monthEnd", "week", "day"]);
+    assert.equal(hasFinerValues([{period: "month", daily: null, yearly: "share.year.Individual"}]), true);
+    // the averages of months don't apply to the values of years
+    const shares = {period: "month", measure: "ratio", unit: "%", daily: "share.month.Individual"};
+    assert.equal(overlayApplies("average3", shares, "yearEnd"), false);
+    assert.equal(overlayApplies("average3", shares, "week"), true);
+});
+
 test("the ticks of years are at the end of each year and at the value of the current year", () => {
     const day = isoDateToTimestamp;
     // half a year before the value of 2022 until today
