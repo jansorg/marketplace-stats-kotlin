@@ -323,6 +323,30 @@ export function barLayout(seriesCount, slotWidth, {maxBarWidth, gap}) {
 }
 
 /**
+ * The date axis of a chart ends with the period of the last value, so that the value of the current, incomplete
+ * period, which is located at today, isn't at the right edge, e.g. the axis of the years shows the whole current year.
+ *
+ * @param {number} timestamp The date of the last value, in seconds.
+ * @param {string} granularity The granularity of the chart, e.g. "yearEnd", "monthEnd", "month", "week" or "day".
+ * @return {number} The end of the period of the date: the last day of its year, of its month or its week (Sunday).
+ */
+export function periodEnd(timestamp, granularity) {
+    const date = new Date(timestamp * 1000);
+    const [year, month, day] = [date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()];
+    switch (granularity) {
+        case "yearEnd":
+            return Date.UTC(year, 11, 31) / 1000;
+        case "month":
+        case "monthEnd":
+            return Date.UTC(year, month + 1, 0) / 1000;
+        case "week":
+            return Date.UTC(year, month, day + (7 - date.getUTCDay()) % 7) / 1000;
+        default:
+            return timestamp;
+    }
+}
+
+/**
  * The position of the cursor of a line chart at the closest value. A value at the edge of the chart, e.g. a point on
  * the y-axis, which is drawn outside of the plot by a few pixels, keeps the cursor at the edge, so that it's shown.
  * A value, which isn't drawn, e.g. outside of the dates of a zoomed chart, is replaced by the next value inside.

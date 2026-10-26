@@ -236,7 +236,10 @@ extend, must not fail a response:
 - Only series of the same period (`DataTable.chartPeriod`: day, month or year) share a line chart and its date range,
   the series of metrics have their own period `metric`.
   Values of months and years are located at the end of the period, the current period at today (`ChartValues.xValue`).
-  The ticks of yearly values are at the end of each year and at today (`yearEndTicks` in `model.js`).
+  The ticks of yearly values are at the end of each year and at today (`yearEndTicks` in `model.js`). The date axis
+  ends with the period of the last value (`periodEnd`), so that the value of the current period at today isn't at
+  the right edge. Values of the first period of a plugin, which started within it, are partial (`partialUntil` of
+  `/chart-data`, `isPartialPeriod` of the tables): hollow points and outlined bars in the color of the series.
 - The menu "Range" of the dialog selects the shown dates of all line charts: all dates or a year with values
   (`rangeYears`). Dragging over a line chart zooms in (`onZoom` in `lineChart.js`), on touch devices two fingers zoom
   in and out (`enablePinchZoom`, `pinchedRange` in `model.js`). The range is part of the stored
@@ -246,7 +249,8 @@ extend, must not fail a response:
   drawn again, e.g. after changing the level (`hiddenSeries` of the setup, keys `<series>` and `<series>:<kind>`).
 - The chart setup (columns, colors, options) is stored in the browser's local storage (`marketplace-stats.charts`,
   version 2, version 1 is still read). The series of metrics are restored on all pages, the other series and the pie
-  charts on all pages with the same tables. Values are never stored.
+  charts on all pages with the same tables. Values are never stored. "Remove all charts" (the trash icon) resets the
+  whole setup (`emptySetup`), e.g. the styles, the levels and the range.
 - "Bookmark this view" of the Export menu writes the setup into the fragment of the address (`#charts=<base64url JSON>`,
   `encodeView`/`decodeView` in `storage.js`) and copies the address. Opening it replaces the stored setup with the
   view, opens the dialog and removes the fragment. Changing the charts also removes it.

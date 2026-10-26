@@ -108,7 +108,7 @@ export class ChartDialog {
         header.className = "chart-dialog-header";
         const clearButton = button("", onRemoveAll, "chart-dialog-clear");
         clearButton.append(icon("clear"));
-        clearButton.title = "Remove all charts and close the dialog";
+        clearButton.title = "Remove all charts, reset their options and close the dialog";
         clearButton.setAttribute("aria-label", "Remove all charts");
 
         header.append(title, this.combineLabel, clearButton, this.maximizeButton, removeButton("Close", () => this.close()));

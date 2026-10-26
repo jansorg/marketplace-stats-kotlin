@@ -8,7 +8,7 @@
  */
 
 import {formatDate, SECONDS_PER_DAY, unitTitle} from "./format.js";
-import {alignSeries, availableComparisons, barLayout, cursorPosition, displayColor, extremeIndices, incompleteColor, averageShade, pinchedRange, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange} from "./model.js";
+import {alignSeries, availableComparisons, barLayout, cursorPosition, periodEnd, displayColor, extremeIndices, incompleteColor, averageShade, pinchedRange, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange} from "./model.js";
 
 /**
  * The colors of the charts in the light and the dark mode. The surface is the background of the charts in the chart
@@ -55,6 +55,8 @@ export const CHART_STYLE = {
     // incomplete values: dotted lines, hollow points and striped bars in a lighter color of the series
     incompleteDotSpacing: 5,
     incompleteStripeSpacing: 5,
+    // the opacity of the bars of partial periods, e.g. of the first year of a plugin
+    partialBarAlpha: 0.4,
     // vertical lines: dash pattern of each kind, the colors are in CHART_THEMES, the labels use the color of the axes
     markerWidth: 2,
     markers: {
@@ -486,13 +488,15 @@ function drawBars(plot, chartSeries, interval, theme) {
             }
             const x = plot.valToPos(timestamps[i], "x", true);
             const isIncomplete = series.incomplete.has(timestamps[i]);
-            // a partial period, e.g. the first year of a plugin, is an outlined bar in the color of the series
+            // a partial period, e.g. the first year of a plugin, is a translucent bar in the color of the series,
+            // wide bars have an outline
             const isPartial = !isIncomplete && Boolean(series.partial?.has(timestamps[i]));
-            context.fillStyle = isIncomplete ? stripePattern(context, incompleteColor(series.color, theme.isDark), pixelRatio, theme.surfaceColor)
-                : isPartial ? theme.surfaceColor : series.color;
+            context.fillStyle = isIncomplete ? stripePattern(context, incompleteColor(series.color, theme.isDark), pixelRatio, theme.surfaceColor) : series.color;
+            context.globalAlpha = isPartial ? CHART_STYLE.partialBarAlpha : 1;
             drawBar(context, x + offsets[position], width, plot.valToPos(value, scale, true), baseY, CHART_STYLE.barRadius * pixelRatio);
-            if (isIncomplete || isPartial) {
-                context.lineWidth = (isPartial ? 2 : 1) * pixelRatio;
+            context.globalAlpha = 1;
+            if (isIncomplete || (isPartial && width > 4 * pixelRatio)) {
+                context.lineWidth = pixelRatio;
                 context.strokeStyle = isIncomplete ? incompleteColor(series.color, theme.isDark) : series.color;
                 context.stroke();
             }
@@ -828,14 +832,13 @@ function xAxisTicks(period, formatter) {
 
 /**
  * @param {boolean} startOfYear If the range starts at the start of the first year, e.g. for values per day.
- * @return {[number, number]} The range of yearly values until the end of the last year, but at most until today.
- *  The values of the years are at the end of the years, the range starts half a year before the first value,
- *  so that it isn't at the y-axis.
+ * @return {[number, number]} The range of yearly values until the end of the last year, also of the current year, whose
+ *  value is located at today. The values of the years are at the end of the years, the range starts half a year before
+ *  the first value, so that it isn't at the y-axis.
  */
 function yearRange([min, max], startOfYear) {
     const firstYear = new Date(min * 1000).getUTCFullYear();
-    const lastYear = new Date(max * 1000).getUTCFullYear();
-    const end = Math.min(Date.UTC(lastYear + 1, 0, 1), Date.now()) / 1000;
+    const end = periodEnd(max, "yearEnd");
     const start = startOfYear ? Date.UTC(firstYear, 0, 1) / 1000 : min - YEAR / 2;
     return [start, Math.max(end, max)];
 }
@@ -952,9 +955,10 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     // the range of yearly values covers the years until today
     // the values per year of monthly values have the ticks and the range of yearly values
     const axisPeriod = granularity === "yearEnd" ? "year" : period;
+    // the axis ends with the period of the last value, e.g. the current month, whose value is located at today
     const fullRange = axisPeriod === "year"
         ? yearRange(dateRange, granularity !== "month" && granularity !== "yearEnd")
-        : [dateRange[0] - xPadding, dateRange[1] + xPadding];
+        : [dateRange[0] - xPadding, Math.max(dateRange[1], periodEnd(dateRange[1], granularity ?? "month")) + xPadding];
     const xRange = visibleRange !== null ? [visibleRange[0] - xPadding, visibleRange[1] + xPadding] : fullRange;
     // the range while two fingers zoom, see enablePinchZoom
     let pinchPreview = null;
