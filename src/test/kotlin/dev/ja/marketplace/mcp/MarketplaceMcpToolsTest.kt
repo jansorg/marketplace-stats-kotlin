@@ -52,6 +52,7 @@ class MarketplaceMcpToolsTest {
                 "list_reviews",
                 "get_page_views",
                 "list_license_transfers",
+                "create_chart",
             ),
             tools.tools.map { it.name }
         )

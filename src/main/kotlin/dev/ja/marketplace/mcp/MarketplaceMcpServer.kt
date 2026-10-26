@@ -15,6 +15,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import org.slf4j.LoggerFactory
+import java.util.Base64
 
 private val logger = LoggerFactory.getLogger("dev.ja.marketplace.mcp")
 
@@ -106,10 +107,16 @@ fun createMcpServer(tools: MarketplaceMcpTools): Server {
 
 private suspend fun callTool(tools: MarketplaceMcpTools, name: String, arguments: JsonObject): CallToolResult {
     return try {
-        val result = tools.call(name, arguments)
-        // Only text: the tools have no output schema, and clients pass the text to the model, structured content
-        // would send the same data a second time.
-        CallToolResult(content = listOf(TextContent(Json.encodeToString(result))))
+        val result = tools.result(name, arguments)
+        // Only text and images: the tools have no output schema, and clients pass the text to the model, structured
+        // content would send the same data a second time.
+        val content = result.content.map { content ->
+            when (content) {
+                is McpContent.Image -> ImageContent(Base64.getEncoder().encodeToString(content.data), content.mimeType)
+                is McpContent.Text -> TextContent(content.text)
+            }
+        }
+        CallToolResult(content = listOf(TextContent(Json.encodeToString(result.json))) + content)
     } catch (e: CancellationException) {
         throw e
     } catch (e: IllegalArgumentException) {

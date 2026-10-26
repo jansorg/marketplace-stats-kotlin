@@ -5,15 +5,18 @@
 
 package dev.ja.marketplace.mcp
 
+import dev.ja.marketplace.CustomEvent
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.PluginChannel
 import dev.ja.marketplace.client.PluginChannelNames
+import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.model.*
 import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.PluginData
+import dev.ja.marketplace.data.chart.ChartMetricValues
 import dev.ja.marketplace.data.daySummary.DaySummaryTable
 import dev.ja.marketplace.data.overview.OverviewTable
 import dev.ja.marketplace.data.subscriptions.AverageRevenuePerCustomerTable
@@ -118,6 +121,31 @@ interface McpDataProvider {
     suspend fun reviews(plugin: PluginInfoSummary): List<PluginReviewComment>
 
     suspend fun pageAnalytics(plugin: PluginInfoSummary, timeFrame: PageAnalyticsTimeFrame): PluginPageAnalytics
+
+    /**
+     * @param plugin The plugin, or `null` for the summary of all paid plugins.
+     * @return The values of the metrics of the charts, like `/chart-data`.
+     * @throws IllegalArgumentException If [plugin] is `null` and the summary of all plugins is disabled.
+     */
+    suspend fun chartValues(plugin: PluginInfoSummary?): ChartMetricValues
+
+    /**
+     * @return The custom events of the charts, which belong to the plugins, see `--events`.
+     */
+    fun customEvents(plugins: Collection<PluginId>): List<CustomEvent>
+}
+
+/**
+ * The result of a tool: the JSON, and content, which is returned after the JSON, e.g. an image.
+ */
+class McpToolResult(val json: JsonObject, val content: List<McpContent> = emptyList())
+
+/** Content of the result of a tool. */
+sealed interface McpContent {
+    /** An image, e.g. a PNG, returned as base64 data. */
+    class Image(val data: ByteArray, val mimeType: String) : McpContent
+
+    class Text(val text: String) : McpContent
 }
 
 /**
@@ -133,6 +161,8 @@ class McpToolDefinition(
     val required: List<String>,
     /** `false` if the tool changes the state of the server, e.g. drops cached data. */
     val readOnly: Boolean = true,
+    /** Returns the result with content like images, `null` if the result is only the JSON of [call]. */
+    val result: (suspend (arguments: JsonObject) -> McpToolResult)? = null,
     val call: suspend (arguments: JsonObject) -> JsonObject,
 )
 
@@ -472,12 +502,26 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
             emptyList(),
             readOnly = false,
         ) { arguments -> refreshData(arguments) },
-    ) + McpAnalysisTools(provider).tools
+    ) + McpAnalysisTools(provider).tools + McpChartTool(provider).tools
 
     /**
+     * @return The JSON of the result, e.g. the description of a chart without the image.
      * @throws IllegalArgumentException If the tool doesn't exist or if the arguments are invalid, e.g. unknown arguments.
      */
     suspend fun call(name: String, arguments: JsonObject): JsonObject {
+        return tool(name, arguments).call(arguments)
+    }
+
+    /**
+     * @return The result with its content, e.g. an image.
+     * @throws IllegalArgumentException If the tool doesn't exist or if the arguments are invalid, e.g. unknown arguments.
+     */
+    suspend fun result(name: String, arguments: JsonObject): McpToolResult {
+        val tool = tool(name, arguments)
+        return tool.result?.invoke(arguments) ?: McpToolResult(tool.call(arguments))
+    }
+
+    private fun tool(name: String, arguments: JsonObject): McpToolDefinition {
         val tool = tools.firstOrNull { it.name == name }
             ?: throw IllegalArgumentException("Unknown tool: $name")
         // unknown arguments are rejected, otherwise a misspelled filter would silently return unfiltered data
@@ -485,7 +529,7 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
         require(unknown.isEmpty()) {
             "Unknown argument ${unknown.joinToString()}, valid arguments: ${tool.properties.keys.joinToString().ifEmpty { "none" }}"
         }
-        return tool.call(arguments)
+        return tool
     }
 
     private suspend fun listPlugins(): JsonObject {

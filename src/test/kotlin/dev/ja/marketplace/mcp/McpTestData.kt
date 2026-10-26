@@ -5,9 +5,12 @@
 
 package dev.ja.marketplace.mcp
 
+import dev.ja.marketplace.ChartData
+import dev.ja.marketplace.CustomEvent
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.client.PluginChannel
+import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.SalesWithLicensesInfo
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.currency.CurrencyInfo
@@ -15,6 +18,7 @@ import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.*
 import dev.ja.marketplace.data.PluginData
 import dev.ja.marketplace.data.PluginPricing
+import dev.ja.marketplace.data.chart.ChartMetricValues
 import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.exchangeRate.EcbRateTable
 import dev.ja.marketplace.exchangeRate.ExchangeRates
@@ -218,6 +222,15 @@ object McpTestData {
                 sources = listOf(PageAnalyticsSource("(direct)", 3), PageAnalyticsSource("google", 1)),
                 isReliable = false,
             )
+        }
+
+        override suspend fun chartValues(plugin: PluginInfoSummary?): ChartMetricValues {
+            requireNotNull(plugin) { "pluginId is required, the summary of all plugins is disabled" }
+            return ChartData().values(pluginData(plugin))
+        }
+
+        override fun customEvents(plugins: Collection<PluginId>): List<CustomEvent> {
+            return listOf(CustomEvent("launch", YearMonthDay(2025, 1, 15), "Launch", PLUGIN_ID)).filter { it.plugin in plugins }
         }
     }
 

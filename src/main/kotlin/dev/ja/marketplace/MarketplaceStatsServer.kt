@@ -307,6 +307,17 @@ class MarketplaceStatsServer(
         override suspend fun pageAnalytics(plugin: PluginInfoSummary, timeFrame: PageAnalyticsTimeFrame): PluginPageAnalytics {
             return client.pageAnalytics(plugin.id, timeFrame)
         }
+
+        // the same values as the charts of the web interface, see /chart-data
+        override suspend fun chartValues(plugin: PluginInfoSummary?): ChartMetricValues {
+            return when {
+                plugin != null -> chartData.values(getDataLoader(plugin).load())
+                serverConfiguration.showAllPluginsSummary -> allPluginsChartValues()
+                else -> throw IllegalArgumentException("pluginId is required, the summary of all plugins is disabled")
+            }
+        }
+
+        override fun customEvents(plugins: Collection<PluginId>): List<CustomEvent> = serverConfiguration.customEvents(plugins)
     }
 
     // exchange rates into other currencies than the displayed currency, requested by MCP tools

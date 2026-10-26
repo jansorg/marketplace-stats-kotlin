@@ -1,0 +1,155 @@
+/*
+ * Copyright (c) 2026 Joachim Ansorg.
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+package dev.ja.marketplace.chartImage
+
+import dev.ja.marketplace.data.chart.ChartDetail
+import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import java.io.ByteArrayInputStream
+import java.time.LocalDate
+import javax.imageio.ImageIO
+import javax.xml.parsers.DocumentBuilderFactory
+
+class ChartImageRendererTest {
+    private val months = (1..12).map { LocalDate.of(2025, it, 1).withDayOfMonth(LocalDate.of(2025, it, 1).lengthOfMonth()) }
+
+    private fun chart(vararg series: ChartImageSeries, markers: List<ChartMarker> = emptyList(), extremes: Set<ChartExtreme> = emptySet()): ChartImage {
+        return ChartImage("Synthetic sales", "Test plugin", series.toList(), markers, ChartDetail.Month, LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31), extremes)
+    }
+
+    private val sales = ChartImageSeries(
+        "Sales before fees, calendar month",
+        "EUR",
+        ChartColor.SeriesColors[0],
+        months.mapIndexed { index, date -> ChartPoint(date, 100.0 + index * 10, isIncomplete = index == 11, isPartial = index == 0) },
+    )
+
+    private val trials = ChartImageSeries(
+        "New trials, calendar month",
+        "count",
+        ChartColor.SeriesColors[1],
+        months.mapIndexed { index, date -> ChartPoint(date, (index % 4).toDouble(), isIncomplete = index == 11) },
+        style = ChartStyle.Bars,
+    )
+
+    private val average = ChartImageSeries(
+        "Sales before fees, calendar month, 3-month average",
+        "EUR",
+        ChartColor.SeriesColors[2],
+        months.drop(2).map { ChartPoint(it, 110.0) },
+        kind = ChartSeriesKind.Average,
+        averageMonths = 3,
+    )
+
+    @Test
+    fun svgContainsTheSeries() {
+        val svg = ChartImageRenderer.svg(
+            chart(sales, trials, average, markers = listOf(ChartMarker(LocalDate.of(2025, 6, 1), "2.0", ChartMarkerKind.Release)), extremes = setOf(ChartExtreme.Max)),
+            800, 400,
+        )
+        // well-formed XML
+        val document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(svg.toByteArray()))
+        assertEquals("svg", document.documentElement.tagName)
+        assertEquals("800", document.documentElement.getAttribute("width"))
+
+        assertTrue("Synthetic sales" in svg)
+        assertTrue("Sales before fees, calendar month" in svg)
+        assertTrue("New trials, calendar month (right axis)" in svg, "the second unit is on the right axis")
+        assertTrue("Amount (EUR)" in svg)
+        assertTrue("Count" in svg)
+        assertTrue("Incomplete values" in svg)
+        assertTrue("Product version" in svg)
+        assertTrue(">2.0<" in svg, "the label of the marker")
+        assertTrue(">200 EUR<" in svg, "the label of the maximum, without the incomplete value")
+        assertTrue("stroke=\"#2a78d6\"" in svg)
+        assertTrue("fill=\"#eb6834\"" in svg, "the bars")
+        // the dashes of a 3-month average next to values, the dots of incomplete values
+        assertTrue("stroke-dasharray=\"6 3\"" in svg)
+        assertTrue("stroke-dasharray=\"0 5\"" in svg)
+        assertTrue("Feb 2025" in svg, "a tick of every second month")
+    }
+
+    @Test
+    fun pngHasTheRequestedSize() {
+        val png = ChartImageRenderer.png(chart(sales, trials), 640, 320, scale = 2.0)
+        val image = ImageIO.read(ByteArrayInputStream(png))
+        assertEquals(1280, image.width)
+        assertEquals(640, image.height)
+        // the background is white, the first series is drawn in its color
+        assertEquals(0xffffff, image.getRGB(2, 2) and 0xffffff)
+        val colors = (0 until image.width step 2).flatMap { x -> (0 until image.height step 2).map { y -> image.getRGB(x, y) and 0xffffff } }.toSet()
+        assertTrue(0x2a78d6 in colors)
+        assertTrue(0xeb6834 in colors)
+    }
+
+    @Test
+    fun tooSmallForTheLegend() {
+        val many = (0 until 8).map { ChartImageSeries("A long label of the series number $it", "count", ChartColor.SeriesColors[it], listOf(ChartPoint(months[0], 1.0))) }
+        assertThrows<IllegalArgumentException> { ChartImageRenderer.svg(chart(*many.toTypedArray()), 320, 200) }
+    }
+
+    @Test
+    fun atMostTwoUnits() {
+        val ratio = ChartImageSeries("Quick ratio", "ratio", ChartColor.SeriesColors[3], listOf(ChartPoint(months[0], 1.0)))
+        assertThrows<IllegalArgumentException> { chart(sales, trials, ratio) }
+    }
+
+    @Test
+    fun incompleteColorLikeTheWebCharts() {
+        // the values of incompleteColor of model.js
+        assertEquals("#76a2d6", ChartColor.parse("#2a78d6").incomplete().hex)
+        assertEquals("#e49b7e", ChartColor.parse("#eb6834").incomplete().hex)
+        assertEquals("#18dc18", ChartColor.parse("#008300").incomplete().hex)
+        assertThrows<IllegalArgumentException> { ChartColor.parse("blue") }
+    }
+
+    @Test
+    fun alignedRangesLikeTheWebCharts() {
+        // the values of alignedRanges of model.js
+        assertEquals(
+            listOf(AxisRange(-250.0, 1250.0, 250.0), AxisRange(-10.0, 50.0, 10.0)),
+            ChartAxes.alignedRanges(listOf(0.0 to 1234.0, -5.0 to 40.0), 5),
+        )
+        assertEquals(250.0, ChartAxes.niceStep(1234.0, 5))
+        assertEquals(listOf(0.0, 0.1, 0.2, 0.3), AxisRange(0.0, 0.3, 0.1).ticks)
+    }
+
+    @Test
+    fun numbers() {
+        assertEquals("1.2K", ChartAxes.compact(1234.0))
+        assertEquals("2M", ChartAxes.compact(2_000_000.0))
+        assertEquals("0.25", ChartAxes.compact(0.25))
+        assertEquals("1,234.5 EUR", ChartAxes.value(1234.5, "EUR"))
+        assertEquals("12.5 %", ChartAxes.value(12.5, "%"))
+        assertEquals("Amount (USD)", ChartAxes.unitTitle("USD"))
+    }
+
+    @Test
+    fun dateTicks() {
+        val years = ChartAxes.dateTicks(LocalDate.of(2022, 1, 1), LocalDate.of(2025, 12, 31), ChartDetail.Year, LocalDate.of(2025, 10, 26), 10)
+        assertEquals(listOf("2022", "2023", "2024", "2025"), years.map(DateTick::label))
+        // the tick of the current year is at its value
+        assertEquals(LocalDate.of(2025, 10, 26), years.last().date)
+
+        val months = ChartAxes.dateTicks(LocalDate.of(2025, 1, 1), LocalDate.of(2025, 6, 30), ChartDetail.Month, null, 10)
+        assertEquals(listOf("Jan 2025", "Feb", "Mar", "Apr", "May", "Jun"), months.map(DateTick::label))
+        assertEquals(LocalDate.of(2025, 2, 28), months[1].date)
+
+        val quarters = ChartAxes.dateTicks(LocalDate.of(2023, 1, 1), LocalDate.of(2025, 12, 31), ChartDetail.Month, null, 12)
+        assertTrue(quarters.size <= 12)
+        assertTrue(quarters.all { it.date.monthValue % 3 == 0 })
+
+        val days = ChartAxes.dateTicks(LocalDate.of(2025, 10, 20), LocalDate.of(2025, 10, 26), ChartDetail.Day, null, 10)
+        assertEquals("20 Oct", days.first().label)
+        assertEquals(7, days.size)
+
+        // a month at the level Month has the ticks of its days
+        val thisMonth = ChartAxes.dateTicks(LocalDate.of(2025, 10, 1), LocalDate.of(2025, 10, 26), ChartDetail.Month, null, 10)
+        assertTrue(thisMonth.size >= 2)
+        assertTrue(thisMonth.all { it.label.endsWith("Oct") })
+    }
+}
