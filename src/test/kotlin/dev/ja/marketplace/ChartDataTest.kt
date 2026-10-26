@@ -12,12 +12,14 @@ import dev.ja.marketplace.mcp.McpTestData
 import kotlinx.serialization.json.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class ChartDataTest {
     private suspend fun json(metrics: List<String>, window: ChartWindow, detail: ChartDetail): JsonObject {
         val values = ChartData().values(McpTestData.pluginData())
-        return Json.parseToJsonElement(ChartData.json(values, metrics, window, detail)).jsonObject
+        val json = ChartData.json.encodeToString(ChartDataResponse.serializer(), ChartData.chartData(values, metrics, window, detail))
+        return Json.parseToJsonElement(json).jsonObject
     }
 
     private fun JsonObject.dates(): List<String> = this["dates"]!!.jsonArray.map { it.jsonPrimitive.content }
@@ -53,6 +55,24 @@ class ChartDataTest {
         assertEquals("flow", sales["measure"]!!.jsonPrimitive.content)
         assertEquals("true", sales["usesWindow"]!!.jsonPrimitive.content)
         assertEquals("false", series["mrr"]!!.jsonObject["usesWindow"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    suspend fun valuesAreNumbersWithTheirScale() {
+        val values = ChartData().values(McpTestData.pluginData())
+        val json = ChartData.json.encodeToString(ChartDataResponse.serializer(), ChartData.chartData(values, listOf("sales", "trials"), ChartWindow.Year, ChartDetail.Year))
+        // amounts keep their two decimals, counts have none, values without an average have no property of it
+        assertTrue(json.contains("\"values\":[400.00,"), json)
+        assertTrue(json.contains("\"values\":[1,"), json)
+        assertFalse(json.contains("averageMonths"), json)
+    }
+
+    @Test
+    suspend fun metricsOfThePlugin() {
+        val metrics = ChartData.metrics(ChartData().values(McpTestData.pluginData()))
+        assertEquals("sales", metrics.first().id)
+        assertEquals("Sales", metrics.first().group)
+        assertFalse(metrics.any { it.id.endsWith(".Unknown") })
     }
 
     @Test

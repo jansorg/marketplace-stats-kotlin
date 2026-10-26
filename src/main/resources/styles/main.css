@@ -1651,6 +1651,21 @@ dl.detail-grid dd {
     height: 13px;
 }
 
+/* the key, the label, the gear and the × of a line in the legend are centered vertically */
+.chart-comparison-series-content {
+    display: inline-flex;
+    align-items: center;
+}
+
+.chart-comparison-series-content .chart-tooltip-key {
+    flex: none;
+}
+
+.u-legend .u-series th {
+    display: inline-flex;
+    align-items: center;
+}
+
 /* the × in the legend of a line, which removes it */
 .chart-series-remove {
     margin-left: 0.15rem;
