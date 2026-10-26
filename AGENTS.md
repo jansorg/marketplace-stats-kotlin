@@ -216,7 +216,8 @@ extend, must not fail a response:
   plugin (`plugin`), a page only contains the events of its plugin, the summary of all plugins the events of the paid
   plugins. The menu "Events" of the dialog lists the custom events (selected one by one, stored as `shownEvents`), a
   separator and the kinds of lines of the page (stored as `shownMarkers`), see `eventMenuItems` in `model.js`.
-- On screens up to 600px wide, the chart dialog fills the window and hides its hint. The button to close the dialog is
+- On screens up to 600px wide, the chart dialog fills the window and hides its hint, the button to maximize it and the
+  lines of the dates one month and one year before and after the cursor. The button to close the dialog is
   the × of `removeButton` (`dialog.js`), which also removes a chart.
 - Only series of the same period (`DataTable.chartPeriod`: day, month or year) share a line chart and its date range.
   Values of months and years are located at the end of the period, the current period at today (`ChartValues.xValue`).
