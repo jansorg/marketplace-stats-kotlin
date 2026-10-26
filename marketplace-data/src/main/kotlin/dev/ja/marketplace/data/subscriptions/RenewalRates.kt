@@ -35,7 +35,7 @@ data class RenewalRate(
 
 object RenewalRates {
     /**
-     * A paid subscription is renewed if a paid subscription of the same license starts later, after at most
+     * A paid subscription is renewed if a paid renewal sale of the same license starts later, after at most
      * [graceDays] days without a license, see [Renewals].
      * Subscriptions, which can still be renewed and aren't renewed yet, are pending.
      *
@@ -69,7 +69,7 @@ object RenewalRates {
                 val renewalDeadline = Renewals.deadline(validity.end, graceDays)
                 // a free subscription isn't a renewal of a paid subscription
                 val isRenewed = sorted.subList(index + 1, sorted.size).any {
-                    it.isPaidLicense && it.validity!!.start > validity.start && it.validity!!.start <= renewalDeadline
+                    it.isPaidLicense && Renewals.isRenewal(subscription, it, graceDays)
                 }
 
                 // still valid, i.e. not due yet
