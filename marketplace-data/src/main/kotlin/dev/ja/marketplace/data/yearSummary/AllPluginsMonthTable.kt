@@ -48,7 +48,7 @@ class AllPluginsMonthTable(
         chartMeasure = ChartMeasure.Stock, chartMetric = ChartMetric.Arr.id,
     )
     private val columnDownloads = DataTableColumn(
-        "downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Downloads",
+        "downloads", "↓", "num col-symbol", chartTitle = "Downloads", tooltip = "Downloads",
         chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Downloads.id,
     )
 
