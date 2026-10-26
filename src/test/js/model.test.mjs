@@ -7,7 +7,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
-    alignedRanges, niceStep, rangeTicks,
+    alignedRanges, niceStep, rangeTicks, seriesMenuSections, seriesStyle, SERIES_STYLES, WINDOWS,
     averageShade, pinchedRange, rangeLabel, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, finestDetail, lineDetail, periodEnd, shownWindow, storedChartLevel, tableWindow, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
@@ -494,4 +494,33 @@ test("two y-axes have their ticks at the same heights", () => {
     assert.deepEqual(rangeTicks(amounts), [-200, -100, 0, 100, 200, 300, 400]);
     assert.deepEqual(rangeTicks(rates), [-40, -20, 0, 20, 40, 60, 80]);
     assert.deepEqual(rangeTicks({min: 0, max: 0.6, step: 0.2}), [0, 0.2, 0.4, 0.6]);
+});
+
+test("the menu of a line selects its window, if its values depend on the window, and its type", () => {
+    const sales = {usesWindow: true, window: "calendar-month", selectedWindow: "follow"};
+    const sections = seriesMenuSections(sales, true);
+    assert.deepEqual(sections.map(section => section.kind), ["window", "style"]);
+    assert.deepEqual(sections[0].items.map(item => item.value), WINDOWS);
+    // the selected window is checked, e.g. the window, which follows the level, not the shown calendar month
+    assert.deepEqual(sections[0].items.filter(item => item.isChecked).map(item => item.value), ["follow"]);
+    assert.deepEqual(sections[1].items.map(item => [item.value, item.isChecked]), [[null, true], ["lines", false], ["bars", false]]);
+    assert.deepEqual(seriesMenuSections({...sales, style: "bars"}, true)[1].items.filter(item => item.isChecked).map(item => item.label), ["Bars"]);
+
+    // values at a date, e.g. the ARR, and lines of tables have no window
+    assert.deepEqual(seriesMenuSections({usesWindow: false, window: "follow"}, true).map(section => section.kind), ["style"]);
+    assert.deepEqual(seriesMenuSections({label: "Renewals"}, true).map(section => section.kind), ["style"]);
+    // a chart, which can't change the windows, e.g. without a detail level
+    assert.deepEqual(seriesMenuSections(sales, false).map(section => section.kind), ["style"]);
+    // a moving average is always a line, it only selects its window
+    assert.deepEqual(seriesMenuSections({...sales, average: 3}, true).map(section => section.kind), ["window"]);
+    assert.deepEqual(seriesMenuSections({usesWindow: false, average: 3}, true), []);
+    assert.equal(SERIES_STYLES.length, 3);
+});
+
+test("a line has its own style or the style of the chart, a moving average is always a line", () => {
+    assert.equal(seriesStyle({}, "bars"), "bars");
+    assert.equal(seriesStyle({style: "lines"}, "bars"), "lines");
+    assert.equal(seriesStyle({style: "bars"}, "lines"), "bars");
+    assert.equal(seriesStyle({average: 3}, "bars"), "lines");
+    assert.equal(seriesStyle({average: 12, style: "bars"}, "lines"), "lines");
 });

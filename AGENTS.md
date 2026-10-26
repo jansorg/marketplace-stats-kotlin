@@ -216,7 +216,9 @@ extend, must not fail a response:
   - Each line has its own window (`window` of the series, the key is `metric:<id>@<window>`), so that e.g. the trials
     of each calendar month and the trials of each day are two lines of one chart. The gear of a line in the legend
     (`seriesMenu` in `lineChart.js`) selects its window and its type (like the chart, line or bars, `style` of the
-    series and of the stored entry, also for lines of tables), the buttons Year/Month/Week/Day set the detail level of
+    series and of the stored entry, also for lines of tables). `seriesMenuSections` in `model.js` selects the sections:
+    the window only for lines, whose values depend on it, the type not for moving averages, which are always lines
+    (`seriesStyle`), the buttons Year/Month/Week/Day set the detail level of
     the chart, stored as `chartLevels`. The window "Follow the level" (`follow`, only in the charts) is the calendar
     window of the level, e.g. the calendar year at the level Year. Lines of tables with the calendar window of their
     level follow the level (`tableWindow`). The "+" menu of the dialog adds a metric of `/chart-metrics` (the metrics
