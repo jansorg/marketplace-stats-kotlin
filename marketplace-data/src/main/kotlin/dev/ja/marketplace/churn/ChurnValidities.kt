@@ -8,6 +8,7 @@ package dev.ja.marketplace.churn
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.YearMonthDayRange
+import dev.ja.marketplace.data.licenses.Renewals
 import java.util.IdentityHashMap
 
 /**
@@ -28,8 +29,9 @@ class ChurnValidities(licenses: Iterable<LicenseInfo>, graceDays: Int = Marketpl
                 for ((license, next) in sorted.zipWithNext()) {
                     val validity = license.validity!!
                     val nextStart = next.validity!!.start
-                    val daysWithoutLicense = validity.end.daysUntil(nextStart) - 1
-                    if (next.isRenewalLicense && daysWithoutLicense in 1L..graceDays.toLong()) {
+                    // a renewal, which starts directly after the end, doesn't need an extension
+                    val hasGap = nextStart > validity.end.add(0, 0, 1)
+                    if (next.isRenewalLicense && hasGap && nextStart <= Renewals.deadline(validity.end, graceDays)) {
                         extendedValidities[license] = validity.copy(end = nextStart.add(0, 0, -1))
                     }
                 }
