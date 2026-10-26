@@ -8,7 +8,7 @@
  */
 
 import {createMenu} from "./menu.js";
-import {MARKER_LABELS, rangeLabel, rangeOfYear} from "./model.js";
+import {eventMenuItems, MARKER_LABELS, rangeLabel, rangeOfYear} from "./model.js";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
@@ -16,6 +16,13 @@ const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const ICON_PATHS = {
     maximize: "M3 8V3h5 M3 3l6 6 M17 8V3h-5 M17 3l-6 6 M3 12v5h5 M3 17l6-6 M17 12v5h-5 M17 17l-6-6",
     restore: "M8 3v5H3 M8 8L2 2 M12 3v5h5 M12 8l6-6 M8 17v-5H3 M8 12l-6 6 M12 17v-5h5 M12 12l6 6",
+};
+
+/** Titles of the kinds of vertical lines in the menu "Events". */
+const MARKER_TITLES = {
+    release: "Show the major releases of the plugin as vertical lines",
+    price: "Show the changes of the annual base price as vertical lines",
+    ide: "Show the major releases of IntelliJ IDEA as vertical lines",
 };
 
 function icon(name) {
@@ -38,6 +45,17 @@ function button(text, onClick, className) {
         result.className = className;
     }
     result.addEventListener("click", onClick);
+    return result;
+}
+
+/**
+ * @param {string} label The accessible label and the title, e.g. "Close".
+ * @return {HTMLButtonElement} A button with a ×, which removes a chart or closes the dialog.
+ */
+export function removeButton(label, onClick) {
+    const result = button("×", onClick, "chart-remove");
+    result.title = label;
+    result.setAttribute("aria-label", label);
     return result;
 }
 
@@ -81,7 +99,7 @@ export class ChartDialog {
 
         const header = document.createElement("div");
         header.className = "chart-dialog-header";
-        header.append(title, this.combineLabel, button("Clear", onRemoveAll), this.maximizeButton, button("Close", () => this.close()));
+        header.append(title, this.combineLabel, button("Clear", onRemoveAll), this.maximizeButton, removeButton("Close", () => this.close()));
 
         const hint = document.createElement("p");
         hint.className = "chart-dialog-hint";
@@ -89,36 +107,35 @@ export class ChartDialog {
             + "Drag over a line chart to zoom in. "
             + "Dotted lines, hollow points and striped bars mark incomplete values, which may still change.";
 
-        // toggles of the vertical lines, with a sample of each line as key, and of the minimum and maximum
+        // the row of the menus of the line charts
         this.markerToggles = document.createElement("div");
         this.markerToggles.className = "chart-marker-toggles";
         this.markerToggles.hidden = !hasLineCharts;
+        // the vertical lines: the custom events of the configured file, each event is shown separately, and the kinds
+        // of vertical lines of the page, with a sample of each line as key
         this.markerCheckboxes = {};
-        for (const kind of markerKinds) {
-            const checkbox = document.createElement("input");
-            checkbox.type = "checkbox";
-            checkbox.checked = false;
-            checkbox.addEventListener("change", () => onMarkerVisibilityChange(kind, checkbox.checked));
-            const sample = document.createElement("span");
-            sample.className = "chart-marker-sample chart-marker-" + kind;
-            const label = document.createElement("label");
-            label.append(checkbox, sample, MARKER_LABELS[kind] ?? kind);
-            this.markerToggles.append(label);
-            this.markerCheckboxes[kind] = checkbox;
-        }
-        // the custom events of the configured file, each event is shown separately
         this.eventCheckboxes = {};
-        if (customEvents.length > 0) {
-            const {menu: eventMenu, items: eventItems} = createMenu("Events");
+        const eventItems = eventMenuItems(customEvents, markerKinds);
+        if (eventItems.length > 0) {
+            const {menu: eventMenu, items} = createMenu("Events");
             eventMenu.classList.add("chart-event-menu");
-            for (const event of customEvents) {
-                const date = new Date(event.timestamp * 1000).toISOString().substring(0, 10);
-                this.eventCheckboxes[event.id] = this.addToggle(eventItems, `${date} ${event.label}`,
-                    "Show the event as a vertical line", visible => onEventVisibilityChange(event.id, visible));
+            for (const item of eventItems) {
+                if (item.type === "separator") {
+                    const separator = document.createElement("div");
+                    separator.className = "chart-menu-separator";
+                    separator.setAttribute("role", "separator");
+                    items.append(separator);
+                } else if (item.type === "event") {
+                    const {id, timestamp, label} = item.event;
+                    const date = new Date(timestamp * 1000).toISOString().substring(0, 10);
+                    this.eventCheckboxes[id] = this.addToggle(items, `${date} ${label}`,
+                        "Show the event as a vertical line", visible => onEventVisibilityChange(id, visible), "custom");
+                } else {
+                    const kind = item.kind;
+                    this.markerCheckboxes[kind] = this.addToggle(items, MARKER_LABELS[kind] ?? kind,
+                        MARKER_TITLES[kind] ?? "Show the vertical lines", visible => onMarkerVisibilityChange(kind, visible), kind);
+                }
             }
-            const sample = document.createElement("span");
-            sample.className = "chart-marker-sample chart-marker-custom";
-            eventMenu.querySelector("summary").prepend(sample);
             this.markerToggles.append(eventMenu);
         }
 
@@ -308,15 +325,24 @@ export class ChartDialog {
         }));
     }
 
-    /** @return {HTMLInputElement} The checkbox of a new option of the line charts. */
-    addToggle(container, text, title, onChange) {
+    /**
+     * @param {string} [sampleKind] The kind of vertical line, whose sample is shown before the text.
+     * @return {HTMLInputElement} The checkbox of a new option of the line charts.
+     */
+    addToggle(container, text, title, onChange, sampleKind) {
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
         checkbox.addEventListener("change", () => onChange(checkbox.checked));
         const label = document.createElement("label");
         label.title = title;
         label.setAttribute("role", "menuitemcheckbox");
-        label.append(checkbox, text);
+        label.append(checkbox);
+        if (sampleKind) {
+            const sample = document.createElement("span");
+            sample.className = "chart-marker-sample chart-marker-" + sampleKind;
+            label.append(sample);
+        }
+        label.append(text);
         container.append(label);
         return checkbox;
     }

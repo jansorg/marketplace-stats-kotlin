@@ -10,7 +10,7 @@ import {
     pinchedRange, rangeLabel, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, granularitiesOf, rollingAverageOfDays, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear, trailingAverageOfDays,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, groupCharts, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
-    nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
+    eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
 } from "../../main/resources/js/charts/model.js";
 
 function series(period, unit, points) {
@@ -114,6 +114,21 @@ test("only the shown kinds of vertical lines are drawn, sorted by date", () => {
     assert.deepEqual(visibleMarkers(markers, ["ide", "release"]).map(m => m.timestamp), [10, 30]);
     // hidden by default
     assert.deepEqual(visibleMarkers(markers, []), []);
+});
+
+test("the menu of the events lists the custom events, a separator and the kinds of vertical lines", () => {
+    const events = [{id: "a", timestamp: 10, label: "A"}, {id: "b", timestamp: 20, label: "B"}];
+    assert.deepEqual(eventMenuItems(events, ["release", "ide"]), [
+        {type: "event", event: events[0]},
+        {type: "event", event: events[1]},
+        {type: "separator"},
+        {type: "marker", kind: "release"},
+        {type: "marker", kind: "ide"},
+    ]);
+    // the separator only separates two groups
+    assert.deepEqual(eventMenuItems([], ["price"]), [{type: "marker", kind: "price"}]);
+    assert.deepEqual(eventMenuItems(events.slice(0, 1), []), [{type: "event", event: events[0]}]);
+    assert.deepEqual(eventMenuItems([], []), []);
 });
 
 test("legend entries move to the next row if they don't fit", () => {
