@@ -51,7 +51,7 @@ class PersistentResponseCacheTest {
         return get("plugin-1-downloads", key, DownloadResponse.serializer()) {
             loads.incrementAndGet()
             value
-        }
+        }.value
     }
 
     @Test
@@ -65,6 +65,17 @@ class PersistentResponseCacheTest {
         // a new instance reads the file
         assertEquals(response, createCache().load())
         assertEquals(1, loads.get())
+    }
+
+    @Test
+    suspend fun storedResponsesHaveTheTimeOfTheirFetch() {
+        val fetched = nowMillis
+        createCache().apply { load() }.flush()
+
+        // e.g. the memory cache keeps the response only for the rest of the day
+        nowMillis += 23.hours.inWholeMilliseconds
+        val stored = createCache().get("plugin-1-downloads", "monthly", DownloadResponse.serializer()) { error("must not fetch") }
+        assertEquals(fetched, stored.fetchedMillis)
     }
 
     @Test
@@ -104,8 +115,8 @@ class PersistentResponseCacheTest {
     @Test
     suspend fun valuesOfOtherTypes() {
         val cache = createCache()
-        assertEquals(42L, cache.get("plugin-1-downloads", "total", Long.serializer()) { 42L })
+        assertEquals(42L, cache.get("plugin-1-downloads", "total", Long.serializer()) { 42L }.value)
         cache.flush()
-        assertEquals(42L, createCache().get("plugin-1-downloads", "total", Long.serializer()) { error("must be stored") })
+        assertEquals(42L, createCache().get("plugin-1-downloads", "total", Long.serializer()) { error("must be stored") }.value)
     }
 }

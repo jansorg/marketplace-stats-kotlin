@@ -262,10 +262,10 @@ class CaffeineCacheMarketplaceClient(
     override suspend fun downloadsTotal(plugin: PluginId, vararg filters: DownloadFilter): Long {
         val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
         val key = "downloadsTotal.$plugin.$filterString"
-        val loader: suspend (Boolean) -> Long = { forceFetch ->
+        val loader: suspend (Boolean) -> Stored<Long> = { forceFetch ->
             storedDownloads(plugin, key, Long.serializer(), forceFetch) { super.downloadsTotal(plugin, *filters) }
         }
-        return loadCached(key, Category.Daily, refresh = { loader(true) }) { loader(false) }
+        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }) { loader(false) }
     }
 
     override suspend fun downloads(
@@ -277,10 +277,10 @@ class CaffeineCacheMarketplaceClient(
     ): DownloadResponse {
         val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
         val key = "downloads.$plugin.$groupType.$countType.$startDate.$filterString"
-        val loader: suspend (Boolean) -> DownloadResponse = { forceFetch ->
+        val loader: suspend (Boolean) -> Stored<DownloadResponse> = { forceFetch ->
             storedDownloads(plugin, key, DownloadResponse.serializer(), forceFetch) { super.downloads(plugin, groupType, countType, startDate, *filters) }
         }
-        return loadCached(key, Category.Daily, refresh = { loader(true) }) { loader(false) }
+        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }) { loader(false) }
     }
 
     override suspend fun groupedDownloads(
@@ -293,12 +293,12 @@ class CaffeineCacheMarketplaceClient(
     ): GroupedDownloadResponse {
         val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
         val key = "groupedDownloads.$plugin.$dimension.$groupType.$countType.$startDate.$filterString"
-        val loader: suspend (Boolean) -> GroupedDownloadResponse = { forceFetch ->
+        val loader: suspend (Boolean) -> Stored<GroupedDownloadResponse> = { forceFetch ->
             storedDownloads(plugin, key, GroupedDownloadResponse.serializer(), forceFetch) {
                 super.groupedDownloads(plugin, dimension, groupType, countType, startDate, *filters)
             }
         }
-        return loadCached(key, Category.Daily, refresh = { loader(true) }) { loader(false) }
+        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }) { loader(false) }
     }
 
     /**
@@ -311,9 +311,9 @@ class CaffeineCacheMarketplaceClient(
         serializer: KSerializer<T>,
         forceFetch: Boolean,
         loader: suspend () -> T,
-    ): T {
+    ): Stored<T> {
         return when (val store = persistentDownloads) {
-            null -> loader()
+            null -> Stored(loader(), System.currentTimeMillis())
             else -> store.get(downloadsFileName(plugin), key, serializer, forceFetch, loader)
         }
     }
@@ -460,13 +460,13 @@ class CaffeineCacheMarketplaceClient(
     }
 
     override suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo {
-        val loader: suspend (Boolean) -> PluginPriceInfo = { forceFetch ->
+        val loader: suspend (Boolean) -> Stored<PluginPriceInfo> = { forceFetch ->
             when (persistentPrices) {
-                null -> super.priceInfo(plugin, isoCountryCode)
+                null -> Stored(super.priceInfo(plugin, isoCountryCode), System.currentTimeMillis())
                 else -> persistentPrices.get(plugin, isoCountryCode, forceFetch) { super.priceInfo(plugin, isoCountryCode) }
             }
         }
-        return loadCached("priceInfo.$plugin.$isoCountryCode", Category.Static, refresh = { loader(true) }) { loader(false) }
+        return loadCachedStored("priceInfo.$plugin.$isoCountryCode", Category.Static, refresh = { loader(true) }) { loader(false) }
     }
 
     override suspend fun loadSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
@@ -487,20 +487,42 @@ class CaffeineCacheMarketplaceClient(
      * @param refresh Fetches the data again for the automatic refresh, `null` to use the [loader].
      *  It must not use stored data, which would be outdated.
      */
-    @Suppress("UNCHECKED_CAST")
     private suspend fun <T> loadCached(key: String, category: Category, refresh: (suspend () -> T)? = null, loader: suspend () -> T): T {
+        val refreshValue = refresh ?: loader
+        return loadCachedStored(
+            key,
+            category,
+            refresh = { Stored(refreshValue(), System.currentTimeMillis()) },
+            loader = { Stored(loader(), System.currentTimeMillis()) },
+        )
+    }
+
+    /**
+     * Like [loadCached], for data of a persistent cache: data read from disk is only kept in memory for the rest of its
+     * lifetime, its age is the time since it was fetched, not since it was read.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private suspend fun <T> loadCachedStored(
+        key: String,
+        category: Category,
+        refresh: suspend () -> Stored<T>,
+        loader: suspend () -> Stored<T>,
+    ): T {
         val expiry = cachingStrategy.expiry(category)
-        val refresh = refresh ?: loader
+        val refreshValue: suspend () -> Any? = { refresh().value }
         val cachedValue = cache.get(key) {
             try {
-                CacheValue(category, expiry, loader(), null, refresh)
+                val stored = loader()
+                val age = (System.currentTimeMillis() - stored.fetchedMillis).coerceAtLeast(0).milliseconds
+                // a short minimum, so that outdated stored data isn't read again by every request
+                CacheValue(category, (expiry - age).coerceAtLeast(1.minutes), stored.value, null, refreshValue, stored.fetchedMillis)
             } catch (e: ClientRequestException) {
                 // Only missing data is cached, briefly. Other errors, e.g. too many requests or a rejected API key,
                 // aren't cached, the next request tries again.
                 if (e.response.status != HttpStatusCode.NotFound) {
                     throw e
                 }
-                CacheValue(category, minOf(expiry, NOT_FOUND_EXPIRY), null, e, refresh)
+                CacheValue(category, minOf(expiry, NOT_FOUND_EXPIRY), null, e, refreshValue)
             }
         } ?: throw IllegalStateException("Failed to compute cache value for $key")
 

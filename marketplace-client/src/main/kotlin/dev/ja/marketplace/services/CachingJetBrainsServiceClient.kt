@@ -6,10 +6,13 @@
 package dev.ja.marketplace.services
 
 import com.github.benmanes.caffeine.cache.Caffeine
+import com.github.benmanes.caffeine.cache.Expiry
+import dev.hsbrysk.caffeine.buildCoroutine
 import dev.ja.marketplace.client.CacheAware
 import dev.ja.marketplace.client.CachingStrategy
 import dev.ja.marketplace.client.persistentCache.PersistentCacheStore
 import dev.ja.marketplace.client.persistentCache.PersistentResponseCache
+import dev.ja.marketplace.client.persistentCache.Stored
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,10 +31,12 @@ class CachingJetBrainsServiceClient(
     store: PersistentCacheStore? = null,
     private val maxAge: Duration = CachingStrategy.Category.Daily.maxAge,
 ) : JetBrainsServiceClient, CacheAware {
+    // concurrent requests of the same data wait for the same load, data read from disk expires after the rest of its
+    // lifetime
     private val memory = Caffeine.newBuilder()
         .maximumSize(100)
-        .expireAfterWrite(maxAge.inWholeMilliseconds, TimeUnit.MILLISECONDS)
-        .build<String, Any>()
+        .expireAfter(StoredExpiry(maxAge))
+        .buildCoroutine<String, Stored<Any>>()
 
     private val persistent = store?.let {
         PersistentResponseCache(it, CoroutineScope(SupervisorJob() + Dispatchers.IO), maxAge = maxAge)
@@ -52,24 +57,39 @@ class CachingJetBrainsServiceClient(
     }
 
     override fun invalidateCache() {
-        memory.invalidateAll()
+        memory.synchronous().invalidateAll()
         persistent?.invalidate()
     }
 
     @Suppress("UNCHECKED_CAST")
     private suspend fun <T : Any> cached(fileName: String, key: String, serializer: KSerializer<T>, loader: suspend () -> T): T {
-        val memoryKey = "$fileName.$key"
-        memory.getIfPresent(memoryKey)?.let { return it as T }
-
-        val value = when (persistent) {
-            null -> loader()
-            else -> persistent.get(fileName, key, serializer, loader = loader)
+        val stored = memory.get("$fileName.$key") {
+            when (persistent) {
+                null -> Stored(loader(), System.currentTimeMillis())
+                else -> persistent.get(fileName, key, serializer, loader = loader)
+            }
         }
-        memory.put(memoryKey, value)
-        return value
+        return stored!!.value as T
+    }
+
+    private class StoredExpiry(private val maxAge: Duration) : Expiry<String, Stored<Any>> {
+        override fun expireAfterCreate(key: String, value: Stored<Any>, currentTime: Long): Long {
+            val age = (System.currentTimeMillis() - value.fetchedMillis).coerceAtLeast(0)
+            return TimeUnit.MILLISECONDS.toNanos((maxAge.inWholeMilliseconds - age).coerceAtLeast(MIN_EXPIRY_MILLIS))
+        }
+
+        override fun expireAfterUpdate(key: String, value: Stored<Any>, currentTime: Long, currentDuration: Long): Long {
+            return expireAfterCreate(key, value, currentTime)
+        }
+
+        override fun expireAfterRead(key: String, value: Stored<Any>, currentTime: Long, currentDuration: Long): Long {
+            return currentDuration
+        }
     }
 
     private companion object {
+        // outdated data read from disk isn't read again by every request
+        const val MIN_EXPIRY_MILLIS = 60_000L
         const val PRODUCTS_FILE = "jetbrains-products"
         const val RELEASES_FILE = "jetbrains-product-releases"
     }

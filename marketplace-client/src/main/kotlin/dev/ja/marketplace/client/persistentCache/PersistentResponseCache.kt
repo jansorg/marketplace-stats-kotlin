@@ -67,13 +67,13 @@ internal class PersistentResponseCache(
     /**
      * @param forceFetch If the response is fetched, also if a stored response isn't outdated yet, e.g. by the automatic refresh.
      */
-    suspend fun <T> get(fileName: String, key: String, serializer: KSerializer<T>, forceFetch: Boolean = false, loader: suspend () -> T): T {
+    suspend fun <T> get(fileName: String, key: String, serializer: KSerializer<T>, forceFetch: Boolean = false, loader: suspend () -> T): Stored<T> {
         val file = files[fileName] ?: withContext(Dispatchers.IO) { files.computeIfAbsent(fileName, ::readStored) }
         val now = currentTimeMillis()
         val cached = file.entries[key]
         if (!forceFetch && cached != null && cached.fetchedMillis >= invalidatedMillis && now - cached.fetchedMillis < maxAge.inWholeMilliseconds) {
             try {
-                return json.decodeFromString(serializer, cached.json)
+                return Stored(json.decodeFromString(serializer, cached.json), cached.fetchedMillis)
             } catch (e: Exception) {
                 logger.warn("Ignoring invalid cached response $key in $fileName: $e")
             }
@@ -82,7 +82,7 @@ internal class PersistentResponseCache(
         val value = loader()
         file.entries[key] = Entry(now, json.encodeToString(serializer, value))
         scheduleWrite(fileName, file)
-        return value
+        return Stored(value, now)
     }
 
     /**
