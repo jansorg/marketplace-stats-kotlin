@@ -85,6 +85,7 @@ class LiveApiCoverageTest {
         check("searchPlugins", MarketplacePluginSearchResponse.serializer()) {
             marketplace.get("/api/searchPlugins") { parameter("max", 20) }
         }
+        check("tags", ListSerializer(PluginTag.serializer())) { marketplace.get("/api/tags") }
         check("users/me/vendors", ListSerializer(PluginVendor.serializer())) { marketplace.get("/api/users/me/vendors") }
 
         // the licenses of the account itself, e.g. of the developer of the plugin

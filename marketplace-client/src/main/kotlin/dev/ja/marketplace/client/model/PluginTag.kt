@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -20,4 +20,7 @@ data class PluginTag(
     val searchable: Boolean,
     @SerialName("link")
     val link: String,
+    /** The product families, whose plugins use the tag. Only returned by the list of all tags. */
+    @SerialName("families")
+    val families: List<ProductFamily> = emptyList(),
 )
