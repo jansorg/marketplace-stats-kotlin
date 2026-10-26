@@ -24,6 +24,8 @@
     --row-hover-bgcolor: #e9eaf6;
     --button-bgcolor: #f0f0ec;
     --button-hover-bgcolor: #e4e4df;
+    /* the selected button of a group, e.g. the level of a chart */
+    --button-selected-bgcolor: #dadcf0;
     --nav-active-bgcolor: #dadcf0;
     --shadow-color: rgba(28, 27, 34, 0.06);
     --popup-shadow-color: rgba(28, 27, 34, 0.15);
@@ -72,6 +74,7 @@
         --row-hover-bgcolor: #2a2b3d;
         --button-bgcolor: #2a2a32;
         --button-hover-bgcolor: #35353e;
+        --button-selected-bgcolor: #474d7d;
         --nav-active-bgcolor: #2a2a32;
         --shadow-color: rgba(0, 0, 0, 0.3);
         --popup-shadow-color: rgba(0, 0, 0, 0.5);
@@ -1559,8 +1562,8 @@ dl.detail-grid dd {
     cursor: default;
 }
 
-.chart-button-group button[aria-pressed="true"] {
-    background-color: var(--button-hover-bgcolor);
+.chart-button-group button[aria-pressed="true"], .chart-button-group button[aria-pressed="true"]:hover {
+    background-color: var(--button-selected-bgcolor);
     font-weight: 700;
 }
 
