@@ -210,7 +210,8 @@ extend, must not fail a response:
   - Detail level (`ChartDetail`): the dates of the values, each day or the end of each week, month or year, and today.
   - Each line has its own window (`window` of the series, the key is `metric:<id>@<window>`), so that e.g. the trials
     of each calendar month and the trials of each day are two lines of one chart. The gear of a line in the legend
-    (`seriesWindowMenu` in `lineChart.js`) selects its window, the buttons Year/Month/Week/Day set the detail level of
+    (`seriesMenu` in `lineChart.js`) selects its window and its type (like the chart, line or bars, `style` of the
+    series and of the stored entry, also for lines of tables), the buttons Year/Month/Week/Day set the detail level of
     the chart, stored as `chartLevels`. The window "Follow the level" (`follow`, only in the charts) is the calendar
     window of the level, e.g. the calendar year at the level Year. Lines of tables with the calendar window of their
     level follow the level (`tableWindow`). The "+" menu of the dialog adds a metric of `/chart-metrics` (the metrics

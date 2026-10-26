@@ -61,13 +61,13 @@ function isTextInput(element) {
  *  stored setup. Sums and rates have a window, e.g. the trials of each month and of each day are two series.
  * @return {object} The series of the metric, its values are loaded when it's shown, see ChartController.metricChartSeries.
  */
-function metricSeries({metric, window, usesWindow, average, label, unit, measure, row}, color) {
+function metricSeries({metric, window, usesWindow, average, label, unit, measure, row, style}, color) {
     const hasWindow = usesWindow ?? measure !== "stock";
     const seriesWindow = hasWindow ? window ?? null : null;
     return {
         key: metricKey(metric, seriesWindow, average), metric, window: seriesWindow, usesWindow: hasWindow,
         ...(average ? {average} : {}), label, unit, measure: measure ?? null, ...(row ? {row} : {}),
-        period: METRIC_PERIOD, points: new Map(), incomplete: new Set(), color,
+        period: METRIC_PERIOD, points: new Map(), incomplete: new Set(), color, ...(style ? {style} : {}),
     };
 }
 
@@ -82,7 +82,7 @@ function metricDataId(series) {
 /** @return {import("./storage.js").ChartEntry} The stored entry of a series of a metric. */
 function metricEntry(s) {
     return {type: "metric", metric: s.metric, ...(s.window ? {window: s.window} : {}), usesWindow: s.usesWindow, ...(s.average ? {average: s.average} : {}), label: s.label, unit: s.unit,
-        ...(s.measure ? {measure: s.measure} : {}), ...(s.row ? {row: s.row} : {}), color: s.color};
+        ...(s.measure ? {measure: s.measure} : {}), ...(s.row ? {row: s.row} : {}), color: s.color, ...(s.style ? {style: s.style} : {})};
 }
 
 class ChartController {
@@ -605,7 +605,7 @@ class ChartController {
             } else if (column.type === "metric") {
                 const series = readMetricSeries(column.element, column.columnIndex).find(s => s.row === entry.row);
                 if (series !== undefined && this.rejectSeries(series) === null) {
-                    this.series.push(metricSeries(series, nextColor(this.series.map(s => s.color), entry.color)));
+                    this.series.push(metricSeries({...series, style: entry.style}, nextColor(this.series.map(s => s.color), entry.color)));
                 }
             } else {
                 const series = column.isRowHistory
@@ -617,7 +617,7 @@ class ChartController {
                 }
                 if (this.rejectSeries(series) === null) {
                     // a series keeps its color across pages and sessions
-                    this.series.push({...series, color: nextColor(this.series.map(s => s.color), entry.color)});
+                    this.series.push({...series, color: nextColor(this.series.map(s => s.color), entry.color), ...(entry.style ? {style: entry.style} : {})});
                 }
             }
         }
@@ -673,7 +673,7 @@ class ChartController {
             entries: [
                 ...this.series.map(s => s.metric
                     ? metricEntry(s)
-                    : {type: "line", table: s.table, column: s.column, ...(s.row ? {row: s.row} : {}), color: s.color}),
+                    : {type: "line", table: s.table, column: s.column, ...(s.row ? {row: s.row} : {}), color: s.color, ...(s.style ? {style: s.style} : {})}),
                 ...this.pies.map(p => ({type: "pie", table: p.table, column: p.column})),
                 ...this.unresolvedEntries,
             ],
@@ -883,13 +883,25 @@ class ChartController {
                     this.render();
                 }
             };
+            // the style of a line is selected in the legend, without a style it has the style of the chart
+            const onSeriesStyleChange = (key, style) => {
+                this.series = this.series.map(s => {
+                    if (s.key !== key) {
+                        return s;
+                    }
+                    const {style: _, ...series} = s;
+                    return style === null ? series : {...series, style};
+                });
+                this.save();
+                this.render();
+            };
             // the × of a line in the legend removes it
             const onSeriesRemove = key => {
                 this.series = this.series.filter(s => s.key !== key);
                 this.save();
                 this.render();
             };
-            const plot = createLineChart({...chartOptions, onZoom, onSeriesVisibilityChange, onSeriesWindowChange, onSeriesRemove, width: dialog.chartWidth, height, container: panel});
+            const plot = createLineChart({...chartOptions, onZoom, onSeriesVisibilityChange, onSeriesWindowChange, onSeriesStyleChange, onSeriesRemove, width: dialog.chartWidth, height, container: panel});
             this.plots.push(plot);
             const title = document.title;
             const labels = chartSeries.map(s => s.label);

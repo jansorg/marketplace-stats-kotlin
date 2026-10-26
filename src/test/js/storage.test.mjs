@@ -140,3 +140,15 @@ test("a series of a row of a table is stored with the name of the row", () => {
     assert.deepEqual(storage.load(), setup);
     assert.deepEqual(createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 1, entries: [{type: "line", table: "T", column: "C", row: 1}]})})).load().entries, []);
 });
+
+test("a line is stored with its style, lines with an invalid style are ignored", () => {
+    const storage = createSetupStorage(memoryStorage());
+    const entries = [
+        {type: "metric", metric: "sales", window: "calendar-month", usesWindow: true, label: "Sales", unit: "USD", style: "bars"},
+        {type: "line", table: "Overview", column: "MRR", style: "lines"},
+    ];
+    storage.save({...emptySetup(), entries});
+    assert.deepEqual(storage.load().entries, entries);
+    storage.save({...emptySetup(), entries: [{...entries[0], style: "area"}]});
+    assert.deepEqual(storage.load().entries, []);
+});
