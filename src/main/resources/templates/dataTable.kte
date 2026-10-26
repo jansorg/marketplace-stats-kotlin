@@ -9,7 +9,7 @@
 
 !{val renderTableHeader = table.sections.size == 1}
 <div class="table-card">
-<table class="small table-striped ${table.cssClass}" data-collapsed-rows="${table.collapsedRowCount}" data-chart-title="${if (table.isChartable || table.columns.any { it.isShareOfTotal }) table.title else null}"
+<table class="small table-striped ${table.cssClass}" data-collapsed-rows="${table.collapsedRowCount}" data-chart-title="${if (table.isChartable || table.columns.any { it.isShareOfTotal || it.rowHistoryPeriod != null }) table.title else null}"
        data-chart-period="${if (table.isChartable) table.chartPeriod.name.lowercase() else null}">
     @if(renderTableHeader || table.alwaysShowMainColumns)
         <thead>

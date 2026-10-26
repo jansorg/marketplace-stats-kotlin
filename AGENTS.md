@@ -201,7 +201,9 @@ added to the models as optional properties at the end of the constructors, unkno
   Ivy repository for the npm registry) and the task `bundleJavascriptLibraries` extracts it into
   `build/generated/javascript/js`, which is added to the resources and served at `/js/`. To upgrade, change the version.
 - Tables opt in with `DataTable.isChartable` (line charts over the date in the first column) or columns with
-  `DataTableColumn.isShareOfTotal` (pie charts with one slice per row). The templates write the raw values and units as
+  `DataTableColumn.isShareOfTotal` (pie charts with one slice per row) or `DataTableColumn.rowHistoryPeriod` (line
+  charts with one series per row, e.g. the share of each customer type per month, from `DataTableRow.getChartHistory`,
+  written as `data-chart-history` JSON by `ChartValues.history`). The templates write the raw values and units as
   `data-chart-*` attributes, computed by `ChartValues`, so the JavaScript doesn't parse formatted numbers.
 
 ## Styling of the Rendered HTML

@@ -29,14 +29,15 @@
          The comments join the lines without adding whitespace to the output. --%>
     @for(row in section.rows)
         !{val chartX = if (table.isChartable) ChartValues.xValue(table.chartPeriod, row.getValue(columns.first())) else null}
-        !{val chartCategory = if (columns.any { it.isShareOfTotal }) ChartValues.category(row.getValue(columns.first())) else null}
+        !{val chartCategory = if (columns.any { it.isShareOfTotal || it.rowHistoryPeriod != null }) ChartValues.category(row.getValue(columns.first())) else null}
         <tr class="${row.cssClass}" data-chart-x="${chartX}" data-chart-category="${chartCategory}"><%--
         --%>@for((columnIndex, column) in columns.withIndex())<%--
             --%>!{val chartValue = if (chartX != null && columnIndex > 0) ChartValues.value(row.getValue(column)) else null}<%--
             --%><td colspan="${column.columnSpan}" class="${column.cssClass}" title="${row.getTooltip(column)}" data-sort="${row.getSortValue(column)}" <%--
                 --%>data-chart-col="${if (chartValue != null) columnIndex else null}" data-chart-value="${chartValue?.value?.toPlainString()}" data-chart-unit="${chartValue?.unit}" <%--
                 --%>data-chart-incomplete="${if (chartValue?.isIncomplete == true) "true" else null}" <%--
-                --%>data-chart-share="${if (chartCategory != null && column.isShareOfTotal) ChartValues.value(row.getValue(column))?.value?.toPlainString() else null}"><%--
+                --%>data-chart-share="${if (chartCategory != null && column.isShareOfTotal) ChartValues.value(row.getValue(column))?.value?.toPlainString() else null}" <%--
+                --%>data-chart-history="${column.rowHistoryPeriod?.let { period -> row.getChartHistory(column)?.let { ChartValues.history(period, it) } }}"><%--
                 --%>@template.render(row.getValue(column))</td><%--
         --%>@endfor</tr>
     @endfor

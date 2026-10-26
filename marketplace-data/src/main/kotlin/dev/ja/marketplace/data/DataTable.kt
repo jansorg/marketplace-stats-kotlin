@@ -65,6 +65,12 @@ interface DataTableRow {
     fun getValue(column: DataTableColumn): Any?
     fun getSortValue(column: DataTableColumn): Long? = null
     fun getTooltip(column: DataTableColumn): String? = null
+
+    /**
+     * @return The values of the row in a column with [DataTableColumn.rowHistoryPeriod] over time, e.g. the share of a
+     *  customer type in each month, by the first day of each period. Values are cell values like [getValue].
+     */
+    fun getChartHistory(column: DataTableColumn): Map<YearMonthDay, Any?>? = null
     val cssClass: String?
     val htmlId: String?
 }
@@ -140,6 +146,11 @@ data class DataTableColumn(
      * suitable columns, see [ChartMeasure].
      */
     val chartMeasure: ChartMeasure? = null,
+    /**
+     * The period of the values of the rows over time, see [DataTableRow.getChartHistory], e.g. the share of each customer
+     * type per month. A line chart shows a series for each row. The first column of each row must contain its name.
+     */
+    val rowHistoryPeriod: ChartPeriod? = null,
 )
 
 data class SimpleTableSection(
@@ -166,6 +177,7 @@ data class SimpleDateTableRow(
     override val cssClass: String? = null,
     val sortValues: Map<DataTableColumn, Long?> = emptyMap(),
     override val htmlId: String? = null,
+    val chartHistories: Map<DataTableColumn, Map<YearMonthDay, Any?>> = emptyMap(),
 ) : DataTableRow {
     constructor(vararg values: Pair<DataTableColumn, Any?>) : this(values.toMap())
 
@@ -179,5 +191,9 @@ data class SimpleDateTableRow(
 
     override fun getTooltip(column: DataTableColumn): String? {
         return tooltips[column]
+    }
+
+    override fun getChartHistory(column: DataTableColumn): Map<YearMonthDay, Any?>? {
+        return chartHistories[column]
     }
 }

@@ -12,7 +12,7 @@ export const STORAGE_KEY = "marketplace-stats.charts";
 const VERSION = 1;
 
 /**
- * @typedef {{type: "line"|"pie", table: string, column: string, color?: string}} ChartEntry
+ * @typedef {{type: "line"|"pie", table: string, column: string, row?: string, color?: string}} ChartEntry
  * @typedef {{combineUnits: boolean, maximized: boolean, preferredStyle: "lines"|"bars",
  *  chartStyles: Object<string, "lines"|"bars">, granularities: Object<string, "month"|"monthEnd"|"week"|"day">, shownMarkers: string[],
  *  shownExtremes: ("min"|"max")[], shownOverlays: string[], showIncomplete: boolean, showValueTable: boolean,
@@ -52,7 +52,8 @@ function isValidEntry(entry) {
         && (entry.type === "line" || entry.type === "pie")
         && typeof entry.table === "string"
         && typeof entry.column === "string"
-        && (entry.color === undefined || typeof entry.color === "string");
+        && (entry.color === undefined || typeof entry.color === "string")
+        && (entry.row === undefined || typeof entry.row === "string");
 }
 
 /**

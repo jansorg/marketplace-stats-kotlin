@@ -15,7 +15,7 @@ import {
     visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear, trailingAverage, trailingAverageOfDays,
 } from "./model.js";
 import {browserStorage, createSetupStorage, decodeView, encodeView} from "./storage.js";
-import {chartColumns, readLineSeries, readMarkers, readPieRows} from "./tableData.js";
+import {chartColumns, readLineSeries, readMarkers, readPieRows, readRowHistorySeries} from "./tableData.js";
 import {ChartDialog} from "./dialog.js";
 import {createLineChart, lineChartTheme} from "./lineChart.js";
 import {renderPie} from "./pieChart.js";
@@ -167,8 +167,9 @@ class ChartController {
     }
 
     makeClickable(column, table) {
-        const {header, type, columnIndex} = column;
-        const show = () => type === "pie" ? this.addPie(table, columnIndex) : this.addSeries(table, columnIndex);
+        const {header, type, columnIndex, isRowHistory} = column;
+        const show = () => type === "pie" ? this.addPie(table, columnIndex)
+            : isRowHistory ? this.addRowHistorySeries(table, columnIndex) : this.addSeries(table, columnIndex);
         // a click on the header of a sortable table sorts it, only a click on the label of the header opens the chart
         const isSortable = table.classList.contains("sortable") && !header.classList.contains("no-sort");
         const target = isSortable ? wrapContent(header) : header;
@@ -236,6 +237,22 @@ class ChartController {
         this.openDialog(rejection);
     }
 
+    /**
+     * Adds a series for each row of a column with the values of the rows over time, e.g. one for each customer type.
+     */
+    addRowHistorySeries(table, columnIndex) {
+        let rejection = null;
+        for (const series of readRowHistorySeries(table, columnIndex)) {
+            rejection = this.rejectSeries(series);
+            if (rejection !== null) {
+                break;
+            }
+            this.series.push({...series, color: nextColor(this.series.map(s => s.color))});
+        }
+        this.save();
+        this.openDialog(rejection);
+    }
+
     addPie(table, columnIndex) {
         const pie = this.readPie(table, columnIndex);
         const rejection = this.rejectPie(pie);
@@ -284,7 +301,13 @@ class ChartController {
                     this.pies.push(pie);
                 }
             } else {
-                const series = readLineSeries(column.element, column.columnIndex);
+                const series = column.isRowHistory
+                    ? readRowHistorySeries(column.element, column.columnIndex).find(s => s.row === entry.row)
+                    : readLineSeries(column.element, column.columnIndex);
+                if (series === undefined) {
+                    this.unresolvedEntries.push(entry);
+                    continue;
+                }
                 if (this.rejectSeries(series) === null) {
                     // a series keeps its color across pages and sessions
                     this.series.push({...series, color: nextColor(this.series.map(s => s.color), entry.color)});
@@ -335,7 +358,7 @@ class ChartController {
             showIncomplete: this.showIncomplete,
             showValueTable: this.showValueTable,
             entries: [
-                ...this.series.map(s => ({type: "line", table: s.table, column: s.column, color: s.color})),
+                ...this.series.map(s => ({type: "line", table: s.table, column: s.column, ...(s.row ? {row: s.row} : {}), color: s.color})),
                 ...this.pies.map(p => ({type: "pie", table: p.table, column: p.column})),
                 ...this.unresolvedEntries,
             ],

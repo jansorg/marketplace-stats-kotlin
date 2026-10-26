@@ -83,3 +83,11 @@ test("an invalid bookmarked view is ignored", () => {
     assert.equal(decodeView("#charts=not-base64!"), null);
     assert.equal(decodeView("#charts=" + btoa(JSON.stringify({version: 99, entries: []}))), null);
 });
+
+test("a series of a row of a table is stored with the name of the row", () => {
+    const storage = createSetupStorage(memoryStorage());
+    const setup = {...emptySetup(), entries: [{type: "line", table: "Customer Type", column: "% of Sales per Month", row: "Individual", color: "#2a78d6"}]};
+    storage.save(setup);
+    assert.deepEqual(storage.load(), setup);
+    assert.deepEqual(createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 1, entries: [{type: "line", table: "T", column: "C", row: 1}]})})).load().entries, []);
+});

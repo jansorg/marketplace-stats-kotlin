@@ -80,6 +80,23 @@ object ChartValues {
     }
 
     /**
+     * The values of a row over time, see [DataTableRow.getChartHistory], e.g.
+     * `{"unit":"%","points":[["2026-09-30",45.20,false],["2026-10-23",50.00,true]]}`. The dates are located like the
+     * rows of chartable tables, see [xValue], the last value of a point is `true` for values, which may still change.
+     *
+     * @return The JSON of the values, or `null` if there are no values, which can be shown.
+     */
+    fun history(period: ChartPeriod, values: Map<YearMonthDay, Any?>, today: YearMonthDay = YearMonthDay.now()): String? {
+        val points = values.entries
+            .sortedBy { it.key }
+            .mapNotNull { (date, cellValue) -> value(cellValue)?.let { xValue(period, date, today)!! to it } }
+        val unit = points.firstOrNull()?.second?.unit ?: return null
+        return points.joinToString(",", "{\"unit\":\"$unit\",\"points\":[", "]}") { (date, value) ->
+            "[\"$date\",${value.value.toPlainString()},${value.isIncomplete}]"
+        }
+    }
+
+    /**
      * @return The name of a row of a table with share columns, based on the value of the first column of the row.
      */
     fun category(firstColumnValue: Any?): String? {
