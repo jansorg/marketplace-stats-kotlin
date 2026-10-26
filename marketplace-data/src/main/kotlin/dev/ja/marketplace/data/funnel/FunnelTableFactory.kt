@@ -9,8 +9,8 @@ import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.MarketplaceDataTableFactory
 
-class FunnelTableFactory :MarketplaceDataTableFactory {
+class FunnelTableFactory(private val collapsedRowCount: Int? = null) : MarketplaceDataTableFactory {
     override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable {
-        return FunnelTable()
+        return FunnelTable(collapsedRowCount)
     }
 }

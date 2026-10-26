@@ -32,6 +32,8 @@ class TopCountriesTable(
     private val maxItems: Int?,
     private val showTrials: Boolean,
     private val showChurn: Boolean = false,
+    /** The number of rows shown before a click on "Show all", `null` to show all rows. */
+    override val collapsedRowCount: Int? = null,
 ) : SimpleDataTable(
     if (maxItems == null) "" else "Top Countries",
     "top-countries",

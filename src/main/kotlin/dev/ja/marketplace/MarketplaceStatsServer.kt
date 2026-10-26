@@ -154,7 +154,7 @@ class MarketplaceStatsServer(
 
     private val countriesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
         client,
-        listOf(TopCountriesFactory(smallSpace = false, maxCountries = null, showTrials = true, showChurn = true)),
+        listOf(TopCountriesFactory(smallSpace = false, maxCountries = null, showTrials = true, showChurn = true, collapsedRowCount = 20)),
         pageTitle = "Countries and Trials",
     )
 
@@ -180,7 +180,7 @@ class MarketplaceStatsServer(
 
     private val funnelPageData: PluginPageDefinition = DefaultPluginPageDefinition(
         client,
-        listOf(FunnelTableFactory()),
+        listOf(FunnelTableFactory(collapsedRowCount = 20)),
         pageTitle = "Trial Funnel",
     )
 
