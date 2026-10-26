@@ -538,19 +538,29 @@ export function seriesMeasure(series) {
 }
 
 /**
- * Moving averages apply to monthly values. With the granularity Week or Day, they need the values per day of the
- * series, see {@link trailingAverageOfDays}. The previous year can be compared for all values, except yearly values.
+ * Moving averages apply to monthly values with the granularity Month, and to all series with values per day with the
+ * granularity Week or Day, e.g. also of the table of the years: the average of each date is the average of the values
+ * per day at the same day of the previous months, see {@link trailingAverageOfDays}.
+ * The previous year can be compared for all values, except yearly values.
  *
  * @param {string} kind One of {@link OVERLAYS}.
  * @param {{period: string, measure?: string|null, unit: string, daily?: string|null}} series
- * @param {"month"|"week"|"day"} granularity The granularity of the chart.
+ * @param {string} granularity The granularity of the chart, see {@link GRANULARITIES}.
  */
 export function overlayApplies(kind, series, granularity) {
     if (kind === "previousYear") {
         return series.period !== "year";
     }
-    // the averages of months don't apply to the values of years
-    return series.period === "month" && granularity !== "yearEnd" && (granularity === "month" || Boolean(series.daily));
+    switch (granularity) {
+        case "month":
+            return series.period === "month";
+        case "week":
+        case "day":
+            return Boolean(series.daily);
+        default:
+            // the values at the end of each month and of each year
+            return false;
+    }
 }
 
 function completePoints(series) {
