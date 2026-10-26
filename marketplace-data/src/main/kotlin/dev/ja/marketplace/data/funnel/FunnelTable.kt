@@ -19,7 +19,6 @@ class FunnelTable(
     override val collapsedRowCount: Int? = null,
 ) : SimpleDataTable("Trial Funnel", "funnel", "table-centered sortable"), MarketplaceDataSink {
     private var pluginId: PluginId? = null
-    private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
     private val trialTracker: TrialTracker = SimpleTrialTracker()
 
     private val trialDateColumn = DataTableColumn("funnel-trial", "Trial Start Date", "date", preSorted = AriaSortOrder.Descending)
@@ -33,7 +32,6 @@ class FunnelTable(
         super.init(data)
 
         this.pluginId = data.pluginId
-        this.maxTrialDays = data.getPluginInfo().purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
 
         trialTracker.init(data.getTrials() ?: emptyList())
     }
@@ -63,7 +61,7 @@ class FunnelTable(
                     sortValues = mapOf(
                         trialDateColumn to pluginTrial.date.sortValue,
                         licensedDateColumn to pluginSale.date.sortValue,
-                        testDurationColumn to testDuration.absoluteValue,
+                        testDurationColumn to testDuration,
                     )
                 )
             }
