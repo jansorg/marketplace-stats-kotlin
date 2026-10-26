@@ -5,7 +5,7 @@
 
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {createSetupStorage, emptySetup, STORAGE_KEY} from "../../main/resources/js/charts/storage.js";
+import {createSetupStorage, decodeView, emptySetup, encodeView, STORAGE_KEY} from "../../main/resources/js/charts/storage.js";
 
 function memoryStorage(initial = {}) {
     const values = new Map(Object.entries(initial));
@@ -61,4 +61,25 @@ test("an unavailable storage doesn't fail", () => {
     assert.deepEqual(createSetupStorage(failing).load(), emptySetup());
     assert.doesNotThrow(() => createSetupStorage(failing).save(emptySetup()));
     assert.deepEqual(createSetupStorage(null).load(), emptySetup());
+});
+
+test("a bookmarked view is the setup in the fragment of the address", () => {
+    const setup = {
+        ...emptySetup(), granularities: {"year/USD": "monthEnd"}, shownMarkers: ["release"],
+        entries: [{type: "line", table: "Years", column: "Sales Total", color: "#2a78d6"}, {type: "pie", table: "Top Countries", column: "% of Sales"}],
+    };
+    const fragment = encodeView(setup);
+    assert.match(fragment, /^charts=[A-Za-z0-9_-]+$/);
+    assert.deepEqual(decodeView(fragment), setup);
+    assert.deepEqual(decodeView("#" + fragment), setup);
+    // non-ASCII names of tables and columns
+    const named = {...emptySetup(), entries: [{type: "line", table: "Übersicht", column: "Umsatz €"}]};
+    assert.deepEqual(decodeView(encodeView(named)), named);
+});
+
+test("an invalid bookmarked view is ignored", () => {
+    assert.equal(decodeView(""), null);
+    assert.equal(decodeView("#other"), null);
+    assert.equal(decodeView("#charts=not-base64!"), null);
+    assert.equal(decodeView("#charts=" + btoa(JSON.stringify({version: 99, entries: []}))), null);
 });

@@ -56,6 +56,61 @@ function isValidEntry(entry) {
 }
 
 /**
+ * @param {object|null} setup A stored setup, e.g. of the local storage or of a bookmark.
+ * @return {ChartSetup|null} The setup with the valid values, or null if it isn't a setup of this version.
+ */
+function parseSetup(setup) {
+    if (setup === null || typeof setup !== "object" || setup.version !== VERSION || !Array.isArray(setup.entries)) {
+        return null;
+    }
+    return {
+        combineUnits: setup.combineUnits === true,
+        maximized: setup.maximized !== false,
+        preferredStyle: STYLES.includes(setup.preferredStyle) ? setup.preferredStyle : "lines",
+        chartStyles: validValues(setup.chartStyles, STYLES),
+        granularities: validValues(setup.granularities, GRANULARITIES),
+        shownMarkers: Array.isArray(setup.shownMarkers) ? setup.shownMarkers.filter(kind => MARKER_KINDS.includes(kind)) : [],
+        shownExtremes: validExtremes(setup),
+        shownOverlays: Array.isArray(setup.shownOverlays) ? OVERLAYS.filter(kind => setup.shownOverlays.includes(kind)) : [],
+        // shown by default, also with a setup stored before the option existed
+        showIncomplete: setup.showIncomplete !== false,
+        showValueTable: setup.showValueTable !== false,
+        entries: setup.entries.filter(isValidEntry),
+    };
+}
+
+/** The prefix of the fragment of the address of a bookmarked view of the charts, e.g. "#charts=eyJ2Z…". */
+export const VIEW_FRAGMENT_PREFIX = "charts=";
+
+/**
+ * @param {ChartSetup} setup
+ * @return {string} The fragment of the address of a bookmark of the view, without "#". The setup is JSON as base64url.
+ */
+export function encodeView(setup) {
+    const bytes = new TextEncoder().encode(JSON.stringify({version: VERSION, ...setup}));
+    const base64 = btoa(String.fromCharCode(...bytes));
+    return VIEW_FRAGMENT_PREFIX + base64.replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+}
+
+/**
+ * @param {string} fragment The fragment of the address, with or without "#".
+ * @return {ChartSetup|null} The setup of a bookmarked view, or null if the fragment isn't a valid view.
+ */
+export function decodeView(fragment) {
+    const text = fragment.replace(/^#/, "");
+    if (!text.startsWith(VIEW_FRAGMENT_PREFIX)) {
+        return null;
+    }
+    try {
+        const base64 = text.substring(VIEW_FRAGMENT_PREFIX.length).replaceAll("-", "+").replaceAll("_", "/");
+        const bytes = Uint8Array.from(atob(base64), char => char.charCodeAt(0));
+        return parseSetup(JSON.parse(new TextDecoder().decode(bytes)));
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
  * @param {Storage|null} storage The local storage, or null if it's unavailable.
  */
 export function createSetupStorage(storage) {
@@ -63,24 +118,7 @@ export function createSetupStorage(storage) {
         /** @return {ChartSetup} The stored setup, or an empty setup if there is none or it's invalid. */
         load() {
             try {
-                const setup = JSON.parse(storage?.getItem(STORAGE_KEY) ?? "null");
-                if (setup === null || setup.version !== VERSION || !Array.isArray(setup.entries)) {
-                    return emptySetup();
-                }
-                return {
-                    combineUnits: setup.combineUnits === true,
-                    maximized: setup.maximized !== false,
-                    preferredStyle: STYLES.includes(setup.preferredStyle) ? setup.preferredStyle : "lines",
-                    chartStyles: validValues(setup.chartStyles, STYLES),
-                    granularities: validValues(setup.granularities, GRANULARITIES),
-                    shownMarkers: Array.isArray(setup.shownMarkers) ? setup.shownMarkers.filter(kind => MARKER_KINDS.includes(kind)) : [],
-                    shownExtremes: validExtremes(setup),
-                    shownOverlays: Array.isArray(setup.shownOverlays) ? OVERLAYS.filter(kind => setup.shownOverlays.includes(kind)) : [],
-                    // shown by default, also with a setup stored before the option existed
-                    showIncomplete: setup.showIncomplete !== false,
-                    showValueTable: setup.showValueTable !== false,
-                    entries: setup.entries.filter(isValidEntry),
-                };
+                return parseSetup(JSON.parse(storage?.getItem(STORAGE_KEY) ?? "null")) ?? emptySetup();
             } catch (e) {
                 // invalid data or a storage, which can't be accessed
                 return emptySetup();
