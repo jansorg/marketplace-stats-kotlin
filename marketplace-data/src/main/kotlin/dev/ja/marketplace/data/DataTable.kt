@@ -6,6 +6,7 @@
 package dev.ja.marketplace.data
 
 import dev.ja.marketplace.client.YearMonthDay
+import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.currency.WithAmounts
 import dev.ja.marketplace.data.chart.ChartLevel
 import dev.ja.marketplace.exchangeRate.ExchangeRates
@@ -63,6 +64,12 @@ interface DataTable : MarketplaceDataSink {
      * chart shows the values of the table, e.g. the sums of each month at the end of each month.
      */
     val chartLevel: ChartLevel get() = ChartLevel.of(chartPeriod)
+
+    /**
+     * The dates of the rows of a table of a few days, e.g. of the past 7 days. Opening a chart of a column with a
+     * [DataTableColumn.chartMetric] shows these dates, the values of the metric cover the whole history.
+     */
+    val chartDateRange: YearMonthDayRange? get() = null
 
     suspend fun renderTable(): RenderedDataTable
 }

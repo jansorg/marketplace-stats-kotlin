@@ -45,6 +45,7 @@ class TimeSpanSummaryTable(
     private lateinit var totalSales: MonetaryAmountTracker
 
     override val isChartable: Boolean = true
+    override val chartDateRange: YearMonthDayRange = dateRange
 
     override val columns: List<DataTableColumn> by lazy {
         listOfNotNull(
