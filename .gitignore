@@ -9,3 +9,4 @@ export-data/
 .resourceCache/
 # custom events of the charts, see README.md
 events.yml
+.marketplace-data-cache/
