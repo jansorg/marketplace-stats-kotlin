@@ -118,8 +118,8 @@ class MarketplaceStatsServer(
             DaySummaryFactory(0, "Today"),
             DaySummaryFactory(-1, "Yesterday"),
             CustomerTypeFactory(),
-            TopCountriesFactory(smallSpace = true),
-            TopTrialCountriesFactory(10, smallSpace = true, showEmptyCountry = false),
+            TopCountriesFactory(smallSpace = true, maxCountries = 5),
+            TopTrialCountriesFactory(5, smallSpace = true, showEmptyCountry = false),
             OverviewTableFactory()
         )
     )
