@@ -9,7 +9,6 @@ import dev.ja.marketplace.client.CustomerId
 import dev.ja.marketplace.client.LicenseId
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.YearMonthDay
-import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.exchangeRate.ExchangeRates
@@ -144,11 +143,8 @@ class CustomerRecurringRevenue(
     }
 
     internal fun monthlyAmount(license: LicenseInfo): BigDecimal {
-        val amount = when (currency) {
-            MarketplaceCurrencies.USD -> license.amountUSD
-            license.amount.currency -> license.amount
-            else -> exchangeRates.convert(license.sale.date, license.amount)
-        }.number.numberValue(BigDecimal::class.java)
+        val amount = exchangeRates.targetAmount(license.sale.date, license.amountUSD, license.amount)
+            .number.numberValue(BigDecimal::class.java)
 
         return when (license.sale.licensePeriod) {
             LicensePeriod.Annual -> amount.divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP)

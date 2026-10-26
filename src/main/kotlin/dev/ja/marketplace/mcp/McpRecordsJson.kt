@@ -257,11 +257,7 @@ class McpRecordsJson(private val exchangeRates: ExchangeRates) {
      * The amount in the displayed currency, converted in the same way as by `MonetaryAmountTracker`.
      */
     private fun displayedAmount(date: YearMonthDay, amountUSD: MonetaryAmount, amount: MonetaryAmount): MonetaryAmount {
-        return when (currency) {
-            MarketplaceCurrencies.USD -> amountUSD
-            amount.currency -> amount
-            else -> exchangeRates.convert(date, amount)
-        }
+        return exchangeRates.targetAmount(date, amountUSD, amount)
     }
 
     private fun sum(amounts: List<MonetaryAmount>): BigDecimal {
