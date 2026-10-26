@@ -9,7 +9,7 @@
 
 import {formatDate, SECONDS_PER_DAY, unitTitle} from "./format.js";
 import {createMenu} from "./menu.js";
-import {alignSeries, availableComparisons, barLayout, cursorPosition, periodEnd, WINDOW_LABELS, WINDOWS, displayColor, extremeIndices, incompleteColor, averageShade, pinchedRange, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange, alignedRanges, niceStep, rangeTicks} from "./model.js";
+import {alignSeries, availableComparisons, barLayout, cursorPosition, periodEnd, displayColor, extremeIndices, incompleteColor, averageShade, pinchedRange, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange, alignedRanges, niceStep, rangeTicks, seriesMenuSections, seriesStyle} from "./model.js";
 
 /**
  * The colors of the charts in the light and the dark mode. The surface is the background of the charts in the chart
@@ -722,19 +722,14 @@ function averageDashOf(series, chartSeries) {
     return CHART_STYLE.overlays["average" + series.average]?.dash ?? null;
 }
 
-/** The styles of a line in its menu, `null` is the style of the chart, see the buttons Lines/Bars of the chart. */
-const SERIES_STYLES = [[null, "Like the chart"], ["lines", "Line"], ["bars", "Bars"]];
-
 /**
- * @param {{label: string, window?: string, selectedWindow?: string, style?: "lines"|"bars"}} series A line with its
- *  shown and its selected window, e.g. the trials of each month, which follow the level of the chart, and its style.
- * @param {((window: string) => void)|null} onWindowChange Called with the selected window, `null` for a line without
- *  window.
- * @param {(style: "lines"|"bars"|null) => void} onStyleChange Called with the selected style, `null` for the style
- *  of the chart.
+ * @param {{label: string}} series A line of a chart.
+ * @param {{kind: string, title: string, items: {value: string|null, label: string, isChecked: boolean}[]}[]} sections
+ *  The sections of the menu, see seriesMenuSections.
+ * @param {(kind: string, value: string|null) => void} onSelect Called with the kind of the section and the selected value.
  * @return {HTMLElement} A menu with a gear icon to select the window and the style of the line, e.g. in its legend.
  */
-function seriesMenu(series, onWindowChange, onStyleChange) {
+function seriesMenu(series, sections, onSelect) {
     // the legend may scroll horizontally, the menu is placed in the window, a click on the small icon opens it
     const {menu, items} = createMenu("", {fixed: true, hover: false});
     menu.classList.add("chart-series-window");
@@ -751,42 +746,27 @@ function seriesMenu(series, onWindowChange, onStyleChange) {
     gear.setAttribute("d", GEAR_PATH);
     svg.append(gear, circle);
     summary.append(svg);
-    const selectedWindow = series.selectedWindow ?? series.window;
-    const style = series.style ?? null;
-    const titles = [
-        ...(onWindowChange ? ["Window: " + (WINDOW_LABELS[selectedWindow] ?? selectedWindow)] : []),
-        "Type: " + SERIES_STYLES.find(([value]) => value === style)[1],
-    ];
-    summary.title = titles.join("\n");
+    // the tooltip lists the selected options, e.g. "Window: Calendar month"
+    summary.title = sections.map(section => section.title + ": " + section.items.find(item => item.isChecked)?.label).join("\n");
     summary.setAttribute("aria-label", "Options of " + series.label);
 
-    const heading = text => {
-        const element = document.createElement("div");
-        element.className = "chart-menu-heading";
-        element.textContent = text;
-        items.append(element);
-    };
-    const radio = (text, isChecked, onClick) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.textContent = text;
-        button.setAttribute("role", "menuitemradio");
-        button.setAttribute("aria-checked", String(isChecked));
-        button.addEventListener("click", () => {
-            menu.open = false;
-            onClick();
-        });
-        items.append(button);
-    };
-    if (onWindowChange) {
-        heading("Window");
-        for (const window of WINDOWS) {
-            radio(WINDOW_LABELS[window], window === selectedWindow, () => onWindowChange(window));
+    for (const section of sections) {
+        const heading = document.createElement("div");
+        heading.className = "chart-menu-heading";
+        heading.textContent = section.title;
+        items.append(heading);
+        for (const item of section.items) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.textContent = item.label;
+            button.setAttribute("role", "menuitemradio");
+            button.setAttribute("aria-checked", String(item.isChecked));
+            button.addEventListener("click", () => {
+                menu.open = false;
+                onSelect(section.kind, item.value);
+            });
+            items.append(button);
         }
-    }
-    heading("Type");
-    for (const [value, text] of SERIES_STYLES) {
-        radio(text, value === style, () => onStyleChange(value));
     }
     // the menu doesn't inherit the tooltip of the legend, which shows and hides the line
     menu.setAttribute("title", "");
@@ -1091,7 +1071,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     const datePeriod = granularity === "monthEnd" ? "month" : granularity === "yearEnd" ? "year" : isFiner ? "day" : period;
 
     // a line has its own style, or the style of the chart
-    const isBar = series => (series.style ?? chartStyle) === "bars";
+    const isBar = series => seriesStyle(series, chartStyle) === "bars";
     const isBars = chartSeries.some(isBar);
     // bars at the first and last date need space beside the date
     const interval = smallestInterval(timestamps, 24 * 60 * 60);
@@ -1334,12 +1314,13 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
 
     /** @return {(() => HTMLElement)|null} Creates the menu of the window and the style of a line, see seriesMenu. */
     function seriesMenuOf(series) {
-        if (!onSeriesStyleChange) {
+        const sections = seriesMenuSections(series, Boolean(detail && onSeriesWindowChange)).filter(section => section.kind !== "style" || onSeriesStyleChange);
+        if (sections.length === 0) {
             return null;
         }
-        const hasWindow = series.usesWindow && series.window && detail && onSeriesWindowChange;
-        return () => seriesMenu(series, hasWindow ? window => onSeriesWindowChange(series.key, window) : null,
-            style => onSeriesStyleChange(series.key, style));
+        return () => seriesMenu(series, sections, (kind, value) => kind === "window"
+            ? onSeriesWindowChange(series.key, value)
+            : onSeriesStyleChange(series.key, value));
     }
 
     /** @return {(() => HTMLElement)|null} Creates the button, which removes a line from the chart. */

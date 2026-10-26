@@ -1010,3 +1010,38 @@ export function exportFileName(parts, extension) {
         .join("-");
     return (name || "chart") + "." + extension;
 }
+
+/** The styles of a line in its menu, `null` is the style of the chart, see the buttons Lines/Bars of the chart. */
+export const SERIES_STYLES = [[null, "Like the chart"], ["lines", "Line"], ["bars", "Bars"]];
+
+/**
+ * @param {{average?: number, style?: "lines"|"bars"}} series A line of a chart.
+ * @param {"lines"|"bars"} chartStyle The style of the chart.
+ * @return {"lines"|"bars"} How the line is drawn: its style or the style of the chart. A moving average is always a line.
+ */
+export function seriesStyle(series, chartStyle) {
+    return series.average ? "lines" : series.style ?? chartStyle;
+}
+
+/**
+ * The sections of the menu of a line in the legend: its window, if its values depend on the window, and its type,
+ * unless it's a moving average, which is always a line.
+ *
+ * @param {{usesWindow?: boolean, window?: string|null, selectedWindow?: string, average?: number, style?: "lines"|"bars"}} series
+ *  A line with its shown and its selected window.
+ * @param {boolean} canChangeWindow If the chart allows to select the windows of its lines, e.g. a chart of metrics.
+ * @return {{kind: "window"|"style", title: string, items: {value: string|null, label: string, isChecked: boolean}[]}[]}
+ *  The sections, empty without options.
+ */
+export function seriesMenuSections(series, canChangeWindow) {
+    const sections = [];
+    if (canChangeWindow && series.usesWindow && series.window) {
+        const selected = series.selectedWindow ?? series.window;
+        sections.push({kind: "window", title: "Window", items: WINDOWS.map(window => ({value: window, label: WINDOW_LABELS[window], isChecked: window === selected}))});
+    }
+    if (!series.average) {
+        const style = series.style ?? null;
+        sections.push({kind: "style", title: "Type", items: SERIES_STYLES.map(([value, label]) => ({value, label, isChecked: value === style}))});
+    }
+    return sections;
+}
