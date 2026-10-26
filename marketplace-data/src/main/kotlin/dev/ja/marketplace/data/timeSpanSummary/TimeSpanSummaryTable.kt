@@ -37,7 +37,7 @@ class TimeSpanSummaryTable(
 
     private val columnDay = DataTableColumn("day", null)
     private val columnSales = DataTableColumn("total", "Sales", "num", chartMetric = ChartMetric.Sales.id)
-    private val columnDownloads = DataTableColumn("total", "↓", "num", chartTitle = "Downloads", tooltip = "Downloads", chartMetric = ChartMetric.Downloads.id)
+    private val columnDownloads = DataTableColumn("total", "↓", "num col-symbol", chartTitle = "Downloads", tooltip = "Downloads", chartMetric = ChartMetric.Downloads.id)
     private val columnTrials = DataTableColumn("total", "Trials", "num", chartMetric = ChartMetric.Trials.id)
 
     private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT

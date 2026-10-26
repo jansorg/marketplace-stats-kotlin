@@ -132,7 +132,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         chartMetric = ChartMetric.ChurnMonthly.id,
     )
     private val columnDownloads = DataTableColumn(
-        "downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Number of downloads in the month",
+        "downloads", "↓", "num col-symbol", chartTitle = "Downloads", tooltip = "Number of downloads in the month",
         chartMetric = ChartMetric.Downloads.id,
         chartMeasure = ChartMeasure.Flow,
     )

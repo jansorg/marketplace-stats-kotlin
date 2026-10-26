@@ -962,6 +962,21 @@ th.num, td.num, th.date, td.date, th.col-right, td.col-right {
     text-align: right;
 }
 
+/* a symbol as the label of a column, e.g. the arrow of the downloads, is larger and in the color of the text, so that
+   it's as visible as the labels of the other columns. The small line height keeps the height of the header row. */
+th.col-symbol {
+    font-size: 1.35em;
+    line-height: 0.9;
+    color: var(--text-color);
+    /* the arrow of the fallback font is thin */
+    -webkit-text-stroke: 0.04em currentColor;
+}
+
+/* the arrow of the sorting has the size of the other columns */
+.sortable thead th.col-symbol:not(.no-sort)::after {
+    font-size: 0.9em;
+}
+
 th.col-left, td.col-left {
     text-align: left;
 }
