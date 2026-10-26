@@ -41,6 +41,7 @@ object RenewalRates {
      *
      * @param maxPreviousRenewals Subscriptions with more previous renewals are counted with this value.
      * @param byMonth Groups the subscriptions by the month of their end instead of the year.
+     * @param licensePeriod Only the rates of subscriptions of this period, all periods if `null`.
      */
     fun of(
         licenses: Iterable<LicenseInfo>,
@@ -48,20 +49,20 @@ object RenewalRates {
         graceDays: Int = Marketplace.LICENSE_RENEWAL_GRACE_DAYS,
         maxPreviousRenewals: Int = 2,
         byMonth: Boolean = false,
+        licensePeriod: LicensePeriod? = null,
     ): List<RenewalRate> {
         data class Key(val year: Int, val month: Int?, val period: LicensePeriod, val previousRenewals: Int)
         class Counts(var due: Int = 0, var renewed: Int = 0, var pending: Int = 0)
 
         val counts = HashMap<Key, Counts>()
-        val subscriptionsByLicense = licenses
-            .filter { it.isSubscriptionLicense && it.validity != null }
-            .groupBy { it.id }
-
-        for (subscriptions in subscriptionsByLicense.values) {
-            val sorted = subscriptions.sortedWith(compareBy({ it.validity!!.start }, { it.validity!!.end }))
+        for (sorted in Renewals.subscriptionsByLicense(licenses)) {
             var previousPaid = 0
             for ((index, subscription) in sorted.withIndex()) {
                 if (!subscription.isPaidLicense) {
+                    continue
+                }
+                if (licensePeriod != null && subscription.sale.licensePeriod != licensePeriod) {
+                    previousPaid++
                     continue
                 }
 

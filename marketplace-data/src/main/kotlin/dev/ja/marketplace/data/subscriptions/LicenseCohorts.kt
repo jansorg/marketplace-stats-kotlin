@@ -71,12 +71,7 @@ object LicenseCohorts {
         data class LicenseChain(val renewals: Int, val isOpen: Boolean)
 
         val chains = HashMap<Key, MutableList<LicenseChain>>()
-        val subscriptionsByLicense = licenses
-            .filter { it.isSubscriptionLicense && it.validity != null }
-            .groupBy { it.id }
-
-        for (subscriptions in subscriptionsByLicense.values) {
-            val sorted = subscriptions.sortedWith(compareBy({ it.validity!!.start }, { it.validity!!.end }))
+        for (sorted in Renewals.subscriptionsByLicense(licenses)) {
             val firstIndex = sorted.indexOfFirst { it.isPaidLicense }
             if (firstIndex < 0) {
                 continue

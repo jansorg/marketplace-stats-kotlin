@@ -26,6 +26,17 @@ object Renewals {
     }
 
     /**
+     * @return The subscriptions of each license, ordered by their start and end.
+     */
+    fun subscriptionsByLicense(licenses: Iterable<LicenseInfo>): Collection<List<LicenseInfo>> {
+        return licenses
+            .filter { it.isSubscriptionLicense && it.validity != null }
+            .groupBy { it.id }
+            .values
+            .map { subscriptions -> subscriptions.sortedWith(compareBy({ it.validity!!.start }, { it.validity!!.end })) }
+    }
+
+    /**
      * @return The last day, on which a renewal of a subscription, which ends at [end], can start.
      */
     fun deadline(end: YearMonthDay, graceDays: Int = Marketplace.LICENSE_RENEWAL_GRACE_DAYS): YearMonthDay {
