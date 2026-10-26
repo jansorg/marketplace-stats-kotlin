@@ -118,7 +118,7 @@ extend, must not fail a response:
   loaded lazily on the first request for a plugin and then cached in memory, so the first page load for a plugin is slow.
   For testing, prefer a plugin with few sales, because plugins with a long sales history take much longer to load.
 - Useful routes: `/` (plugin list with the summary of all paid plugins, `--no-all-plugins-summary` disables it, or report with `?pluginId=<id>`), `/licenses`, `/customers`, `/trials`, `/countries`,
-  `/pricing`, `/downloads/monthly`, `/chart-data` (JSON), all with `?pluginId=<id>`. `POST /refresh?pluginId=<id>&reload=true` drops cached data.
+  `/pricing`, `/downloads/monthly`, `/chart-data` (JSON), `/chart-export` (CSV or JSON of the lines of a chart, see "Charts"), all with `?pluginId=<id>`. `POST /refresh?pluginId=<id>&reload=true` drops cached data.
   See the routing in `MarketplaceStatsServer.kt`.
 - The MCP server is served at `/mcp` (Streamable HTTP, `src/main/kotlin/dev/ja/marketplace/mcp/`, see README.md).
   It's disabled with `--no-mcp`. Requests must use one of the allowed hostnames (`localhost`, `127.0.0.1`, `[::1]`, `--host`,
@@ -285,6 +285,15 @@ extend, must not fail a response:
 - "Bookmark this view" of the Export menu writes the setup into the fragment of the address (`#charts=<base64url JSON>`,
   `encodeView`/`decodeView` in `storage.js`) and copies the address. Opening it replaces the stored setup with the
   view, opens the dialog and removes the fragment. Changing the charts also removes it.
+- "Copy data URL" of the Export menu of a chart of metrics copies the address of `/chart-export` (`ChartExport.kt`),
+  which returns the values of the shown lines, e.g. for an AI agent (`chartExportUrl` and `exportLineId` in
+  `model.js`, `copyDataUrl` in `main.js`; without access to the clipboard the message shows the address). One address
+  describes the chart: `lines=<metric>[@avg<months>][@previous-year][:<window>],...` (the shown windows, hidden lines
+  and trends are left out, the previous year is a line of its own), `detail`, `from`/`to` of the range,
+  `incomplete=false` if incomplete values are hidden. The server derives the finer dates of short windows like the
+  charts (`ChartExport.lineDetail`, `lineDetail` in `model.js`). The default format is CSV (one row per date, headers
+  with label and unit, a `status` column for incomplete and partial values), `format=json` adds the metadata of each
+  line. Charts of tables without a metric and pie charts have no address.
 - uPlot isn't committed. Gradle downloads the npm package (`npm:uplot:<version>@tgz` in `build.gradle.kts`, from an
   Ivy repository for the npm registry) and the task `bundleJavascriptLibraries` extracts it into
   `build/generated/javascript/js`, which is added to the resources and served at `/js/`. To upgrade, change the version.

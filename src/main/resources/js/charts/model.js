@@ -1094,3 +1094,62 @@ export function seriesMenuSections(series, canChangeWindow) {
     }
     return sections;
 }
+
+/**
+ * @param {{metric: string, window?: string|null, usesWindow?: boolean, average?: number}} series A line of a metric
+ *  with its shown window, see ChartController.metricChartSeries.
+ * @param {boolean} [ofPreviousYear] If the line has the values one year before each date.
+ * @return {string} The line in /chart-export, e.g. `sales@avg3:calendar-month` or `mrr@previous-year`, see
+ *  ChartExport.kt. Values at a date have no window.
+ */
+export function exportLineId(series, ofPreviousYear = false) {
+    return series.metric
+        + (series.average ? `@avg${series.average}` : "")
+        + (ofPreviousYear ? "@previous-year" : "")
+        + (series.usesWindow && series.window ? `:${series.window}` : "");
+}
+
+/** Characters, which are allowed in a query and keep the address of /chart-export readable, e.g. for an AI agent. */
+const READABLE_QUERY_CHARACTERS = /%(2C|3A|40)/g;
+
+/**
+ * The address of the values of the shown lines of a chart of metrics as CSV, e.g. to give it to an AI agent: the
+ * lines, which aren't hidden, with their windows and moving averages, the lines of the previous year, the detail
+ * level, the selected dates and the incomplete values, if they're shown. See ChartExport.kt.
+ *
+ * @param {string} pageUrl The address of the page, its origin and its plugin are used.
+ * @param {object} chart
+ * @param {object[]} chart.series The shown lines of metrics of the chart, see ChartController.metricChartSeries.
+ * @param {string} chart.detail The detail level of the chart, see {@link DETAILS}.
+ * @param {string[]} chart.shownOverlays The shown trends, see {@link OVERLAYS}.
+ * @param {Set<string>} chart.hiddenSeries The keys of the hidden lines and trends (`<series>:<kind>`).
+ * @param {DateRange|null} chart.dateRange The selected dates, null for all dates.
+ * @param {boolean} chart.showIncomplete If incomplete values are shown.
+ * @return {string|null} The address, null if the chart has no shown lines.
+ */
+export function chartExportUrl(pageUrl, {series, detail, shownOverlays, hiddenSeries, dateRange, showIncomplete}) {
+    const lines = series.flatMap(s => {
+        const ofPreviousYear = shownOverlays.includes("previousYear") && overlayApplies("previousYear", s, detail, s.window)
+            && !hiddenSeries.has(`${s.key}:previousYear`);
+        return [
+            ...(hiddenSeries.has(s.key) ? [] : [exportLineId(s)]),
+            ...(ofPreviousYear ? [exportLineId(s, true)] : []),
+        ];
+    });
+    if (lines.length === 0) {
+        return null;
+    }
+    const page = new URL(pageUrl);
+    const pluginId = page.searchParams.get("pluginId");
+    const parameters = [
+        ...(pluginId !== null ? [["pluginId", pluginId]] : []),
+        ["detail", detail],
+        ["lines", [...new Set(lines)].join(",")],
+        ...(dateRange ? [["from", dateRange.from], ["to", dateRange.to]] : []),
+        ...(showIncomplete ? [] : [["incomplete", "false"]]),
+    ];
+    const query = parameters
+        .map(([name, value]) => name + "=" + encodeURIComponent(value).replace(READABLE_QUERY_CHARACTERS, decodeURIComponent))
+        .join("&");
+    return `${page.origin}/chart-export?${query}`;
+}
