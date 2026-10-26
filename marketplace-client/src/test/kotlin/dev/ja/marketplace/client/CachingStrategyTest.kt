@@ -21,7 +21,9 @@ class CachingStrategyTest {
     fun recentSalesMayStillChange() {
         val strategy = CachingStrategy()
         assertEquals(Category.Recent, strategy.historyCategory(YearMonthDayRange(today.add(0, 0, -45), today), today))
-        assertEquals(Category.Static, strategy.historyCategory(YearMonthDayRange(today.add(0, 0, -46), today.add(0, 0, -16)), today))
+        // a range, which ends within the recent days, may still change
+        assertEquals(Category.Recent, strategy.historyCategory(YearMonthDayRange(today.add(0, 0, -76), today.add(0, 0, -45)), today))
+        assertEquals(Category.Static, strategy.historyCategory(YearMonthDayRange(today.add(0, 0, -76), today.add(0, 0, -46)), today))
     }
 
     @Test
