@@ -15,7 +15,7 @@
 
 import {createFormatter} from "./format.js";
 import {
-    canCombineUnits, chartLevel, chartLevelKeys, CHART_STYLES, dateRange, DETAILS, detailGranularity, detailPeriod, rangeLabel, rangeOfTimestamps, rangeTimestamps, rangeYears, exportFileName, groupCharts, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES,
+    canCombineUnits, chartLevel, chartLevelKeys, CHART_STYLES, dateRange, DETAILS, detailGranularity, detailPeriod, rangeLabel, rangeOfPreset, rangeOfTimestamps, rangeTimestamps, rangeYears, exportFileName, groupCharts, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES,
     METRIC_PERIOD, metricLabel, metricPoints, nextColor, pieSlices, shownWindow, storedChartLevel, WINDOW_LABELS, WINDOWS, finestDetail, lineDetail,
     visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear,
 } from "./model.js";
@@ -600,7 +600,8 @@ class ChartController {
         this.hideAxisValues = setup.hideAxisValues;
         // the moving averages are lines of the menu "Add", only the previous year is a trend of the lines
         this.shownOverlays = this.shownOverlays.filter(kind => kind === "previousYear");
-        this.dateRange = setup.dateRange;
+        // a range, which ends today, e.g. the past 7 days, has the dates of today
+        this.dateRange = setup.dateRange?.preset ? rangeOfPreset(setup.dateRange.preset) ?? setup.dateRange : setup.dateRange;
         this.hiddenSeries = new Set(setup.hiddenSeries);
     }
 

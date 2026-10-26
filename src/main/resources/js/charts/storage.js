@@ -25,7 +25,7 @@ const READ_VERSIONS = [1, VERSION];
  * @typedef {{combineUnits: boolean, maximized: boolean, preferredStyle: "lines"|"bars",
  *  chartStyles: Object<string, "lines"|"bars">, chartLevels: Object<string, ChartLevel>, shownMarkers: string[], shownEvents: string[],
  *  shownExtremes: ("min"|"max")[], shownOverlays: string[], showIncomplete: boolean, showValueTable: boolean, showComparisonLines: boolean, hideAxisValues: boolean, averagesOnly: boolean,
- *  dateRange: {from: string, to: string}|null, hiddenSeries: string[], entries: ChartEntry[]}} ChartSetup
+ *  dateRange: {from: string, to: string, preset?: string}|null, hiddenSeries: string[], entries: ChartEntry[]}} ChartSetup
  */
 
 /** @return {ChartSetup} */
@@ -59,12 +59,21 @@ function validValues(map, values) {
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** @return {{from: string, to: string}|null} The stored date range of the line charts, null for all dates. */
+/** The ranges, which end today, e.g. the past 7 days, see RANGE_PRESETS in model.js. */
+const RANGE_PRESETS = ["today", "past-7-days", "this-month"];
+
+/**
+ * @return {{from: string, to: string, preset?: string}|null} The stored date range of the line charts, null for all
+ *  dates. A range, which ends today, has its preset, its dates are calculated again when it's shown.
+ */
 function validDateRange(range) {
     if (range === null || typeof range !== "object" || !ISO_DATE.test(range.from) || !ISO_DATE.test(range.to)) {
         return null;
     }
-    return range.from <= range.to && !isNaN(Date.parse(range.from)) && !isNaN(Date.parse(range.to)) ? {from: range.from, to: range.to} : null;
+    if (range.from > range.to || isNaN(Date.parse(range.from)) || isNaN(Date.parse(range.to))) {
+        return null;
+    }
+    return RANGE_PRESETS.includes(range.preset) ? {from: range.from, to: range.to, preset: range.preset} : {from: range.from, to: range.to};
 }
 
 /** @return {Object<string, ChartLevel>} The valid levels of the charts by the keys of the charts. */
