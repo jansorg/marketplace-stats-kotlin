@@ -10,8 +10,11 @@
 import {createMenu} from "./menu.js";
 import {eventMenuItems, MARKER_LABELS, rangeLabel, rangeOfYear} from "./model.js";
 
-/** The maximum height of the menu to add a metric in pixels, a longer menu scrolls. */
-const ADD_MENU_MAX_HEIGHT = 420;
+/**
+ * @return {number} The maximum height of the menu to add a metric in pixels, a longer menu scrolls. Touch screens use
+ *  the height of the window, so that a finger scrolls less.
+ */
+const addMenuMaxHeight = () => window.matchMedia("(pointer: coarse)").matches ? Infinity : 640;
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
@@ -120,7 +123,7 @@ export class ChartDialog {
 
         // a menu to add a metric, its items are added when it's opened
         // the long menu is placed in the window and scrolls, so that it doesn't enlarge the dialog
-        const {menu: addMenu, items: addItems} = createMenu("", {fixed: true, alignEnd: true, maxHeight: ADD_MENU_MAX_HEIGHT});
+        const {menu: addMenu, items: addItems} = createMenu("", {fixed: true, alignEnd: true, maxHeight: addMenuMaxHeight});
         addMenu.classList.add("chart-add-menu");
         const addSummary = addMenu.querySelector("summary");
         addSummary.append(icon("add"));
