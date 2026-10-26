@@ -35,6 +35,7 @@
 <%-- the customer may not have bought the other plugins, the menu of the other plugins links to their overview --%>
 @template.pluginHeader(plugin = plugin, urls = urls, rating = rating, today = today, otherPlugins = otherPlugins, otherPluginPath = "/")
 @template.navbar(plugin = plugin, showResellerCharges = settings.showResellerCharges)
+<main>
 
 <h2 class="centered">Customer Details</h2>
 
@@ -92,6 +93,8 @@
         @endif
     </div>
 </div>
+
+</main>
 
 @template.siteFooter()
 </body>

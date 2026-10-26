@@ -289,9 +289,16 @@ extend, must not fail a response:
   report pages; `dataTable.kte`, `dataTableSection.kte`, `dataRowGroup.kte` and `tableColumnsRow.kte` render the data tables.
 - All styling is in `src/main/resources/styles/main.css`. The build minifies the stylesheets (`MinifyCss` in
   `build.gradle.kts`, task `minifyStylesheets`), the pages load `/styles/main.min.css` and `/styles/print.min.css`,
-  the sources aren't part of the resources. The minifier only removes comments and whitespace, which isn't needed. It defines colors as CSS custom
-  properties in `:root`. The Lato font is loaded from Google Fonts by `fonts.kte`, which all pages
-  include before `main.css` (no `@import`, so that the font loads in parallel). Use these properties instead of fixed colors.
+  the sources aren't part of the resources. The minifier only removes comments and whitespace, which isn't needed.
+  `main.min.css` also contains the styles of the sortable tables and of uPlot (`appendedToMain`), so that the pages load
+  a single stylesheet. It defines colors as CSS custom properties in `:root`. Use these properties instead of fixed colors.
+- The font Lato is served by the server: Gradle downloads the npm package `@fontsource/lato` (an Ivy repository for the
+  scope `@fontsource`), `bundleJavascriptLibraries` extracts the woff2 files of the subsets latin and latin-ext of the
+  styles 400, 700 and 400 italic into `fonts/`. `fonts.kte`, included by all pages, writes the `@font-face` rules
+  (`StaticAssets.fontFaceRules`) and preloads the files of the latin subset of the regular and bold text.
+- Pages have a `<main>` element between the navigation and the footer, and a meta description. Columns without a title
+  have an `accessibleTitle` (by default their chart title), which the header cell contains for screen readers
+  (`visually-hidden`), so that the cells have a header.
 - Dark mode: `@media screen and (prefers-color-scheme: dark)` redefines the custom properties. Printing always uses the
   light colors. Text colors need a contrast of at least 4.5:1 on the page, the tables, their stripes and the hovered rows
   in both modes.
@@ -306,8 +313,8 @@ extend, must not fail a response:
   Templates link `print.min.css` with `media="print"`.
 - Table styling is partly set from Kotlin: `DataTable` subclasses in `marketplace-data` pass CSS class names (for example
   `cssClass = "small table-striped"`) and per-column `cssClass`/`cssStyle` values (`DataTable.kt`). These classes must exist in `main.css`.
-- Static resources are served by `staticAssets("/styles", "styles")`, `staticAssets("/js", "js")` and
-  `staticAssets("/favicon", "favicon")` in `MarketplaceStatsServer.kt` (`StaticAssets.kt`): the ETag is the SHA-256 of
+- Static resources are served by `staticAssets("/styles", "styles")`, `staticAssets("/js", "js")`,
+  `staticAssets("/favicon", "favicon")` and `staticAssets("/fonts", "fonts")` in `MarketplaceStatsServer.kt` (`StaticAssets.kt`): the ETag is the SHA-256 of
   the content, the plugin ConditionalHeaders answers with 304. Templates link static files with
   `${dev.ja.marketplace.StaticAssets.url("/js/charts.min.js")}`, which adds the hash of the content (`?v=<hash>`).
   These addresses are cached for a year (`immutable`), a new version has a new address. Requests without the hash

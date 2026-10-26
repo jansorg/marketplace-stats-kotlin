@@ -33,6 +33,7 @@
 <%-- the page only exists for this plugin, the menu of the other plugins links to their overview --%>
 @template.pluginHeader(plugin = plugin, urls = urls, rating = rating, today = today, otherPlugins = otherPlugins, otherPluginPath = "/")
 @template.navbar(plugin = plugin, showResellerCharges = settings.showResellerCharges)
+<main>
 
 <h2 class="centered">License Details</h2>
 
@@ -65,6 +66,8 @@
         @endif
     </div>
 </div>
+
+</main>
 
 @template.siteFooter()
 </body>

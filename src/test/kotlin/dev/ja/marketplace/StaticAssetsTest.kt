@@ -32,6 +32,16 @@ class StaticAssetsTest {
     }
 
     @Test
+    fun fontFilesOfAllStylesAndSubsetsAreServedWithTheirHash() {
+        val rules = StaticAssets.fontFaceRules().lines()
+        assertEquals(6, rules.size)
+        for (file in listOf("latin-400-normal", "latin-ext-400-normal", "latin-700-normal", "latin-ext-700-normal", "latin-400-italic", "latin-ext-400-italic")) {
+            val resource = "fonts/lato-$file.woff2"
+            assertEquals(1, rules.count { "url(/$resource?v=${hashOf(resource)})" in it }, file)
+        }
+    }
+
+    @Test
     fun versionedFilesAreCachedAndOtherFilesAreValidatedWithTheirETag() = testApplication {
         application {
             install(ConditionalHeaders)

@@ -29,13 +29,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${plugin.name}: ${pageTitle ?: "Report"}</title>
+    <meta name="description" content="${pageTitle ?: "Report"} of ${plugin.name}: sales, licenses, customers, trials and downloads of the JetBrains Marketplace">
     @template.favicons()
     @template.fonts()
     <link rel="stylesheet" type="text/css" href="${dev.ja.marketplace.StaticAssets.url("/styles/main.min.css")}"/>
     <link rel="stylesheet" type="text/css" media="print" href="${dev.ja.marketplace.StaticAssets.url("/styles/print.min.css")}"/>
-    <link href="${dev.ja.marketplace.StaticAssets.url("/js/sortable-base.min.css")}" rel="stylesheet"/>
-    <link href="${dev.ja.marketplace.StaticAssets.url("/js/uPlot.min.css")}" rel="stylesheet"/>
-    <script src="${dev.ja.marketplace.StaticAssets.url("/js/sortable.min.js")}"></script>
+    <script src="${dev.ja.marketplace.StaticAssets.url("/js/sortable.min.js")}" defer></script>
     <script src="${dev.ja.marketplace.StaticAssets.url("/js/uPlot.iife.min.js")}" defer></script>
     <script type="module" src="${dev.ja.marketplace.StaticAssets.url("/js/charts.min.js")}"></script>
     <script type="module" src="${dev.ja.marketplace.StaticAssets.url("/js/collapsibleTables.min.js")}"></script>
@@ -44,6 +43,7 @@
 @template.pluginHeader(plugin = plugin, urls = urls, rating = rating, today = today, otherPlugins = otherPlugins)
 
 @template.navbar(plugin = plugin, showResellerCharges = settings.showResellerCharges)
+<main>
 
 @if(pageTitle != null)
     <h2 class="centered">${pageTitle}</h2>
@@ -81,6 +81,8 @@
         @template.dataTable(plugin, table)
     @endfor
 </section>
+
+</main>
 
 @template.siteFooter(dropCachesPluginId = plugin.id)
 </body>

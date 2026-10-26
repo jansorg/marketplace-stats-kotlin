@@ -35,6 +35,9 @@
                 <h2>${title}</h2>
             @elseif(column.title != null)
                 ${column.title}
+            @elseif(column.accessibleTitle != null)
+                <%-- the cells of the column have a header for screen readers --%>
+                <span class="visually-hidden">${column.accessibleTitle}</span>
             @endif
         </th>
     @endfor
