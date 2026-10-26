@@ -5,6 +5,14 @@
 
 package dev.ja.marketplace.data.subscriptions
 
+import org.javamoney.moneta.FastMoney
+
+import dev.ja.marketplace.client.currency.MarketplaceCurrencies
+
+import dev.ja.marketplace.client.LicenseInfo
+
+import dev.ja.SalesGenerator
+
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.client.model.LicensePeriod
@@ -143,5 +151,31 @@ class SubscriptionDailyValuesTest {
 
     private fun assertPercentage(expected: PercentageValue?, column: SubscriptionDailyColumn, index: Int, message: String) {
         assertEquals(expected?.value?.setScale(2, RoundingMode.HALF_UP), value(column, index), "$column $message")
+    }
+
+    @Test
+    fun customerWithAFirstLicenseWithoutAnEndOfAMonthIsNewInTheFirstPaidMonth() {
+        // the first license covers no end of a month, the table counts the customer as new in May
+        val customer = customer(1)
+        val sales = listOf(
+            SalesGenerator.createSale(
+                type = LicensePeriod.Monthly, saleDate = YearMonthDay(2024, 3, 5),
+                validity = YearMonthDay(2024, 3, 5).rangeTo(YearMonthDay(2024, 3, 20)), customer = customer,
+                amount = FastMoney.of(10, MarketplaceCurrencies.USD),
+            ),
+            sale(customer, "license-2", YearMonthDay(2024, 5, 10), 10, LicensePeriod.Monthly),
+        )
+        val licenses = LicenseInfo.createFrom(sales)
+        val today = YearMonthDay(2024, 7, 31)
+        val revenue = CustomerRecurringRevenue(licenses, exchangeRates, today)
+        val firstDay = YearMonthDay(2024, 3, 1)
+        val days = List((firstDay daysUntil today).toInt() + 1) { firstDay.add(0, 0, it) }
+        val values = SubscriptionDailyValues.create(days, licenses, revenue, today)
+
+        val mayIndex = revenue.months.indexOfFirst { it == YearMonthDay(2024, 5, 1) }
+        val movements = MrrMovements.of(revenue, mayIndex)
+        val dayIndex = days.indexOf(YearMonthDay(2024, 5, 31))
+        assertEquals(movements.new.setScale(2), values.getValue(SubscriptionDailyColumn.New).values[dayIndex])
+        assertEquals(movements.reactivation.setScale(2), values.getValue(SubscriptionDailyColumn.Reactivation).values[dayIndex])
     }
 }

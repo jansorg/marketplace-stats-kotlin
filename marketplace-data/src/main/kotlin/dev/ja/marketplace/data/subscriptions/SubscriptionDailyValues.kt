@@ -119,6 +119,15 @@ object SubscriptionDailyValues {
         // retention needs a year of recurring revenue, like the table
         val firstRetentionDay = revenue.months.firstOrNull()
 
+        // a customer is new in the first month, whose end a paid license covered, like in the table of the MRR movements.
+        // The first day with recurring revenue is only used for customers, whose licenses didn't cover the end of a month.
+        val firstPaidMonthDays = Int2IntOpenHashMap().apply { defaultReturnValue(Int.MAX_VALUE) }
+        for (customer in firstPaidIndices.keys) {
+            val month = revenue.firstPaidMonthIndex(customer)?.let(revenue.months::get) ?: continue
+            firstPaidMonthDays.put(customer, index(minOf(YearMonthDay.lastOfMonth(month.year, month.month), today)))
+        }
+        fun firstPaidDay(customer: Int): Int = firstPaidMonthDays.get(customer).takeIf { it != Int.MAX_VALUE } ?: firstPaidIndices.get(customer)
+
         val running = Int2ObjectOpenHashMap<BigDecimal>()
         val snapshots = HashMap<Int, Int2ObjectMap<BigDecimal>>()
         var current: Int2ObjectMap<BigDecimal> = Int2ObjectMaps.emptyMap()
@@ -148,7 +157,7 @@ object SubscriptionDailyValues {
             val previousMonthIndex = index(previousMonthDay)
             val previousMonth = snapshots[previousMonthIndex] ?: Int2ObjectMaps.emptyMap()
             val movements = MrrMovements.of(current, previousMonth) { customer ->
-                firstPaidIndices.get(customer) > previousMonthIndex
+                firstPaidDay(customer) > previousMonthIndex
             }
             set(SubscriptionDailyColumn.Mrr, index, amount(movements.mrr))
             set(SubscriptionDailyColumn.New, index, amount(movements.new))
