@@ -7,6 +7,10 @@
 
 @param cssClass: String?
 @param plugin: PluginInfo
+@param urls: dev.ja.marketplace.client.MarketplaceUrlSupport
+@param rating: dev.ja.marketplace.client.model.PluginRating
+@param today: dev.ja.marketplace.client.YearMonthDay
+@param otherPlugins: List<dev.ja.marketplace.client.model.PluginInfoSummary>
 @param customer: CustomerInfo
 @param licenseTableMonthly: RenderedDataTable
 @param licenseTableAnnual: RenderedDataTable
@@ -26,10 +30,13 @@
 </head>
 
 <body class="${cssClass}">
+<%-- the customer may not have bought the other plugins, the menu of the other plugins links to their overview --%>
+@template.pluginHeader(plugin = plugin, urls = urls, rating = rating, today = today, otherPlugins = otherPlugins, otherPluginPath = "/")
 @template.navbar(plugin = plugin, showResellerCharges = settings.showResellerCharges)
 
+<h2 class="centered">Customer Details</h2>
+
 <div class="sections">
-    <h1>Customer Details</h1>
 
     <div class="section-wide">
         <dl>

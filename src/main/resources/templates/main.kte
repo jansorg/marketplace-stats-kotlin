@@ -39,44 +39,7 @@
     <script type="module" src="/js/collapsibleTables.js"></script>
 </head>
 <body class="${cssClass}" data-locale="${java.util.Locale.getDefault().toLanguageTag()}">
-!{val iconUrl = plugin.iconUrlPath?.let { urls.assetUrl(it) }}
-@if(iconUrl != null)
-    <div class="centered">
-        <img src="${iconUrl}" alt="logo" class="plugin-icon"/>
-    </div>
-@endif
-<h1>${plugin.name}<%--
-    the other paid plugins, a link keeps the current page, e.g. /licenses
---%>@if(otherPlugins.isNotEmpty())<details class="plugin-switcher noprint">
-        <summary title="Show another plugin" aria-label="Show another plugin"></summary>
-        <ul>
-            @for(other in otherPlugins)
-                !{val otherIconUrl = other.iconUrlPath?.let { urls.assetUrl(it) }}
-                <li><a href="?pluginId=${other.id}">@if(otherIconUrl != null)<img src="${otherIconUrl}" alt="" class="plugin-switcher-icon"/>@endif${other.name}</a></li>
-            @endfor
-            <li class="plugin-switcher-all"><a href="/">All</a></li>
-        </ul>
-    </details>
-    <script type="module">
-        // the menu is closed by a click outside of it and by the Escape key
-        const menu = document.querySelector("details.plugin-switcher");
-        document.addEventListener("click", event => {
-            if (menu.open && !menu.contains(event.target)) {
-                menu.open = false;
-            }
-        });
-        document.addEventListener("keydown", event => {
-            if (menu.open && event.key === "Escape") {
-                menu.open = false;
-                menu.querySelector("summary").focus();
-            }
-        });
-    </script>@endif</h1>
-<div class="subtitle plugin-stats">
-    <span>@template.render(today)</span>
-    <span>↓ @template.render(plugin.downloads.toBigInteger()) downloads</span>
-    <span title="${rating.votesCount} ratings">★ @template.render(rating.calculatedRatingValue)</span>
-</div>
+@template.pluginHeader(plugin = plugin, urls = urls, rating = rating, today = today, otherPlugins = otherPlugins)
 
 @template.navbar(plugin = plugin, showResellerCharges = settings.showResellerCharges)
 

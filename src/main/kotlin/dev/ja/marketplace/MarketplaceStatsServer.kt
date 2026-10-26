@@ -780,6 +780,10 @@ class MarketplaceStatsServer(
                 "customer.kte", mapOf(
                     "cssClass" to null,
                     "plugin" to data.getPluginInfo(),
+                    "urls" to client as MarketplaceUrlSupport,
+                    "rating" to data.getPluginRating(),
+                    "today" to YearMonthDay.now(),
+                    "otherPlugins" to loader.otherPaidPlugins,
                     "customer" to customerInfo,
                     "licenseTableMonthly" to licenseTableMonthly.renderTable(),
                     "licenseTableAnnual" to licenseTableAnnual.renderTable(),
@@ -816,6 +820,10 @@ class MarketplaceStatsServer(
                 "license.kte", mapOf(
                     "cssClass" to null,
                     "plugin" to data.getPluginInfo(),
+                    "urls" to client as MarketplaceUrlSupport,
+                    "rating" to data.getPluginRating(),
+                    "today" to YearMonthDay.now(),
+                    "otherPlugins" to loader.otherPaidPlugins,
                     "licenseId" to licenseId,
                     "licenseTable" to licenseTable.renderTable(),
                     "fallbackVersion" to loader.fallbackReleases()?.let { FallbackVersion.of(licenseId, licenses, it) },
@@ -869,6 +877,10 @@ class MarketplaceStatsServer(
                 "refnum.kte", mapOf(
                     "cssClass" to null,
                     "plugin" to data.getPluginInfo(),
+                    "urls" to client as MarketplaceUrlSupport,
+                    "rating" to data.getPluginRating(),
+                    "today" to YearMonthDay.now(),
+                    "otherPlugins" to loader.otherPaidPlugins,
                     "sale" to sale,
                     "lineItems" to lineItems,
                     "settings" to serverConfiguration,
