@@ -35,6 +35,13 @@ class ExchangeRates(
 
     val targetCurrency: CurrencyUnit = Monetary.getCurrency(targetCurrencyCode)
 
+    /**
+     * An object, which changes when the exchange rates are updated, e.g. to cache values calculated with them. Amounts
+     * in USD don't need the rates, they're not loaded for it.
+     */
+    val dataVersion: Any?
+        get() = if (targetCurrency == MarketplaceCurrencies.USD) rateData.current() else rateData.get()
+
     override fun invalidateCache() {
         cachedExchangeRates.invalidateAll()
         rateData.invalidate()

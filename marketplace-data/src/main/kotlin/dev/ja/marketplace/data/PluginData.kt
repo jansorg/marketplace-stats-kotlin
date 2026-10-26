@@ -107,6 +107,31 @@ data class PluginData(
     }
 
     /**
+     * @return The version of the loaded data, which changes, when the client loads new data, e.g. after the cached data
+     *  expired, after a refresh or a reload, on the next day or after an update of the exchange rates. The prices of
+     *  [pluginPricing] aren't part of it, they're loaded when they're used.
+     */
+    suspend fun dataVersion(): PluginDataVersion {
+        return PluginDataVersion(
+            listOf(
+                YearMonthDay.now(),
+                exchangeRates.targetCurrency,
+                exchangeRates.dataVersion,
+                countries,
+                pluginSummary,
+                getPluginInfo(),
+                getPluginRating(),
+                getTotalDownloads(),
+                getDownloadsMonthly(),
+                getDownloadsDaily(),
+                salesWithLicensesDeferred?.await(),
+                getTrials(),
+                marketplacePluginInfoDeferred?.await(),
+            )
+        )
+    }
+
+    /**
      * @return The first day with a sale, a license, a trial or a download, or `null` if there's no such day.
      *  Like the charts, see [dev.ja.marketplace.data.chart.ChartMetricValues].
      */

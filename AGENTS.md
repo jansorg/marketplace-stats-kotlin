@@ -159,6 +159,16 @@ extend, must not fail a response:
   property of the API model isn't stored.
 - The cache contains real sales data, delete test caches after use.
 
+## Cached Tables
+
+- `DefaultPluginPageDefinition` reuses the calculated tables of a page (`VersionedCache`, by plugin and `rows`) while
+  the data of the plugin is the same: `PluginData.dataVersion()` contains today, the currency, the version of the
+  exchange rates (`ExchangeRates.dataVersion`, a new object after an update of the ECB rates) and all loaded data.
+  The cached client returns the same objects until it loads data again (expiry, refresh, reload, auto-refresh,
+  background updates of the stored history), the values are compared by identity and then by content.
+- Data, which a table loads while it's calculated, isn't part of the version. Such pages pass `cacheTables = false`,
+  e.g. the pricing page, whose table loads the prices. New data of `PluginData` must be added to `dataVersion()`.
+
 ## Charts
 
 - The charts are ES modules in `src/main/resources/js/charts/` (`main.js` is the entry point). The task
