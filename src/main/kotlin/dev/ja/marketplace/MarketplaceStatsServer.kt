@@ -369,10 +369,11 @@ class MarketplaceStatsServer(
                 }
             }
 
-            // values of the overview table for each day or week, loaded by the charts
+            // values of the overview table for each day, week or month, loaded by the charts
             get("/chart-series") {
                 val granularity = when (call.request.queryParameters["granularity"]) {
                     "week" -> DailyChartSeries.Granularity.Week
+                    "month" -> DailyChartSeries.Granularity.Month
                     else -> DailyChartSeries.Granularity.Day
                 }
                 val loader = getDataLoader()

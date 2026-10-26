@@ -28,6 +28,8 @@ class DailyChartSeries {
     enum class Granularity {
         Day,
         Week,
+        /** The last day of each month, e.g. for the sums of the year before the end of each month. */
+        Month,
     }
 
     private class Values(
@@ -134,6 +136,10 @@ class DailyChartSeries {
             // the last day of each week, i.e. each Sunday, and today
             Granularity.Week -> days.indices.filter { index ->
                 index == days.lastIndex || days[index].toLocalDate().dayOfWeek == DayOfWeek.SUNDAY
+            }
+            // the last day of each month, and today
+            Granularity.Month -> days.indices.filter { index ->
+                index == days.lastIndex || days[index] == YearMonthDay.lastOfMonth(days[index].year, days[index].month)
             }
         }
 

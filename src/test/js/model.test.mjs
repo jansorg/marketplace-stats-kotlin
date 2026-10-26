@@ -7,7 +7,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
-    alignSeries, availableComparisons, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear, trailingAverageOfDays,
+    alignSeries, availableComparisons, granularitiesOf, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear, trailingAverageOfDays,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, groupCharts, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
 } from "../../main/resources/js/charts/model.js";
@@ -313,3 +313,19 @@ test("the previous year is shifted by a year and ends with the series", () => {
     assert.equal(shifted.incomplete.size, 0);
 });
 
+
+test("the values of yearly tables can also be shown at the end of each month", () => {
+    assert.deepEqual(granularitiesOf("year"), ["month", "monthEnd", "week", "day"]);
+    assert.deepEqual(granularitiesOf("month"), ["month", "week", "day"]);
+    assert.deepEqual(granularitiesOf("day"), ["month", "week", "day"]);
+});
+
+test("the ticks of years are at the end of each year and at the value of the current year", () => {
+    const day = isoDateToTimestamp;
+    // half a year before the value of 2022 until today
+    assert.deepEqual(yearEndTicks(day("2022-07-01"), day("2026-10-26"), day("2026-10-26")),
+        [day("2022-12-31"), day("2023-12-31"), day("2024-12-31"), day("2025-12-31"), day("2026-10-26")]);
+    // the current year has no value yet
+    assert.deepEqual(yearEndTicks(day("2022-07-01"), day("2024-01-05"), day("2023-12-31")), [day("2022-12-31"), day("2023-12-31")]);
+    assert.deepEqual(yearEndTicks(day("2026-01-01"), day("2026-10-26"), undefined), []);
+});

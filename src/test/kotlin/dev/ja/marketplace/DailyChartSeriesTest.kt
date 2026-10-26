@@ -5,10 +5,12 @@
 
 package dev.ja.marketplace
 
+import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.yearSummary.AllPluginsDailyValues
 import dev.ja.marketplace.mcp.McpTestData
 import kotlinx.serialization.json.*
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class DailyChartSeriesTest {
@@ -33,5 +35,15 @@ class DailyChartSeriesTest {
         assertEquals("2", value(AllPluginsDailyValues.TRIALS, "2025-02-28"))
         // the first trial is more than a year before the day
         assertEquals("1", value(AllPluginsDailyValues.TRIALS, "2025-03-01"))
+    }
+
+    @Test
+    suspend fun valuesAtTheEndOfEachMonth() {
+        val json = Json.parseToJsonElement(DailyChartSeries().json(McpTestData.pluginData(), DailyChartSeries.Granularity.Month)).jsonObject
+        val dates = json["dates"]!!.jsonArray.map { it.jsonPrimitive.content }
+        assertEquals(listOf("2024-03-31", "2024-04-30", "2024-05-31"), dates.take(3))
+        assertTrue(dates.contains("2024-12-31"))
+        // today is the last date
+        assertEquals(YearMonthDay.now().asIsoString, dates.last())
     }
 }

@@ -31,11 +31,11 @@ class ChartValuesTest {
 
     @Test
     fun years() {
-        // past years in the middle of the year
-        assertEquals("2025-07-02", ChartValues.xValue(ChartPeriod.Year, 2025, today))
-        assertEquals("2024-07-01", ChartValues.xValue(ChartPeriod.Year, 2024, today))
-        // the current year in the middle of the elapsed part, 2026-01-01 to 2026-10-23
-        assertEquals("2026-05-28", ChartValues.xValue(ChartPeriod.Year, 2026, today))
+        // past years at the end of the year
+        assertEquals("2025-12-31", ChartValues.xValue(ChartPeriod.Year, 2025, today))
+        assertEquals("2024-12-31", ChartValues.xValue(ChartPeriod.Year, 2024, today))
+        // the current year at today
+        assertEquals("2026-10-23", ChartValues.xValue(ChartPeriod.Year, 2026, today))
     }
 
     @Test

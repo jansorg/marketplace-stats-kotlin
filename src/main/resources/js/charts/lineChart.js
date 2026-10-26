@@ -8,7 +8,7 @@
  */
 
 import {formatDate, SECONDS_PER_DAY, unitTitle} from "./format.js";
-import {alignSeries, availableComparisons, barLayout, displayColor, extremeIndices, incompleteColor, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, zeroBasedRange} from "./model.js";
+import {alignSeries, availableComparisons, barLayout, displayColor, extremeIndices, incompleteColor, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange} from "./model.js";
 
 /**
  * The colors of the charts in the light and the dark mode. The surface is the background of the charts in the chart
@@ -711,27 +711,35 @@ const YEAR = 365 * DAY;
 
 /**
  * The ticks of the date axis match the period of the values: days for daily values, years for yearly values.
- * Monthly values use the default ticks of uPlot.
+ * The ticks of years are at the last day of each year, where the values of the years are located, and at the value of
+ * the current year. Monthly values use the default ticks of uPlot.
  */
 function xAxisTicks(period, formatter) {
     switch (period) {
         case "day":
             return {incrs: [DAY, 2 * DAY, 7 * DAY, 14 * DAY], values: (plot, splits) => splits.map(value => formatter.day(value))};
         case "year":
-            return {incrs: [YEAR, 2 * YEAR, 5 * YEAR], values: (plot, splits) => splits.map(value => new Date(value * 1000).getUTCFullYear())};
+            return {
+                splits: (plot, axisIndex, min, max) => yearEndTicks(min, max, plot.data[0][plot.data[0].length - 1]),
+                values: (plot, splits) => splits.map(value => new Date(value * 1000).getUTCFullYear()),
+            };
         default:
             return {};
     }
 }
 
 /**
- * @return {[number, number]} The range from the start of the first year to the end of the last year, but at most until today.
+ * @param {boolean} startOfYear If the range starts at the start of the first year, e.g. for values per day.
+ * @return {[number, number]} The range of yearly values until the end of the last year, but at most until today.
+ *  The values of the years are at the end of the years, the range starts half a year before the first value,
+ *  so that it isn't at the y-axis.
  */
-function yearRange([min, max]) {
+function yearRange([min, max], startOfYear) {
     const firstYear = new Date(min * 1000).getUTCFullYear();
     const lastYear = new Date(max * 1000).getUTCFullYear();
     const end = Math.min(Date.UTC(lastYear + 1, 0, 1), Date.now()) / 1000;
-    return [Date.UTC(firstYear, 0, 1) / 1000, Math.max(end, max)];
+    const start = startOfYear ? Date.UTC(firstYear, 0, 1) / 1000 : min - YEAR / 2;
+    return [start, Math.max(end, max)];
 }
 
 function yAxis(unit, scale, side, style) {
@@ -792,7 +800,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     const overlayIndex = index => chartSeries.length + index + 1;
     const period = shortestPeriod(chartSeries);
     const isFiner = granularity === "week" || granularity === "day";
-    const datePeriod = isFiner ? "day" : period;
+    // the values at the end of each month are shown with the month
+    const datePeriod = granularity === "monthEnd" ? "month" : isFiner ? "day" : period;
 
     const isBars = chartStyle === "bars";
     // bars at the first and last date need space beside the date
@@ -815,8 +824,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                 .map(({overlay, value}) => ({color: overlayColor(overlay), label: overlay.label, value: formatter.value(value, overlay.base.unit)}))),
     });
 
-    // yearly values are in the middle of the years, the range covers the complete years until today
-    const xRange = period === "year" ? yearRange(dateRange) : [dateRange[0] - xPadding, dateRange[1] + xPadding];
+    // the range of yearly values covers the years until today
+    const xRange = period === "year" ? yearRange(dateRange, granularity !== "month") : [dateRange[0] - xPadding, dateRange[1] + xPadding];
     const scales = {
         x: {time: true, range: () => xRange},
         y: {range: (plot, min, max) => uPlot.rangeNum(...zeroBasedRange(min, max), 0.1, true)},

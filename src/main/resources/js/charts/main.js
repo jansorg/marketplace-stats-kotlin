@@ -11,7 +11,7 @@
 
 import {createFormatter} from "./format.js";
 import {
-    canCombineUnits, CHART_STYLES, dateRange, exportFileName, finerPoints, GRANULARITIES, groupCharts, hasFinerValues, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES, nextColor, pieSlices,
+    canCombineUnits, CHART_STYLES, dateRange, exportFileName, finerPoints, granularitiesOf, groupCharts, hasFinerValues, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES, nextColor, pieSlices,
     visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear, trailingAverage, trailingAverageOfDays,
 } from "./model.js";
 import {browserStorage, createSetupStorage} from "./storage.js";
@@ -23,11 +23,13 @@ import {createMenu} from "./menu.js";
 import {downloadCanvas, downloadSvg, lineChartImage, pieChartSvg, printImages, svgCanvas} from "./exportImage.js";
 
 const STYLE_LABELS = {lines: "Lines", bars: "Bars"};
-const GRANULARITY_LABELS = {month: "Month", week: "Week", day: "Day"};
+const GRANULARITY_LABELS = {month: "Month", monthEnd: "Month", week: "Week", day: "Day"};
+/** The value of the parameter "granularity" of /chart-series. */
+const GRANULARITY_PARAMETERS = {monthEnd: "month", week: "week", day: "day"};
 const GRANULARITY_HINTS = {
     month: "Week and Day show the sums of the month before each date, e.g. the sales of the last month, "
         + "and the licenses, MRR and ARR at each date. Columns without values per day are shown per month.",
-    year: "Week and Day show the sums of the year before each date, e.g. the sales of the last 12 months. "
+    year: "Month, Week and Day show the sums of the year before each date, e.g. the sales of the last 12 months. "
         + "Columns without values per day are shown per year.",
     day: "Month shows the days of the table. Week and Day show the whole history, the sums of the month before each "
         + "date, e.g. the sales of the last month, and the MRR and ARR at each date.",
@@ -384,7 +386,8 @@ class ChartController {
             const key = lineChartKey(chart);
             let chartSeries = this.series.filter(s => s.period === chart.period);
             const canBeFiner = hasFinerValues(chartSeries.filter(s => chart.units.includes(s.unit)));
-            const granularity = canBeFiner ? this.granularities[key] ?? "month" : "month";
+            const storedGranularity = this.granularities[key];
+            const granularity = canBeFiner && granularitiesOf(chart.period).includes(storedGranularity) ? storedGranularity : "month";
             const finerValues = granularity === "month" ? null : this.loadFinerValues(granularity);
             if (finerValues !== null) {
                 chartSeries = chartSeries.map(s => ({...s, ...(s.daily ? finerPoints(finerValues, s.daily) : null)}));
@@ -520,7 +523,7 @@ class ChartController {
         if (pluginId !== null) {
             url.searchParams.set("pluginId", pluginId);
         }
-        url.searchParams.set("granularity", granularity);
+        url.searchParams.set("granularity", GRANULARITY_PARAMETERS[granularity]);
         fetch(url)
             .then(response => {
                 if (!response.ok) {
@@ -545,7 +548,8 @@ class ChartController {
     /**
      * @param {"day"|"month"|"year"} period The period of the values of the table, the first button shows them.
      *  Tables of days, e.g. the days of the current month, show them with the first button "Month".
-     * @return {HTMLElement} Buttons to show a line chart per month or year, per week or per day.
+     * @return {HTMLElement} Buttons to show a line chart per month or year, per week or per day, and the values of
+     *  yearly tables at the end of each month.
      */
     granularitySwitch(key, current, period) {
         const group = document.createElement("div");
@@ -553,7 +557,7 @@ class ChartController {
         group.setAttribute("role", "group");
         group.setAttribute("aria-label", "Values per");
         group.title = GRANULARITY_HINTS[period];
-        for (const granularity of GRANULARITIES) {
+        for (const granularity of granularitiesOf(period)) {
             const button = document.createElement("button");
             button.type = "button";
             button.textContent = granularity === "month" && period === "year" ? "Year" : GRANULARITY_LABELS[granularity];
