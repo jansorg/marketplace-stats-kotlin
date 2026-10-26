@@ -956,7 +956,9 @@ function xAxisTicks(period, formatter) {
                 values: (plot, splits) => splits.map(value => new Date(value * 1000).getUTCFullYear()),
             };
         default:
-            return {};
+            // the default steps of uPlot, but at least a day, e.g. the days of the past 7 days of values per day.
+            // uPlot steps by calendar months for multiples of 30 days and by calendar years for multiples of 365 days.
+            return {incrs: [DAY, 2 * DAY, 7 * DAY, 14 * DAY, 30 * DAY, 60 * DAY, 90 * DAY, 180 * DAY, YEAR, 2 * YEAR, 5 * YEAR, 10 * YEAR]};
     }
 }
 

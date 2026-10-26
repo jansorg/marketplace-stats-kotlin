@@ -152,3 +152,12 @@ test("a line is stored with its style, lines with an invalid style are ignored",
     storage.save({...emptySetup(), entries: [{...entries[0], style: "area"}]});
     assert.deepEqual(storage.load().entries, []);
 });
+
+test("a range until today is stored with its preset, an unknown preset is ignored", () => {
+    const storage = createSetupStorage(memoryStorage());
+    const dateRange = {from: "2026-10-20", to: "2026-10-26", preset: "past-7-days"};
+    storage.save({...emptySetup(), dateRange});
+    assert.deepEqual(storage.load().dateRange, dateRange);
+    storage.save({...emptySetup(), dateRange: {...dateRange, preset: "yesterday"}});
+    assert.deepEqual(storage.load().dateRange, {from: "2026-10-20", to: "2026-10-26"});
+});

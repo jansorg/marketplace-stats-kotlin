@@ -134,6 +134,29 @@ export function rangeYears(seriesList) {
     return [...years].sort((a, b) => b - a);
 }
 
+/** The ranges of the menu "Range", which end today. They're stored with their name and get new dates each day. */
+export const RANGE_PRESETS = {"today": "Today", "past-7-days": "Past 7 days", "this-month": "This month"};
+
+/**
+ * @param {string} preset A key of {@link RANGE_PRESETS}.
+ * @param {Date} [now] The current time, the dates are the days of the time zone of the browser.
+ * @return {DateRange|null} The dates of the preset until today, with the preset, null for an unknown preset.
+ */
+export function rangeOfPreset(preset, now = new Date()) {
+    const day = date => [date.getFullYear(), date.getMonth() + 1, date.getDate()].map(n => String(n).padStart(2, "0")).join("-");
+    const today = day(now);
+    switch (preset) {
+        case "today":
+            return {from: today, to: today, preset};
+        case "past-7-days":
+            return {from: day(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6)), to: today, preset};
+        case "this-month":
+            return {from: day(new Date(now.getFullYear(), now.getMonth(), 1)), to: today, preset};
+        default:
+            return null;
+    }
+}
+
 /** @return {DateRange} The range of all days of the year. */
 export function rangeOfYear(year) {
     return {from: `${year}-01-01`, to: `${year}-12-31`};
@@ -189,6 +212,9 @@ export function pinchedRange(shown, start, current, width, limits) {
 export function rangeLabel(range) {
     if (range === null) {
         return "All";
+    }
+    if (range.preset && RANGE_PRESETS[range.preset]) {
+        return RANGE_PRESETS[range.preset];
     }
     const year = range.from.substring(0, 4);
     if (range.from === `${year}-01-01` && range.to === `${year}-12-31`) {

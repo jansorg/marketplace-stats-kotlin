@@ -7,7 +7,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
-    alignedRanges, niceStep, rangeTicks, seriesMenuSections, seriesStyle, SERIES_STYLES, WINDOWS,
+    alignedRanges, niceStep, rangeTicks, seriesMenuSections, seriesStyle, SERIES_STYLES, WINDOWS, RANGE_PRESETS, rangeOfPreset,
     averageShade, pinchedRange, rangeLabel, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, finestDetail, lineDetail, periodEnd, shownWindow, storedChartLevel, tableWindow, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
@@ -523,4 +523,17 @@ test("a line has its own style or the style of the chart, a moving average is al
     assert.equal(seriesStyle({style: "bars"}, "lines"), "bars");
     assert.equal(seriesStyle({average: 3}, "bars"), "lines");
     assert.equal(seriesStyle({average: 12, style: "bars"}, "lines"), "lines");
+});
+
+test("the ranges until today are the days of today, the past 7 days and the current month", () => {
+    const now = new Date(2026, 9, 26, 18, 30);
+    assert.deepEqual(rangeOfPreset("today", now), {from: "2026-10-26", to: "2026-10-26", preset: "today"});
+    assert.deepEqual(rangeOfPreset("past-7-days", now), {from: "2026-10-20", to: "2026-10-26", preset: "past-7-days"});
+    assert.deepEqual(rangeOfPreset("this-month", now), {from: "2026-10-01", to: "2026-10-26", preset: "this-month"});
+    // the past 7 days of the beginning of a month and of a year
+    assert.deepEqual(rangeOfPreset("past-7-days", new Date(2026, 0, 3)), {from: "2025-12-28", to: "2026-01-03", preset: "past-7-days"});
+    assert.equal(rangeOfPreset("unknown", now), null);
+    // the label of a range until today is its name, not its dates
+    assert.equal(rangeLabel(rangeOfPreset("past-7-days", now)), RANGE_PRESETS["past-7-days"]);
+    assert.equal(rangeLabel({from: "2026-10-20", to: "2026-10-26"}), "2026-10-20 – 2026-10-26");
 });

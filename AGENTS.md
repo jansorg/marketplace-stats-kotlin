@@ -258,8 +258,9 @@ extend, must not fail a response:
   ends with the period of the last value (`periodEnd`), so that the value of the current period at today isn't at
   the right edge. Values of the first period of a plugin, which started within it, are partial (`partialUntil` of
   `/chart-data`, `isPartialPeriod` of the tables): hollow points and outlined bars in the color of the series.
-- The menu "Range" of the dialog selects the shown dates of all line charts: all dates or a year with values
-  (`rangeYears`). Dragging over a line chart zooms in (`onZoom` in `lineChart.js`), on touch devices two fingers zoom
+- The menu "Range" of the dialog selects the shown dates of all line charts: all dates, a range until today (today,
+  the past 7 days, this month, `RANGE_PRESETS` and `rangeOfPreset`, stored with their `preset` and calculated again
+  when the setup is loaded) or a year with values (`rangeYears`). Dragging over a line chart zooms in (`onZoom` in `lineChart.js`), on touch devices two fingers zoom
   in and out (`enablePinchZoom`, `pinchedRange` in `model.js`). The range is part of the stored
   setup (`dateRange`, ISO dates). Only the x-axis is limited (`visibleRange`), all values are still used, e.g. by the
   value table and the averages. The y-axis, the minimum and maximum and the latest values use the shown dates.
