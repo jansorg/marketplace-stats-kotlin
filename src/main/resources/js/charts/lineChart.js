@@ -182,7 +182,7 @@ function drawMarkers(plot, markers, font, theme) {
 /**
  * Draws the lines to incomplete values over the lines of uPlot in a lighter, less saturated color of the series.
  */
-function drawIncompleteLines(plot, chartSeries, isBar, theme) {
+function drawIncompleteLines(plot, chartSeries, skip, theme) {
     const context = plot.ctx;
     const pixelRatio = uPlot.pxRatio;
     const timestamps = plot.data[0];
@@ -195,7 +195,7 @@ function drawIncompleteLines(plot, chartSeries, isBar, theme) {
 
     chartSeries.forEach((series, index) => {
         const plotSeries = plot.series[index + 1];
-        if (!plotSeries.show || series.incomplete.size === 0 || series.isValueHidden || isBar(series)) {
+        if (!plotSeries.show || series.incomplete.size === 0 || series.isValueHidden || skip(series)) {
             return;
         }
         const values = plot.data[index + 1];
@@ -229,6 +229,47 @@ function drawIncompleteLines(plot, chartSeries, isBar, theme) {
         context.lineCap = "round";
         context.lineWidth = CHART_STYLE.lineWidth * pixelRatio;
         context.strokeStyle = incompleteColor(series.color, theme.isDark);
+        context.stroke(path);
+    });
+    context.restore();
+}
+
+/**
+ * Draws the lines of the moving averages after the other series, so that bars, points and lines of values don't hide
+ * them. uPlot doesn't draw them, see the paths of the series. The lines connect the values like the lines of uPlot,
+ * gaps are skipped, the incomplete values are dotted by drawIncompleteLines.
+ */
+function drawAverageLines(plot, chartSeries, dashOf) {
+    const context = plot.ctx;
+    const pixelRatio = uPlot.pxRatio;
+    const timestamps = plot.data[0];
+    context.save();
+    context.beginPath();
+    context.rect(plot.bbox.left, plot.bbox.top, plot.bbox.width, plot.bbox.height);
+    context.clip();
+    context.lineJoin = "round";
+    chartSeries.forEach((series, index) => {
+        const plotSeries = plot.series[index + 1];
+        if (!series.average || !plotSeries.show || series.isValueHidden) {
+            return;
+        }
+        const values = plot.data[index + 1];
+        const path = new Path2D();
+        let hasPoint = false;
+        timestamps.forEach((timestamp, i) => {
+            if (values[i] === null || values[i] === undefined) {
+                return;
+            }
+            const x = plot.valToPos(timestamp, "x", true);
+            const y = plot.valToPos(values[i], plotSeries.scale, true);
+            hasPoint ? path.lineTo(x, y) : path.moveTo(x, y);
+            hasPoint = true;
+        });
+        // like uPlot, which doesn't scale the dashes with the pixel ratio
+        context.setLineDash(dashOf(series) ?? []);
+        context.lineCap = "butt";
+        context.lineWidth = CHART_STYLE.lineWidth * pixelRatio;
+        context.strokeStyle = series.color;
         context.stroke(path);
     });
     context.restore();
@@ -1178,8 +1219,11 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
             drawAxes: [plot => drawMarkers(plot, markers, style.fonts.releaseLabel, theme)],
             draw: [plot => {
                 drawBars(plot, chartSeries, isBar, interval, theme);
-                drawIncompleteLines(plot, chartSeries, isBar, theme);
+                drawIncompleteLines(plot, chartSeries, s => isBar(s) || Boolean(s.average), theme);
                 drawPoints(plot, chartSeries, isBar, theme);
+                // the moving averages are above the values, e.g. above bars
+                drawAverageLines(plot, chartSeries, averageDash);
+                drawIncompleteLines(plot, chartSeries, s => !s.average, theme);
                 if (extremes.length > 0) {
                     // the labels of the minimum and the maximum have no values, if the axes have none
                     const extremeFormatter = hideAxisValues ? {...formatter, value: () => "", compact: () => ""} : formatter;
@@ -1218,7 +1262,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                 spanGaps: true,
                 // points and bars are drawn by drawPoints and drawBars, to show incomplete values in a different color
                 points: {show: false},
-                ...(isBar(s) || s.isValueHidden ? {paths: () => null} : {}),
+                // moving averages are drawn by drawAverageLines above the other values
+                ...(isBar(s) || s.isValueHidden || s.average ? {paths: () => null} : {}),
                 show: !hiddenSeries.has(s.key),
             })),
             // overlays are lines, also in bar charts
