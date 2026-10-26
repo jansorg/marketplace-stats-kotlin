@@ -1,0 +1,8 @@
+# Template of a file of custom events, which the charts show as vertical lines.
+# Copy it, e.g. to events.yml, and use it with --events=events.yml, MARKETPLACE_EVENTS_FILE or eventsFile of the
+# configuration file. See "Custom Events in the Charts" in README.md.
+events:
+  - id: pricing-announcement         # optional: the ID of the event, the default is the date and the label
+    plugin: 12345                    # required: the ID of the plugin, e.g. of the address of its report
+    date: 2026-10-16                 # required: the date in the format YYYY-MM-DD
+    label: "Announced new pricing"   # required: the text above the line
