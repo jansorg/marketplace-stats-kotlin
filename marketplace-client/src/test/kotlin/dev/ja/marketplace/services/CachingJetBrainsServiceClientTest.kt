@@ -7,7 +7,6 @@ package dev.ja.marketplace.services
 
 import dev.ja.marketplace.client.persistentCache.PersistentCacheStore
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -55,7 +54,7 @@ class CachingJetBrainsServiceClientTest {
     }
 
     @Test
-    fun productsAndReleasesAreStored() = runBlocking {
+    suspend fun productsAndReleasesAreStored() {
         val store = PersistentCacheStore(tempDir)
         val client = CachingJetBrainsServiceClient(delegate, store)
         assertEquals(listOf(release), client.productReleases(JetBrainsProductCode.IntelliJIDEAUltimate, ProductReleaseType.Release))
@@ -81,7 +80,7 @@ class CachingJetBrainsServiceClientTest {
     }
 
     @Test
-    fun withoutStore() = runBlocking {
+    suspend fun withoutStore() {
         val client = CachingJetBrainsServiceClient(delegate, store = null, maxAge = 1.days)
         client.products()
         client.products()

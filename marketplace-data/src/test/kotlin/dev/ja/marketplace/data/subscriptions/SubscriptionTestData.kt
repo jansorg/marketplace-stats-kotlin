@@ -49,6 +49,13 @@ object SubscriptionTestData {
         return sale.copy(lineItems = listOf(item.copy(licenseIds = listOf(licenseId))))
     }
 
+    /** @return The sale with the [amount] in another currency than USD, e.g. paid in EUR, and the same amount in USD. */
+    fun inCurrency(sale: PluginSale, amount: Int, currencyCode: String): PluginSale {
+        val money = FastMoney.of(amount, currencyCode)
+        val item = sale.lineItems.single() as SubscriptionPluginSaleItem
+        return sale.copy(amount = money, lineItems = listOf(item.copy(amount = money)))
+    }
+
     fun licenses(vararg sales: PluginSale): List<LicenseInfo> {
         return LicenseInfo.createFrom(sales.toList())
     }

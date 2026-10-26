@@ -15,7 +15,6 @@ import dev.ja.marketplace.data.RenderedDataTable
 import dev.ja.marketplace.data.licenses.LicenseStatus
 import dev.ja.marketplace.data.licenses.LicenseTable
 import dev.ja.marketplace.mcp.McpTestData
-import kotlinx.coroutines.runBlocking
 import org.javamoney.moneta.FastMoney
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -48,11 +47,11 @@ class LicensePeriodTest {
         ),
     )
 
-    private fun render(table: LicenseTable): RenderedDataTable = runBlocking {
+    private suspend fun render(table: LicenseTable): RenderedDataTable {
         val data = McpTestData.pluginData(sales = sales)
         table.init(data)
         data.getLicenses()!!.forEach { table.process(it) }
-        table.renderTable()
+        return table.renderTable()
     }
 
     private fun RenderedDataTable.value(row: DataTableRow, columnId: String): Any? {
@@ -60,7 +59,7 @@ class LicensePeriodTest {
     }
 
     @Test
-    fun latestPurchaseShowsThePeriodOfItsSale() {
+    suspend fun latestPurchaseShowsThePeriodOfItsSale() {
         val table = render(LicenseTable(statusFilter = LicenseStatus.Active, showOnlyLatestLicenseInfo = true, nowDate = today))
         val row = table.sections.single().rows.single()
         assertEquals(today, table.value(row, "license-validity"))
@@ -68,7 +67,7 @@ class LicensePeriodTest {
     }
 
     @Test
-    fun purchasesOfASaleAreOneRow() {
+    suspend fun purchasesOfASaleAreOneRow() {
         val table = render(LicenseTable(nowDate = today))
         val rows = table.sections.single().rows
         assertEquals(listOf("ref-2", "ref-1"), rows.map { (table.value(it, "license-refnum") as LinkedRefNum).refNum })

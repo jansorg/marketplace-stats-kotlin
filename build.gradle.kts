@@ -83,6 +83,8 @@ allprojects {
         // https://mvnrepository.com/artifact/org.junit.jupiter/junit-jupiter-api
         testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
         testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+        // JUnit needs it to run suspending test functions
+        testRuntimeOnly(kotlin("reflect"))
     }
 }
 

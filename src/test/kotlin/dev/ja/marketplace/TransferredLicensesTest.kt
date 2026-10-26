@@ -19,7 +19,6 @@ import dev.ja.marketplace.data.customers.CustomerTable
 import dev.ja.marketplace.data.licenses.LicenseStatus
 import dev.ja.marketplace.data.licenses.LicenseTable
 import dev.ja.marketplace.mcp.McpTestData
-import kotlinx.coroutines.runBlocking
 import org.javamoney.moneta.FastMoney
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -50,12 +49,12 @@ class TransferredLicensesTest {
         return PluginSale(ref, start, amount, amount, LicensePeriod.Annual, customer, null, listOf(lineItem))
     }
 
-    private fun render(table: DataTable): RenderedDataTable = runBlocking {
+    private suspend fun render(table: DataTable): RenderedDataTable {
         val data = McpTestData.pluginData(sales = sales)
         table.init(data)
         data.getSales()!!.forEach { table.process(it) }
         data.getLicenses()!!.forEach { table.process(it) }
-        table.renderTable()
+        return table.renderTable()
     }
 
     private fun RenderedDataTable.value(row: DataTableRow, columnId: String): Any? {
@@ -69,7 +68,7 @@ class TransferredLicensesTest {
     }
 
     @Test
-    fun transferredLicenseIsNotChurned() {
+    suspend fun transferredLicenseIsNotChurned() {
         val churned = render(LicenseTable(statusFilter = LicenseStatus.Churned, showOnlyLatestLicenseInfo = true, nowDate = today))
         assertEquals(listOf("churned"), churned.licenseIds())
 
@@ -82,14 +81,14 @@ class TransferredLicensesTest {
     }
 
     @Test
-    fun rowLimitCountsTheShownLicenses() {
+    suspend fun rowLimitCountsTheShownLicenses() {
         // the latest purchases are both purchases of the transferred license, the limit applies to the shown licenses
         val table = render(LicenseTable(maxTableRows = 2, showOnlyLatestLicenseInfo = true, nowDate = today))
         assertEquals(listOf("transferred", "churned"), table.licenseIds())
     }
 
     @Test
-    fun customersCountTransferredLicenses() {
+    suspend fun customersCountTransferredLicenses() {
         val table = render(CustomerTable(nowDate = today))
         assertTrue(table.columns.any { it.id == "customer-licenses-transferred" })
 
@@ -113,7 +112,7 @@ class TransferredLicensesTest {
     }
 
     @Test
-    fun perpetualLicensesAreActiveAndDontEnd() = runBlocking {
+    suspend fun perpetualLicensesAreActiveAndDontEnd() {
         val customer = CustomerInfo(3, "Germany", CustomerType.Individual)
         val amount = FastMoney.of(150, MarketplaceCurrencies.USD)
         val lineItem = PerpetualPluginSaleItem(PluginSaleItemType.New, listOf("perpetual"), amount, amount, emptyList())
@@ -132,7 +131,7 @@ class TransferredLicensesTest {
     }
 
     @Test
-    fun customerWithAPerpetualLicense() = runBlocking {
+    suspend fun customerWithAPerpetualLicense() {
         val customer = CustomerInfo(3, "Germany", CustomerType.Individual)
         val amount = FastMoney.of(150, MarketplaceCurrencies.USD)
         val lineItem = PerpetualPluginSaleItem(PluginSaleItemType.New, listOf("perpetual"), amount, amount, emptyList())
@@ -154,7 +153,7 @@ class TransferredLicensesTest {
     }
 
     @Test
-    fun licensesOfACustomerShowTheTransfer() {
+    suspend fun licensesOfACustomerShowTheTransfer() {
         val table = render(LicenseTable(showDetails = false, nowDate = today) { it.sale.customer.code == previousOwner.code })
         val transferredRow = table.rows().single { (table.value(it, "license-id") as LinkedLicense).id == "transferred" }
 
