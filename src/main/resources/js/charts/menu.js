@@ -129,17 +129,10 @@ export function createMenu(label, {fixed = false, hover = true, alignEnd = false
     }
     // the items of a fixed menu never take space in the dialog, also before they're placed
     items.classList.toggle("chart-menu-fixed", fixed);
-    // The items of a fixed menu are a popover in the top layer, outside of the scrolled dialog. Otherwise, browsers
-    // like Safari scroll the dialog instead of a long list, when it's moved with a finger.
-    const isPopover = fixed && typeof items.showPopover === "function";
-    if (isPopover) {
-        items.popover = "manual";
-    }
+    // The items aren't a popover in the top layer: Chromium hangs, when a popover in a <details> is opened again by a
+    // click, after it was opened by a click and closed.
     menu.addEventListener("toggle", () => {
         if (menu.open) {
-            if (isPopover && !items.matches(":popover-open")) {
-                items.showPopover();
-            }
             if (fixed) {
                 // after the other listeners of the event, which may add the items, e.g. of the menu to add metrics
                 setTimeout(() => placeInWindow(menu, items, alignEnd, maxHeight));
@@ -148,9 +141,6 @@ export function createMenu(label, {fixed = false, hover = true, alignEnd = false
             }
         } else {
             items.classList.remove("chart-menu-placed");
-            if (isPopover && items.matches(":popover-open")) {
-                items.hidePopover();
-            }
         }
     });
     // Escape closes the menu, but not the dialog

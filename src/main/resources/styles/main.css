@@ -1567,12 +1567,6 @@ dl.detail-grid dd {
     touch-action: pan-y;
 }
 
-/* the items of a fixed menu are a popover in the top layer, they're placed by menu.js instead of the browser */
-.chart-menu-items.chart-menu-fixed[popover] {
-    inset: auto;
-    margin: 0;
-}
-
 /* a menu, which opens above its button, see menu.js */
 .chart-menu.chart-menu-up .chart-menu-items {
     bottom: 100%;

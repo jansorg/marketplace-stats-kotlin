@@ -235,9 +235,9 @@ extend, must not fail a response:
     level follow the level (`tableWindow`). The "+" menu of the dialog adds a metric of `/chart-metrics` (the metrics
     of the page, grouped by `ChartMetric.group`) with a selected window to the chart of its unit.
   - Menus open above their button, if they don't fit below (`menu.js`), menus in scrolled containers like the legend
-    are placed in the window (`createMenu(label, {fixed: true})`). Their items are a popover in the top layer, outside
-    of the scrolled dialog, so that a finger scrolls a long list, e.g. the "+" menu, which uses the height of the window
-    on touch screens. A new chart takes the level of the table (`DataTable.chartLevel`, `data-chart-window` and
+    are placed in the window (`createMenu(label, {fixed: true})`, `position: fixed`), a long list, e.g. the "+" menu,
+    which uses the height of the window on touch screens, scrolls with a finger (`touch-action: pan-y`). The items must
+    not be a popover: Chromium hangs, when a popover in a `<details>` is opened again by a click. A new chart takes the level of the table (`DataTable.chartLevel`, `data-chart-window` and
     `data-chart-detail`), e.g. calendar month and month for the overview. A window, which is shorter than the steps
     of the dates (`windowApplies` in `model.js`), e.g. a day at the level Year, is disabled, a change of the level
     replaces it with the calendar window of the level.
