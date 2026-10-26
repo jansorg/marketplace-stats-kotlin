@@ -13,8 +13,8 @@ import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.PluginSaleItem
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.licenses.LicensePurchases
 import dev.ja.marketplace.data.licenses.LicenseStatus
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import javax.money.MonetaryAmount
 
 /**
@@ -40,8 +40,8 @@ class LineItemLicensesTable(
     )
 
     private val licenses = mutableListOf<LicenseInfo>()
-    // the purchase with the latest end of each license, of all customers
-    private val latestPurchases = Object2ObjectOpenHashMap<LicenseId, LicenseInfo>()
+    // the purchases of all customers, e.g. to see if the license was renewed later
+    private val allPurchases = LicensePurchases()
     private var pluginId: PluginId? = null
 
     // the amounts in USD would repeat the amounts of sales in USD, the column of other customers is only shown if needed
@@ -66,21 +66,18 @@ class LineItemLicensesTable(
             licenses += licenseInfo
         }
 
-        val end = licenseInfo.validity?.end ?: return
-        val latest = latestPurchases[licenseInfo.id]
-        if (latest == null || end >= latest.validity!!.end) {
-            latestPurchases[licenseInfo.id] = licenseInfo
-        }
+        allPurchases.add(licenseInfo)
     }
 
     /** The customer of the latest purchase of the license, if it's another customer. */
-    private fun renewedBy(license: LicenseInfo) = latestPurchases[license.id]?.sale?.customer
+    private fun renewedBy(license: LicenseInfo) = allPurchases.latestPurchase(license.id)?.sale?.customer
         ?.takeIf { it.code != license.sale.customer.code }
 
     override suspend fun createSections(): List<DataTableSection> {
         val rows = licenses.map { license ->
-            val latestEnd = latestPurchases[license.id]?.validity?.end
-            val isChurned = latestEnd != null && LicenseStatus.of(latestEnd, nowDate) == LicenseStatus.Churned
+            // a perpetual license doesn't end
+            val latestEnd = allPurchases.latestEnd(license.id)?.takeIf { it != YearMonthDay.MAX }
+            val isChurned = allPurchases.status(license.id, nowDate) == LicenseStatus.Churned
             val renewedBy = renewedBy(license)
             SimpleDateTableRow(
                 values = mapOf(
@@ -88,7 +85,7 @@ class LineItemLicensesTable(
                     columnAmount to license.amount,
                     columnAmountUSD to license.amountUSD,
                     columnPaidAmount to Marketplace.paidAmount(license.sale.date, license.amount),
-                    columnLicensedFrom to (license.validity?.start ?: NoValue),
+                    columnLicensedFrom to LicensePurchases.start(license),
                     columnLicensedUntil to when {
                         latestEnd == null -> NoValue
                         isChurned -> ExpiredLicenseEnd(latestEnd, latestEnd)

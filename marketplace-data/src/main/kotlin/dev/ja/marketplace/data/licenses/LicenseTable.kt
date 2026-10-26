@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -11,9 +11,12 @@ import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.PaymentAmountTracker
 import dev.ja.marketplace.util.sortValue
 import dev.ja.marketplace.util.takeNullable
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import javax.money.MonetaryAmount
 
+/**
+ * Purchases of licenses, e.g. of a customer or of all customers. A perpetual license starts at its sale, it has no end
+ * and is always active.
+ */
 class LicenseTable(
     private val maxTableRows: Int? = null,
     private val showDetails: Boolean = true,
@@ -52,11 +55,10 @@ class LicenseTable(
     )
 
     private val data = mutableListOf<LicenseInfo>()
-    private val licenseMaxValidity = Object2ObjectOpenHashMap<LicenseId, YearMonthDay>()
-    private val licenseMinValidity = Object2ObjectOpenHashMap<LicenseId, YearMonthDay>()
-    // the purchase with the latest end of each license, of all customers
-    private val licenseLatestPurchase = Object2ObjectOpenHashMap<LicenseId, LicenseInfo>()
-    private val filteredLicenseMaxValidity = Object2ObjectOpenHashMap<LicenseId, YearMonthDay>()
+    // the purchases of all customers, e.g. to find a renewal by another customer
+    private val allPurchases = LicensePurchases()
+    // the purchases of the shown licenses
+    private val filteredPurchases = LicensePurchases()
     // all purchases of the licenses, a fallback license depends on all of them, e.g. of the purchases of other customers
     private val allSubscriptionLicenses = mutableListOf<LicenseInfo>()
     private var pluginId: PluginId? = null
@@ -92,29 +94,20 @@ class LicenseTable(
     }
 
     override suspend fun process(licenseInfo: LicenseInfo) {
-        if (!licenseInfo.isSubscriptionLicense) {
-            return
-        }
-
-        val licenseId = licenseInfo.id
-        licenseMaxValidity[licenseId] = maxOfNullable(licenseMaxValidity[licenseId], licenseInfo.validity!!.end)
-        licenseMinValidity[licenseId] = licenseMinValidity[licenseId]?.let { minOf(it, licenseInfo.validity!!.start) } ?: licenseInfo.validity!!.start
-        if (licenseInfo.validity!!.end >= (licenseLatestPurchase[licenseId]?.validity?.end ?: YearMonthDay.MIN)) {
-            licenseLatestPurchase[licenseId] = licenseInfo
-        }
-        if (fallbackReleases != null) {
+        allPurchases.add(licenseInfo)
+        if (fallbackReleases != null && licenseInfo.isSubscriptionLicense) {
             allSubscriptionLicenses += licenseInfo
         }
 
         if (licenseFilter(licenseInfo)) {
             data += licenseInfo
-            filteredLicenseMaxValidity[licenseId] = maxOfNullable(filteredLicenseMaxValidity[licenseId], licenseInfo.validity!!.end)
+            filteredPurchases.add(licenseInfo)
         }
     }
 
     // first by date, then days by new/renew, then same values by annual/monthly, then by amount
     private val comparator = Comparator.comparing<LicenseInfo, YearMonthDay> { it.sale.date }.reversed()
-        .thenDescending(Comparator.comparing { it.validity!!.start })
+        .thenDescending(Comparator.comparing(LicensePurchases::start))
         .then(Comparator.comparing { it.saleLineItem.type })
         .thenDescending(Comparator.comparing { it.sale.licensePeriod })
         .thenDescending(Comparator.comparing { it.amountUSD.sortValue() })
@@ -145,14 +138,14 @@ class LicenseTable(
                     amountTracker.add(purchase.sale.date, purchase.amountUSD, purchase.amount)
                 }
 
-                val validity = YearMonthDayRange(purchases.minOf { it.validity!!.start }, purchases.maxOf { it.validity!!.end })
+                val validity = YearMonthDayRange(purchases.minOf(LicensePurchases::start), purchases.maxOf(LicensePurchases::end))
                 val discounts = purchases.flatMap { it.saleLineItem.discountDescriptions }.distinct()
                 val validityEnd = validity.end
-                val licenseEnd = licenseMaxValidity[license.id]!!
+                val licenseEnd = allPurchases.latestEnd(license.id)!!
                 val isExpired = supportedChurnStyling && licenseEnd < nowDate
                 // the latest purchase of the customer, if another customer renewed the license
-                val transferredTo = licenseLatestPurchase.getValue(license.id).sale.customer.takeIf {
-                    it.code != license.sale.customer.code && validityEnd == filteredLicenseMaxValidity[license.id]
+                val transferredTo = allPurchases.latestPurchase(license.id)!!.sale.customer.takeIf {
+                    it.code != license.sale.customer.code && validityEnd == filteredPurchases.latestEnd(license.id)
                 }
 
                 SimpleDateTableRow(
@@ -160,9 +153,11 @@ class LicenseTable(
                         columnLicenseId to LinkedLicense(license.id, pluginId!!),
                         columnRefNum to LinkedRefNum(license.sale.ref, pluginId!!),
                         columnPurchaseDate to if (showPurchaseDate) purchaseDate else null,
-                        columnLicensedFrom to licenseMinValidity[license.id],
+                        columnLicensedFrom to allPurchases.firstStart(license.id),
                         columnValidityStart to validity.start,
                         columnValidityEnd to when {
+                            // a perpetual license doesn't end
+                            validityEnd == YearMonthDay.MAX -> NoValue
                             isExpired -> ExpiredLicenseEnd(validityEnd, licenseEnd)
                             transferredTo != null -> TransferredLicenseEnd(
                                 validityEnd, LinkedCustomer(transferredTo.code, pluginId!!), transferredTo.name, licenseEnd
@@ -200,7 +195,7 @@ class LicenseTable(
                 )
             }
 
-        val shownLicenseIds = filteredLicenseMaxValidity.keys.filter { statusFilter == null || status(it) == statusFilter }
+        val shownLicenseIds = filteredPurchases.licenseIds.filter { statusFilter == null || status(it) == statusFilter }
         val licenseCount = shownLicenseIds.size
         val activeLicenseCount = shownLicenseIds.count { status(it) == LicenseStatus.Active }
         val footer = when {
@@ -222,9 +217,7 @@ class LicenseTable(
         return listOf(SimpleTableSection(rows, null, footer = footer))
     }
 
-    private fun status(licenseId: LicenseId): LicenseStatus {
-        return LicenseStatus.of(licenseMaxValidity.getValue(licenseId), nowDate)
-    }
+    private fun status(licenseId: LicenseId): LicenseStatus = allPurchases.status(licenseId, nowDate)
 
     /**
      * @return The fallback versions of the shown licenses.
@@ -232,17 +225,9 @@ class LicenseTable(
     private fun fallbackVersions(): Map<LicenseId, FallbackVersion> {
         val releases = fallbackReleases ?: return emptyMap()
         return allSubscriptionLicenses
-            .filter { it.id in filteredLicenseMaxValidity }
+            .filter { it.id in filteredPurchases }
             .groupBy { it.id }
             .mapNotNull { (licenseId, licenses) -> FallbackVersion.of(licenseId, licenses, releases) }
             .associateBy { it.licenseId }
-    }
-}
-
-private fun <T : Comparable<T>> maxOfNullable(a: T?, b: T?): T {
-    return when {
-        a == null -> b!!
-        b == null -> a
-        else -> maxOf(a, b)
     }
 }

@@ -764,9 +764,13 @@ class MarketplaceStatsServer(
             it.sale.licensePeriod == LicensePeriod.Annual && it.sale.customer.code == customerId
         }
 
+        val licenseTablePerpetual = LicenseTable(showDetails = false, showReseller = true, showFooter = true) {
+            it.sale.licensePeriod == LicensePeriod.Perpetual && it.sale.customer.code == customerId
+        }
+
         val trialsTable = TrialsTable(showDetails = false) { trial -> trial.customer.code == customerId }
 
-        for (table in listOf(licenseTableMonthly, licenseTableAnnual, trialsTable)) {
+        for (table in listOf(licenseTableMonthly, licenseTableAnnual, licenseTablePerpetual, trialsTable)) {
             table.init(data)
             for (sale in sales) {
                 table.process(sale)
@@ -788,6 +792,7 @@ class MarketplaceStatsServer(
                     "customer" to customerInfo,
                     "licenseTableMonthly" to licenseTableMonthly.renderTable(),
                     "licenseTableAnnual" to licenseTableAnnual.renderTable(),
+                    "licenseTablePerpetual" to licenseTablePerpetual.renderTable(),
                     "trials" to trials,
                     "trialTable" to trialsTable.renderTable(),
                     "settings" to serverConfiguration,
