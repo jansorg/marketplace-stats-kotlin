@@ -188,6 +188,9 @@ added to the models as optional properties at the end of the constructors, unkno
   `DataTableColumn.dailyChartSeries`, the charts load the values from `/chart-series?pluginId=<id>&granularity=day|week`
   (`DailyChartSeries`, calculated by `OverviewDailyValues`). Sums, e.g. of sales, are the sums of the month before
   each day, licenses, MRR and ARR the values at each day, so that the last day of a month has the value of the table.
+  The churn is the churn of the month before each day. Columns with `DataTableColumn.yearlyChartSeries`
+  (`data-chart-yearly`) also have values at the end of each year (granularity Year), e.g. the churn of the year
+  before each day (`churn-annual-paid.year`).
 - Vertical lines in line charts: major releases of the plugin (`MajorReleases`, from the plugin's releases), changes of the
   annual base price (`PriceChanges`, derived from undiscounted new US sales, the API has no price history) and major
   releases of IntelliJ IDEA (`IdeReleaseProvider`, from the JetBrains product service, cached for a day), and custom
