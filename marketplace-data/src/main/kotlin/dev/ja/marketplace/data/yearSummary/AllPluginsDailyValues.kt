@@ -13,6 +13,7 @@ import dev.ja.marketplace.client.plus
 import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.DailyDownload
 import dev.ja.marketplace.client.model.PluginSale
+import dev.ja.marketplace.client.model.PluginTrial
 import dev.ja.marketplace.data.overview.DailySeries
 import dev.ja.marketplace.data.overview.OverviewDailyColumn
 import dev.ja.marketplace.data.overview.OverviewDailyValues
@@ -24,6 +25,7 @@ import javax.money.MonetaryAmount
 
 /**
  * The values of [AllPluginsSummaryTable] and [AllPluginsMonthTable] for each day, for charts with a finer resolution.
+ * The sums of the years are also used for the [YearlySummaryTable] of a single plugin.
  *
  * The sales and downloads of the summary of the years are the sums of the year before each day, i.e. from the day after
  * the same day of the previous year until the day. At the last day of a year, it's the sum of the calendar year like in
@@ -41,6 +43,8 @@ class AllPluginsDailyValues private constructor(val days: List<YearMonthDay>, va
         const val DOWNLOADS = "all-plugins-downloads"
         const val MRR = "all-plugins-mrr"
         const val ARR = "all-plugins-arr"
+        /** The trials of the year before each day, only if trials are passed to [create]. */
+        const val TRIALS = "all-plugins-trials"
 
         /** The sums of the month before each day, for [AllPluginsMonthTable]. */
         const val MONTH_SALES = "all-plugins-month-sales"
@@ -52,6 +56,7 @@ class AllPluginsDailyValues private constructor(val days: List<YearMonthDay>, va
          * @param sales The sales of all paid plugins.
          * @param downloads The downloads of all paid plugins.
          * @param licensesOfPlugins The licenses of each paid plugin.
+         * @param trials The trials, the series [TRIALS] is only added if there are trials.
          */
         fun create(
             sales: List<PluginSale>,
@@ -59,10 +64,12 @@ class AllPluginsDailyValues private constructor(val days: List<YearMonthDay>, va
             licensesOfPlugins: List<List<LicenseInfo>>,
             exchangeRates: ExchangeRates,
             today: YearMonthDay = YearMonthDay.now(),
+            trials: List<PluginTrial> = emptyList(),
         ): AllPluginsDailyValues {
             val firstDate = listOfNotNull(
                 sales.minOfOrNull { it.date },
                 licensesOfPlugins.flatten().mapNotNull { it.validity?.start }.minOrNull(),
+                trials.minOfOrNull { it.date },
                 downloads.filter { it.downloads > 0 }.minOfOrNull { it.day },
             ).minOrNull()
             if (firstDate == null || firstDate > today) {
@@ -123,11 +130,19 @@ class AllPluginsDailyValues private constructor(val days: List<YearMonthDay>, va
                     downloadCounts[index] += download.downloads
                 }
             }
+            val trialCounts = LongArray(dayCount)
+            for (trial in trials) {
+                val index = index(trial.date)
+                if (index in 0 until dayCount) {
+                    trialCounts[index]++
+                }
+            }
 
             for (index in 1 until dayCount) {
                 totals[index] += totals[index - 1]
                 fees[index] += fees[index - 1]
                 downloadCounts[index] += downloadCounts[index - 1]
+                trialCounts[index] += trialCounts[index - 1]
             }
             /** The sum from the start index of each day until the day, using the running sums. */
             fun <T> sumsOf(startIndices: IntArray, sums: (Int) -> T, minus: (T, T) -> T): List<T> {
@@ -170,9 +185,16 @@ class AllPluginsDailyValues private constructor(val days: List<YearMonthDay>, va
             // because licenses renewed later in the month aren't included yet
             val incompleteRecurringRevenue = maxOf(0, index(YearMonthDay(today.year, today.month, 1)))
             val currency = exchangeRates.targetCurrency.currencyCode
+            val trialSeries = when {
+                trials.isEmpty() -> emptyMap()
+                else -> {
+                    val trialsOfYear = sumsOf(yearStartIndices, trialCounts::get, Long::minus)
+                    mapOf(TRIALS to DailySeries("count", trialsOfYear.map(BigDecimal::valueOf), incompleteFrom))
+                }
+            }
             return AllPluginsDailyValues(
                 days,
-                mapOf(
+                trialSeries + mapOf(
                     SALES to DailySeries(currency, amounts(totalsOfYear), incompleteFrom),
                     FEES to DailySeries(currency, amounts(feesOfYear), incompleteFrom),
                     PAID to DailySeries(currency, amounts(totalsOfYear.zip(feesOfYear) { total, fee -> total - fee }), incompleteFrom),

@@ -11,14 +11,15 @@ import dev.ja.marketplace.data.PluginData
 import dev.ja.marketplace.data.overview.DailySeries
 import dev.ja.marketplace.data.overview.OverviewDailyValues
 import dev.ja.marketplace.data.subscriptions.SubscriptionDailyValues
+import dev.ja.marketplace.data.yearSummary.AllPluginsDailyValues
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.DayOfWeek
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * The values of the overview table and of the monthly tables of the subscription metrics for each day or week as JSON
- * for the charts, served at `/chart-series`.
+ * The values of the overview table, of the table of the years and of the monthly tables of the subscription metrics
+ * for each day or week as JSON for the charts, served at `/chart-series`.
  *
  * The values are calculated once for the loaded data of a plugin. The client caches the loaded data, so the values are
  * calculated again when the data is reloaded or on the next day.
@@ -45,6 +46,17 @@ class DailyChartSeries {
     )
 
     private val entries = ConcurrentHashMap<PluginId, Entry>()
+
+    private companion object {
+        /** The series of [dev.ja.marketplace.data.yearSummary.YearlySummaryTable]. */
+        val YEAR_SERIES = setOf(
+            AllPluginsDailyValues.SALES,
+            AllPluginsDailyValues.FEES,
+            AllPluginsDailyValues.PAID,
+            AllPluginsDailyValues.DOWNLOADS,
+            AllPluginsDailyValues.TRIALS,
+        )
+    }
 
     suspend fun json(data: PluginData, granularity: Granularity): String {
         return toJson(values(data), granularity)
@@ -76,13 +88,33 @@ class DailyChartSeries {
                 today,
             )
             val subscriptions = SubscriptionDailyValues.create(overview.days, licenses, revenue, today)
+            // the sums of the year before each day, the ARR of the years is the ARR of the overview
+            val years = AllPluginsDailyValues.create(sales ?: emptyList(), downloads, emptyList(), data.exchangeRates, today, trials ?: emptyList())
+            val yearSeries = years.series
+                .filterKeys { it in YEAR_SERIES }
+                .mapValues { it.value.alignedTo(years.days, overview.days) }
             Values(
                 overview,
-                overview.series.mapKeys { it.key.id } + subscriptions.mapKeys { it.key.id },
+                overview.series.mapKeys { it.key.id } + subscriptions.mapKeys { it.key.id } + yearSeries,
             )
         }
         entries[data.pluginId] = Entry(sales, trials, downloads, currency, today, values)
         return values
+    }
+
+    /**
+     * @return The values of [days], which start at the same day as [sourceDays] or later and end at the same day.
+     */
+    private fun DailySeries.alignedTo(sourceDays: List<YearMonthDay>, days: List<YearMonthDay>): DailySeries {
+        if (sourceDays.isEmpty() || days.isEmpty()) {
+            return DailySeries(unit, List(days.size) { null }, days.size)
+        }
+        val offset = (sourceDays.first() daysUntil days.first()).toInt()
+        return DailySeries(
+            unit,
+            List(days.size) { values.getOrNull(it + offset) },
+            (incompleteFrom - offset).coerceIn(0, days.size),
+        )
     }
 
     private fun toJson(values: Values, granularity: Granularity): String {

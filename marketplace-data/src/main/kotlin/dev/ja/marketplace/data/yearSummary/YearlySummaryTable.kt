@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -9,6 +9,7 @@ import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.MonthlyDownload
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.overview.OverviewDailyColumn
 import dev.ja.marketplace.data.trackers.*
 import java.util.*
 
@@ -21,12 +22,16 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
     private lateinit var totalSales: PaymentAmountTracker
 
     private val columnYear = DataTableColumn("year", null)
-    private val columnSalesTotal = DataTableColumn("sales", "Sales Total", "num")
-    private val columnSalesFees = DataTableColumn("fees", "Fees", "num")
-    private val columnSalesPaid = DataTableColumn("paid", "Paid", "num")
-    private val columnARR = DataTableColumn("arr", "ARR", "num")
-    private val columnDownloads = DataTableColumn("downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Downloads")
-    private val columnTrials = DataTableColumn("trials", "Trials", "num")
+    // the charts show the values per week and per day, the sums of the year before each day, see AllPluginsDailyValues
+    private val columnSalesTotal = DataTableColumn("sales", "Sales Total", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.SALES)
+    private val columnSalesFees = DataTableColumn("fees", "Fees", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.FEES)
+    private val columnSalesPaid = DataTableColumn("paid", "Paid", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.PAID)
+    private val columnARR = DataTableColumn("arr", "ARR", "num", chartMeasure = ChartMeasure.Stock, dailyChartSeries = OverviewDailyColumn.Arr.id)
+    private val columnDownloads = DataTableColumn(
+        "downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Downloads",
+        chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.DOWNLOADS,
+    )
+    private val columnTrials = DataTableColumn("trials", "Trials", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.TRIALS)
     private val columnTrialsConverted = DataTableColumn("trials-converted", "Conv. Trials", "num")
 
     private data class YearSummary(

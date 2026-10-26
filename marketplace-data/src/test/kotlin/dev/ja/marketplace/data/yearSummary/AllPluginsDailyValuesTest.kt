@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.model.DailyDownload
 import dev.ja.marketplace.client.model.PluginSale
+import dev.ja.marketplace.client.model.PluginTrial
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.customer
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.sale
 import dev.ja.marketplace.data.trackers.AnnualRecurringRevenueTracker
@@ -18,6 +19,7 @@ import dev.ja.marketplace.data.trackers.PaymentAmountTracker
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
@@ -99,6 +101,25 @@ class AllPluginsDailyValuesTest {
         val firstOfMonth = (values.days.first() daysUntil YearMonthDay(2025, 9, 1)).toInt()
         assertEquals(firstOfMonth, values.series.getValue(AllPluginsDailyValues.MRR).incompleteFrom)
         assertEquals(firstOfMonth, values.series.getValue(AllPluginsDailyValues.ARR).incompleteFrom)
+    }
+
+    @Test
+    fun trialsOfTheYearBeforeTheDay() {
+        // a trial every 5 days, starting before the first sale
+        val trials = (0 until 200).map { PluginTrial("trial-$it", YearMonthDay(2022, 12, 1).add(0, 0, it * 5), customer(it)) }
+        val values = AllPluginsDailyValues.create(sales, downloads, emptyList(), exchangeRates, today, trials)
+        assertEquals(YearMonthDay(2022, 1, 1), values.days.first())
+
+        val series = values.series.getValue(AllPluginsDailyValues.TRIALS)
+        val endOfYear = (values.days.first() daysUntil YearMonthDay(2023, 12, 31)).toInt()
+        assertEquals(BigDecimal.valueOf(trials.count { it.date.year == 2023 }.toLong()), series.values[endOfYear])
+
+        val day = YearMonthDay(2024, 3, 10)
+        val expected = trials.count { it.date > YearMonthDay(2023, 3, 10) && it.date <= day }
+        assertEquals(BigDecimal.valueOf(expected.toLong()), series.values[(values.days.first() daysUntil day).toInt()])
+
+        // without trials, e.g. for the summary of all plugins
+        assertFalse(this.values.series.containsKey(AllPluginsDailyValues.TRIALS))
     }
 
     @Test
