@@ -25,9 +25,6 @@ class SaleLineItemSummary(val sale: PluginSale, val lineItem: PluginSaleItem) {
             PluginSaleItemType.Renew -> "Renewal"
         }
 
-    val licenseCount: Int
-        get() = lineItem.licenseIds.size
-
     /** `null` for perpetual licenses. */
     val subscriptionDates: YearMonthDayRange?
         get() = (lineItem as? SubscriptionPluginSaleItem)?.subscriptionDates

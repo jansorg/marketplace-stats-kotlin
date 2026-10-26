@@ -93,11 +93,6 @@
             <h2>@if(lineItems.size > 1)Line Item ${index + 1}: @endif${item.typeLabel}</h2>
             <dl class="detail-grid">
                 <div>
-                    <dt>Licenses</dt>
-                    <dd>${item.licenseCount}</dd>
-                </div>
-
-                <div>
                     <dt>Subscription</dt>
                     <dd>@if(subscription == null)Perpetual@else${subscription.start.toString()} — ${subscription.end.toString()}@endif</dd>
                 </div>
