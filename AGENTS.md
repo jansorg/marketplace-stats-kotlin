@@ -122,6 +122,10 @@ added to the models as optional properties at the end of the constructors, unkno
 
 ## Persistent Cache
 
+- The durations of all caches, in memory and on disk, are defined by `CachingStrategy` (`marketplace-client/.../client/`).
+  Data is grouped by how often it changes: `Recent` (30 minutes, e.g. recent sales and trials, offers, reviews),
+  `Daily` (e.g. downloads, ratings, releases, products of JetBrains) and `Static` (7 days, e.g. prices, sales older than
+  45 days, the weekly complete fetch of the history). Use these categories for new cached requests.
 - Optional, enabled with `--cache-dir`/`MARKETPLACE_CACHE_DIR`/`cacheDir`. Without it, or with an empty value, all data
   is only cached in memory. The Docker image enables it with `MARKETPLACE_CACHE_DIR=/root/.cache/marketplace-stats`,
   `docker-compose.yml` mounts a named volume there.

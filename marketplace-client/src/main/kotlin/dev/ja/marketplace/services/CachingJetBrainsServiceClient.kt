@@ -7,6 +7,7 @@ package dev.ja.marketplace.services
 
 import com.github.benmanes.caffeine.cache.Caffeine
 import dev.ja.marketplace.client.CacheAware
+import dev.ja.marketplace.client.CachingStrategy
 import dev.ja.marketplace.client.persistentCache.PersistentCacheStore
 import dev.ja.marketplace.client.persistentCache.PersistentResponseCache
 import kotlinx.coroutines.CoroutineScope
@@ -16,7 +17,6 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.days
 
 /**
  * Caches the products of JetBrains and their releases for [maxAge], in memory and in the [store], if it's set.
@@ -26,7 +26,7 @@ import kotlin.time.Duration.Companion.days
 class CachingJetBrainsServiceClient(
     private val delegate: JetBrainsServiceClient,
     store: PersistentCacheStore? = null,
-    private val maxAge: Duration = 1.days,
+    private val maxAge: Duration = CachingStrategy.Category.Daily.maxAge,
 ) : JetBrainsServiceClient, CacheAware {
     private val memory = Caffeine.newBuilder()
         .maximumSize(100)
