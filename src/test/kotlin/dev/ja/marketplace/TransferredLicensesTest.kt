@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.*
 import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.DataTableRow
+import dev.ja.marketplace.data.LinkedCustomer
 import dev.ja.marketplace.data.LinkedLicense
 import dev.ja.marketplace.data.RenderedDataTable
 import dev.ja.marketplace.data.TransferredLicenseEnd
@@ -92,7 +93,7 @@ class TransferredLicensesTest {
         assertTrue(table.columns.any { it.id == "customer-licenses-transferred" })
 
         // the names link to the customers, the IDs of customers with a name aren't linked
-        val rowsByCustomer = table.rows().associateBy { table.value(it, "customer-id") as Int }
+        val rowsByCustomer = table.rows().associateBy { (table.value(it, "customer-id") as LinkedCustomer).id }
         val previous = rowsByCustomer.getValue(previousOwner.code)
         assertEquals(BigInteger.ZERO, table.value(previous, "customer-licenses-active"))
         assertEquals(BigInteger.ONE, table.value(previous, "customer-licenses-churned"))
