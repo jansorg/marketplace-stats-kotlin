@@ -45,4 +45,28 @@ data class MarketplacePluginInfo(
     @SerialName("continuityDiscountDisabledAt")
     @Serializable(YearMonthDateSerializer::class)
     val continuityDiscountDisabledAt: YearMonthDay? = null,
-)
+) {
+    /**
+     * The license periods, which customers can buy, or `null` if they're unknown.
+     *
+     * The Marketplace currently offers either subscriptions (annual and monthly) or perpetual licenses,
+     * and the API returns no periods for perpetual licenses.
+     * The periods returned by the API are always included, so that plugins offering both kinds of licenses are supported.
+     */
+    val offeredLicensePeriods: Set<LicensePeriod>?
+        get() {
+            val periods = licensePeriods.toMutableSet()
+            when (licensingType) {
+                LicensingType.Perpetual -> periods += LicensePeriod.Perpetual
+                LicensingType.Subscription, LicensingType.SubscriptionWithFallback -> {
+                    if (periods.isEmpty()) {
+                        periods += LicensePeriod.Annual
+                        periods += LicensePeriod.Monthly
+                    }
+                }
+
+                null -> {}
+            }
+            return periods.takeIf { it.isNotEmpty() }
+        }
+}

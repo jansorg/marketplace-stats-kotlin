@@ -241,7 +241,11 @@ object McpTestData {
         )
     )
 
-    fun pluginData(withPricing: Boolean = false, sales: List<PluginSale> = McpTestData.sales): PluginData {
+    fun pluginData(
+        withPricing: Boolean = false,
+        sales: List<PluginSale> = McpTestData.sales,
+        marketplacePluginInfo: MarketplacePluginInfo? = null,
+    ): PluginData {
         val pluginInfo = PluginInfo(
             id = PLUGIN_ID,
             name = plugin.name,
@@ -279,6 +283,7 @@ object McpTestData {
             if (withPricing) PluginPricing.create(pricingClient(), PLUGIN_ID, countries) else null,
             CompletableDeferred(SalesWithLicensesInfo(sales, LicenseInfo.createFrom(sales))),
             CompletableDeferred(trials),
+            CompletableDeferred(marketplacePluginInfo),
         )
     }
 

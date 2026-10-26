@@ -16,6 +16,7 @@ import java.math.BigInteger
 
 /**
  * Sales by license period and customer type and trials by country of the days of [dateRange].
+ * Only the license periods offered for the plugin and the periods of the sales of the range are shown.
  */
 class DaySummaryTable(
     val dateRange: YearMonthDayRange,
@@ -41,7 +42,13 @@ class DaySummaryTable(
 
         this.totalSales = MonetaryAmountTracker(data.exchangeRates)
 
-        for (period in LicensePeriod.entries) {
+        val periods = data.getOfferedLicensePeriods()?.let { offered ->
+            val periodsOfSales = data.getSales()?.filter { it.date in dateRange }?.mapTo(mutableSetOf()) { it.licensePeriod } ?: emptySet()
+            // keep the order of the enum
+            LicensePeriod.entries.filter { it in offered || it in periodsOfSales }
+        } ?: LicensePeriod.entries
+
+        for (period in periods) {
             for (type in CustomerType.entries) {
                 sales[type to period] = MonetaryAmountTracker(exchangeRates)
             }
