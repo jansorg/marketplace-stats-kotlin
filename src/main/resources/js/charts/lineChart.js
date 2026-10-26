@@ -118,7 +118,7 @@ function fonts(fontFamily) {
         ticks: "12px " + fontFamily,
         axisTitle: "12px " + fontFamily,
         releaseLabel: "11px " + fontFamily,
-        extremeLabel: "bold 11px " + fontFamily,
+        extremeLabel: "bold 13px " + fontFamily,
     };
 }
 
@@ -397,7 +397,8 @@ function drawExtremes(plot, chartSeries, {kinds, isBars, interval, formatter, fo
             const i = extremes[kind];
             const x = plot.valToPos(timestamps[i], "x", true) + (isBars ? offsets[barPosition] + width / 2 : 0);
             const y = plot.valToPos(values[i], plotSeries.scale, true);
-            const label = (kind === "max" ? "Max " : "Min ") + formatter.value(values[i], series.unit);
+            // two lines, the kind above the value
+            const lines = [kind === "max" ? "Max" : "Min", formatter.value(values[i], series.unit)];
 
             if (!isBars) {
                 context.beginPath();
@@ -407,18 +408,19 @@ function drawExtremes(plot, chartSeries, {kinds, isBars, interval, formatter, fo
             }
 
             // the label is inside of the chart, the label of a negative maximum or a positive minimum is beside the bar
-            const halfWidth = context.measureText(label).width / 2;
+            const halfWidth = Math.max(...lines.map(line => context.measureText(line).width)) / 2;
             const labelX = Math.min(Math.max(x, plot.bbox.left + halfWidth), plot.bbox.left + plot.bbox.width - halfWidth);
             const distance = 10 * pixelRatio;
-            const isAbove = kind === "max" ? y - distance - 12 * pixelRatio > plot.bbox.top : y + distance + 12 * pixelRatio > plot.bbox.top + plot.bbox.height;
-            context.textBaseline = isAbove ? "bottom" : "top";
-            const labelY = isAbove ? y - distance : y + distance;
+            const lineHeight = 15 * pixelRatio;
+            const height = lines.length * lineHeight + 2 * pixelRatio;
+            const isAbove = kind === "max" ? y - distance - height > plot.bbox.top : y + distance + height > plot.bbox.top + plot.bbox.height;
+            context.textBaseline = "top";
 
             const box = {
-                left: labelX - halfWidth - 2 * pixelRatio,
-                top: isAbove ? labelY - 13 * pixelRatio : labelY - pixelRatio,
-                width: 2 * halfWidth + 4 * pixelRatio,
-                height: 14 * pixelRatio,
+                left: labelX - halfWidth - 3 * pixelRatio,
+                top: isAbove ? y - distance - height : y + distance,
+                width: 2 * halfWidth + 6 * pixelRatio,
+                height,
             };
             if (placedLabels.some(other => box.left < other.left + other.width && other.left < box.left + box.width
                 && box.top < other.top + other.height && other.top < box.top + box.height)) {
@@ -430,7 +432,7 @@ function drawExtremes(plot, chartSeries, {kinds, isBars, interval, formatter, fo
             context.fillStyle = theme.surfaceColor;
             context.fillRect(box.left, box.top, box.width, box.height);
             context.fillStyle = series.color;
-            context.fillText(label, labelX, labelY);
+            lines.forEach((line, lineIndex) => context.fillText(line, labelX, box.top + pixelRatio + lineIndex * lineHeight));
         }
     });
     context.restore();
