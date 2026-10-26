@@ -598,16 +598,15 @@ export function detailGranularity(detail) {
  * @param {number} min The first timestamp of the date axis, in seconds.
  * @param {number} max The last timestamp of the date axis, in seconds.
  * @param {number|undefined} lastValue The timestamp of the last value, e.g. today for the value of the current year.
- * @return {number[]} The ticks of yearly values: the last day of each year, where the values of the years are
- *  located, and the last value of the current year, which is located at today.
+ * @return {number[]} The ticks of yearly values at the values, so that the tick and the tooltip of a value show the
+ *  same year: the last day of each year until the last value, and the last value of the current year, which is
+ *  located at today. The axis may end after the last value, at the end of the current year, which has no tick.
  */
 export function yearEndTicks(min, max, lastValue) {
     const ticks = [];
-    const firstYear = new Date(min * 1000).getUTCFullYear();
-    const lastYear = new Date(max * 1000).getUTCFullYear();
-    for (let year = firstYear; year <= lastYear; year++) {
+    for (let year = new Date(min * 1000).getUTCFullYear(); year <= new Date(max * 1000).getUTCFullYear(); year++) {
         const end = Date.UTC(year, 11, 31) / 1000;
-        if (end >= min && end <= max) {
+        if (end >= min && end <= max && (lastValue === undefined || end <= lastValue)) {
             ticks.push(end);
         }
     }

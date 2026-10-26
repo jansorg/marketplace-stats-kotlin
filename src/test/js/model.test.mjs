@@ -356,13 +356,13 @@ test("the previous year is shifted by a year and ends with the series", () => {
 });
 
 
-test("the ticks of years are at the end of each year and at the value of the current year", () => {
+test("the ticks of years are at the values of the years, at the end of each year and at today", () => {
     const day = isoDateToTimestamp;
-    // half a year before the value of 2022 until today
-    assert.deepEqual(yearEndTicks(day("2022-07-01"), day("2026-10-26"), day("2026-10-26")),
+    // a month before the value of 2022 until the end of the current year, the current year has its tick at today
+    assert.deepEqual(yearEndTicks(day("2022-12-01"), day("2026-12-31"), day("2026-10-26")),
         [day("2022-12-31"), day("2023-12-31"), day("2024-12-31"), day("2025-12-31"), day("2026-10-26")]);
     // the current year has no value yet
-    assert.deepEqual(yearEndTicks(day("2022-07-01"), day("2024-01-05"), day("2023-12-31")), [day("2022-12-31"), day("2023-12-31")]);
+    assert.deepEqual(yearEndTicks(day("2022-12-01"), day("2024-01-05"), day("2023-12-31")), [day("2022-12-31"), day("2023-12-31")]);
     assert.deepEqual(yearEndTicks(day("2026-01-01"), day("2026-10-26"), undefined), []);
 });
 

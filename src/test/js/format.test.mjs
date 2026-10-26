@@ -56,3 +56,9 @@ test("units", () => {
     assert.equal(unitTitle("%"), "Percentage (%)");
     assert.equal(unitTitle("count"), "Count");
 });
+
+test("dates are formatted with the locale of the page", () => {
+    const timestamp = isoDateToTimestamp("2025-12-31");
+    assert.equal(createFormatter("de-DE").date(timestamp), "31.12.2025");
+    assert.equal(createFormatter("en-US").date(timestamp), "Dec 31, 2025");
+});

@@ -250,7 +250,7 @@ extend, must not fail a response:
 - Only series of the same period (`DataTable.chartPeriod`: day, month or year) share a line chart and its date range,
   the series of metrics have their own period `metric`.
   Values of months and years are located at the end of the period, the current period at today (`ChartValues.xValue`).
-  The ticks of yearly values are at the end of each year and at today (`yearEndTicks` in `model.js`). The date axis
+  The ticks of yearly values are at the values, the end of each year and today (`yearEndTicks` in `model.js`), so that a tick and the tooltip of its value show the same year. The date axis
   ends with the period of the last value (`periodEnd`), so that the value of the current period at today isn't at
   the right edge. Values of the first period of a plugin, which started within it, are partial (`partialUntil` of
   `/chart-data`, `isPartialPeriod` of the tables): hollow points and outlined bars in the color of the series.

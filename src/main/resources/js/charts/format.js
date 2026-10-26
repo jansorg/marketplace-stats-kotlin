@@ -78,6 +78,7 @@ export function createFormatter(locale) {
     const fixedFormat = new Intl.NumberFormat(locale, {minimumFractionDigits: 2, maximumFractionDigits: 2});
     const changeFormat = new Intl.NumberFormat(locale, {minimumFractionDigits: 1, maximumFractionDigits: 1});
     const dayFormat = new Intl.DateTimeFormat(locale, {day: "numeric", month: "short", timeZone: "UTC"});
+    const dateFormat = new Intl.DateTimeFormat(locale, {dateStyle: "medium", timeZone: "UTC"});
 
     return {
         /** Value with its unit, e.g. `12.5 %` or `1,234.56 USD`. */
@@ -127,6 +128,11 @@ export function createFormatter(locale) {
         /** Day and month for the ticks of a date axis, e.g. `23 Oct.` */
         day(timestamp) {
             return dayFormat.format(new Date(timestamp * 1000));
+        },
+
+        /** A date with its year, e.g. `31.12.2025` or `Dec 31, 2025`. */
+        date(timestamp) {
+            return dateFormat.format(new Date(timestamp * 1000));
         },
     };
 }
