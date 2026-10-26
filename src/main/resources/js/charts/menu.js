@@ -99,6 +99,7 @@ function placeInWindow(menu, items, alignEnd, maxHeight) {
     items.style.left = Math.max(0, Math.min(left, window.innerWidth - width)) + "px";
     items.style.right = "auto";
     items.style.bottom = "auto";
+    items.classList.add("chart-menu-placed");
 }
 
 /**
@@ -128,6 +129,8 @@ export function createMenu(label, {fixed = false, hover = true, alignEnd = false
     menu.addEventListener("toggle", () => {
         if (menu.open) {
             fixed ? placeInWindow(menu, items, alignEnd, maxHeight) : openUpwards(menu, items);
+        } else {
+            items.classList.remove("chart-menu-placed");
         }
     });
     // Escape closes the menu, but not the dialog
