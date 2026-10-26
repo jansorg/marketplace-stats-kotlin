@@ -96,6 +96,7 @@ export function lineChartLegend(plot) {
         label: series.isRightAxis ? series.label + " (right axis)" : series.label,
         color: series.color,
         shape: isBars ? "box" : "line",
+        ...(!isBars && averageDashOf(series, chartSeries) ? {dash: averageDashOf(series, chartSeries)} : {}),
     }));
     if (shown.length > 0 && shown.some(series => [...series.incomplete].some(timestamp => timestamp >= min && timestamp <= max))) {
         entries.push({label: "Incomplete values", color: incompleteColor(shown[0].color, theme.isDark), shape: isBars ? "stripes" : "dotted"});
@@ -255,8 +256,9 @@ function drawPoints(plot, chartSeries, theme) {
         if (!plotSeries.show || series.isValueHidden) {
             return;
         }
-        // the lighter line marks the incomplete values of series with many values, e.g. per day
-        if (series.points.size > CHART_STYLE.maxPointsShown) {
+        // the lighter line marks the incomplete values of series with many values, e.g. per day,
+        // a moving average is a smooth line without points
+        if (series.points.size > CHART_STYLE.maxPointsShown || series.average) {
             return;
         }
         const values = plot.data[index + 1];
@@ -679,6 +681,19 @@ const GEAR_PATH = Array.from({length: 32}, (_, i) => {
 }).join(" ") + " Z";
 
 /**
+ * @param {{average?: number}} series A line of a chart.
+ * @param {{average?: number}[]} chartSeries All lines of the chart.
+ * @return {number[]|null} The dashes of a line of a moving average, if the chart also shows values, so that the
+ *  averages are recognized, e.g. short dashes of the 1-month average. Charts of only averages have solid lines.
+ */
+function averageDashOf(series, chartSeries) {
+    if (!series.average || !chartSeries.some(s => !s.average)) {
+        return null;
+    }
+    return CHART_STYLE.overlays["average" + series.average]?.dash ?? null;
+}
+
+/**
  * @param {{label: string, window: string, selectedWindow?: string}} series A line of a metric with its shown and its
  *  selected window, e.g. the trials of each month, which follow the level of the chart.
  * @param {string} detail The detail level of the chart.
@@ -778,6 +793,10 @@ function renderComparisonTable(table, {plot, rows, seriesPoints, comparisons, ti
             });
             const key = cell("span", "chart-tooltip-key");
             key.style.backgroundColor = series.color;
+            // a dashed line, e.g. of a moving average, has a dashed key
+            if (series.dash) {
+                key.style.background = `repeating-linear-gradient(to right, ${series.color} 0 ${series.dash[0]}px, transparent ${series.dash[0]}px ${series.dash[0] + series.dash[1]}px)`;
+            }
             // the key, the label, the menu of the window and the button to remove the line are centered vertically
             const content = cell("span", "chart-comparison-series-content");
             content.append(key, cell("span", null, series.label));
@@ -1067,6 +1086,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         axes.push(yAxis(units[1], "y2", 1, style));
     }
 
+    // moving averages are dashed next to values
+    const averageDash = series => averageDashOf(series, chartSeries);
     // the colors of the uPlot series, the first one is the date
     const seriesColors = [null, ...chartSeries.map(s => s.color), ...chartOverlays.map(overlayColor)];
     const options = {
@@ -1141,6 +1162,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                 scale: s.scale,
                 stroke: s.color,
                 width: CHART_STYLE.lineWidth,
+                ...(averageDash(s) ? {dash: averageDash(s)} : {}),
                 spanGaps: true,
                 // points and bars are drawn by drawPoints and drawBars, to show incomplete values in a different color
                 points: {show: false},
@@ -1190,7 +1212,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         return chartSeries.flatMap((s, seriesIndex) => {
             const label = s.isRightAxis ? s.label + " (right axis)" : s.label;
             const seriesRow = s.isValueHidden ? [] : [{label, color: s.color, unit: s.unit, incomplete: s.incomplete, values: values[seriesIndex], plotIndex: seriesIndex + 1,
-                windowMenu: windowMenuOf(s), removeButton: removeButtonOf(s)}];
+                windowMenu: windowMenuOf(s), removeButton: removeButtonOf(s), dash: averageDash(s)}];
             return seriesRow.concat(chartOverlays
                 .map((overlay, overlayIndex) => ({overlay, overlayIndex}))
                 .filter(({overlay}) => overlay.base === s)
