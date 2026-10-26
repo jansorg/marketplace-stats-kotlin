@@ -21,8 +21,9 @@ class TimeSpanSummaryTable(
     private val dateRange: YearMonthDayRange,
     title: String,
 ) : SimpleDataTable(title, cssClass = "small table-striped"), MarketplaceDataSink {
+    /** @param maxDays The number of shown days, today and the days before it. */
     constructor(maxDays: Int, title: String) : this(
-        YearMonthDay.now().let { YearMonthDayRange(it.add(0, 0, -maxDays), it) },
+        YearMonthDay.now().let { YearMonthDayRange(it.add(0, 0, -(maxDays - 1)), it) },
         title
     )
 
