@@ -30,6 +30,15 @@ enum class SubscriptionDailyColumn(val id: String) {
     Churned("mrr-churned"),
     Reactivation("mrr-reactivation"),
     NetChange("mrr-net-change"),
+
+    // the MRR movements of the year before each day, between the MRR a year before the day and at the day
+    NewOfYear("mrr-new.year"),
+    ExpansionOfYear("mrr-expansion.year"),
+    ContractionOfYear("mrr-contraction.year"),
+    ChurnedOfYear("mrr-churned.year"),
+    ReactivationOfYear("mrr-reactivation.year"),
+    NetChangeOfYear("mrr-net-change.year"),
+
     CustomersYearAgo("customers-year-ago"),
     CustomerRetention("customer-retention"),
     GrossRevenueRetention("grr"),
@@ -177,8 +186,20 @@ object SubscriptionDailyValues {
                 isLastOfMonth -> YearMonthDay.lastOfMonth(day.year - 1, day.month)
                 else -> day.add(-1, 0, 0)
             }
+            val previousYearIndex = index(previousYearDay)
+            val previousYear = snapshots[previousYearIndex] ?: Int2ObjectMaps.emptyMap()
+            val movementsOfYear = MrrMovements.of(current, previousYear) { customer ->
+                firstPaidDay(customer) > previousYearIndex
+            }
+            set(SubscriptionDailyColumn.NewOfYear, index, amount(movementsOfYear.new))
+            set(SubscriptionDailyColumn.ExpansionOfYear, index, amount(movementsOfYear.expansion))
+            set(SubscriptionDailyColumn.ContractionOfYear, index, amount(movementsOfYear.contraction.negate()))
+            set(SubscriptionDailyColumn.ChurnedOfYear, index, amount(movementsOfYear.churned.negate()))
+            set(SubscriptionDailyColumn.ReactivationOfYear, index, amount(movementsOfYear.reactivation))
+            set(SubscriptionDailyColumn.NetChangeOfYear, index, amount(movementsOfYear.netChange))
+
             if (firstRetentionDay != null && previousYearDay >= firstRetentionDay) {
-                val retention = RevenueRetention.of(current, snapshots[index(previousYearDay)] ?: Int2ObjectMaps.emptyMap())
+                val retention = RevenueRetention.of(current, previousYear)
                 set(SubscriptionDailyColumn.CustomersYearAgo, index, BigDecimal.valueOf(retention.previousCustomers.toLong()))
                 set(SubscriptionDailyColumn.CustomerRetention, index, percentage(retention.customerRetention))
                 set(SubscriptionDailyColumn.GrossRevenueRetention, index, percentage(retention.grossRevenueRetention))

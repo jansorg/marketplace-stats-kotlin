@@ -203,6 +203,10 @@ extend, must not fail a response:
   (`data-chart-yearly`) also have values at the end of each year (granularity Year), e.g. the churn of the year
   before each day (`churn-annual-paid.year`). The conversion rate of the trials is the rate of the trials of the month or
   the year before each day (`trials-converted-length`, `.year`), the table of the years uses the series of the year.
+  All columns of monthly tables with values per day also have values per year: stocks (licenses, MRR, ARR, customers,
+  averages) and the revenue retention use their series per day, the values at the end of each year. Sums use the sums
+  of the year before each day (`AllPluginsDailyValues.SALES` etc.), the MRR movements the movements between the MRR a
+  year before each day and at the day (`mrr-new.year` etc.).
 - Vertical lines in line charts: major releases of the plugin (`MajorReleases`, from the plugin's releases), changes of the
   annual base price (`PriceChanges`, derived from undiscounted new US sales, the API has no price history) and major
   releases of IntelliJ IDEA (`IdeReleaseProvider`, from the JetBrains product service, cached for a day), and custom

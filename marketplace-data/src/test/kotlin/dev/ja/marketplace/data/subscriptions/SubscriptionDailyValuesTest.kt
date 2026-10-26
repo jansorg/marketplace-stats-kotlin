@@ -107,6 +107,26 @@ class SubscriptionDailyValuesTest {
     }
 
     @Test
+    fun movementsOfTheYearCompareWithTheMrrOfTheYearBefore() {
+        // at the end of a year, the movements between the MRR at the end of the previous year and at the end of the year
+        for (year in listOf(2024)) {
+            val monthIndex = revenue.months.indexOf(YearMonthDay(year, 12, 1))
+            val previousIndex = revenue.months.indexOf(YearMonthDay(year - 1, 12, 1))
+            val movements = MrrMovements.of(revenue.customers(monthIndex), revenue.customers(previousIndex)) { customer ->
+                (revenue.firstPaidMonthIndex(customer) ?: -1) > previousIndex
+            }
+            val index = (firstDay daysUntil YearMonthDay(year, 12, 31)).toInt()
+            assertAmount(movements.new, SubscriptionDailyColumn.NewOfYear, index, "$year")
+            assertAmount(movements.expansion, SubscriptionDailyColumn.ExpansionOfYear, index, "$year")
+            assertAmount(movements.contraction.negate(), SubscriptionDailyColumn.ContractionOfYear, index, "$year")
+            assertAmount(movements.churned.negate(), SubscriptionDailyColumn.ChurnedOfYear, index, "$year")
+            assertAmount(movements.reactivation, SubscriptionDailyColumn.ReactivationOfYear, index, "$year")
+            assertAmount(movements.netChange, SubscriptionDailyColumn.NetChangeOfYear, index, "$year")
+            assertTrue(movements.new.signum() != 0 || movements.churned.signum() != 0, "the test data must have movements")
+        }
+    }
+
+    @Test
     fun movementsWithinAMonthCompareWithTheSameDayOfThePreviousMonth() {
         val customer = customer(1)
         val licenses = licenses(

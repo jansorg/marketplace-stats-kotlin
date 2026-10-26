@@ -23,24 +23,28 @@ class AverageRevenuePerCustomerTable : RecurringRevenueTable(
         "customers", "Paying Customers", "num", tooltip = "Customers with recurring revenue at the end of the month",
         chartMeasure = ChartMeasure.Stock,
         dailyChartSeries = SubscriptionDailyColumn.PayingCustomers.id,
+        yearlyChartSeries = SubscriptionDailyColumn.PayingCustomers.id,
     )
     private val columnArpa = DataTableColumn(
         "arpa", "ARPA", "num", chartTitle = "Average MRR per Customer",
         tooltip = "Average MRR per paying customer",
         chartMeasure = ChartMeasure.Stock,
         dailyChartSeries = SubscriptionDailyColumn.AverageRevenue.id,
+        yearlyChartSeries = SubscriptionDailyColumn.AverageRevenue.id,
     )
     private val columnOrganizations = DataTableColumn(
         "organizations", "Organizations", "num", chartTitle = "Average MRR per Organization",
         tooltip = "Average MRR per paying organization",
         chartMeasure = ChartMeasure.Stock,
         dailyChartSeries = SubscriptionDailyColumn.AverageRevenueOrganizations.id,
+        yearlyChartSeries = SubscriptionDailyColumn.AverageRevenueOrganizations.id,
     )
     private val columnIndividuals = DataTableColumn(
         "individuals", "Individuals", "num", chartTitle = "Average MRR per Individual",
         tooltip = "Average MRR per paying individual customer",
         chartMeasure = ChartMeasure.Stock,
         dailyChartSeries = SubscriptionDailyColumn.AverageRevenueIndividuals.id,
+        yearlyChartSeries = SubscriptionDailyColumn.AverageRevenueIndividuals.id,
     )
 
     override val columns: List<DataTableColumn> = listOf(

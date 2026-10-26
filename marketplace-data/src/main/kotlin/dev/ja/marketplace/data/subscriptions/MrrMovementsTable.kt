@@ -21,42 +21,49 @@ class MrrMovementsTable : RecurringRevenueTable("MRR Movements", "mrr-movements"
         tooltip = "Monthly recurring revenue at the end of the month",
         chartMeasure = ChartMeasure.Stock,
         dailyChartSeries = SubscriptionDailyColumn.Mrr.id,
+        yearlyChartSeries = SubscriptionDailyColumn.Mrr.id,
     )
     private val columnNew = DataTableColumn(
         "new", "New", "num",
         tooltip = "MRR of customers, who paid for the first time",
         chartMeasure = ChartMeasure.Flow,
         dailyChartSeries = SubscriptionDailyColumn.New.id,
+        yearlyChartSeries = SubscriptionDailyColumn.NewOfYear.id,
     )
     private val columnExpansion = DataTableColumn(
         "expansion", "Expansion", "num",
         tooltip = "Additional MRR of existing customers, e.g. more licenses or a higher price",
         chartMeasure = ChartMeasure.Flow,
         dailyChartSeries = SubscriptionDailyColumn.Expansion.id,
+        yearlyChartSeries = SubscriptionDailyColumn.ExpansionOfYear.id,
     )
     private val columnContraction = DataTableColumn(
         "contraction", "Contraction", "num",
         tooltip = "Lost MRR of remaining customers, e.g. fewer licenses, a lower price or a higher discount",
         chartMeasure = ChartMeasure.Flow,
         dailyChartSeries = SubscriptionDailyColumn.Contraction.id,
+        yearlyChartSeries = SubscriptionDailyColumn.ContractionOfYear.id,
     )
     private val columnChurned = DataTableColumn(
         "churned", "Churned", "num",
         tooltip = "MRR of customers without recurring revenue at the end of the month",
         chartMeasure = ChartMeasure.Flow,
         dailyChartSeries = SubscriptionDailyColumn.Churned.id,
+        yearlyChartSeries = SubscriptionDailyColumn.ChurnedOfYear.id,
     )
     private val columnReactivation = DataTableColumn(
         "reactivation", "Reactivation", "num",
         tooltip = "MRR of returning customers, who had recurring revenue before, but not at the end of the previous month",
         chartMeasure = ChartMeasure.Flow,
         dailyChartSeries = SubscriptionDailyColumn.Reactivation.id,
+        yearlyChartSeries = SubscriptionDailyColumn.ReactivationOfYear.id,
     )
     private val columnNetChange = DataTableColumn(
         "net-change", "Net Change", "num",
         tooltip = "Change of the MRR compared to the previous month",
         chartMeasure = ChartMeasure.Flow,
         dailyChartSeries = SubscriptionDailyColumn.NetChange.id,
+        yearlyChartSeries = SubscriptionDailyColumn.NetChangeOfYear.id,
     )
     private val columnQuickRatio = DataTableColumn(
         "quick-ratio", "Quick Ratio", "num",
