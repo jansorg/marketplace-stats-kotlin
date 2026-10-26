@@ -24,11 +24,11 @@ export function isoDateToTimestamp(isoDate) {
 }
 
 /**
- * @param {string} unit Currency code, `%` or `count`.
+ * @param {string} unit Currency code, `%`, `count` or `ratio`, e.g. of the quick ratio.
  * @return {boolean} If the unit is a monetary amount.
  */
 export function isAmountUnit(unit) {
-    return unit !== "%" && unit !== "count";
+    return unit !== "%" && unit !== "count" && unit !== "ratio";
 }
 
 /**
@@ -40,6 +40,8 @@ export function unitTitle(unit) {
             return "Percentage (%)";
         case "count":
             return "Count";
+        case "ratio":
+            return "Ratio";
         default:
             return "Amount (" + unit + ")";
     }
@@ -87,6 +89,7 @@ export function createFormatter(locale) {
                 case "%":
                     return numberFormat.format(value) + " %";
                 case "count":
+                case "ratio":
                     return numberFormat.format(value);
                 default:
                     return numberFormat.format(value) + " " + unit;
@@ -103,6 +106,9 @@ export function createFormatter(locale) {
             }
             if (unit === "count") {
                 return numberFormat.format(value);
+            }
+            if (unit === "ratio") {
+                return fixedFormat.format(value);
             }
             return fixedFormat.format(value) + " " + unit;
         },

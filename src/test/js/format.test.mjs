@@ -50,6 +50,8 @@ test("units", () => {
     assert.equal(isAmountUnit("USD"), true);
     assert.equal(isAmountUnit("%"), false);
     assert.equal(isAmountUnit("count"), false);
+    assert.equal(isAmountUnit("ratio"), false);
+    assert.equal(unitTitle("ratio"), "Ratio");
     assert.equal(unitTitle("EUR"), "Amount (EUR)");
     assert.equal(unitTitle("%"), "Percentage (%)");
     assert.equal(unitTitle("count"), "Count");

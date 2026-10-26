@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.chart.ChartMetric
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import java.math.BigDecimal
 import java.util.*
@@ -25,8 +26,8 @@ class CustomerTypeTable(
     private val columnPercentage = DataTableColumn(
         "percentage", "% of Sales", "num num-percentage",
         chartMeasure = ChartMeasure.Ratio, rowHistoryPeriod = ChartPeriod.Month,
-        // the values per day and per year, see CustomerTypeDailyValues
-        dailyChartSeries = CustomerTypeDailyValues.SERIES_ID,
+        // a series for each customer type, e.g. customer-type-share.Individual
+        chartMetric = ChartMetric.CUSTOMER_TYPE_SHARE,
     )
 
     private lateinit var totalAmount: MonetaryAmountTracker

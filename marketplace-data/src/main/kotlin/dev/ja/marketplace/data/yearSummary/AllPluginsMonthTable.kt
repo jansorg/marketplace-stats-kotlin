@@ -11,6 +11,7 @@ import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.model.DailyDownload
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.chart.ChartMetric
 import dev.ja.marketplace.data.trackers.AnnualRecurringRevenueTracker
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.data.trackers.MonthlyRecurringRevenueTracker
@@ -29,27 +30,26 @@ class AllPluginsMonthTable(
     private val today: YearMonthDay = YearMonthDay.now(),
 ) : SimpleDataTable("This Month", "all-plugins-month", "table-column-wide table-fixed-columns") {
     private val columnDay = DataTableColumn("day", null)
-    // the charts show the values per week and per day with the scale of a month, see AllPluginsDailyValues
     private val columnSalesTotal = DataTableColumn(
-        "sales", "Sales Total", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.MONTH_SALES,
+        "sales", "Sales Total", "num", chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Sales.id,
     )
     private val columnSalesFees = DataTableColumn(
-        "fees", "Fees", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.MONTH_FEES,
+        "fees", "Fees", "num", chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Fees.id,
     )
     private val columnSalesPaid = DataTableColumn(
-        "paid", "Invoice", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.MONTH_PAID,
+        "paid", "Invoice", "num", chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Invoice.id,
     )
     private val columnMrr = DataTableColumn(
         "mrr", "MRR", "num", tooltip = "Monthly recurring revenue at the day",
-        chartMeasure = ChartMeasure.Stock, dailyChartSeries = AllPluginsDailyValues.MRR,
+        chartMeasure = ChartMeasure.Stock, chartMetric = ChartMetric.Mrr.id,
     )
     private val columnArr = DataTableColumn(
         "arr", "ARR", "num", tooltip = "Annual recurring revenue at the day",
-        chartMeasure = ChartMeasure.Stock, dailyChartSeries = AllPluginsDailyValues.ARR,
+        chartMeasure = ChartMeasure.Stock, chartMetric = ChartMetric.Arr.id,
     )
     private val columnDownloads = DataTableColumn(
         "downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Downloads",
-        chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.MONTH_DOWNLOADS,
+        chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Downloads.id,
     )
 
     private val month = YearMonthDayRange(YearMonthDay(today.year, today.month, 1), today)

@@ -7,7 +7,7 @@ It is a web application: you start it on your computer or server and open the re
 Features:
 
 - Reports of sales, licenses, customers, trials, countries, subscriptions, resellers and prices
-- Charts of the table values, with trends, vertical lines for releases and your own events
+- Charts of the metrics of the tables, e.g. the sales of the last 12 months per day, with moving averages, vertical lines for releases and your own events
 - A summary of all your paid plugins
 - An optional cache on disk, so that restarts are fast
 - An optional refresh in the background, so that the pages don't wait for the Marketplace

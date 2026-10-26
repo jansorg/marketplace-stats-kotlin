@@ -16,15 +16,19 @@ test("a stored setup is loaded", () => {
     const storage = memoryStorage();
     const setupStorage = createSetupStorage(storage);
     const setup = {
-        combineUnits: true, averagesOnly: true, maximized: false, preferredStyle: "bars", chartStyles: {"month/USD": "bars"}, granularities: {"month/USD": "day"}, shownMarkers: ["ide"], shownEvents: ["price-announcement"], shownExtremes: ["max"], shownOverlays: ["average12", "previousYear"], showIncomplete: false, showValueTable: false,
+        combineUnits: true, averagesOnly: true, maximized: false, preferredStyle: "bars", chartStyles: {"month/USD": "bars"}, chartLevels: {"metric/USD": {window: "year", detail: "day"}}, shownMarkers: ["ide"], shownEvents: ["price-announcement"], shownExtremes: ["max"], shownOverlays: ["average12", "previousYear"], showIncomplete: false, showValueTable: false,
         dateRange: {from: "2024-01-01", to: "2024-12-31"}, hiddenSeries: ["line/Overview/MRR", "line/Overview/MRR:average3"],
-        entries: [{type: "line", table: "Overview", column: "MRR", color: "#2a78d6"}, {type: "pie", table: "Top Countries", column: "% of Sales"}],
+        entries: [
+            {type: "metric", metric: "mrr", label: "MRR", unit: "USD", measure: "stock", color: "#2a78d6"},
+            {type: "line", table: "Renewal Rates", column: "All", color: "#eb6834"},
+            {type: "pie", table: "Top Countries", column: "% of Sales"},
+        ],
     };
     setupStorage.save(setup);
     assert.deepEqual(setupStorage.load(), setup);
     // only the setup is stored, no values of the tables
     assert.deepEqual(Object.keys(JSON.parse(storage.values.get(STORAGE_KEY))).sort(),
-        ["averagesOnly", "chartStyles", "combineUnits", "dateRange", "entries", "granularities", "hiddenSeries", "maximized", "preferredStyle", "showIncomplete", "showValueTable", "shownEvents", "shownExtremes", "shownMarkers", "shownOverlays", "version"]);
+        ["averagesOnly", "chartLevels", "chartStyles", "combineUnits", "dateRange", "entries", "hiddenSeries", "maximized", "preferredStyle", "showIncomplete", "showValueTable", "shownEvents", "shownExtremes", "shownMarkers", "shownOverlays", "version"]);
 });
 
 test("the dialog is maximized by default", () => {
@@ -39,13 +43,15 @@ test("invalid data is ignored", () => {
     assert.deepEqual(createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 99, entries: []})})).load(), emptySetup());
 
     const stored = {
-        version: 1, preferredStyle: "pie", chartStyles: {"a": "bars", "b": "dots"}, granularities: {"a": "week", "b": "hour"}, shownMarkers: ["ide", "unknown", 1],
-        entries: [{type: "line", table: "Overview", column: "MRR"}, {type: "unknown", table: "X", column: "Y"}, {type: "pie", table: 1, column: "Y"}],
+        version: 2, preferredStyle: "pie", chartStyles: {"a": "bars", "b": "dots"}, shownMarkers: ["ide", "unknown", 1],
+        chartLevels: {"a": {window: "year", detail: "week"}, "b": {window: "hour", detail: "day"}, "c": {window: "month"}},
+        entries: [{type: "line", table: "Overview", column: "MRR"}, {type: "unknown", table: "X", column: "Y"}, {type: "pie", table: 1, column: "Y"},
+            {type: "metric", metric: "mrr", label: "MRR"}],
     };
     const setup = createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify(stored)})).load();
     assert.equal(setup.preferredStyle, "lines");
     assert.deepEqual(setup.chartStyles, {"a": "bars"});
-    assert.deepEqual(setup.granularities, {"a": "week"});
+    assert.deepEqual(setup.chartLevels, {"a": {window: "year", detail: "week"}});
     assert.deepEqual(setup.shownMarkers, ["ide"]);
     assert.deepEqual(setup.entries, [{type: "line", table: "Overview", column: "MRR"}]);
 });
@@ -57,6 +63,15 @@ test("the stored option of the minimum and maximum is shown as two options", () 
     assert.deepEqual(load({shownExtremes: ["max", "other"]}).shownExtremes, ["max"]);
 });
 
+test("a setup of version 1 is read without the levels of the charts", () => {
+    const stored = {version: 1, granularities: {"month/USD": "day"}, entries: [{type: "line", table: "Overview", column: "MRR", color: "#2a78d6"}]};
+    const setup = createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify(stored)})).load();
+    assert.deepEqual(setup.chartLevels, {});
+    assert.equal(setup.granularities, undefined);
+    // the series of the table is shown as a metric, if the column has a metric, see ChartController.restore
+    assert.deepEqual(setup.entries, stored.entries);
+});
+
 test("an unavailable storage doesn't fail", () => {
     const failing = {getItem: () => { throw new Error("denied"); }, setItem: () => { throw new Error("full"); }};
     assert.deepEqual(createSetupStorage(failing).load(), emptySetup());
@@ -66,7 +81,7 @@ test("an unavailable storage doesn't fail", () => {
 
 test("a bookmarked view is the setup in the fragment of the address", () => {
     const setup = {
-        ...emptySetup(), granularities: {"year/USD": "monthEnd"}, shownMarkers: ["release"], dateRange: {from: "2025-03-01", to: "2025-06-30"},
+        ...emptySetup(), chartLevels: {"metric/USD": {window: "year", detail: "month"}}, shownMarkers: ["release"], dateRange: {from: "2025-03-01", to: "2025-06-30"},
         entries: [{type: "line", table: "Years", column: "Sales Total", color: "#2a78d6"}, {type: "pie", table: "Top Countries", column: "% of Sales"}],
     };
     const fragment = encodeView(setup);

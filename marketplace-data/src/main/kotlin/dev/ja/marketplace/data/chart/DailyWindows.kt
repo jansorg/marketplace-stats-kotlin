@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-package dev.ja.marketplace.data.overview
+package dev.ja.marketplace.data.chart
 
 import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.YearMonthDay
@@ -14,17 +14,30 @@ import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.javamoney.moneta.FastMoney
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.util.concurrent.ConcurrentHashMap
 import javax.money.MonetaryAmount
 
 /**
- * The days of the values per day of the charts, from [first] until [today], and the windows of the sums of the month
- * and of the year before each day, which the values per day of the tables share:
- * - The month before a day starts at the day after the same day of the previous month. At the last day of a month,
- *   it's the calendar month, like the values of a monthly table.
- * - The year before a day starts at the day after the same day of the previous year. At the last day of a year,
- *   it's the calendar year, like the values of a yearly table.
+ * The values of a metric for each day.
  *
- * Days before [first] aren't part of the windows.
+ * @param unit The currency code for amounts, `count` for numbers and `%` for percentages, see [ChartUnit.id].
+ * @param values The value of each day of [DailyWindows.days], `null` if there is no value, e.g. no average without customers.
+ * @param incompleteFrom Index of the first day, whose value may still change.
+ * @param ratio The numerators and the denominators of rates.
+ */
+data class DailySeries(val unit: String, val values: List<BigDecimal?>, val incompleteFrom: Int, val ratio: DailyRatio? = null)
+
+/**
+ * The numerators and the denominators of the rates of a [DailySeries], e.g. the churned and the previously active
+ * licenses, so that the rates of several windows can be pooled, see [ChartMetricValues.average].
+ *
+ * @param factor The factor of the rates, e.g. 100 for percentages.
+ */
+class DailyRatio(val numerators: List<BigDecimal?>, val denominators: List<BigDecimal?>, val factor: BigDecimal)
+
+/**
+ * The days of the values per day of the charts, from [first] until [today], and the windows of the sums and rates of
+ * each day, see [ChartWindow]. Days before [first] aren't part of the windows.
  */
 class DailyWindows(val first: YearMonthDay, val today: YearMonthDay) {
     val dayCount: Int = (first daysUntil today).toInt() + 1
@@ -36,27 +49,12 @@ class DailyWindows(val first: YearMonthDay, val today: YearMonthDay) {
     /** Index of the first day of the current month, the recurring revenue of the current month may still change. */
     val incompleteRecurringRevenue: Int = maxOf(0, index(YearMonthDay.firstOfMonth(today.year, today.month)))
 
-    /** Index of the first day of the month before each day. */
-    val monthStarts: IntArray by lazy {
-        IntArray(dayCount) { index ->
-            val day = days[index]
-            val start = when (day) {
-                YearMonthDay.lastOfMonth(day.year, day.month) -> YearMonthDay.firstOfMonth(day.year, day.month)
-                else -> day.add(0, -1, 1)
-            }
-            maxOf(0, index(start))
-        }
-    }
+    private val starts = ConcurrentHashMap<ChartWindow, IntArray>()
 
-    /** Index of the first day of the year before each day. */
-    val yearStarts: IntArray by lazy {
-        IntArray(dayCount) { index ->
-            val day = days[index]
-            val start = when {
-                day.month == 12 && day.day == 31 -> YearMonthDay(day.year, 1, 1)
-                else -> day.add(-1, 0, 1)
-            }
-            maxOf(0, index(start))
+    /** @return The index of the first day of the window of each day. */
+    fun starts(window: ChartWindow): IntArray {
+        return starts.computeIfAbsent(window) {
+            IntArray(dayCount) { index -> maxOf(0, index(window.start(days[index]))) }
         }
     }
 
@@ -95,7 +93,7 @@ class DailyWindows(val first: YearMonthDay, val today: YearMonthDay) {
         return totals to fees
     }
 
-    /** @return The sums of the values of the days in the window of each day, e.g. of [monthStarts]. */
+    /** @return The sums of the values of the days in the window of each day, see [starts]. */
     fun windowSums(perDay: LongArray, starts: IntArray): List<Long> {
         return windowSums(starts, 0L, perDay::get, Long::plus, Long::minus)
     }

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-package dev.ja.marketplace.data.overview
+package dev.ja.marketplace.data.chart
 
 import dev.ja.marketplace.churn.ChurnValidities
 import dev.ja.marketplace.churn.LicenseChurnProcessor
@@ -36,7 +36,7 @@ import java.math.RoundingMode
 import javax.money.MonetaryAmount
 import kotlin.random.Random
 
-class OverviewDailyValuesTest {
+class ChartMetricValuesTest {
     private val exchangeRates = ExchangeRates("USD")
     private val today = YearMonthDay(2025, 9, 17)
 
@@ -76,13 +76,13 @@ class OverviewDailyValuesTest {
 
     private val downloads = (0..1000).map { DailyDownload(YearMonthDay(2023, 1, 1).add(0, 0, it), (it % 7).toLong()) }
 
-    private val values = OverviewDailyValues.create(sales, licenses, trials, downloads, exchangeRates, today)
+    private val values = ChartMetricValues.create(sales, licenses, trials, downloads, exchangeRates, today)
 
     @Test
     fun daysFromTheFirstMonthUntilToday() {
         assertEquals(YearMonthDay(2023, 1, 1), values.days.first())
         assertEquals(today, values.days.last())
-        assertTrue(values.series.values.all { it.values.size == values.days.size })
+        assertTrue(ChartMetric.all.mapNotNull { values.series(it, ChartWindow.Month) }.all { it.values.size == values.days.size })
     }
 
     @Test
@@ -107,17 +107,17 @@ class OverviewDailyValuesTest {
             sales.forEach { amounts.add(it.date, it.amountUSD, it.amount) }
 
             val label = "month ${monthRange.start}"
-            assertEquals(licenseTracker.totalLicenseCount, value(OverviewDailyColumn.Licenses, index).toInt(), label)
-            assertEquals(licenseTracker.paidLicensesCount, value(OverviewDailyColumn.PaidLicenses, index).toInt(), label)
-            assertAmount(mrrTracker.getResult().amounts.getTotalAmount(), value(OverviewDailyColumn.Mrr, index), label)
-            assertAmount(arrTracker.getResult().amounts.getTotalAmount(), value(OverviewDailyColumn.Arr, index), label)
-            assertAmount(amounts.totalAmount, value(OverviewDailyColumn.Sales, index), label)
-            assertAmount(amounts.paidAmount, value(OverviewDailyColumn.Invoice, index), label)
+            assertEquals(licenseTracker.totalLicenseCount, value(ChartMetric.Licenses, index).toInt(), label)
+            assertEquals(licenseTracker.paidLicensesCount, value(ChartMetric.PaidLicenses, index).toInt(), label)
+            assertAmount(mrrTracker.getResult().amounts.getTotalAmount(), value(ChartMetric.Mrr, index), label)
+            assertAmount(arrTracker.getResult().amounts.getTotalAmount(), value(ChartMetric.Arr, index), label)
+            assertAmount(amounts.totalAmount, value(ChartMetric.Sales, index), label)
+            assertAmount(amounts.paidAmount, value(ChartMetric.Invoice, index), label)
 
             val trialCount = trials.count { it.date in monthRange }
-            assertEquals(trialCount, value(OverviewDailyColumn.Trials, index).toInt(), label)
+            assertEquals(trialCount, value(ChartMetric.Trials, index).toInt(), label)
             val downloadCount = downloads.filter { it.day in monthRange }.sumOf { it.downloads }
-            assertEquals(downloadCount, value(OverviewDailyColumn.Downloads, index).toLong(), label)
+            assertEquals(downloadCount, value(ChartMetric.Downloads, index).toLong(), label)
 
             month = month.add(0, 1, 0)
         }
@@ -138,7 +138,7 @@ class OverviewDailyValuesTest {
             }
         }.filter { it.date <= today }
         val licenses = licenses(*churnSales.toTypedArray())
-        val values = OverviewDailyValues.create(churnSales, licenses, emptyList(), emptyList(), exchangeRates, today)
+        val values = ChartMetricValues.create(churnSales, licenses, emptyList(), emptyList(), exchangeRates, today)
         val validities = ChurnValidities(licenses)
         // the churn of the table, like OverviewTable: the licenses active at the previous day and not active at the day
         fun expected(previous: YearMonthDay, day: YearMonthDay, period: LicensePeriod): BigDecimal? {
@@ -149,21 +149,21 @@ class OverviewDailyValuesTest {
             val result = processor.getResult(period)
             return if (result.previousActiveItemCount == 0) null else BigDecimal(result.churnRate * 100).setScale(2, RoundingMode.HALF_UP)
         }
-        fun assertChurn(column: OverviewDailyColumn, period: LicensePeriod, previous: YearMonthDay, day: YearMonthDay) {
-            val actual = values.series.getValue(column).values[values.days.indexOf(day)]
-            assertEquals(expected(previous, day, period), actual, "$column $day")
+        fun assertChurn(metric: ChartMetric, window: ChartWindow, period: LicensePeriod, previous: YearMonthDay, day: YearMonthDay) {
+            val actual = values.series(metric, window)!!.values[values.days.indexOf(day)]
+            assertEquals(expected(previous, day, period), actual, "$metric $window $day")
         }
 
         var month = YearMonthDay(2023, 1, 1)
         var churnedMonths = 0
         while (YearMonthDay.lastOfMonth(month.year, month.month) <= today) {
             val end = YearMonthDay.lastOfMonth(month.year, month.month)
-            for ((column, period) in listOf(OverviewDailyColumn.ChurnAnnual to LicensePeriod.Annual, OverviewDailyColumn.ChurnMonthly to LicensePeriod.Monthly)) {
-                assertChurn(column, period, month.add(0, 0, -1), end)
+            for ((column, period) in listOf(ChartMetric.ChurnAnnual to LicensePeriod.Annual, ChartMetric.ChurnMonthly to LicensePeriod.Monthly)) {
+                assertChurn(column, ChartWindow.Month, period, month.add(0, 0, -1), end)
                 // within a month, the churn of the month before the day
-                assertChurn(column, period, month.add(0, 0, 14).add(0, -1, 0), month.add(0, 0, 14))
+                assertChurn(column, ChartWindow.Month, period, month.add(0, 0, 14).add(0, -1, 0), month.add(0, 0, 14))
             }
-            if ((values.series.getValue(OverviewDailyColumn.ChurnMonthly).values[values.days.indexOf(end)] ?: BigDecimal.ZERO).signum() > 0) {
+            if ((values.series(ChartMetric.ChurnMonthly, ChartWindow.Month)!!.values[values.days.indexOf(end)] ?: BigDecimal.ZERO).signum() > 0) {
                 churnedMonths++
             }
             month = month.add(0, 1, 0)
@@ -171,11 +171,11 @@ class OverviewDailyValuesTest {
         assertTrue(churnedMonths > 3, "months with churn: $churnedMonths")
 
         // the churn of the years
-        assertChurn(OverviewDailyColumn.ChurnAnnualOfYear, LicensePeriod.Annual, YearMonthDay(2023, 12, 31), YearMonthDay(2024, 12, 31))
-        assertChurn(OverviewDailyColumn.ChurnMonthlyOfYear, LicensePeriod.Monthly, YearMonthDay(2023, 12, 31), YearMonthDay(2024, 12, 31))
-        assertChurn(OverviewDailyColumn.ChurnMonthlyOfYear, LicensePeriod.Monthly, today.add(-1, 0, 0), today)
-        assertEquals(values.days.indexOf(YearMonthDay(2025, 1, 1)), values.series.getValue(OverviewDailyColumn.ChurnAnnualOfYear).incompleteFrom)
-        assertEquals(values.days.indexOf(YearMonthDay(2025, 9, 1)), values.series.getValue(OverviewDailyColumn.ChurnMonthly).incompleteFrom)
+        assertChurn(ChartMetric.ChurnAnnual, ChartWindow.Year, LicensePeriod.Annual, YearMonthDay(2023, 12, 31), YearMonthDay(2024, 12, 31))
+        assertChurn(ChartMetric.ChurnMonthly, ChartWindow.Year, LicensePeriod.Monthly, YearMonthDay(2023, 12, 31), YearMonthDay(2024, 12, 31))
+        assertChurn(ChartMetric.ChurnMonthly, ChartWindow.Year, LicensePeriod.Monthly, today.add(-1, 0, 0), today)
+        assertEquals(values.days.indexOf(YearMonthDay(2025, 1, 1)), values.series(ChartMetric.ChurnAnnual, ChartWindow.Year)!!.incompleteFrom)
+        assertEquals(values.days.indexOf(YearMonthDay(2025, 9, 1)), values.series(ChartMetric.ChurnMonthly, ChartWindow.Month)!!.incompleteFrom)
     }
 
     @Test
@@ -192,7 +192,7 @@ class OverviewDailyValuesTest {
                 else -> null
             }
         }.filter { it.date <= today }
-        val values = OverviewDailyValues.create(trialSales, licenses(*trialSales.toTypedArray()), trials, emptyList(), exchangeRates, today)
+        val values = ChartMetricValues.create(trialSales, licenses(*trialSales.toTypedArray()), trials, emptyList(), exchangeRates, today)
 
         // the conversion of the table
         val tracker = SimpleTrialTracker().apply { init(trials) }
@@ -205,19 +205,19 @@ class OverviewDailyValuesTest {
         var month = YearMonthDay(2023, 1, 1)
         while (YearMonthDay.lastOfMonth(month.year, month.month) < today) {
             val range = YearMonthDayRange.ofMonth(month.year, month.month)
-            val actual = values.series.getValue(OverviewDailyColumn.TrialsConverted).values[values.days.indexOf(range.end)]
+            val actual = values.series(ChartMetric.TrialConversion, ChartWindow.Month)!!.values[values.days.indexOf(range.end)]
             assertEquals(expected(range)?.stripTrailingZeros(), actual?.stripTrailingZeros(), "month ${range.start}")
             month = month.add(0, 1, 0)
         }
         val year = YearMonthDayRange.ofYear(2024)
-        val actualYear = values.series.getValue(OverviewDailyColumn.TrialsConvertedOfYear).values[values.days.indexOf(year.end)]
+        val actualYear = values.series(ChartMetric.TrialConversion, ChartWindow.Year)!!.values[values.days.indexOf(year.end)]
         assertEquals(expected(year)?.stripTrailingZeros(), actualYear?.stripTrailingZeros())
 
         // trials of the recent days can still convert
         val firstPending = trials.filter { trial -> trialSales.none { it.customer == trial.customer && it.date.daysUntil(trial.date) <= 0 && trial.date.daysUntil(it.date) <= trialConversionDays(Marketplace.MAX_TRIAL_DAYS_DEFAULT) } }
             .filter { it.date.daysUntil(today) <= trialConversionDays(Marketplace.MAX_TRIAL_DAYS_DEFAULT) }
             .minOf { it.date }
-        assertEquals(values.days.indexOf(firstPending), values.series.getValue(OverviewDailyColumn.TrialsConverted).incompleteFrom)
+        assertEquals(values.days.indexOf(firstPending), values.series(ChartMetric.TrialConversion, ChartWindow.Month)!!.incompleteFrom)
     }
 
     @Test
@@ -231,8 +231,8 @@ class OverviewDailyValuesTest {
             arrTracker.processLicenseSale(it)
         }
         val index = values.days.indexOf(today)
-        assertAmount(mrrTracker.getResult().amounts.getTotalAmount(), value(OverviewDailyColumn.Mrr, index), "MRR of today")
-        assertAmount(arrTracker.getResult().amounts.getTotalAmount(), value(OverviewDailyColumn.Arr, index), "ARR of today")
+        assertAmount(mrrTracker.getResult().amounts.getTotalAmount(), value(ChartMetric.Mrr, index), "MRR of today")
+        assertAmount(arrTracker.getResult().amounts.getTotalAmount(), value(ChartMetric.Arr, index), "ARR of today")
     }
 
     @Test
@@ -243,9 +243,9 @@ class OverviewDailyValuesTest {
         sales.forEach { amounts.add(it.date, it.amountUSD, it.amount) }
 
         val index = values.days.indexOf(day)
-        assertAmount(amounts.totalAmount, value(OverviewDailyColumn.Sales, index), "sales")
-        assertEquals(trials.count { it.date in range }, value(OverviewDailyColumn.Trials, index).toInt())
-        assertEquals(downloads.filter { it.day in range }.sumOf { it.downloads }, value(OverviewDailyColumn.Downloads, index).toLong())
+        assertAmount(amounts.totalAmount, value(ChartMetric.Sales, index), "sales")
+        assertEquals(trials.count { it.date in range }, value(ChartMetric.Trials, index).toInt())
+        assertEquals(downloads.filter { it.day in range }.sumOf { it.downloads }, value(ChartMetric.Downloads, index).toLong())
     }
 
     @Test
@@ -255,14 +255,14 @@ class OverviewDailyValuesTest {
             inCurrency(sale(customer(1), "a", YearMonthDay(2025, 1, 1), 120, LicensePeriod.Annual), 100, "EUR"),
             inCurrency(sale(customer(2), "b", YearMonthDay(2025, 1, 1), 12), 9, "EUR"),
         )
-        val values = OverviewDailyValues.create(sales, licenses(*sales.toTypedArray()), emptyList(), emptyList(), ExchangeRates("EUR"), today)
+        val values = ChartMetricValues.create(sales, licenses(*sales.toTypedArray()), emptyList(), emptyList(), ExchangeRates("EUR"), today)
         val index = values.days.indexOf(YearMonthDay(2025, 1, 31))
 
-        val series = values.series.getValue(OverviewDailyColumn.Sales)
+        val series = values.series(ChartMetric.Sales, ChartWindow.Month)!!
         assertEquals("EUR", series.unit)
         assertEquals(0, BigDecimal(109).compareTo(series.values[index]))
-        assertEquals(0, BigDecimal("17.33").compareTo(values.series.getValue(OverviewDailyColumn.Mrr).values[index]))
-        assertEquals(0, BigDecimal(208).compareTo(values.series.getValue(OverviewDailyColumn.Arr).values[index]))
+        assertEquals(0, BigDecimal("17.33").compareTo(values.series(ChartMetric.Mrr, ChartWindow.Month)!!.values[index]))
+        assertEquals(0, BigDecimal(208).compareTo(values.series(ChartMetric.Arr, ChartWindow.Month)!!.values[index]))
     }
 
     @Test
@@ -273,30 +273,30 @@ class OverviewDailyValuesTest {
             sale(customer, "a", YearMonthDay(2025, 1, 1), 10),
             sale(customer, "a", YearMonthDay(2025, 1, 20), 30, type = PluginSaleItemType.Renew),
         )
-        val values = OverviewDailyValues.create(sales, licenses(*sales.toTypedArray()), emptyList(), emptyList(), exchangeRates, today)
-        val mrr = values.series.getValue(OverviewDailyColumn.Mrr).values
+        val values = ChartMetricValues.create(sales, licenses(*sales.toTypedArray()), emptyList(), emptyList(), exchangeRates, today)
+        val mrr = values.series(ChartMetric.Mrr, ChartWindow.Month)!!.values
         assertEquals(0, BigDecimal(10).compareTo(mrr[values.days.indexOf(YearMonthDay(2025, 1, 19))]))
         assertEquals(0, BigDecimal(30).compareTo(mrr[values.days.indexOf(YearMonthDay(2025, 1, 20))]))
         assertEquals(0, BigDecimal(30).compareTo(mrr[values.days.indexOf(YearMonthDay(2025, 2, 19))]))
         assertEquals(0, BigDecimal.ZERO.compareTo(mrr[values.days.indexOf(YearMonthDay(2025, 2, 20))]))
         // the license is counted once
-        val licenseCounts = values.series.getValue(OverviewDailyColumn.Licenses).values
+        val licenseCounts = values.series(ChartMetric.Licenses, ChartWindow.Month)!!.values
         assertEquals(0, BigDecimal.ONE.compareTo(licenseCounts[values.days.indexOf(YearMonthDay(2025, 1, 25))]))
     }
 
     @Test
     fun incompleteValues() {
         val lastIndex = values.days.lastIndex
-        assertEquals(lastIndex, values.series.getValue(OverviewDailyColumn.Sales).incompleteFrom)
-        assertEquals(lastIndex, values.series.getValue(OverviewDailyColumn.Downloads).incompleteFrom)
+        assertEquals(lastIndex, values.series(ChartMetric.Sales, ChartWindow.Month)!!.incompleteFrom)
+        assertEquals(lastIndex, values.series(ChartMetric.Downloads, ChartWindow.Month)!!.incompleteFrom)
         // the recurring revenue of the current month is incomplete, like in the table
-        assertEquals(values.days.indexOf(YearMonthDay(2025, 9, 1)), values.series.getValue(OverviewDailyColumn.Mrr).incompleteFrom)
-        assertEquals(values.days.size, values.series.getValue(OverviewDailyColumn.Licenses).incompleteFrom)
+        assertEquals(values.days.indexOf(YearMonthDay(2025, 9, 1)), values.series(ChartMetric.Mrr, ChartWindow.Month)!!.incompleteFrom)
+        assertEquals(values.days.size, values.series(ChartMetric.Licenses, ChartWindow.Month)!!.incompleteFrom)
     }
 
     @Test
     fun weeksEndOnSundaysAndToday() {
-        val weekEnds = values.weekEndIndices().map { values.days[it] }
+        val weekEnds = ChartDetail.Week.indices(values.days).map { values.days[it] }
         assertEquals(YearMonthDay(2023, 1, 1), weekEnds.first())
         assertEquals(YearMonthDay(2023, 1, 8), weekEnds[1])
         assertEquals(today, weekEnds.last())
@@ -304,13 +304,13 @@ class OverviewDailyValuesTest {
 
     @Test
     fun noData() {
-        val values = OverviewDailyValues.create(emptyList(), emptyList(), emptyList(), emptyList(), exchangeRates, today)
+        val values = ChartMetricValues.create(emptyList(), emptyList(), emptyList(), emptyList(), exchangeRates, today)
         assertTrue(values.days.isEmpty())
-        assertTrue(values.series.isEmpty())
+        assertTrue(ChartMetric.all.all { values.series(it, ChartWindow.Month) == null })
     }
 
-    private fun value(column: OverviewDailyColumn, index: Int): BigDecimal {
-        return values.series.getValue(column).values[index]!!
+    private fun value(metric: ChartMetric, index: Int): BigDecimal {
+        return values.series(metric, ChartWindow.Month)!!.values[index]!!
     }
 
     private fun assertAmount(expected: MonetaryAmount, actual: BigDecimal, message: String) {

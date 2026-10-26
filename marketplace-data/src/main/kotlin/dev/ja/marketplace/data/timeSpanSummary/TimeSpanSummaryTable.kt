@@ -11,6 +11,7 @@ import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.chart.ChartMetric
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.data.trackers.maxTrialDays
 import java.util.*
@@ -35,9 +36,9 @@ class TimeSpanSummaryTable(
     )
 
     private val columnDay = DataTableColumn("day", null)
-    private val columnSales = DataTableColumn("total", "Sales", "num")
-    private val columnDownloads = DataTableColumn("total", "↓", "num", chartTitle = "Downloads", tooltip = "Downloads")
-    private val columnTrials = DataTableColumn("total", "Trials", "num")
+    private val columnSales = DataTableColumn("total", "Sales", "num", chartMetric = ChartMetric.Sales.id)
+    private val columnDownloads = DataTableColumn("total", "↓", "num", chartTitle = "Downloads", tooltip = "Downloads", chartMetric = ChartMetric.Downloads.id)
+    private val columnTrials = DataTableColumn("total", "Trials", "num", chartMetric = ChartMetric.Trials.id)
 
     private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
     private val daySummaries = TreeMap<YearMonthDay, DaySummary>()
