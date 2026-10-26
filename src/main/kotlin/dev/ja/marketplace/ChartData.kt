@@ -14,7 +14,20 @@ import dev.ja.marketplace.data.chart.ChartMetric
 import dev.ja.marketplace.data.chart.ChartMetricValues
 import dev.ja.marketplace.data.chart.ChartWindow
 import dev.ja.marketplace.data.trackers.maxTrialDays
-import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonEncoder
+import kotlinx.serialization.json.JsonUnquotedLiteral
+import kotlinx.serialization.json.jsonPrimitive
+import java.math.BigDecimal
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -74,19 +87,21 @@ class ChartData {
         /** The maximum number of metrics of a request. */
         const val MAX_METRICS = 32
 
+        /** The JSON of the responses, properties without a value, e.g. without a moving average, are left out. */
+        @OptIn(ExperimentalSerializationApi::class)
+        val json: Json = Json { explicitNulls = false }
+
         /**
-         * Example: `[{"id": "sales", "title": "Sales", "unit": "USD", "measure": "flow", "usesWindow": true, "group": "Sales"}, ...]`.
-         *
          * @return The metrics with values, e.g. to add them to the charts, ordered like [ChartMetric.all].
          */
-        fun metricsJson(values: ChartMetricValues): String {
+        fun metrics(values: ChartMetricValues): List<ChartMetricData> {
             // the shares of unknown customer types are no row of the table
-            val metrics = values.metrics.filterNot { it.id.endsWith(".${CustomerType.Unknown}") }
-            return metrics.sortedBy { ChartMetric.all.indexOf(it) }.joinToString(",", "[", "]") { metric ->
-                "{\"id\":${JsonPrimitive(metric.id)},\"title\":${JsonPrimitive(metric.title)}," +
-                        "\"unit\":${JsonPrimitive(metric.unit.id(values.currency))},\"measure\":\"${metric.measure.name.lowercase()}\"," +
-                        "\"usesWindow\":${metric.usesWindow},\"group\":${JsonPrimitive(metric.group)}}"
-            }
+            return values.metrics
+                .filterNot { it.id.endsWith(".${CustomerType.Unknown}") }
+                .sortedBy { ChartMetric.all.indexOf(it) }
+                .map { metric ->
+                    ChartMetricData(metric.id, metric.title, metric.unit.id(values.currency), metric.measure.name.lowercase(), metric.usesWindow, metric.group)
+                }
         }
 
         /** The separator of the ID of a metric and the months of its moving average, e.g. `sales@avg3`. */
@@ -96,17 +111,14 @@ class ChartData {
         private val averageMonths = ChartMetricValues.AVERAGE_MONTHS.associateBy(Int::toString)
 
         /**
-         * Example: `{"dates": ["2026-01-31", ...], "series": {"mrr": {"title": "MRR", "unit": "USD", "measure": "stock",
-         * "usesWindow": false, "values": [12.50, ...], "incompleteFrom": 42}}}`.
-         * Values at the index `incompleteFrom` and later may still change, values before the index `partialUntil` only cover a
-         * part of their window, e.g. the first year of a plugin, which started in February. Values without data are `null`.
-         * The moving average of a metric over the months before each day has the ID of the metric with the months,
-         * e.g. `sales@avg3`, and the property `averageMonths`, see [ChartMetricValues.average].
          * Unknown metrics, metrics without values and averages, which don't apply, are left out.
+         * The moving average of a metric over the months before each day has the ID of the metric with the months,
+         * e.g. `sales@avg3`, see [ChartMetricValues.average].
          *
          * @param metrics The IDs of the metrics, see [ChartMetric.id], and of their moving averages.
+         * @return The values of the metrics at the dates of the [detail] level.
          */
-        fun json(values: ChartMetricValues, metrics: List<String>, window: ChartWindow, detail: ChartDetail): String {
+        fun chartData(values: ChartMetricValues, metrics: List<String>, window: ChartWindow, detail: ChartDetail): ChartDataResponse {
             val days = values.days
             val indices = detail.indices(days)
             val series = metrics.distinct().mapNotNull { id ->
@@ -118,26 +130,83 @@ class ChartData {
                 val dailySeries = when (months) {
                     null -> values.series(metric, window)
                     else -> values.average(metric, window, months)
-                }
-                dailySeries?.let { Triple(id, metric, months) to it }
+                } ?: return@mapNotNull null
+                id to ChartSeriesData(
+                    title = metric.title,
+                    unit = dailySeries.unit,
+                    measure = metric.measure.name.lowercase(),
+                    usesWindow = metric.usesWindow,
+                    averageMonths = months,
+                    values = indices.map { dailySeries.values[it] },
+                    incompleteFrom = indices.indexOfFirst { it >= dailySeries.incompleteFrom }.takeIf { it >= 0 } ?: indices.size,
+                    partialUntil = indices.count { it < dailySeries.partialUntil },
+                )
             }
-            return buildString {
-                append("""{"dates":[""")
-                indices.joinTo(this, ",") { "\"${days[it].asIsoString}\"" }
-                append("""],"series":{""")
-                series.joinTo(this, ",") { (key, values) ->
-                    val (id, metric, months) = key
-                    val incompleteFrom = indices.indexOfFirst { it >= values.incompleteFrom }.takeIf { it >= 0 } ?: indices.size
-                    val partialUntil = indices.count { it < values.partialUntil }
-                    val seriesValues = indices.joinToString(",") { values.values[it]?.toPlainString() ?: "null" }
-                    val measure = metric.measure.name.lowercase()
-                    val average = if (months != null) ",\"averageMonths\":$months" else ""
-                    "${JsonPrimitive(id)}:{\"title\":${JsonPrimitive(metric.title)},\"unit\":${JsonPrimitive(values.unit)}," +
-                            "\"measure\":\"$measure\",\"usesWindow\":${metric.usesWindow}$average," +
-                            "\"values\":[$seriesValues],\"incompleteFrom\":$incompleteFrom,\"partialUntil\":$partialUntil}"
-                }
-                append("}}")
-            }
+            return ChartDataResponse(indices.map { days[it].asIsoString }, series.toMap())
+        }
+    }
+}
+
+/**
+ * The response of `/chart-data`, e.g. `{"dates": ["2026-01-31", ...], "series": {"mrr": {"title": "MRR", ...}}}`.
+ *
+ * @param dates The dates of the values, ISO dates.
+ * @param series The values of each requested metric by its ID, e.g. `sales` or `sales@avg3`.
+ */
+@Serializable
+class ChartDataResponse(val dates: List<String>, val series: Map<String, ChartSeriesData>)
+
+/**
+ * The values of a metric of `/chart-data`.
+ *
+ * @param measure `flow`, `stock` or `ratio`, see [dev.ja.marketplace.data.ChartMeasure].
+ * @param averageMonths The months of a moving average, `null` for the values of the metric.
+ * @param values The value at each date, `null` without data, e.g. the revenue retention of the first year.
+ * @param incompleteFrom The index of the first value, which may still change.
+ * @param partialUntil The index of the first value, which covers its whole window, e.g. after the first year of a
+ *  plugin, which started in February.
+ */
+@Serializable
+class ChartSeriesData(
+    val title: String,
+    val unit: String,
+    val measure: String,
+    val usesWindow: Boolean,
+    val averageMonths: Int?,
+    val values: List<@Serializable(JsonDecimalSerializer::class) BigDecimal?>,
+    val incompleteFrom: Int,
+    val partialUntil: Int,
+)
+
+/** A metric of `/chart-metrics`, which the charts can show, see [ChartMetric]. */
+@Serializable
+class ChartMetricData(
+    val id: String,
+    val title: String,
+    val unit: String,
+    val measure: String,
+    val usesWindow: Boolean,
+    val group: String,
+)
+
+/**
+ * Writes decimals as JSON numbers with their scale, e.g. `12.50`, without a conversion to `Double`.
+ */
+private object JsonDecimalSerializer : KSerializer<BigDecimal> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("dev.ja.marketplace.JsonDecimal", PrimitiveKind.DOUBLE)
+
+    @OptIn(ExperimentalSerializationApi::class)
+    override fun serialize(encoder: Encoder, value: BigDecimal) {
+        when (encoder) {
+            is JsonEncoder -> encoder.encodeJsonElement(JsonUnquotedLiteral(value.toPlainString()))
+            else -> encoder.encodeString(value.toPlainString())
+        }
+    }
+
+    override fun deserialize(decoder: Decoder): BigDecimal {
+        return when (decoder) {
+            is JsonDecoder -> decoder.decodeJsonElement().jsonPrimitive.content.toBigDecimal()
+            else -> decoder.decodeString().toBigDecimal()
         }
     }
 }

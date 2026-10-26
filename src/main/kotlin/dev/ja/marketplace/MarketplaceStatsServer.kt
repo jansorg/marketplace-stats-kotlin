@@ -84,6 +84,10 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerializationStrategy
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.encodeToStream
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 
@@ -375,10 +379,10 @@ class MarketplaceStatsServer(
                 }
             }
 
-            // the metrics of the charts, e.g. to add them to the charts, see ChartData.metricsJson
+            // the metrics of the charts, e.g. to add them to the charts, see ChartData.metrics
             get("/chart-metrics") {
                 val values = chartMetricValues() ?: return@get
-                call.respondText(ChartData.metricsJson(values), io.ktor.http.ContentType.Application.Json)
+                call.respondJsonStream(ListSerializer(ChartMetricData.serializer()), ChartData.metrics(values))
             }
 
             // values of the metrics of the charts, e.g. /chart-data?pluginId=1&metrics=sales,mrr&window=month&detail=day
@@ -393,8 +397,8 @@ class MarketplaceStatsServer(
                 }
 
                 val values = chartMetricValues() ?: return@get
-                val json = withContext(Dispatchers.Default) { ChartData.json(values, metrics, window, detail) }
-                call.respondText(json, io.ktor.http.ContentType.Application.Json)
+                val response = withContext(Dispatchers.Default) { ChartData.chartData(values, metrics, window, detail) }
+                call.respondJsonStream(ChartDataResponse.serializer(), response)
             }
 
             get("/") {
@@ -727,6 +731,16 @@ class MarketplaceStatsServer(
                     today,
                 )
             }.also { allPluginsChartValuesCache = AllPluginsCache(allData, today, it) }
+        }
+    }
+
+    /**
+     * Writes the [value] as JSON into the response, without creating the text of the whole response in memory.
+     */
+    @OptIn(ExperimentalSerializationApi::class)
+    private suspend fun <T> ApplicationCall.respondJsonStream(serializer: SerializationStrategy<T>, value: T) {
+        respondOutputStream(io.ktor.http.ContentType.Application.Json) {
+            ChartData.json.encodeToStream(serializer, value, this)
         }
     }
 

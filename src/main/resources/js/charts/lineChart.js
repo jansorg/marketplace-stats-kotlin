@@ -778,13 +778,16 @@ function renderComparisonTable(table, {plot, rows, seriesPoints, comparisons, ti
             });
             const key = cell("span", "chart-tooltip-key");
             key.style.backgroundColor = series.color;
-            label.append(key, series.label);
+            // the key, the label, the menu of the window and the button to remove the line are centered vertically
+            const content = cell("span", "chart-comparison-series-content");
+            content.append(key, cell("span", null, series.label));
             if (series.windowMenu) {
-                label.append(series.windowMenu());
+                content.append(series.windowMenu());
             }
             if (series.removeButton) {
-                label.append(series.removeButton());
+                content.append(series.removeButton());
             }
+            label.append(content);
             labels.set(plotIndex, label);
         }
         label.setAttribute("aria-pressed", String(isShown));
