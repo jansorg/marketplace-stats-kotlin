@@ -35,6 +35,9 @@ class LicenseTable(
     private val columnPurchaseDate = DataTableColumn("sale-date", "Purchase", "date")
     private val columnValidityStart = DataTableColumn("license-validity", "License Start", "date")
     private val columnValidityEnd = DataTableColumn("license-validity-end", "End", "date")
+    private val columnLicensedFrom = DataTableColumn(
+        "license-from", "Licensed From", "date", tooltip = "Start of the first purchase of the license, of all customers"
+    )
     private val columnCustomerName = DataTableColumn("customer", "Name", cssStyle = "width: 20%; max-width: 35%")
     private val columnCustomerId = DataTableColumn("customer-id", "Cust. ID", "num")
     private val columnAmount = DataTableColumn("sale-amount", "Amount", "num")
@@ -50,6 +53,7 @@ class LicenseTable(
 
     private val data = mutableListOf<LicenseInfo>()
     private val licenseMaxValidity = Object2ObjectOpenHashMap<LicenseId, YearMonthDay>()
+    private val licenseMinValidity = Object2ObjectOpenHashMap<LicenseId, YearMonthDay>()
     // the purchase with the latest end of each license, of all customers
     private val licenseLatestPurchase = Object2ObjectOpenHashMap<LicenseId, LicenseInfo>()
     private val filteredLicenseMaxValidity = Object2ObjectOpenHashMap<LicenseId, YearMonthDay>()
@@ -62,8 +66,10 @@ class LicenseTable(
             return this.maxTableRows != null
         }
 
+    // with a row per license, the row only shows the latest purchase, the first purchase is shown by "Licensed From"
     override val columns: List<DataTableColumn> = listOfNotNull(
         columnPurchaseDate.takeIf { showPurchaseColumn },
+        columnLicensedFrom.takeIf { showOnlyLatestLicenseInfo },
         columnValidityStart,
         columnValidityEnd,
         columnFallbackVersion.takeIf { fallbackReleases != null },
@@ -92,6 +98,7 @@ class LicenseTable(
 
         val licenseId = licenseInfo.id
         licenseMaxValidity[licenseId] = maxOfNullable(licenseMaxValidity[licenseId], licenseInfo.validity!!.end)
+        licenseMinValidity[licenseId] = licenseMinValidity[licenseId]?.let { minOf(it, licenseInfo.validity!!.start) } ?: licenseInfo.validity!!.start
         if (licenseInfo.validity!!.end >= (licenseLatestPurchase[licenseId]?.validity?.end ?: YearMonthDay.MIN)) {
             licenseLatestPurchase[licenseId] = licenseInfo
         }
@@ -153,6 +160,7 @@ class LicenseTable(
                         columnLicenseId to LinkedLicense(license.id, pluginId!!),
                         columnRefNum to LinkedRefNum(license.sale.ref, pluginId!!),
                         columnPurchaseDate to if (showPurchaseDate) purchaseDate else null,
+                        columnLicensedFrom to licenseMinValidity[license.id],
                         columnValidityStart to validity.start,
                         columnValidityEnd to when {
                             isExpired -> ExpiredLicenseEnd(validityEnd, licenseEnd)

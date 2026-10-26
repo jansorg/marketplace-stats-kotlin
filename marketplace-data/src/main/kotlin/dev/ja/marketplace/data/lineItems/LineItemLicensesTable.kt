@@ -29,6 +29,9 @@ class LineItemLicensesTable(
     private val columnAmount = DataTableColumn("license-amount", "Amount", "num")
     private val columnAmountUSD = DataTableColumn("license-amount-usd", "Amount USD", "num")
     private val columnPaidAmount = DataTableColumn("license-paid-amount", "Paid Amount", "num", tooltip = "Amount after the share of the Marketplace")
+    private val columnLicensedFrom = DataTableColumn(
+        "license-from", "Licensed From", "date", tooltip = "Start of the first purchase of the license, of all customers"
+    )
     private val columnLicensedUntil = DataTableColumn(
         "license-until", "Licensed Until", "date", tooltip = "End of the latest purchase of the license, of all customers"
     )
@@ -39,6 +42,8 @@ class LineItemLicensesTable(
     private val licenses = mutableListOf<LicenseInfo>()
     // the purchase with the latest end of each license, of all customers
     private val latestPurchases = Object2ObjectOpenHashMap<LicenseId, LicenseInfo>()
+    // the start of the first purchase of each license, of all customers
+    private val firstStarts = Object2ObjectOpenHashMap<LicenseId, YearMonthDay>()
     private var pluginId: PluginId? = null
 
     // the amounts in USD would repeat the amounts of sales in USD, the column of other customers is only shown if needed
@@ -48,6 +53,7 @@ class LineItemLicensesTable(
             columnAmount,
             columnAmountUSD.takeUnless { licenses.all { it.sale.amount.currency == MarketplaceCurrencies.USD } },
             columnPaidAmount,
+            columnLicensedFrom,
             columnLicensedUntil,
             columnRenewedBy.takeIf { licenses.any { renewedBy(it) != null } },
         )
@@ -62,7 +68,9 @@ class LineItemLicensesTable(
             licenses += licenseInfo
         }
 
-        val end = licenseInfo.validity?.end ?: return
+        val validity = licenseInfo.validity ?: return
+        firstStarts[licenseInfo.id] = firstStarts[licenseInfo.id]?.let { minOf(it, validity.start) } ?: validity.start
+        val end = validity.end
         val latest = latestPurchases[licenseInfo.id]
         if (latest == null || end >= latest.validity!!.end) {
             latestPurchases[licenseInfo.id] = licenseInfo
@@ -84,6 +92,7 @@ class LineItemLicensesTable(
                     columnAmount to license.amount,
                     columnAmountUSD to license.amountUSD,
                     columnPaidAmount to Marketplace.paidAmount(license.sale.date, license.amount),
+                    columnLicensedFrom to (firstStarts[license.id] ?: NoValue),
                     columnLicensedUntil to when {
                         latestEnd == null -> NoValue
                         isChurned -> ExpiredLicenseEnd(latestEnd, latestEnd)
