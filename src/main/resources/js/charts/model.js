@@ -157,6 +157,29 @@ export function rangeOfPreset(preset, now = new Date()) {
     }
 }
 
+/**
+ * The items of the menu "Range": all dates, the ranges until today, the heading "Years" and the years with values,
+ * the latest year first. A zoomed range, which is neither a year nor a range until today, is the last item.
+ *
+ * @param {number[]} years The years with values, see {@link rangeYears}.
+ * @param {DateRange|null} range The shown dates, null for all dates.
+ * @param {Date} [now] The current time, for the dates of the ranges until today.
+ * @return {({label: string, range: DateRange|null}|{heading: string})[]} The items, a heading has no range.
+ */
+export function rangeMenuItems(years, range, now = new Date()) {
+    const items = [
+        {label: "All", range: null},
+        ...Object.entries(RANGE_PRESETS).map(([preset, label]) => ({label, range: rangeOfPreset(preset, now)})),
+        ...(years.length > 0 ? [{heading: "Years"}] : []),
+        ...years.map(year => ({label: String(year), range: rangeOfYear(year)})),
+    ];
+    const label = rangeLabel(range);
+    if (!items.some(item => item.label === label)) {
+        items.push({label, range});
+    }
+    return items;
+}
+
 /** @return {DateRange} The range of all days of the year. */
 export function rangeOfYear(year) {
     return {from: `${year}-01-01`, to: `${year}-12-31`};

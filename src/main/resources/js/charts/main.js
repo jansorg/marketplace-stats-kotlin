@@ -849,6 +849,8 @@ class ChartController {
         const applicableOverlays = new Set();
         // the series with values, e.g. for the years of the menu "Range"
         const shownSeries = [];
+        // values of metrics, which are still loading, e.g. after a change of the level
+        let isLoading = false;
         let shownCharts = 0;
         for (const chart of charts) {
             const key = lineChartKey(chart);
@@ -858,6 +860,7 @@ class ChartController {
                 chartSeries = this.metricChartSeries(chartSeries, level);
                 // the values are still loading, or the metrics have no values
                 if (chartSeries.length === 0) {
+                    isLoading ||= Object.values(this.metricValues).some(entry => entry.pending);
                     continue;
                 }
             }
@@ -958,7 +961,10 @@ class ChartController {
                 }));
             }
         }
-        dialog.setDateRange(rangeYears(shownSeries), this.dateRange);
+        // while values are loading, the menu "Range" keeps the years of the shown values
+        const years = rangeYears(shownSeries);
+        this.shownYears = isLoading ? [...new Set([...years, ...(this.shownYears ?? [])])].sort((a, b) => b - a) : years;
+        dialog.setDateRange(this.shownYears, this.dateRange);
 
         for (const pie of this.pies) {
             const panel = dialog.addPanel("chart-panel chart-pie-panel");

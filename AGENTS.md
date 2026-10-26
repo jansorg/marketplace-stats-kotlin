@@ -260,7 +260,8 @@ extend, must not fail a response:
   `/chart-data`, `isPartialPeriod` of the tables): hollow points and outlined bars in the color of the series.
 - The menu "Range" of the dialog selects the shown dates of all line charts: all dates, a range until today (today,
   the past 7 days, this month, `RANGE_PRESETS` and `rangeOfPreset`, stored with their `preset` and calculated again
-  when the setup is loaded) or a year with values (`rangeYears`). Dragging over a line chart zooms in (`onZoom` in `lineChart.js`), on touch devices two fingers zoom
+  when the setup is loaded) or a year with values (`rangeYears`, below the heading "Years", the latest year first,
+  `rangeMenuItems`; while values of metrics are loading, the menu keeps the years of the previous values). Dragging over a line chart zooms in (`onZoom` in `lineChart.js`), on touch devices two fingers zoom
   in and out (`enablePinchZoom`, `pinchedRange` in `model.js`). The range is part of the stored
   setup (`dateRange`, ISO dates). Only the x-axis is limited (`visibleRange`), all values are still used, e.g. by the
   value table and the averages. The y-axis, the minimum and maximum and the latest values use the shown dates.

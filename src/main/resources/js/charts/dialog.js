@@ -8,7 +8,7 @@
  */
 
 import {createMenu} from "./menu.js";
-import {eventMenuItems, MARKER_LABELS, RANGE_PRESETS, rangeLabel, rangeOfPreset, rangeOfYear} from "./model.js";
+import {eventMenuItems, MARKER_LABELS, rangeLabel, rangeMenuItems} from "./model.js";
 
 /**
  * @return {number} The maximum height of the menu to add a metric in pixels, a longer menu scrolls. Touch screens use
@@ -348,17 +348,13 @@ export class ChartDialog {
         summary.title = "Range: " + label;
         // a limited range is highlighted, e.g. the dates of a table of a few days, so that it isn't missed
         this.rangeMenu.classList.toggle("chart-menu-modified", range !== null);
-        const items = [
-            {label: "All", range: null},
-            // the ranges, which end today, e.g. the past 7 days
-            ...Object.entries(RANGE_PRESETS).map(([preset, label]) => ({label, range: rangeOfPreset(preset)})),
-            ...years.map(year => ({label: String(year), range: rangeOfYear(year)})),
-        ];
-        // a zoomed range, which is neither a year nor a range until today
-        if (!items.some(item => item.label === label)) {
-            items.push({label, range});
-        }
-        this.rangeItems.replaceChildren(...items.map(item => {
+        this.rangeItems.replaceChildren(...rangeMenuItems(years, range).map(item => {
+            if (item.heading) {
+                const heading = document.createElement("div");
+                heading.className = "chart-menu-heading";
+                heading.textContent = item.heading;
+                return heading;
+            }
             const button = document.createElement("button");
             button.type = "button";
             button.textContent = item.label;
