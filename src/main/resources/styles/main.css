@@ -1706,6 +1706,12 @@ dl.detail-grid dd {
     align-items: center;
 }
 
+/* the inline legend of uPlot makes all its elements inline blocks (.u-inline *), the items of a menu of a line, e.g.
+   without the value table, are listed vertically */
+.u-legend .chart-menu-items {
+    display: flex;
+}
+
 /* the × in the legend of a line, which removes it */
 .chart-series-remove {
     display: inline-flex;
