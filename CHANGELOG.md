@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.45.1
+
+- Charts on small screens: the dialog has no button to maximize it, it always fills the window, and the lines one month
+  and one year before and after the cursor are hidden.
+- A chart, which is already shown, opens without the message "... is already shown".
+
 ## 0.45.0
 
 - Charts:
