@@ -74,8 +74,10 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
 
         // the trackers of each plugin, the IDs of the licenses of different plugins could be the same
         val firstYear = licenses.mapNotNull { it.validity?.start?.year }.minOrNull() ?: return
-        for (year in firstYear..YearMonthDay.now().year) {
-            val yearRange = YearMonthDayRange.ofYear(year)
+        val today = YearMonthDay.now()
+        for (year in firstYear..today.year) {
+            // the recurring revenue of the current year at today
+            val yearRange = YearMonthDayRange.ofYear(year).let { it.copy(end = minOf(it.end, today)) }
             val mrr = MonthlyRecurringRevenueTracker(yearRange, displayExchangeRates)
             val arr = AnnualRecurringRevenueTracker(yearRange, displayExchangeRates)
             for (license in licenses) {
@@ -111,7 +113,7 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
                     columnSalesFees to sales.feesAmount,
                     columnSalesPaid to sales.paidAmount,
                     // the recurring revenue of the current year is incomplete,
-                    // because licenses renewed later in the year are not included yet
+                    // it's the value of today, it changes until the end of the year
                     columnMrr to recurringRevenue(mrrByYear[year], year == now.year),
                     columnArr to recurringRevenue(arrByYear[year], year == now.year),
                     // the downloads of a day are reported on the next day at the earliest

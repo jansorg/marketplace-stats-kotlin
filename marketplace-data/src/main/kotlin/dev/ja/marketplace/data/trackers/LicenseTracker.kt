@@ -11,7 +11,8 @@ import dev.ja.marketplace.client.YearMonthDayRange
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 
 class LicenseTracker<T>(private val dateRange: YearMonthDayRange) {
-    private val segmentedLicenses = mutableMapOf<T, MutableList<LicenseInfo>>()
+    // the IDs of the licenses of each segment, a license with several valid sales is counted once
+    private val segmentedLicenses = mutableMapOf<T, MutableSet<LicenseId>>()
     private val licenses = ObjectOpenHashSet<LicenseId>()
     private val licensesPaying = ObjectOpenHashSet<LicenseId>()
 
@@ -25,12 +26,8 @@ class LicenseTracker<T>(private val dateRange: YearMonthDayRange) {
             return licensesPaying.size
         }
 
-    fun segmentCustomerCount(segment: T): Int {
+    fun segmentLicenseCount(segment: T): Int {
         return segmentedLicenses[segment]?.size ?: 0
-    }
-
-    fun getSegment(segment: T): Collection<LicenseInfo> {
-        return segmentedLicenses[segment] ?: emptyList()
     }
 
     fun add(segment: T, licenseInfo: LicenseInfo) {
@@ -42,9 +39,7 @@ class LicenseTracker<T>(private val dateRange: YearMonthDayRange) {
                 licensesPaying += licenseInfo.id
             }
 
-            segmentedLicenses.computeIfAbsent(segment) {
-                ArrayList(500)
-            } += licenseInfo
+            segmentedLicenses.computeIfAbsent(segment) { ObjectOpenHashSet() } += licenseInfo.id
         }
     }
 }

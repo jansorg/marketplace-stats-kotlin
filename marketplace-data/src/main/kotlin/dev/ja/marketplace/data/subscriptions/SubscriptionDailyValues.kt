@@ -177,7 +177,7 @@ object SubscriptionDailyValues {
         }
 
         // the values of the current month are incomplete like in the tables,
-        // because licenses renewed later in the month aren't included yet
+        // it's the value of today, it changes until the end of the month
         val incompleteFrom = maxOf(0, index(YearMonthDay.firstOfMonth(today.year, today.month)))
         val currency = revenue.currency.currencyCode
         return columns.mapValues { (column, values) ->

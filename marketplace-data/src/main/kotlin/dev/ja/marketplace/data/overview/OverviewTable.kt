@@ -105,7 +105,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         chartMeasure = ChartMeasure.Stock,
     )
     private val columnAnnualRecurringRevenue = DataTableColumn(
-        "customer-mrr", "ARR", "num", tooltip = "Average annual recurring revenue (MRR)",
+        "customer-arr", "ARR", "num", tooltip = "Average annual recurring revenue (ARR)",
         dailyChartSeries = OverviewDailyColumn.Arr.id,
         chartMeasure = ChartMeasure.Stock,
     )
@@ -187,8 +187,9 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                     // churn of the current month until today, licenses expiring later in the month may still be renewed
                     createLicenseChurnProcessor(activeCustomerRange),
                     createLicenseChurnProcessor(activeCustomerRange),
-                    createMonthlyRecurringRevenueTracker(currentMonth, data),
-                    createAnnualRecurringRevenueTracker(currentMonth, data),
+                    // the recurring revenue of the current month at today, like the licenses
+                    createMonthlyRecurringRevenueTracker(activeCustomerRange, data),
+                    createAnnualRecurringRevenueTracker(activeCustomerRange, data),
                     downloadsMonthly
                         .firstOrNull { it.firstOfMonth.year == year && it.firstOfMonth.month == month }
                         ?.downloads
@@ -284,7 +285,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                     val monthDateRange = YearMonthDayRange.ofMonth(year, month)
 
                     // The recurring revenue of the current month is incomplete,
-                    // because licenses renewed later in the month are not included yet
+                    // it's the value of today, it changes until the end of the month
                     val mrrValue = monthData.mrrTracker.getResult().amounts.getTotalAmount()
                         .let { if (isCurrentMonth) IncompleteValue(it) else it }
                     val arrValue = monthData.arrTracker.getResult().amounts.getTotalAmount()
@@ -302,9 +303,9 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                         else -> null
                     }
 
-                    val annualLicensesFree = monthData.licenses.segmentCustomerCount(AnnualFree)
-                    val annualLicensesPaying = monthData.licenses.segmentCustomerCount(AnnualPaying)
-                    val monthlyLicensesPaying = monthData.licenses.segmentCustomerCount(MonthlyPaying)
+                    val annualLicensesFree = monthData.licenses.segmentLicenseCount(AnnualFree)
+                    val annualLicensesPaying = monthData.licenses.segmentLicenseCount(AnnualPaying)
+                    val monthlyLicensesPaying = monthData.licenses.segmentLicenseCount(MonthlyPaying)
                     val totalLicenses = monthData.licenses.totalLicenseCount
                     val totalLicensesPaying = monthData.licenses.paidLicensesCount
 

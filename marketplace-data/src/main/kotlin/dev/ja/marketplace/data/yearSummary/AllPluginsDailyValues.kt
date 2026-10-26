@@ -182,7 +182,7 @@ class AllPluginsDailyValues private constructor(val days: List<YearMonthDay>, va
             // the sums of the current day may still change
             val incompleteFrom = dayCount - 1
             // the recurring revenue of the current month is incomplete like in the overview,
-            // because licenses renewed later in the month aren't included yet
+            // it's the value of today, it changes until the end of the month
             val incompleteRecurringRevenue = maxOf(0, index(YearMonthDay(today.year, today.month, 1)))
             val currency = exchangeRates.targetCurrency.currencyCode
             val trialSeries = when {

@@ -51,7 +51,8 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
             val yearRange = YearMonthDayRange.ofYear(year)
             this.data[year] = YearSummary(
                 PaymentAmountTracker(yearRange, data.exchangeRates),
-                AnnualRecurringRevenueTracker(yearRange, data.exchangeRates)
+                // the recurring revenue of the current year at today
+                AnnualRecurringRevenueTracker(yearRange.copy(end = minOf(yearRange.end, now)), data.exchangeRates)
             )
         }
 
@@ -102,7 +103,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                 val trialResultAnyDuration = trialsTracker.getResult(yearDateRange)
                 val trialResultTrialDuration = trialsTracker.getResultWithinConversionPeriod(yearDateRange, maxTrialDays)
                 // The recurring revenue of the current year is incomplete,
-                // because licenses renewed later in the year are not included yet
+                // it's the value of today, it changes until the end of the year
                 val arrValue = yearData.annualRevenue.getResult().amounts.getTotalAmount()
                     .let { if (year == now.year) IncompleteValue(it) else it }
                 SimpleDateTableRow(
@@ -115,7 +116,8 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                         columnDownloads to downloads
                             .filter { it.firstOfMonth.year == year }
                             .sumOf(MonthlyDownload::downloads)
-                            .toBigInteger(),
+                            .toBigInteger()
+                            .let { if (year == now.year) IncompleteValue(it) else it },
                         columnTrials to (trialResultAnyDuration.totalTrials.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
                         columnTrialsConverted to trialResultTrialDuration.displayedConversionRate,
                     ),
@@ -143,7 +145,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                             columnSalesPaid to totalSales.paidAmount,
                             columnDownloads to downloads.sumOf { it.downloads.toBigInteger() },
                             columnTrials to allTrialsAnyDuration.totalTrials.toBigInteger(),
-                            columnTrialsConverted to allTrialsTrialDuration.convertedTrialsPercentage,
+                            columnTrialsConverted to allTrialsTrialDuration.displayedConversionRate,
                         ),
                         tooltips = mapOf(
                             columnTrialsConverted to allTrialsAnyDuration.getTooltipConverted() +
