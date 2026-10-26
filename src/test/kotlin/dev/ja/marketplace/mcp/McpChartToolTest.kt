@@ -198,6 +198,18 @@ class McpChartToolTest {
     }
 
     @Test
+    suspend fun subtitleWithTheDatesOfTheValues() {
+        val result = tools.result("create_chart", arguments {
+            put("series", series(metric("sales")))
+            put("format", "svg")
+            put("startDate", "2025-02-01")
+        })
+        val svg = (result.content.single() as McpContent.Text).text
+        assertTrue("2025-02-01 – " in svg, "the start date")
+        assertFalse("…" in svg, "the last date instead of an open end")
+    }
+
+    @Test
     suspend fun errorsOfTheData() {
         val threeUnits = assertThrows<IllegalArgumentException> {
             tools.result("create_chart", arguments { put("series", series(metric("sales"), metric("trials"), metric("churn-annual"))) })

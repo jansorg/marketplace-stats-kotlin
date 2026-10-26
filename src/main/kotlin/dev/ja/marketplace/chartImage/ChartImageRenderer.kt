@@ -85,10 +85,12 @@ object ChartImageRenderer {
     }
 
     private class LegendEntry(val label: String, val color: ChartColor, val shape: LegendShape, val dash: List<Double>? = null) {
-        val width: Double = SWATCH_WIDTH + SWATCH_GAP + ChartFonts.width(label, TEXT_SIZE)
+        val swatchWidth: Double = if (shape == LegendShape.DottedAndStripes) 2 * SWATCH_WIDTH + SWATCH_GAP else SWATCH_WIDTH
+        val width: Double = swatchWidth + SWATCH_GAP + ChartFonts.width(label, TEXT_SIZE)
     }
 
-    private enum class LegendShape { Line, Dotted, Box, Stripes, Marker }
+    /** [DottedAndStripes] is the single legend entry of the incomplete values of lines and bars. */
+    private enum class LegendShape { Line, Dotted, Box, Stripes, DottedAndStripes, Marker }
 
     /** The pixels of the plot and the scales of its axes. */
     private class Plot(
@@ -412,11 +414,15 @@ object ChartImageRenderer {
         }.toMutableList()
 
         val incomplete = chart.series.indices.filter { index -> chart.series[index].kind != ChartSeriesKind.PreviousYear && visible[index].any(ChartPoint::isIncomplete) }
-        if (incomplete.any { !chart.series[it].isBar }) {
-            entries += LegendEntry("Incomplete values", ChartColor.IncompleteGrey, LegendShape.Dotted)
-        }
-        if (incomplete.any { chart.series[it].isBar }) {
-            entries += LegendEntry("Incomplete values", ChartColor.IncompleteGrey, LegendShape.Stripes)
+        val incompleteLines = incomplete.any { !chart.series[it].isBar }
+        val incompleteBars = incomplete.any { chart.series[it].isBar }
+        if (incompleteLines || incompleteBars) {
+            val shape = when {
+                incompleteLines && incompleteBars -> LegendShape.DottedAndStripes
+                incompleteBars -> LegendShape.Stripes
+                else -> LegendShape.Dotted
+            }
+            entries += LegendEntry("Incomplete values", ChartColor.IncompleteGrey, shape)
         }
         markers.map(ChartMarker::kind).distinct().sorted().forEach { kind ->
             entries += LegendEntry(kind.label, kind.color, LegendShape.Marker, kind.dash)
@@ -446,7 +452,7 @@ object ChartImageRenderer {
             var x = PADDING
             for (entry in row) {
                 drawSwatch(canvas, entry, x, centerY)
-                canvas.text(entry.label, x + SWATCH_WIDTH + SWATCH_GAP, centerY + 4, TEXT_SIZE, ChartColor.Text)
+                canvas.text(entry.label, x + entry.swatchWidth + SWATCH_GAP, centerY + 4, TEXT_SIZE, ChartColor.Text)
                 x += entry.width + ENTRY_GAP
             }
         }
@@ -456,20 +462,30 @@ object ChartImageRenderer {
         val line = Line2D.Double(x, centerY, x + SWATCH_WIDTH, centerY)
         when (entry.shape) {
             LegendShape.Line -> canvas.stroke(line, entry.color, LINE_WIDTH, entry.dash)
-            LegendShape.Dotted -> canvas.stroke(line, entry.color, LINE_WIDTH, listOf(0.0, 4.0), roundCap = true)
+            LegendShape.Dotted -> drawDottedSwatch(canvas, entry.color, x, centerY)
             LegendShape.Marker -> canvas.stroke(Line2D.Double(x + SWATCH_WIDTH / 2, centerY - 7, x + SWATCH_WIDTH / 2, centerY + 7), entry.color, MARKER_WIDTH, entry.dash)
             LegendShape.Box -> canvas.fill(Rectangle2D.Double(x + 2, centerY - 5, 10.0, 10.0), entry.color)
-            LegendShape.Stripes -> {
-                val box = Rectangle2D.Double(x + 2.5, centerY - 4.5, 9.0, 9.0)
-                canvas.clip(box) {
-                    var offset = -10.0
-                    while (offset <= 10) {
-                        canvas.stroke(Line2D.Double(x + 2 + offset, centerY + 5, x + 12 + offset, centerY - 5), entry.color, 1.5)
-                        offset += 4
-                    }
-                }
-                canvas.stroke(box, entry.color, 1.0)
+            LegendShape.Stripes -> drawStripesSwatch(canvas, entry.color, x, centerY)
+            LegendShape.DottedAndStripes -> {
+                drawDottedSwatch(canvas, entry.color, x, centerY)
+                drawStripesSwatch(canvas, entry.color, x + SWATCH_WIDTH + SWATCH_GAP, centerY)
             }
         }
+    }
+
+    private fun drawDottedSwatch(canvas: ChartCanvas, color: ChartColor, x: Double, centerY: Double) {
+        canvas.stroke(Line2D.Double(x, centerY, x + SWATCH_WIDTH, centerY), color, LINE_WIDTH, listOf(0.0, 4.0), roundCap = true)
+    }
+
+    private fun drawStripesSwatch(canvas: ChartCanvas, color: ChartColor, x: Double, centerY: Double) {
+        val box = Rectangle2D.Double(x + 2.5, centerY - 4.5, 9.0, 9.0)
+        canvas.clip(box) {
+            var offset = -10.0
+            while (offset <= 10) {
+                canvas.stroke(Line2D.Double(x + 2 + offset, centerY + 5, x + 12 + offset, centerY - 5), color, 1.5)
+                offset += 4
+            }
+        }
+        canvas.stroke(box, color, 1.0)
     }
 }

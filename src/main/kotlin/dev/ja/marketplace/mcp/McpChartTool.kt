@@ -55,9 +55,9 @@ internal data class ChartSeriesRequest(
 
 /**
  * The shown dates of a chart: all dates, or the dates from [start] to [end]. A missing date is the first or the last
- * date with values.
+ * date with values. Without a [label], e.g. for the dates of `startDate` and `endDate`, the subtitle shows the dates.
  */
-internal data class ChartDateRange(val start: LocalDate?, val end: LocalDate?, val label: String)
+internal data class ChartDateRange(val start: LocalDate?, val end: LocalDate?, val label: String?)
 
 /** The arguments of the tool `create_chart`, the options of the chart dialog of the web interface. */
 internal data class ChartRequest(
@@ -232,7 +232,7 @@ internal data class ChartRequest(
                 require(range == null || range == "all") { "Use either range or startDate and endDate" }
                 val start = dates.start?.toLocalDate()
                 val end = dates.end?.toLocalDate()
-                return ChartDateRange(start, end, "${start ?: "…"} – ${end ?: "…"}")
+                return ChartDateRange(start, end, null)
             }
             return when (range) {
                 null, "all" -> ChartDateRange(null, null, "All dates")
@@ -523,7 +523,10 @@ class McpChartTool(private val provider: McpDataProvider) {
             require(start <= end) { "The shown dates end before they start: $start – $end" }
 
             val title = request.title ?: request.series.map { it.metric.title }.distinct().joinToString(" and ")
-            val subtitle = listOf(subject, "values of each ${request.detail.id}", request.range.label.replaceFirstChar(Char::lowercaseChar))
+            // the dates of the values instead of the end of the last period, which may be after today
+            val rangeLabel = request.range.label?.replaceFirstChar(Char::lowercaseChar)
+                ?: "${request.range.start ?: start} – ${request.range.end ?: valuePoints.maxOf(ChartPoint::date)}"
+            val subtitle = listOf(subject, "values of each ${request.detail.id}", rangeLabel)
                 .joinToString(" · ")
             val chart = ChartImage(
                 title = title,
