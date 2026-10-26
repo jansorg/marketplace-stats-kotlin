@@ -1620,6 +1620,13 @@ dl.detail-grid dd {
     background-color: var(--button-bgcolor);
 }
 
+/* the hint of a dialog without charts */
+.chart-empty-hint {
+    margin: 25vh 0;
+    text-align: center;
+    color: var(--text-color-disabled);
+}
+
 /* the gear in the legend of a line, which selects its window */
 .chart-series-window {
     display: inline-block;
