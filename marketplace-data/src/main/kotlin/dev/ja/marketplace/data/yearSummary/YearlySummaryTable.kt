@@ -27,7 +27,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
     private val columnYear = DataTableColumn("year", null)
     private val columnSalesTotal = DataTableColumn("sales", "Sales Total", "num", chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Sales.id)
     private val columnSalesFees = DataTableColumn("fees", "Fees", "num", chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Fees.id)
-    private val columnSalesPaid = DataTableColumn("paid", "Paid", "num", chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Invoice.id)
+    private val columnSalesPaid = DataTableColumn("paid", "Invoice", "num", chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Invoice.id)
     private val columnARR = DataTableColumn("arr", "ARR", "num", chartMeasure = ChartMeasure.Stock, chartMetric = ChartMetric.Arr.id)
     private val columnDownloads = DataTableColumn(
         "downloads", "↓", "num", chartTitle = "Downloads", tooltip = "Downloads",
