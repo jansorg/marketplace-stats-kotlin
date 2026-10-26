@@ -46,8 +46,9 @@ class CustomEventsTest {
             ),
             events,
         )
-        // an event of a plugin is shown for the plugin and the summary of all plugins
-        assertTrue(events[0].appliesTo(12345) && events[0].appliesTo(null) && !events[0].appliesTo(1))
+        // an event of a plugin is shown for the plugin and for summaries, which contain the plugin
+        assertTrue(events[0].appliesTo(setOf(12345)) && events[0].appliesTo(setOf(678, 12345)))
+        assertTrue(!events[0].appliesTo(setOf(678)) && !events[0].appliesTo(emptySet()))
     }
 
     @Test
