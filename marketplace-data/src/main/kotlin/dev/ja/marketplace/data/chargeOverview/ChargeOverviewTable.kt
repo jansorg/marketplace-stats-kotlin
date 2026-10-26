@@ -66,7 +66,7 @@ class ChargeOverviewTable : SimpleDataTable("Charges", "charges", "table-column-
     override suspend fun createSections(): List<DataTableSection> {
         val overchargeTotal = mutableMapOf<CurrencyUnit, MonetaryAmount>()
         for (lineItem in lineItems) {
-            val overcharge = withoutJetBrainsCommission(lineItem.first.date, overcharge(lineItem.second.amount))
+            val overcharge = Marketplace.paidAmount(lineItem.first.date, overcharge(lineItem.second))
             overchargeTotal.compute(lineItem.second.amount.currency) { _, value ->
                 value?.add(overcharge) ?: overcharge
             }
@@ -82,12 +82,12 @@ class ChargeOverviewTable : SimpleDataTable("Charges", "charges", "table-column-
                     columnReseller to sale.reseller?.name,
                     // before JetBrains commission
                     columnAmountActual to lineItem.amount,
-                    columnAmountExpected to expectedAmount(lineItem.amount),
-                    columnOvercharged to overcharge(lineItem.amount),
+                    columnAmountExpected to expectedAmount(lineItem),
+                    columnOvercharged to overcharge(lineItem),
                     // after JetBrains commission
-                    columnPaidActual to withoutJetBrainsCommission(sale.date, lineItem.amount),
-                    columnPaidExpected to expectedAmount(withoutJetBrainsCommission(sale.date, lineItem.amount)),
-                    columnPaidOvercharged to overcharge(withoutJetBrainsCommission(sale.date, lineItem.amount)),
+                    columnPaidActual to Marketplace.paidAmount(sale.date, lineItem.amount),
+                    columnPaidExpected to Marketplace.paidAmount(sale.date, expectedAmount(lineItem)),
+                    columnPaidOvercharged to Marketplace.paidAmount(sale.date, overcharge(lineItem)),
                 ),
             )
         }
@@ -106,11 +106,13 @@ class ChargeOverviewTable : SimpleDataTable("Charges", "charges", "table-column-
         )
     }
 
-    private fun withoutJetBrainsCommission(saleDate: YearMonthDay, monetaryAmount: MonetaryAmount): MonetaryAmount {
-        return monetaryAmount.minus(Marketplace.feeAmount(saleDate, monetaryAmount))
+    /**
+     * @return The amount without the discount of the reseller, by the percentage of the discount, 5 % if it's unknown.
+     */
+    private fun expectedAmount(lineItem: PluginSaleItem): MonetaryAmount {
+        val percent = lineItem.discountDescriptions.firstOrNull { it.isResellerDiscount }?.percent ?: 5.0
+        return lineItem.amount.divide(1.0 - percent / 100.0)
     }
 
-    private fun expectedAmount(monetaryAmount: MonetaryAmount): MonetaryAmount = monetaryAmount.divide(0.95)
-
-    private fun overcharge(monetaryAmount: MonetaryAmount) = expectedAmount(monetaryAmount).minus(monetaryAmount).negate()
+    private fun overcharge(lineItem: PluginSaleItem) = expectedAmount(lineItem).minus(lineItem.amount).negate()
 }
