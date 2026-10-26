@@ -100,10 +100,12 @@ class CustomerTable(
         }
 
         val validity = licenseInfo.validity
-        if (validity != null) {
-            val licenseStart = validity.start
-            data.earliestLicenseStart = minOf(licenseStart, data.earliestLicenseStart ?: licenseStart)
-
+        // a perpetual license starts at its sale, it doesn't end
+        val licenseStart = validity?.start ?: licenseInfo.sale.date
+        data.earliestLicenseStart = minOf(licenseStart, data.earliestLicenseStart ?: licenseStart)
+        if (validity == null) {
+            data.activeLicenses += licenseInfo.id
+        } else {
             val licenseEnd = validity.end
             data.latestLicenseEnd = maxOf(licenseEnd, data.latestLicenseEnd ?: licenseEnd)
 
@@ -130,21 +132,22 @@ class CustomerTable(
 
     override suspend fun createSections(): List<DataTableSection> {
         var prevValidUntil: YearMonthDay? = null
+        // customers with only perpetual licenses have no end, they're shown last
         val displayedCustomers = customerMap.values
             .sortedByDescending { it.totalSales.getTotalAmount().sortValue() }
-            .sortedByDescending { it.latestLicenseEnd!! }
+            .sortedByDescending { it.latestLicenseEnd ?: YearMonthDay.MIN }
 
         val rows = displayedCustomers
             .map { customerData ->
                 val customer = customerData.customer
                 val validSince = customerData.earliestLicenseStart!!
-                val validUntil = customerData.latestLicenseEnd!!
+                val validUntil = customerData.latestLicenseEnd
                 val showValidUntil = validUntil != prevValidUntil
                 prevValidUntil = validUntil
 
                 SimpleDateTableRow(
                     mapOf(
-                        columnValidUntil to validUntil.takeIf { showValidUntil },
+                        columnValidUntil to (validUntil ?: NoValue).takeIf { showValidUntil },
                         columnValidSince to validSince,
                         // the ID and the name link to the customer
                         columnId to LinkedCustomer(customer.code, pluginId = pluginId!!),
@@ -158,7 +161,7 @@ class CustomerTable(
                         columnSales to customerData.totalSales.getTotalAmount(),
                     ),
                     sortValues = mapOf(
-                        columnValidUntil to validUntil.sortValue,
+                        columnValidUntil to (validUntil?.sortValue ?: Long.MIN_VALUE),
                         columnValidSince to validSince.sortValue,
                         columnSales to customerData.totalSales.getTotalAmount().sortValue(),
                     ),
@@ -168,9 +171,10 @@ class CustomerTable(
         val footer = SimpleRowGroup(
             SimpleDateTableRow(
                 columnName to "${displayedCustomers.size} customers",
-                columnTotalLicenses to displayedCustomers.sumOf { it.totalLicenses.size }.toBigInteger(),
-                columnActiveLicenses to displayedCustomers.sumOf { it.activeLicenses.size }.toBigInteger(),
-                columnChurnedLicenses to displayedCustomers.sumOf { churnedLicenses(it) }.toBigInteger(),
+                // a license of several customers, e.g. after a transfer, is counted once
+                columnTotalLicenses to displayedCustomers.flatMapTo(HashSet()) { it.totalLicenses }.size.toBigInteger(),
+                columnActiveLicenses to displayedCustomers.flatMapTo(HashSet()) { it.activeLicenses }.size.toBigInteger(),
+                columnChurnedLicenses to licenseLatestEnd.values.count { it < nowDate }.toBigInteger(),
                 columnTransferredLicenses to displayedCustomers.sumOf { transferredLicenses(it) }.toBigInteger(),
                 columnSales to totalSales.getTotalAmount(),
             )
