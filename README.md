@@ -149,7 +149,7 @@ older than a day, for example after a long downtime, they are loaded before the 
 While the server is running, they are loaded again when a report is shown and the data is older than 30 minutes.
 The complete history is loaded again once a week.
 Prices are loaded again after a week, exchange rates after six hours, downloads and the products and releases of JetBrains after a day.
-The "Refresh" button of a report (`POST /refresh?reload=true`) ignores the stored data and loads everything again.
+The button "Drop caches" in the footer of a report (`POST /refresh?reload=true`) ignores the stored data and loads everything again.
 
 The data of each API key is stored in a separate directory, the key itself isn't stored. The products of JetBrains are shared by all keys.
 The directory contains sales and customer data, protect it accordingly. It's safe to delete it at any time.
