@@ -332,7 +332,7 @@ class CaffeineCacheMarketplaceClient(
         startDate: YearMonthDay?,
         productCode: JetBrainsProductCode?
     ): List<MonthlyDownload> {
-        return loadCached("downloadsMonthly.$plugin.$countType.$startDate", Category.Daily) {
+        return loadCached("downloadsMonthly.$plugin.$countType.$startDate.$productCode", Category.Daily) {
             super.downloadsMonthly(plugin, countType, startDate, productCode)
         }
     }

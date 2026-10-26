@@ -17,7 +17,7 @@ enum class ProductFamily(@Transient val jsonId: String) {
     TeamCity("teamcity"),
 
     @SerialName("teamcity_recipes")
-    TeamCityRecipes("teamcity"),
+    TeamCityRecipes("teamcity_recipes"),
 
     @SerialName("hub")
     Hub("hub"),
