@@ -32,7 +32,11 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
         chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.DOWNLOADS,
     )
     private val columnTrials = DataTableColumn("trials", "Trials", "num", chartMeasure = ChartMeasure.Flow, dailyChartSeries = AllPluginsDailyValues.TRIALS)
-    private val columnTrialsConverted = DataTableColumn("trials-converted", "Conv. Trials", "num")
+    // the values per day are the rates of the trials of the year before each day
+    private val columnTrialsConverted = DataTableColumn(
+        "trials-converted", "Conv. Trials", "num",
+        chartMeasure = ChartMeasure.Ratio, dailyChartSeries = OverviewDailyColumn.TrialsConvertedOfYear.id,
+    )
 
     private class YearSummary(
         val sales: PaymentAmountTracker,

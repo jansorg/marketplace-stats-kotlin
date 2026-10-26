@@ -23,6 +23,10 @@ import dev.ja.marketplace.data.trackers.AnnualRecurringRevenueTracker
 import dev.ja.marketplace.data.trackers.LicenseTracker
 import dev.ja.marketplace.data.trackers.MonthlyRecurringRevenueTracker
 import dev.ja.marketplace.data.trackers.PaymentAmountTracker
+import dev.ja.marketplace.data.trackers.SimpleTrialTracker
+import dev.ja.marketplace.data.trackers.getResultWithinConversionPeriod
+import dev.ja.marketplace.data.trackers.trialConversionDays
+import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -172,6 +176,48 @@ class OverviewDailyValuesTest {
         assertChurn(OverviewDailyColumn.ChurnMonthlyOfYear, LicensePeriod.Monthly, today.add(-1, 0, 0), today)
         assertEquals(values.days.indexOf(YearMonthDay(2025, 1, 1)), values.series.getValue(OverviewDailyColumn.ChurnAnnualOfYear).incompleteFrom)
         assertEquals(values.days.indexOf(YearMonthDay(2025, 9, 1)), values.series.getValue(OverviewDailyColumn.ChurnMonthly).incompleteFrom)
+    }
+
+    @Test
+    fun trialConversionIsTheConversionOfTheTable() {
+        // trials, of which some are converted within the conversion period, some later and some not
+        val random = Random(5)
+        val trials = (1..300).map { index ->
+            PluginTrial("trial-$index", YearMonthDay(2023, 1, 1).add(0, 0, random.nextInt(990)), customer(index))
+        }
+        val trialSales = trials.mapNotNull { trial ->
+            when (random.nextInt(3)) {
+                0 -> sale(trial.customer, "trial-license-${trial.referenceId}", trial.date.add(0, 0, random.nextInt(25)), 10)
+                1 -> sale(trial.customer, "late-license-${trial.referenceId}", trial.date.add(0, 0, 60 + random.nextInt(30)), 10)
+                else -> null
+            }
+        }.filter { it.date <= today }
+        val values = OverviewDailyValues.create(trialSales, licenses(*trialSales.toTypedArray()), trials, emptyList(), exchangeRates, today)
+
+        // the conversion of the table
+        val tracker = SimpleTrialTracker().apply { init(trials) }
+        trialSales.forEach(tracker::processSale)
+        fun expected(range: YearMonthDayRange): BigDecimal? {
+            val result = tracker.getResultWithinConversionPeriod(range, Marketplace.MAX_TRIAL_DAYS_DEFAULT, today)
+            return if (result.totalTrials == 0) null else result.convertedTrialsPercentage.value.setScale(2, RoundingMode.HALF_UP)
+        }
+
+        var month = YearMonthDay(2023, 1, 1)
+        while (YearMonthDay.lastOfMonth(month.year, month.month) < today) {
+            val range = YearMonthDayRange.ofMonth(month.year, month.month)
+            val actual = values.series.getValue(OverviewDailyColumn.TrialsConverted).values[values.days.indexOf(range.end)]
+            assertEquals(expected(range)?.stripTrailingZeros(), actual?.stripTrailingZeros(), "month ${range.start}")
+            month = month.add(0, 1, 0)
+        }
+        val year = YearMonthDayRange.ofYear(2024)
+        val actualYear = values.series.getValue(OverviewDailyColumn.TrialsConvertedOfYear).values[values.days.indexOf(year.end)]
+        assertEquals(expected(year)?.stripTrailingZeros(), actualYear?.stripTrailingZeros())
+
+        // trials of the recent days can still convert
+        val firstPending = trials.filter { trial -> trialSales.none { it.customer == trial.customer && it.date.daysUntil(trial.date) <= 0 && trial.date.daysUntil(it.date) <= trialConversionDays(Marketplace.MAX_TRIAL_DAYS_DEFAULT) } }
+            .filter { it.date.daysUntil(today) <= trialConversionDays(Marketplace.MAX_TRIAL_DAYS_DEFAULT) }
+            .minOf { it.date }
+        assertEquals(values.days.indexOf(firstPending), values.series.getValue(OverviewDailyColumn.TrialsConverted).incompleteFrom)
     }
 
     @Test

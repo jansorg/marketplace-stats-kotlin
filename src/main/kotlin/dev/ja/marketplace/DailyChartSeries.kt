@@ -12,6 +12,7 @@ import dev.ja.marketplace.data.customerType.CustomerTypeDailyValues
 import dev.ja.marketplace.data.overview.DailySeries
 import dev.ja.marketplace.data.overview.OverviewDailyValues
 import dev.ja.marketplace.data.subscriptions.SubscriptionDailyValues
+import dev.ja.marketplace.data.trackers.maxTrialDays
 import dev.ja.marketplace.data.yearSummary.AllPluginsDailyValues
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -83,6 +84,7 @@ class DailyChartSeries {
 
         val licenses = data.getLicenses() ?: emptyList()
         val revenue = data.getCustomerRecurringRevenue()
+        val maxTrialDays = data.getPluginInfo().maxTrialDays
         val values = withContext(Dispatchers.Default) {
             val overview = OverviewDailyValues.create(
                 sales ?: emptyList(),
@@ -91,6 +93,7 @@ class DailyChartSeries {
                 downloads,
                 data.exchangeRates,
                 today,
+                maxTrialDays,
             )
             val subscriptions = SubscriptionDailyValues.create(overview.days, licenses, revenue, today)
             // the sums of the year before each day, the ARR of the years is the ARR of the overview

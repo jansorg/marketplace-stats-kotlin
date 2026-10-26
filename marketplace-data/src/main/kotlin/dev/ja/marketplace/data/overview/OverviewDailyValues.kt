@@ -13,6 +13,9 @@ import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.client.model.PluginTrial
 import dev.ja.marketplace.data.PercentageValue
 import dev.ja.marketplace.data.trackers.RecurringRevenueSales
+import dev.ja.marketplace.data.trackers.SimpleTrialTracker
+import dev.ja.marketplace.data.trackers.getResultWithinConversionPeriod
+import dev.ja.marketplace.data.trackers.trialConversionDays
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.javamoney.moneta.FastMoney
 import java.math.BigDecimal
@@ -45,6 +48,8 @@ enum class OverviewDailyColumn(val id: String) {
     ChurnMonthly("churn-monthly-paid"),
     ChurnAnnualOfYear("churn-annual-paid.year"),
     ChurnMonthlyOfYear("churn-monthly-paid.year"),
+    TrialsConverted("trials-converted-length"),
+    TrialsConvertedOfYear("trials-converted-length.year"),
 }
 
 /**
@@ -60,6 +65,9 @@ enum class OverviewDailyColumn(val id: String) {
  * - The churn is the churn of the month before each day, i.e. of the paid licenses, which were active a month before
  *   the day and aren't active at the day. At the last day of a month, it's the churn of the calendar month like in the
  *   table. The series `*.year` are the churn of the year before each day, at the end of a year the churn of the year.
+ * - The conversion rate of the trials, which started in the month before each day, like in the table: the share of the
+ *   trials, which were converted by a new paid license within [trialConversionDays] days. The series `*.year` is the
+ *   rate of the trials of the year before each day.
  *
  * @param days The days from the first month with data until today.
  */
@@ -84,6 +92,7 @@ class OverviewDailyValues private constructor(
             downloads: List<DailyDownload>,
             exchangeRates: ExchangeRates,
             today: YearMonthDay = YearMonthDay.now(),
+            maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT,
         ): OverviewDailyValues {
             val firstDate = listOfNotNull(
                 sales.minOfOrNull { it.date },
@@ -110,6 +119,9 @@ class OverviewDailyValues private constructor(
                         put(OverviewDailyColumn.Arr, arr)
                         put(OverviewDailyColumn.Downloads, countsOfMonth(downloads.map { it.day to it.downloads }))
                         put(OverviewDailyColumn.Trials, countsOfMonth(trials.map { it.date to 1L }))
+                        val (converted, conversionIncompleteFrom) = trialConversions(trials, sales, maxTrialDays, today)
+                        put(OverviewDailyColumn.TrialsConverted, conversionRates(trials, converted, windows.monthStarts, conversionIncompleteFrom))
+                        put(OverviewDailyColumn.TrialsConvertedOfYear, conversionRates(trials, converted, windows.yearStarts, conversionIncompleteFrom))
                         // the churn of the current month and year is incomplete like in the table
                         val validities = ChurnValidities(licenses)
                         val currentMonth = YearMonthDay.firstOfMonth(today.year, today.month)
@@ -121,6 +133,20 @@ class OverviewDailyValues private constructor(
                     }
                 )
             }
+        }
+
+        /**
+         * @return The trials, which were converted within the conversion period, like the table of the overview, and the
+         *  first day of the trials, which can still be converted.
+         */
+        private fun trialConversions(trials: List<PluginTrial>, sales: List<PluginSale>, maxTrialDays: Int, today: YearMonthDay): Pair<Set<PluginTrial>, YearMonthDay?> {
+            val tracker = SimpleTrialTracker()
+            tracker.init(trials)
+            sales.forEach(tracker::processSale)
+            val converted = tracker.getResultWithinConversionPeriod(YearMonthDayRange.MAX, maxTrialDays, today).convertedTrials.keys
+            val conversionDays = trialConversionDays(maxTrialDays)
+            val firstPending = trials.filter { it !in converted && it.date.daysUntil(today) <= conversionDays }.minOfOrNull { it.date }
+            return converted to firstPending
         }
 
         /** @return The day before the month before [day], the last day of the previous month at the end of a month. */
@@ -263,6 +289,21 @@ class OverviewDailyValues private constructor(
                 PercentageValue.rateOf(churnedCount, previousCount)?.value?.setScale(2, RoundingMode.HALF_UP)
             }
             return DailySeries("%", rates, maxOf(0, windows.index(incompleteFrom)))
+        }
+
+        /**
+         * @return The share of the [converted] trials of the trials, which started in the window of each day, e.g. in
+         *  the month before it, in percent. `null` without trials. Values with trials, which can still be converted,
+         *  are incomplete.
+         */
+        fun conversionRates(trials: List<PluginTrial>, converted: Set<PluginTrial>, starts: IntArray, firstPending: YearMonthDay?): DailySeries {
+            val totals = windows.windowSums(windows.countsPerDay(trials.map { it.date to 1L }), starts)
+            val conversions = windows.windowSums(windows.countsPerDay(trials.filter { it in converted }.map { it.date to 1L }), starts)
+            val rates = totals.mapIndexed { index, total ->
+                PercentageValue.rateOf(BigDecimal.valueOf(conversions[index]), BigDecimal.valueOf(total))?.value?.setScale(2, RoundingMode.HALF_UP)
+            }
+            val incompleteFrom = firstPending?.let { maxOf(0, windows.index(it)) }?.coerceAtMost(dayCount) ?: dayCount
+            return DailySeries("%", rates, incompleteFrom)
         }
 
         /** @return The index of the first day, which isn't before [day]. */
