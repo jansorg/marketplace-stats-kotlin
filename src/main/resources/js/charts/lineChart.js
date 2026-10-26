@@ -386,7 +386,8 @@ function drawExtremes(plot, chartSeries, {kinds, isBars, interval, formatter, fo
             return;
         }
         const values = plot.data[index + 1];
-        const extremes = extremeIndices(timestamps, values, series.incomplete);
+        // the extremes of the shown dates, e.g. of a zoomed chart
+        const extremes = extremeIndices(timestamps, values, series.incomplete, [plot.scales.x.min, plot.scales.x.max]);
         if (extremes === null) {
             return;
         }
@@ -535,7 +536,7 @@ function enableTooltip(plot, chartSeries, describe) {
  * the dates and a table below the chart shows the values and their changes. Without a cursor on the chart, the table
  * shows the latest values.
  */
-function enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, formatter, valueTable}) {
+function enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, formatter, valueTable, shownRange}) {
     // the values of each series without gaps, and the tolerance to find a value near a date
     const seriesPoints = chartSeries.map((series, index) => {
         const points = timestamps
@@ -566,7 +567,9 @@ function enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, f
         plot.root.after(table);
     }
 
-    const latestIndex = timestamps.length - 1;
+    // without a cursor, the table shows the latest shown values, e.g. of a zoomed chart
+    const shownIndices = timestamps.flatMap((timestamp, index) => timestamp >= shownRange[0] && timestamp <= shownRange[1] ? [index] : []);
+    const latestIndex = shownIndices.length > 0 ? shownIndices[shownIndices.length - 1] : timestamps.length - 1;
     let shownIndex = null;
     let shownSeries = null;
 
@@ -779,6 +782,10 @@ function yAxis(unit, scale, side, style) {
  *  lines of the series with the key `base`, e.g. moving averages.
  * @param {boolean} [options.averagesOnly] If series with a moving average only show the average, the value table and
  *  the tooltip still show their values. Series without a moving average are always shown.
+ * @param {[number, number]|null} [options.visibleRange] The shown dates, e.g. of a zoomed chart, all dates if null.
+ *  The values outside of it are still used, e.g. by the value table to compare with the previous year.
+ * @param {((from: number, to: number) => void)|null} [options.onZoom] Called with the dates of a range, which is
+ *  selected with the mouse. Without it, ranges can't be selected.
  * @param {string} options.fontFamily
  * @param {number} options.width
  * @param {number} options.height
@@ -786,7 +793,7 @@ function yAxis(unit, scale, side, style) {
  * @param {"light"|"dark"} [options.theme] The colors of the chart, by default the color scheme of the browser.
  * @return {uPlot}
  */
-export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, overlays = [], averagesOnly = false, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
+export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, overlays = [], averagesOnly = false, visibleRange = null, onZoom = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
     const theme = CHART_THEMES[themeName];
     const style = {formatter, fonts: fonts(fontFamily), theme};
     const scaleKeys = ["y", "y2"];
@@ -835,9 +842,11 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     // the range of yearly values covers the years until today
     // the values per year of monthly values have the ticks and the range of yearly values
     const axisPeriod = granularity === "yearEnd" ? "year" : period;
-    const xRange = axisPeriod === "year"
-        ? yearRange(dateRange, granularity !== "month" && granularity !== "yearEnd")
-        : [dateRange[0] - xPadding, dateRange[1] + xPadding];
+    const xRange = visibleRange !== null
+        ? [visibleRange[0] - xPadding, visibleRange[1] + xPadding]
+        : axisPeriod === "year"
+            ? yearRange(dateRange, granularity !== "month" && granularity !== "yearEnd")
+            : [dateRange[0] - xPadding, dateRange[1] + xPadding];
     const scales = {
         x: {time: true, range: () => xRange},
         y: {range: (plot, min, max) => uPlot.rangeNum(...zeroBasedRange(...drawnRange(plot, "y", min, max)), 0.1, true)},
@@ -874,6 +883,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         cursor: {
             points: {size: 8},
             sync: {key: syncKey},
+            // a range selected with the mouse zooms in, see onZoom
+            drag: {x: onZoom !== null, y: false, setScale: false},
             // the vertical line of the cursor is at the closest value, the comparisons start at its date
             move: (plot, left, top) => {
                 const index = left >= 0 ? plot.posToIdx(left) : null;
@@ -904,6 +915,14 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                     });
                 }
                 updateComparisons?.();
+            }],
+            setSelect: [plot => {
+                const {left, width} = plot.select;
+                if (onZoom === null || width < 3) {
+                    return;
+                }
+                plot.setSelect({left: 0, top: 0, width: 0, height: 0}, false);
+                onZoom(plot.posToVal(left, "x"), plot.posToVal(left + width, "x"));
             }],
             setCursor: [plot => {
                 updateComparisons?.(plot);
@@ -946,7 +965,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         const drawn = plot.series
             .map((plotSeries, index) => ({plotSeries, index}))
             .filter(({plotSeries, index}) => index > 0 && plotSeries.show && plotSeries.scale === scale && !chartSeries[index - 1]?.isValueHidden)
-            .flatMap(({index}) => plot.data[index].filter(value => value !== null && value !== undefined));
+            .flatMap(({index}) => plot.data[index].filter((value, i) => value !== null && value !== undefined
+                && plot.data[0][i] >= xRange[0] && plot.data[0][i] <= xRange[1]));
         return drawn.length === 0 ? [min, max] : [Math.min(...drawn), Math.max(...drawn)];
     }
 
@@ -954,7 +974,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     let updateComparisons = null;
     const plot = new uPlot(options, [timestamps, ...values, ...overlayValues], container);
     updateTooltip = enableTooltip(plot, chartSeries, describe);
-    updateComparisons = enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, formatter, valueTable});
+    updateComparisons = enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, formatter, valueTable, shownRange: xRange});
     enableTouchCursor(plot);
     legendData.set(plot, {chartSeries, markers, isBars, chartOverlays, theme});
     return plot;

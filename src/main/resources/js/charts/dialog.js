@@ -8,7 +8,7 @@
  */
 
 import {createMenu} from "./menu.js";
-import {MARKER_LABELS} from "./model.js";
+import {MARKER_LABELS, rangeLabel, rangeOfYear} from "./model.js";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
@@ -54,12 +54,13 @@ export class ChartDialog {
      * @param {(visible: boolean) => void} callbacks.onIncompleteVisibilityChange
      * @param {(visible: boolean) => void} callbacks.onValueTableVisibilityChange
      * @param {(kind: string, visible: boolean) => void} callbacks.onOverlayVisibilityChange
+     * @param {(range: {from: string, to: string}|null) => void} callbacks.onDateRangeChange
      * @param {string[]} markerKinds The kinds of vertical lines, which are available on this page.
      * @param {{id: string, timestamp: number, label: string}[]} customEvents The custom events of this page, the user
      *  selects the shown events in a menu.
      * @param {boolean} hasLineCharts If the page has columns, which can be shown in line charts.
      */
-    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange, onEventVisibilityChange, onExtremeVisibilityChange, onIncompleteVisibilityChange, onValueTableVisibilityChange, onOverlayVisibilityChange, onAveragesOnlyChange}, markerKinds, hasLineCharts, customEvents = []) {
+    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange, onEventVisibilityChange, onExtremeVisibilityChange, onIncompleteVisibilityChange, onValueTableVisibilityChange, onOverlayVisibilityChange, onAveragesOnlyChange, onDateRangeChange}, markerKinds, hasLineCharts, customEvents = []) {
         this.element = document.createElement("dialog");
         this.element.className = "chart-dialog noprint";
         this.element.setAttribute("aria-labelledby", "chart-dialog-title");
@@ -85,6 +86,7 @@ export class ChartDialog {
         const hint = document.createElement("p");
         hint.className = "chart-dialog-hint";
         hint.textContent = "Close the dialog and click another column header to add it. Press 'C' to show and hide the charts. "
+            + "Drag over a line chart to zoom in. "
             + "Dotted lines, hollow points and striped bars mark incomplete values, which may still change.";
 
         // toggles of the vertical lines, with a sample of each line as key, and of the minimum and maximum
@@ -157,6 +159,14 @@ export class ChartDialog {
             onAveragesOnlyChange);
         this.applicableOverlays = [];
         this.markerToggles.append(viewMenu);
+
+        // the shown dates of the line charts: all, a year or a zoomed range
+        const {menu: rangeMenu, items: rangeItems} = createMenu("Range");
+        rangeMenu.classList.add("chart-range-menu");
+        this.rangeMenu = rangeMenu;
+        this.rangeItems = rangeItems;
+        this.onDateRangeChange = onDateRangeChange;
+        this.markerToggles.append(rangeMenu);
 
         this.message = document.createElement("p");
         this.message.className = "chart-dialog-message";
@@ -271,7 +281,32 @@ export class ChartDialog {
         this.maximizeButton.setAttribute("aria-label", title);
     }
 
-    /** @param {string[]} shownKinds */
+    /**
+     * @param {number[]} years The years with values of the shown line charts, the latest year first.
+     * @param {{from: string, to: string}|null} range The shown dates, null for all dates.
+     */
+    setDateRange(years, range) {
+        const label = rangeLabel(range);
+        this.rangeMenu.querySelector("summary").textContent = "Range: " + label;
+        const items = [{label: "All", range: null}, ...years.map(year => ({label: String(year), range: rangeOfYear(year)}))];
+        // a zoomed range, which isn't a year
+        if (!items.some(item => item.label === label)) {
+            items.push({label, range});
+        }
+        this.rangeItems.replaceChildren(...items.map(item => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.textContent = item.label;
+            button.setAttribute("role", "menuitemradio");
+            button.setAttribute("aria-checked", String(item.label === label));
+            button.addEventListener("click", () => {
+                this.rangeMenu.open = false;
+                this.onDateRangeChange(item.range);
+            });
+            return button;
+        }));
+    }
+
     /** @return {HTMLInputElement} The checkbox of a new option of the line charts. */
     addToggle(container, text, title, onChange) {
         const checkbox = document.createElement("input");

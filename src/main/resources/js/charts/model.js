@@ -123,6 +123,56 @@ export function dateRange(seriesList) {
 }
 
 /**
+ * @typedef {{from: string, to: string}} DateRange The selected dates of the line charts, ISO dates, both inclusive.
+ */
+
+/**
+ * @return {number[]} The years with values of the series, the latest year first, e.g. to select the range of a year.
+ */
+export function rangeYears(seriesList) {
+    const years = new Set(seriesList.flatMap(series => [...series.points.keys()].map(timestamp => new Date(timestamp * 1000).getUTCFullYear())));
+    return [...years].sort((a, b) => b - a);
+}
+
+/** @return {DateRange} The range of all days of the year. */
+export function rangeOfYear(year) {
+    return {from: `${year}-01-01`, to: `${year}-12-31`};
+}
+
+/**
+ * @param {number} from The timestamp of the first date, e.g. of the start of a selection in a chart.
+ * @param {number} to The timestamp of the last date.
+ * @return {DateRange} The range of the days of the dates.
+ */
+export function rangeOfTimestamps(from, to) {
+    const day = timestamp => new Date(Math.floor(timestamp / SECONDS_PER_DAY) * SECONDS_PER_DAY * 1000).toISOString().substring(0, 10);
+    return from <= to ? {from: day(from), to: day(to)} : {from: day(to), to: day(from)};
+}
+
+/**
+ * @param {DateRange|null} range
+ * @return {[number, number]|null} The timestamps of the start of the first day and of the end of the last day.
+ */
+export function rangeTimestamps(range) {
+    return range === null ? null : [isoDateToTimestamp(range.from), isoDateToTimestamp(range.to) + SECONDS_PER_DAY - 1];
+}
+
+/**
+ * @param {DateRange|null} range
+ * @return {string} The label of the range in the menu, e.g. "2025" for a year, "All" without a range.
+ */
+export function rangeLabel(range) {
+    if (range === null) {
+        return "All";
+    }
+    const year = range.from.substring(0, 4);
+    if (range.from === `${year}-01-01` && range.to === `${year}-12-31`) {
+        return year;
+    }
+    return `${range.from} – ${range.to}`;
+}
+
+/**
  * Aligns the values of several series to the union of their dates, as needed by uPlot.
  *
  * @return {{timestamps: number[], values: (number|null)[][]}}
@@ -491,14 +541,16 @@ function hslToHex(hue, saturation, lightness) {
  * @param {number[]} timestamps
  * @param {(number|null)[]} values The values at the timestamps, null if there's no value.
  * @param {Set<number>} incomplete The timestamps of incomplete values.
+ * @param {[number, number]|null} [range] Only values within the range of timestamps, e.g. of the shown dates.
  * @return {{min: number, max: number}|null} The indices of the first minimum and the first maximum,
  *  or null if there are no two different values.
  */
-export function extremeIndices(timestamps, values, incomplete) {
+export function extremeIndices(timestamps, values, incomplete, range = null) {
     let min = null;
     let max = null;
     values.forEach((value, index) => {
-        if (value === null || value === undefined || incomplete.has(timestamps[index])) {
+        const isOutside = range !== null && (timestamps[index] < range[0] || timestamps[index] > range[1]);
+        if (value === null || value === undefined || isOutside || incomplete.has(timestamps[index])) {
             return;
         }
         if (min === null || value < values[min]) {
