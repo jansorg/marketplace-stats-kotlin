@@ -17,7 +17,7 @@ import {createFormatter} from "./format.js";
 import {
     canCombineUnits, chartLevel, chartLevelKeys, CHART_STYLES, dateRange, DETAILS, detailGranularity, detailPeriod, rangeLabel, rangeOfTimestamps, rangeTimestamps, rangeYears, exportFileName, groupCharts, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES,
     METRIC_PERIOD, metricLabel, metricPoints, nextColor, pieSlices, shownWindow, storedChartLevel, WINDOW_LABELS, WINDOWS, finestDetail, lineDetail,
-    AVERAGE_MONTHS, visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear, trailingAverage,
+    visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear,
 } from "./model.js";
 import {browserStorage, createSetupStorage, decodeView, emptySetup, encodeView} from "./storage.js";
 import {chartColumns, metricKey, readLineSeries, readMarkers, readMetricLevel, readMetricSeries, readPieRows, readRowHistorySeries, readTableDateRange} from "./tableData.js";
@@ -29,6 +29,14 @@ import {downloadCanvas, downloadSvg, lineChartImage, pieChartSvg, printImages, s
 
 const STYLE_LABELS = {lines: "Lines", bars: "Bars"};
 const LOADING_MESSAGE = "Loading the values…";
+
+/** The values of a metric in the menu "Add": the values and their moving averages over 1, 3 and 12 months. */
+const ADD_MENU_VALUES = [
+    [null, "Values", "The values of the selected window"],
+    [1, "1-month moving average", "The average of the month before each date"],
+    [3, "3-month moving average", "The average of the 3 months before each date"],
+    [12, "12-month moving average", "The average of the 12 months before each date, without seasonal changes"],
+];
 const DETAIL_LABELS = {year: "Year", month: "Month", week: "Week", day: "Day"};
 const DETAIL_HINT = "The dates of the values: the end of each year, of each month or of each week, or each day, and today.";
 
@@ -53,18 +61,27 @@ function isTextInput(element) {
  *  stored setup. Sums and rates have a window, e.g. the trials of each month and of each day are two series.
  * @return {object} The series of the metric, its values are loaded when it's shown, see ChartController.metricChartSeries.
  */
-function metricSeries({metric, window, usesWindow, label, unit, measure, row}, color) {
+function metricSeries({metric, window, usesWindow, average, label, unit, measure, row}, color) {
     const hasWindow = usesWindow ?? measure !== "stock";
     const seriesWindow = hasWindow ? window ?? null : null;
     return {
-        key: metricKey(metric, seriesWindow), metric, window: seriesWindow, usesWindow: hasWindow, label, unit,
-        measure: measure ?? null, ...(row ? {row} : {}), period: METRIC_PERIOD, points: new Map(), incomplete: new Set(), color,
+        key: metricKey(metric, seriesWindow, average), metric, window: seriesWindow, usesWindow: hasWindow,
+        ...(average ? {average} : {}), label, unit, measure: measure ?? null, ...(row ? {row} : {}),
+        period: METRIC_PERIOD, points: new Map(), incomplete: new Set(), color,
     };
+}
+
+/**
+ * @return {string} The ID of the values of a series of a metric in /chart-data: the metric or its moving average, e.g.
+ *  `sales@avg3`.
+ */
+function metricDataId(series) {
+    return series.average ? `${series.metric}@avg${series.average}` : series.metric;
 }
 
 /** @return {import("./storage.js").ChartEntry} The stored entry of a series of a metric. */
 function metricEntry(s) {
-    return {type: "metric", metric: s.metric, ...(s.window ? {window: s.window} : {}), usesWindow: s.usesWindow, label: s.label, unit: s.unit,
+    return {type: "metric", metric: s.metric, ...(s.window ? {window: s.window} : {}), usesWindow: s.usesWindow, ...(s.average ? {average: s.average} : {}), label: s.label, unit: s.unit,
         ...(s.measure ? {measure: s.measure} : {}), ...(s.row ? {row: s.row} : {}), color: s.color};
 }
 
@@ -90,7 +107,6 @@ class ChartController {
         // if vertical lines mark the dates one month and one year before and after the cursor
         this.showComparisonLines = false;
         // if lines with a moving average only show the average
-        this.averagesOnly = false;
         // the shown dates of the line charts, null for all dates, see storage.js
         this.dateRange = null;
         // the keys of the series and overlays, which were hidden by a click on the legend, see createLineChart
@@ -339,8 +355,8 @@ class ChartController {
      *
      * @param {{id: string, title: string, unit: string, measure: string, usesWindow: boolean}} metric A metric of /chart-metrics.
      */
-    addMetric(metric, window) {
-        const series = metricSeries({metric: metric.id, window, usesWindow: metric.usesWindow, label: metric.title,
+    addMetric(metric, window, average = null) {
+        const series = metricSeries({metric: metric.id, window, usesWindow: metric.usesWindow, average, label: metric.title,
             unit: metric.unit, measure: metric.measure}, nextColor(this.series.map(s => s.color)));
         const rejection = this.rejectSeries(series);
         if (rejection === null) {
@@ -391,17 +407,7 @@ class ChartController {
                         heading.textContent = group;
                         items.append(heading);
                     }
-                    const button = document.createElement("button");
-                    button.type = "button";
-                    button.setAttribute("role", "menuitem");
-                    button.textContent = metric.title;
-                    // values at a date, e.g. the MRR, don't use the window
-                    button.title = metric.usesWindow ? "Sums or rates of the selected window" : "Values at each date";
-                    button.addEventListener("click", () => {
-                        close();
-                        this.addMetric(metric, windowSelect.value);
-                    });
-                    items.append(button);
+                    items.append(this.addMenuItem(metric, () => windowSelect.value, close));
                 }
             })
             .catch(error => {
@@ -412,10 +418,63 @@ class ChartController {
             });
     }
 
+    /**
+     * @return {HTMLElement} An item of the menu "Add": a click adds the values of the metric, hovering it shows a
+     *  submenu with the values and the moving averages.
+     */
+    addMenuItem(metric, selectedWindow, close) {
+        const item = document.createElement("div");
+        item.className = "chart-add-metric";
+        const add = average => {
+            close();
+            this.addMetric(metric, selectedWindow(), average);
+        };
+        const button = document.createElement("button");
+        button.type = "button";
+        button.setAttribute("role", "menuitem");
+        button.setAttribute("aria-haspopup", "menu");
+        button.textContent = metric.title;
+        // values at a date, e.g. the MRR, don't use the window
+        button.title = metric.usesWindow ? "Sums or rates of the selected window" : "Values at each date";
+        button.addEventListener("click", () => add(null));
+
+        const submenu = document.createElement("div");
+        submenu.className = "chart-add-submenu";
+        submenu.setAttribute("role", "menu");
+        for (const [average, text, title] of ADD_MENU_VALUES) {
+            const subButton = document.createElement("button");
+            subButton.type = "button";
+            subButton.setAttribute("role", "menuitem");
+            subButton.textContent = text;
+            subButton.title = title;
+            subButton.addEventListener("click", () => add(average));
+            submenu.append(subButton);
+        }
+        // the submenu is placed beside the item in the window, the list of the menu scrolls
+        const show = () => {
+            item.classList.add("chart-add-open");
+            const bounds = item.getBoundingClientRect();
+            const {width, height} = submenu.getBoundingClientRect();
+            const left = bounds.right + width <= window.innerWidth ? bounds.right : bounds.left - width;
+            submenu.style.left = Math.max(0, left) + "px";
+            submenu.style.top = Math.max(0, Math.min(bounds.top, window.innerHeight - height)) + "px";
+        };
+        item.addEventListener("mouseenter", show);
+        item.addEventListener("focusin", show);
+        item.addEventListener("mouseleave", () => item.classList.remove("chart-add-open"));
+        item.addEventListener("focusout", event => {
+            if (!item.contains(event.relatedTarget)) {
+                item.classList.remove("chart-add-open");
+            }
+        });
+        item.append(button, submenu);
+        return item;
+    }
+
     /** Changes the window of a series of a metric, e.g. to show the trials of each day instead of each month. */
     setSeriesWindow(series, window) {
         series.window = window;
-        series.key = metricKey(series.metric, window);
+        series.key = metricKey(series.metric, window, series.average);
     }
 
     /** Removes series, which became the same series, e.g. after changing the window of the lines of a chart. */
@@ -487,7 +546,8 @@ class ChartController {
         this.showIncomplete = setup.showIncomplete;
         this.showValueTable = setup.showValueTable;
         this.showComparisonLines = setup.showComparisonLines;
-        this.averagesOnly = setup.averagesOnly;
+        // the moving averages are lines of the menu "Add", only the previous year is a trend of the lines
+        this.shownOverlays = this.shownOverlays.filter(kind => kind === "previousYear");
         this.dateRange = setup.dateRange;
         this.hiddenSeries = new Set(setup.hiddenSeries);
     }
@@ -589,7 +649,7 @@ class ChartController {
             showIncomplete: this.showIncomplete,
             showValueTable: this.showValueTable,
             showComparisonLines: this.showComparisonLines,
-            averagesOnly: this.averagesOnly,
+            averagesOnly: false,
             dateRange: this.dateRange,
             hiddenSeries: [...this.hiddenSeries],
             entries: [
@@ -640,11 +700,6 @@ class ChartController {
                     if (visible && !this.isLoadingMetrics() && !this.dialog.isOverlayApplicable(kind)) {
                         this.dialog.showMessage(this.dialog.overlayHint(kind));
                     }
-                },
-                onAveragesOnlyChange: averagesOnly => {
-                    this.averagesOnly = averagesOnly;
-                    this.save();
-                    this.render();
                 },
                 onDateRangeChange: range => this.setDateRange(range),
                 onAddMenuOpen: (items, close) => this.fillAddMenu(items, close),
@@ -708,7 +763,6 @@ class ChartController {
         dialog.setShowValueTable(this.showValueTable);
         dialog.setShowComparisonLines(this.showComparisonLines);
         dialog.setShownOverlays(this.shownOverlays);
-        dialog.setAveragesOnly(this.averagesOnly);
         const markers = visibleMarkers(this.markers, this.shownMarkers, this.shownEvents);
 
         const charts = groupCharts(this.series, this.combineUnits);
@@ -720,7 +774,7 @@ class ChartController {
                 const window = this.seriesWindow(s, level);
                 const detail = this.seriesDetail(s, window, level);
                 const key = window + "/" + detail;
-                const ids = [s.metric, ...this.averageIds(s, window, detail).map(([, id]) => id)];
+                const ids = [metricDataId(s)];
                 requests.set(key, {window, detail, ids: [...(requests.get(key)?.ids ?? []), ...ids]});
             }
         }
@@ -782,7 +836,6 @@ class ChartController {
                 valueTable: this.showValueTable,
                 comparisonLines: this.showComparisonLines,
                 detail,
-                averagesOnly: this.averagesOnly,
                 visibleRange,
                 hiddenSeries: this.hiddenSeries,
                 fontFamily: this.fontFamily,
@@ -805,7 +858,13 @@ class ChartController {
                     this.render();
                 }
             };
-            const plot = createLineChart({...chartOptions, onZoom, onSeriesVisibilityChange, onSeriesWindowChange, width: dialog.chartWidth, height, container: panel});
+            // the × of a line in the legend removes it
+            const onSeriesRemove = key => {
+                this.series = this.series.filter(s => s.key !== key);
+                this.save();
+                this.render();
+            };
+            const plot = createLineChart({...chartOptions, onZoom, onSeriesVisibilityChange, onSeriesWindowChange, onSeriesRemove, width: dialog.chartWidth, height, container: panel});
             this.plots.push(plot);
             const title = document.title;
             const labels = chartSeries.map(s => s.label);
@@ -865,17 +924,15 @@ class ChartController {
             // a window shorter than the steps of the dates has finer dates, e.g. the sales per day in a chart of months
             const detail = this.seriesDetail(s, window, level);
             const data = this.metricValues[window + "/" + detail]?.data;
-            const values = data?.series[s.metric];
-            const points = data ? metricPoints(data, s.metric) : null;
+            const values = data?.series[metricDataId(s)];
+            const points = data ? metricPoints(data, metricDataId(s)) : null;
             if (!values || points === null || points.points.size === 0) {
                 return [];
             }
-            const label = metricLabel({label: values.title, usesWindow: values.usesWindow}, window);
-            const averages = Object.fromEntries(this.averageIds(s, window, detail)
-                .map(([kind, id]) => [kind, metricPoints(data, id)?.points])
-                .filter(([, averagePoints]) => averagePoints));
+            const label = metricLabel({label: values.title, usesWindow: values.usesWindow}, window)
+                + (s.average ? `, ${s.average}-month average` : "");
             return [{...s, ...points, label, unit: values.unit, measure: values.measure, usesWindow: values.usesWindow,
-                window, selectedWindow: s.window ?? level.window, detail, period: detailPeriod(detail), averages}];
+                window, selectedWindow: s.window ?? level.window, detail, period: detailPeriod(detail)}];
         });
     }
 
@@ -897,16 +954,6 @@ class ChartController {
     }
 
     /**
-     * @return {[string, string][]} The shown moving averages, which apply to the series of a metric, and the IDs of
-     *  their values, e.g. `sales@avg3`. Sums and rates use the window, values at a date like the MRR don't.
-     */
-    averageIds(series, window, detail) {
-        return OVERLAYS.filter(kind => this.shownOverlays.includes(kind) && AVERAGE_MONTHS[kind]
-            && overlayApplies(kind, series, detail, window))
-            .map(kind => [kind, `${series.metric}@avg${AVERAGE_MONTHS[kind]}`]);
-    }
-
-    /**
      * @param {object[]} chartSeries The series of a line chart.
      * @param {string|null} detail The detail level of a chart of metrics, null for the values of tables.
      * @return {object[]} The shown trends of the series, which apply to them, as additional lines of the series.
@@ -915,21 +962,8 @@ class ChartController {
         const overlays = [];
         for (const series of chartSeries) {
             for (const kind of OVERLAYS.filter(k => this.shownOverlays.includes(k) && overlayApplies(k, series, detail, series.window))) {
-                switch (kind) {
-                    case "average1":
-                    case "average3":
-                    case "average12": {
-                        const months = {average1: 1, average3: 3, average12: 12}[kind];
-                        // the averages of metrics are loaded from the server
-                        const points = series.metric ? series.averages?.[kind] ?? null : trailingAverage(series, months);
-                        if (points !== null) {
-                            overlays.push({kind, base: series.key, label: `${series.label}, ${months}-month average`, points});
-                        }
-                        break;
-                    }
-                    case "previousYear":
-                        overlays.push({kind, base: series.key, label: `${series.label}, previous year`, points: previousYear(series).points});
-                        break;
+                if (kind === "previousYear") {
+                    overlays.push({kind, base: series.key, label: `${series.label}, previous year`, points: previousYear(series).points});
                 }
             }
         }

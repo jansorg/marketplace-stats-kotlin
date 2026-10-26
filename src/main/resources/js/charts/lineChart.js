@@ -782,6 +782,9 @@ function renderComparisonTable(table, {plot, rows, seriesPoints, comparisons, ti
             if (series.windowMenu) {
                 label.append(series.windowMenu());
             }
+            if (series.removeButton) {
+                label.append(series.removeButton());
+            }
             labels.set(plotIndex, label);
         }
         label.setAttribute("aria-pressed", String(isShown));
@@ -944,6 +947,8 @@ function yAxis(unit, scale, side, style) {
  * @param {("min"|"max")[]} [options.extremes] If the minimum or the maximum of each series are marked.
  * @param {boolean} [options.valueTable] If a table compares the values at the cursor instead of the legend of uPlot.
  * @param {string|null} [options.detail] The detail level of a chart of metrics, see DETAILS in model.js.
+ * @param {((key: string) => void)|null} [options.onSeriesRemove] Called with the key of a line, which is removed with
+ *  the × of its legend. Without it, the legend has no buttons to remove lines.
  * @param {((key: string, window: string) => void)|null} [options.onSeriesWindowChange] Called with the key of a line of
  *  a metric and a window, which is selected in the legend. Without it, the legend has no menus of the windows.
  * @param {boolean} [options.comparisonLines] If vertical lines mark the dates one month and one year before and after
@@ -967,7 +972,7 @@ function yAxis(unit, scale, side, style) {
  * @param {"light"|"dark"} [options.theme] The colors of the chart, by default the color scheme of the browser.
  * @return {uPlot}
  */
-export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, comparisonLines = false, detail = null, onSeriesWindowChange = null, overlays = [], averagesOnly = false, visibleRange = null, onZoom = null, hiddenSeries = new Set(), onSeriesVisibilityChange = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
+export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, comparisonLines = false, detail = null, onSeriesWindowChange = null, onSeriesRemove = null, overlays = [], averagesOnly = false, visibleRange = null, onZoom = null, hiddenSeries = new Set(), onSeriesVisibilityChange = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
     const theme = CHART_THEMES[themeName];
     const style = {formatter, fonts: fonts(fontFamily), theme};
     const scaleKeys = ["y", "y2"];
@@ -1177,7 +1182,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         return chartSeries.flatMap((s, seriesIndex) => {
             const label = s.isRightAxis ? s.label + " (right axis)" : s.label;
             const seriesRow = s.isValueHidden ? [] : [{label, color: s.color, unit: s.unit, incomplete: s.incomplete, values: values[seriesIndex], plotIndex: seriesIndex + 1,
-                windowMenu: windowMenuOf(s)}];
+                windowMenu: windowMenuOf(s), removeButton: removeButtonOf(s)}];
             return seriesRow.concat(chartOverlays
                 .map((overlay, overlayIndex) => ({overlay, overlayIndex}))
                 .filter(({overlay}) => overlay.base === s)
@@ -1199,6 +1204,28 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
             : null;
     }
 
+    /** @return {(() => HTMLElement)|null} Creates the button, which removes a line from the chart. */
+    function removeButtonOf(series) {
+        if (!onSeriesRemove) {
+            return null;
+        }
+        return () => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "chart-series-remove";
+            button.textContent = "×";
+            button.title = "Remove this line";
+            button.setAttribute("aria-label", "Remove " + series.label);
+            // a click doesn't show or hide the line
+            button.addEventListener("click", event => {
+                event.stopPropagation();
+                onSeriesRemove(series.key);
+            });
+            button.addEventListener("keydown", event => event.stopPropagation());
+            return button;
+        };
+    }
+
     let updateTooltip = null;
     let updateComparisons = null;
     const plot = new uPlot(options, [timestamps, ...values, ...overlayValues], container);
@@ -1206,11 +1233,9 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     if (!valueTable) {
         const legendLabels = [...plot.root.querySelectorAll(".u-legend .u-series .u-label")];
         chartSeries.forEach((s, index) => {
-            const menu = windowMenuOf(s)?.();
             const legendLabel = legendLabels.find(label => label.textContent === plot.series[index + 1].label);
-            if (menu && legendLabel) {
-                legendLabel.after(menu);
-            }
+            const elements = [windowMenuOf(s)?.(), removeButtonOf(s)?.()].filter(Boolean);
+            legendLabel?.after(...elements);
         });
     }
     updateTooltip = enableTooltip(plot, chartSeries, describe);

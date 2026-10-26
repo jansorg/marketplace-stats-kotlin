@@ -188,11 +188,7 @@ extend, must not fail a response:
   them when the charts are drawn. Exported and printed images always use the light colors, a dark chart is drawn again
   with the light colors for the image.
   The option "Incomplete values" of the View menu of the chart dialog hides them, "Minimum" and "Maximum" mark the
-  lowest and highest complete value of each series, with "Only averages" of each average, which is drawn instead.
-  "Only averages" of the View menu hides the values of series with a shown moving average (`averagesOnly`): the series
-  aren't drawn, their averages are drawn solid like a series, and the value table, the tooltip and the legends list
-  the averages instead of the series. Series without an average are always drawn. Several averages of the same series
-  have different shades of its color (`averageShade` in `model.js`).
+  lowest and highest complete value of each series.
 - In sortable tables (`sortable` CSS class), a click on the label of a column header opens the chart and a click on
   the rest of the header, e.g. the arrow, sorts the table.
 - Charts of metrics: columns with `DataTableColumn.chartMetric` (written as `data-chart-metric`, with
@@ -221,11 +217,13 @@ extend, must not fail a response:
     `data-chart-detail`), e.g. calendar month and month for the overview. A window, which is shorter than the steps
     of the dates (`windowApplies` in `model.js`), e.g. a day at the level Year, is disabled, a change of the level
     replaces it with the calendar window of the level.
-  - Moving averages: `<metric>@avg<months>` (1, 3 or 12), `ChartMetricValues.average`. The windows, which end at the
+  - Moving averages: `<metric>@avg<months>` (1, 3 or 12), `ChartMetricValues.average`, are lines of their own
+    (`average` of the series), which the submenu of a metric in the "+" menu adds, a click on the metric adds its values. The View menu only has the
+    trend "Previous year". The × of a line in the legend removes it. The windows, which end at the
     date and before each previous window, fill the months: sums are divided by the number of windows (e.g. the average
     month), rates are pooled from their numerators and denominators (`DailyRatio`, e.g. churned and previously active
-    licenses), values at a date are averaged over the days. Calendar windows use their rolling windows. Sums and rates
-    only have averages of months longer than the window (`averageApplies`).
+    licenses), values at a date are averaged over the days. Calendar windows use their rolling windows. The
+    average of a window, which isn't shorter than the months, is its value.
   - New metrics are registered in `ChartMetric` and calculated in `ChartMetricValues.calculate`, new windows only need
     `ChartWindow.start` and `currentPeriodStart`.
   Columns of chartable tables without a metric, e.g. the renewal rates and the cohorts, and the pie charts still show
