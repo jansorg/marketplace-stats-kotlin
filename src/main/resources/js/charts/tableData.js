@@ -10,7 +10,10 @@
  * - tables: `data-chart-title` and `data-chart-period` (day, month or year) for line charts
  * - column headers: `data-chart-col` (index), `data-chart-label`, `data-chart-pie` for share columns and
  *   `data-chart-daily` for columns with values for each day, which are loaded from `/chart-series`,
- *   `data-chart-measure` (flow, stock or ratio) for what the values measure
+ *   `data-chart-measure` (flow, stock or ratio) for what the values measure,
+ *   `data-chart-history` (day, month or year) for columns with the values of each row over time
+ * - cells of columns with the values of the rows over time: `data-chart-history`, JSON like
+ *   `{"unit": "%", "points": [["2026-09-30", 45.2, false], ...]}`, the last value of a point is true for incomplete values
  * - rows of line charts: `data-chart-x` (ISO date), cells: `data-chart-value`, `data-chart-unit`, `data-chart-incomplete`
  * - rows of pie charts: `data-chart-category`, cells: `data-chart-share` (percentage)
  * - vertical lines: `#chart-major-releases`, `#chart-price-changes` and `#chart-ide-releases` with `li[data-date]`
@@ -28,19 +31,22 @@ function headerLabel(header) {
 }
 
 /**
- * @return {{header: HTMLElement, type: "line"|"pie", table: string, column: string, columnIndex: number}[]}
- *  The columns of a table, which can be shown in a chart.
+ * @return {{header: HTMLElement, type: "line"|"pie", table: string, column: string, columnIndex: number, isRowHistory: boolean}[]}
+ *  The columns of a table, which can be shown in a chart. Columns with the values of the rows over time are line
+ *  charts with a series for each row, see {@link readRowHistorySeries}.
  */
 export function chartColumns(table) {
     const columns = [];
     for (const header of table.querySelectorAll("th[data-chart-col]")) {
         const columnIndex = Number.parseInt(header.dataset.chartCol, 10);
+        const isRowHistory = Boolean(header.dataset.chartHistory);
         const type = header.dataset.chartPie === "true" ? "pie" : "line";
-        const hasValues = type === "pie"
-            ? table.querySelector(`tr[data-chart-category] > :nth-child(${columnIndex + 1})[data-chart-share]`) !== null
-            : table.querySelector(`td[data-chart-col="${columnIndex}"]`) !== null;
+        const cells = `tr[data-chart-category] > :nth-child(${columnIndex + 1})`;
+        const hasValues = isRowHistory ? table.querySelector(`${cells}[data-chart-history]`) !== null
+            : type === "pie" ? table.querySelector(`${cells}[data-chart-share]`) !== null
+                : table.querySelector(`td[data-chart-col="${columnIndex}"]`) !== null;
         if (hasValues) {
-            columns.push({header, type, table: table.dataset.chartTitle, column: headerLabel(header), columnIndex});
+            columns.push({header, type, table: table.dataset.chartTitle, column: headerLabel(header), columnIndex, isRowHistory});
         }
     }
     return columns;
@@ -88,6 +94,60 @@ export function readLineSeries(table, columnIndex) {
         daily: header.dataset.chartDaily || null,
         measure: header.dataset.chartMeasure || null,
     };
+}
+
+/**
+ * @return {object[]} A series for each row of a column with the values of the rows over time, like {@link readLineSeries}.
+ *  The series have the name of their row as `row`, e.g. the share of the sales of each customer type per month.
+ */
+export function readRowHistorySeries(table, columnIndex) {
+    const tableTitle = table.dataset.chartTitle;
+    const header = table.querySelector(`th[data-chart-col="${columnIndex}"]`);
+    const column = headerLabel(header);
+    const series = [];
+    for (const row of table.querySelectorAll("tr[data-chart-category]")) {
+        const history = parseHistory(row.children[columnIndex]?.dataset.chartHistory);
+        if (history === null) {
+            continue;
+        }
+        const name = row.dataset.chartCategory;
+        const points = new Map();
+        const incomplete = new Set();
+        for (const [date, value, isIncomplete] of history.points) {
+            const timestamp = isoDateToTimestamp(date);
+            points.set(timestamp, value);
+            if (isIncomplete) {
+                incomplete.add(timestamp);
+            }
+        }
+        series.push({
+            key: chartKey("line", tableTitle, column) + "/" + name,
+            table: tableTitle,
+            column,
+            row: name,
+            label: chartLabel(tableTitle, name + ", " + column),
+            period: PERIODS.includes(header.dataset.chartHistory) ? header.dataset.chartHistory : "month",
+            unit: history.unit,
+            points,
+            incomplete,
+            daily: null,
+            measure: header.dataset.chartMeasure || null,
+        });
+    }
+    return series;
+}
+
+/** @return {{unit: string, points: [string, number, boolean][]}|null} */
+function parseHistory(json) {
+    if (!json) {
+        return null;
+    }
+    try {
+        const history = JSON.parse(json);
+        return typeof history?.unit === "string" && Array.isArray(history.points) ? history : null;
+    } catch (e) {
+        return null;
+    }
 }
 
 /**
