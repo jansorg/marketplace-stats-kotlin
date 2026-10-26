@@ -171,10 +171,10 @@ class TopCountriesTable(
                     ),
                     sortValues = mapOf(
                         columnSales to (totalAmount?.sortValue() ?: -1L),
-                        columnSalesPercentage to salesPercentage.value.toLong(),
+                        columnSalesPercentage to salesPercentage.value.sortValue(),
                         columnTrialCount to countryTrialsAnyDuration.totalTrials.toLong(),
-                        columnTrialsPercentage to trialPercentage.value.toLong(),
-                        columnTrialConversion to trialConversionRate.value.toLong(),
+                        columnTrialsPercentage to trialPercentage.value.sortValue(),
+                        columnTrialConversion to trialConversionRate.value.sortValue(),
                         columnChurnAnnual to churnAnnual?.sortValue(),
                         columnChurnMonthly to churnMonthly?.sortValue(),
                     ),

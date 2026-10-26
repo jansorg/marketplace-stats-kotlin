@@ -109,8 +109,8 @@ class TopTrialCountriesTable(
                     ),
                     sortValues = mapOf(
                         columnTrialCount to trialCount.toLong(),
-                        columnTrialsPercentage to trialPercentage.value.toLong(),
-                        columnTrialConversionRate to trialConversion.value.toLong(),
+                        columnTrialsPercentage to trialPercentage.value.sortValue(),
+                        columnTrialConversionRate to trialConversion.value.sortValue(),
                     ),
                 )
             }
