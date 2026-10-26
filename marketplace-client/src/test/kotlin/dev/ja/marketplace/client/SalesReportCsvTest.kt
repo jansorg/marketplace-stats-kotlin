@@ -8,6 +8,7 @@ package dev.ja.marketplace.client
 import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.client.model.LicensePeriod
+import dev.ja.marketplace.client.model.SalesAnalyticsReportRow
 import dev.ja.marketplace.client.model.SalesReportLicenseType
 import org.javamoney.moneta.FastMoney
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 class SalesReportCsvTest {
     @Test
@@ -45,6 +47,17 @@ class SalesReportCsvTest {
     }
 
     @Test
+    fun analyticsReportWithByteOrderMarkAndLongDecimals() {
+        val csv = "\uFEFFcode,processed_date,customer_type,license_type,billing_period,sum_quantity,revenue_usd\n" +
+                "PPLUGINID,2025-03-14,Organization,Commercial,Perpetual,2,49.900000000000006\n"
+        val row = SalesReportCsv.analyticsReport(csv).single()
+        assertEquals("PPLUGINID", row.productCode)
+        assertEquals(LicensePeriod.Perpetual, row.billingPeriod)
+        // sums of the report can have more decimal places than supported by FastMoney
+        assertEquals(FastMoney.of(49.9, MarketplaceCurrencies.USD), row.amountUSD)
+    }
+
+    @Test
     fun fullReport() {
         val csv = """
             code,processed_date,customer_type,customer_name,customer_country_iso,via_reseller,license_type,billing_period,quantity,amount_in_usd,is_discounted,customer_code,order_ref,purchase_id
@@ -68,5 +81,36 @@ class SalesReportCsvTest {
     fun emptyReport() {
         assertTrue(SalesReportCsv.analyticsReport("").isEmpty())
         assertTrue(SalesReportCsv.analyticsReport("code,processed_date\n").isEmpty())
+    }
+
+    @Test
+    fun invalidRowsAreSkippedAndEmptyCellsAreKept() {
+        val csv = """
+            code,processed_date,customer_type,customer_name,customer_country_iso,via_reseller,license_type,billing_period,quantity,amount_in_usd,is_discounted,customer_code,order_ref,purchase_id
+            PPLUGINID,2025-03-14 10:15:00,Student,Name,DE,false,Commercial,Quarterly,,19.90,false,,R1,P1
+            PPLUGINID,2025-03-15,Personal,Name,DE,false,Commercial,Annual,1.0,,false,1,R2,P2
+            PPLUGINID,not a date,Personal,Name,DE,false,Commercial,Annual,1,9.90,false,1,R3,P3
+            PPLUGINID,2025-03-16,Personal,Name,DE,false,Commercial,Annual,1.0,9.90,false,1,R4,P4
+        """.trimIndent() + "\n"
+        val rows = SalesReportCsv.fullReport(csv)
+        // the rows without an amount and with an invalid date are skipped
+        assertEquals(listOf("R1", "R4"), rows.map { it.orderRef })
+
+        val first = rows[0]
+        assertEquals(YearMonthDay(2025, 3, 14), first.date)
+        assertEquals(CustomerType.Unknown, first.customerType)
+        assertEquals(LicensePeriod.Unknown, first.billingPeriod)
+        assertEquals(0, first.quantity)
+        assertNull(first.customerId)
+        assertEquals(1, rows[1].quantity)
+    }
+
+    @Test
+    fun missingRequiredColumnFailsTheReport() {
+        val csv = "code,processed_date,customer_type\nPPLUGINID,2025-03-14,Personal\n"
+        val error = assertThrows<IllegalStateException> { SalesReportCsv.analyticsReport(csv) }
+        assertEquals("The columns [revenue_usd] of the analytics report are missing", error.message)
+        // an empty report
+        assertEquals(emptyList<SalesAnalyticsReportRow>(), SalesReportCsv.analyticsReport("code,processed_date,customer_type\n"))
     }
 }

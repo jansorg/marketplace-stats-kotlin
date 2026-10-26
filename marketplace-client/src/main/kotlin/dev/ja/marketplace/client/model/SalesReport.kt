@@ -47,7 +47,8 @@ data class FullSalesReportRow(
     val quantity: Int,
     val amountUSD: MonetaryAmount,
     val isDiscounted: Boolean,
-    val customerId: CustomerId,
+    /** `null` if the report has no customer code, e.g. for some free licenses. */
+    val customerId: CustomerId?,
     val orderRef: String,
     val purchaseId: String,
 )

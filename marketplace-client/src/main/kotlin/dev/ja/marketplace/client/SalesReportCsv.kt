@@ -12,6 +12,7 @@ import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.SalesAnalyticsReportRow
 import dev.ja.marketplace.client.model.SalesReportLicenseType
 import org.javamoney.moneta.FastMoney
+import org.slf4j.LoggerFactory
 import java.math.BigDecimal
 
 /**
@@ -37,62 +38,127 @@ internal object SalesReportCsv {
         return parse(csv).firstOrNull().orEmpty().filter { it.isNotEmpty() && it !in knownColumns }
     }
 
+    /** The columns of the analytics report, without which its rows can't be read. */
+    private val analyticsReportRequiredColumns = setOf("code", "processed_date", "revenue_usd")
+
+    /** The columns of the full report, without which its rows can't be read. */
+    private val fullReportRequiredColumns = setOf("code", "processed_date", "amount_in_usd")
+
+    private val logger = LoggerFactory.getLogger(SalesReportCsv::class.java)
+
+    /**
+     * @throws IllegalStateException If a column, which is needed for all rows, is missing, e.g. after a change of the format.
+     */
     fun analyticsReport(csv: String): List<SalesAnalyticsReportRow> {
-        return records(csv).map { row ->
+        return rows(csv, "analytics report", analyticsReportRequiredColumns) { row ->
             SalesAnalyticsReportRow(
-                productCode = row.getValue("code"),
-                date = YearMonthDay.parse(row.getValue("processed_date")),
-                customerType = customerType(row.getValue("customer_type")),
-                licenseType = SalesReportLicenseType.of(row.getValue("license_type")),
-                billingPeriod = billingPeriod(row.getValue("billing_period")),
-                quantity = row.getValue("sum_quantity").toInt(),
-                amountUSD = FastMoney.of(BigDecimal(row.getValue("revenue_usd")), MarketplaceCurrencies.USD),
+                productCode = row.required("code"),
+                date = row.date("processed_date"),
+                customerType = customerType(row["customer_type"]),
+                licenseType = row["license_type"]?.let(SalesReportLicenseType::of),
+                billingPeriod = billingPeriod(row["billing_period"]),
+                quantity = row.int("sum_quantity") ?: 0,
+                amountUSD = row.amountUSD("revenue_usd"),
             )
         }
     }
 
+    /**
+     * @throws IllegalStateException If a column, which is needed for all rows, is missing, e.g. after a change of the format.
+     */
     fun fullReport(csv: String): List<FullSalesReportRow> {
-        return records(csv).map { row ->
+        return rows(csv, "full report", fullReportRequiredColumns) { row ->
             FullSalesReportRow(
-                productCode = row.getValue("code"),
-                date = YearMonthDay.parse(row.getValue("processed_date")),
-                customerType = customerType(row.getValue("customer_type")),
-                customerName = row.getValue("customer_name"),
-                customerCountryIsoCode = row.getValue("customer_country_iso"),
-                isViaReseller = row.getValue("via_reseller").toBoolean(),
-                licenseType = SalesReportLicenseType.of(row.getValue("license_type")),
-                billingPeriod = billingPeriod(row.getValue("billing_period")),
-                quantity = row.getValue("quantity").toInt(),
-                amountUSD = FastMoney.of(BigDecimal(row.getValue("amount_in_usd")), MarketplaceCurrencies.USD),
-                isDiscounted = row.getValue("is_discounted").toBoolean(),
-                customerId = row.getValue("customer_code").toInt(),
-                orderRef = row.getValue("order_ref"),
-                purchaseId = row.getValue("purchase_id"),
+                productCode = row.required("code"),
+                date = row.date("processed_date"),
+                customerType = customerType(row["customer_type"]),
+                customerName = row["customer_name"].orEmpty(),
+                customerCountryIsoCode = row["customer_country_iso"].orEmpty(),
+                isViaReseller = row["via_reseller"].toBoolean(),
+                licenseType = row["license_type"]?.let(SalesReportLicenseType::of),
+                billingPeriod = billingPeriod(row["billing_period"]),
+                quantity = row.int("quantity") ?: 0,
+                amountUSD = row.amountUSD("amount_in_usd"),
+                isDiscounted = row["is_discounted"].toBoolean(),
+                customerId = row.int("customer_code"),
+                orderRef = row["order_ref"].orEmpty(),
+                purchaseId = row["purchase_id"].orEmpty(),
             )
         }
     }
 
-    private fun customerType(value: String): CustomerType? = when (value) {
-        "Organization" -> CustomerType.Organization
-        "Personal" -> CustomerType.Individual
-        else -> null
+    /**
+     * @return The rows of the report. Rows with an invalid required value, e.g. an empty amount, are skipped and logged,
+     *  the other rows are still returned.
+     */
+    private fun <T> rows(csv: String, name: String, requiredColumns: Set<String>, transform: (Map<String, String>) -> T): List<T> {
+        val (header, records) = table(csv)
+        val missing = requiredColumns - header.toSet()
+        check(records.isEmpty() || missing.isEmpty()) { "The columns ${missing.sorted()} of the $name are missing" }
+
+        return records.mapIndexedNotNull { index, row ->
+            try {
+                transform(row)
+            } catch (e: IllegalArgumentException) {
+                // the line of the row, after the header
+                logger.warn("Skipping row ${index + 2} of the $name: ${e.message}")
+                null
+            }
+        }
     }
 
-    private fun billingPeriod(value: String): LicensePeriod? = when (value) {
-        "Annual" -> LicensePeriod.Annual
-        "Monthly" -> LicensePeriod.Monthly
-        else -> null
+    private fun Map<String, String>.required(column: String): String {
+        return this[column]?.takeIf(String::isNotBlank) ?: throw IllegalArgumentException("$column is empty")
+    }
+
+    /** The date of the column, also of a value with a time, e.g. `2025-03-14 10:00:00`. */
+    private fun Map<String, String>.date(column: String): YearMonthDay {
+        val value = required(column)
+        return try {
+            YearMonthDay.parse(value.take(10))
+        } catch (e: Exception) {
+            throw IllegalArgumentException("$column isn't a date")
+        }
+    }
+
+    private fun Map<String, String>.amountUSD(column: String): FastMoney {
+        val value = required(column).toBigDecimalOrNull() ?: throw IllegalArgumentException("$column isn't a number")
+        return fastMoneyOf(value, MarketplaceCurrencies.USD.currencyCode)
+    }
+
+    /** @return The integer of the column, also of a value like `1.0`, `null` if it's empty or invalid. */
+    private fun Map<String, String>.int(column: String): Int? {
+        return this[column]?.trim()?.toBigDecimalOrNull()?.toInt()
+    }
+
+    /** @return `null` for an empty value, [CustomerType.Unknown] for an unknown type. */
+    private fun customerType(value: String?): CustomerType? = when {
+        value.isNullOrBlank() -> null
+        else -> CustomerType.entries.firstOrNull { it != CustomerType.Unknown && it.apiValue == value } ?: CustomerType.Unknown
+    }
+
+    /** @return `null` without a period, e.g. of a free license, [LicensePeriod.Unknown] for an unknown period. */
+    private fun billingPeriod(value: String?): LicensePeriod? = when {
+        value.isNullOrBlank() || value.equals("none", ignoreCase = true) -> null
+        else -> LicensePeriod.entries.firstOrNull { it != LicensePeriod.Unknown && it.apiValue == value } ?: LicensePeriod.Unknown
     }
 
     /**
      * @return The records of the CSV file as maps of the column names of the header to the values.
      */
-    internal fun records(csv: String): List<Map<String, String>> {
-        val lines = parse(csv)
-        val header = lines.firstOrNull() ?: return emptyList()
-        return lines.drop(1)
+    internal fun records(csv: String): List<Map<String, String>> = table(csv).second
+
+    /**
+     * @return The columns of the header and the records of the CSV file as maps of the columns to the values.
+     */
+    private fun table(csv: String): Pair<List<String>, List<Map<String, String>>> {
+        // a byte order mark at the start would be part of the name of the first column
+        val lines = parse(csv.removePrefix("\uFEFF"))
+        val header = lines.firstOrNull() ?: return emptyList<String>() to emptyList()
+        val records = lines.drop(1)
             .filter { it.size > 1 || it.singleOrNull()?.isNotEmpty() == true }
             .map { values -> header.zip(values).toMap() }
+        return header to records
     }
 
     /**
