@@ -963,8 +963,8 @@ const YEAR = 365 * DAY;
 
 /**
  * The ticks of the date axis match the period of the values: days for daily values, years for yearly values.
- * The ticks of years are at the last day of each year, where the values of the years are located, and at the value of
- * the current year. Monthly values use the default ticks of uPlot.
+ * The ticks of years are at the values of the years, the last day of each year and today for the current year, so that
+ * a tick and the tooltip of its value show the same year. Monthly values use the default ticks of uPlot.
  */
 function xAxisTicks(period, formatter) {
     switch (period) {
@@ -983,13 +983,13 @@ function xAxisTicks(period, formatter) {
 /**
  * @param {boolean} startOfYear If the range starts at the start of the first year, e.g. for values per day.
  * @return {[number, number]} The range of yearly values until the end of the last year, also of the current year, whose
- *  value is located at today. The values of the years are at the end of the years, the range starts half a year before
- *  the first value, so that it isn't at the y-axis.
+ *  value is located at today. The values of the years are at the end of the years, the range starts a month before
+ *  the first value, so that it isn't at the y-axis, and doesn't show an empty year before it.
  */
 function yearRange([min, max], startOfYear) {
     const firstYear = new Date(min * 1000).getUTCFullYear();
     const end = periodEnd(max, "yearEnd");
-    const start = startOfYear ? Date.UTC(firstYear, 0, 1) / 1000 : min - YEAR / 2;
+    const start = startOfYear ? Date.UTC(firstYear, 0, 1) / 1000 : min - YEAR / 12;
     return [start, Math.max(end, max)];
 }
 
@@ -1096,9 +1096,11 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     // bars at the first and last date need space beside the date
     const interval = smallestInterval(timestamps, 24 * 60 * 60);
     const xPadding = isBars ? interval / 2 : 0;
-    // the tooltip lists the series, which are shown, series can be hidden by a click on the legend
+    // the tooltip lists the series, which are shown, series can be hidden by a click on the legend.
+    // The values of months and years are at the last day of their window, e.g. 2025-12-31 or today for the current
+    // period, the tooltip shows this date at all levels, in the locale of the page.
     const describe = (plot, index) => ({
-        date: formatDate(timestamps[index], datePeriod),
+        date: formatter.date(timestamps[index]),
         // series, which only show their average, are listed with the average
         rows: chartSeries
             .map((s, seriesIndex) => ({s, seriesIndex}))
