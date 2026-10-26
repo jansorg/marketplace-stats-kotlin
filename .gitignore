@@ -10,3 +10,5 @@ export-data/
 # custom events of the charts, see README.md
 events.yml
 .marketplace-data-cache/
+# git worktrees of the agents of Claude Code
+.claude/worktrees/
