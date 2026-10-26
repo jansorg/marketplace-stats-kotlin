@@ -83,7 +83,7 @@ object SubscriptionDailyValues {
         }
 
         val salesByLicense = licenses
-            .filter { it.validity != null && it.isPaidLicense && it.isSubscriptionLicense }
+            .filter(RecurringRevenueSales::isRecurring)
             .groupBy { it.id }
         for (licenseSales in salesByLicense.values) {
             // the latest sale only changes at the start or after the end of a sale

@@ -10,7 +10,6 @@ import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import java.math.BigDecimal
-import java.math.RoundingMode
 
 /**
  * Tracks recurring revenue for a given time period, e.g. one month or one year.
@@ -29,7 +28,7 @@ abstract class RecurringRevenueTracker(
 
     fun processLicenseSale(licenseInfo: LicenseInfo) {
         // only keep the latest valid sale of a license
-        if (licenseInfo.isPaidLicense && licenseInfo.isSubscriptionLicense && isValid(licenseInfo)) {
+        if (RecurringRevenueSales.isRecurring(licenseInfo) && isValid(licenseInfo)) {
             latestSales.merge(licenseInfo.id, licenseInfo, RecurringRevenueSales::preferred)
         }
     }
@@ -57,30 +56,14 @@ class MonthlyRecurringRevenueTracker(
     timeRange: YearMonthDayRange,
     exchangeRates: ExchangeRates,
 ) : RecurringRevenueTracker(timeRange, exchangeRates) {
-    private val annualToMonthly = BigDecimal.ONE.divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP)
-
-    override fun periodFactor(licensePeriod: LicensePeriod): BigDecimal {
-        return when (licensePeriod) {
-            LicensePeriod.Monthly -> BigDecimal.ONE
-            LicensePeriod.Annual -> annualToMonthly
-            LicensePeriod.Perpetual -> BigDecimal.ONE
-        }
-    }
+    override fun periodFactor(licensePeriod: LicensePeriod): BigDecimal = RecurringRevenueSales.monthlyFactor(licensePeriod)
 }
 
 class AnnualRecurringRevenueTracker(
     timeRange: YearMonthDayRange,
     exchangeRates: ExchangeRates,
 ) : RecurringRevenueTracker(timeRange, exchangeRates) {
-    private val monthlyToAnnual = BigDecimal.valueOf(12)
-
-    override fun periodFactor(licensePeriod: LicensePeriod): BigDecimal {
-        return when (licensePeriod) {
-            LicensePeriod.Monthly -> monthlyToAnnual
-            LicensePeriod.Annual -> BigDecimal.ONE
-            LicensePeriod.Perpetual -> BigDecimal.ONE
-        }
-    }
+    override fun periodFactor(licensePeriod: LicensePeriod): BigDecimal = RecurringRevenueSales.annualFactor(licensePeriod)
 }
 
 data class RecurringRevenue(

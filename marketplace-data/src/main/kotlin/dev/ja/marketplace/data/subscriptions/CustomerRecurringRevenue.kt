@@ -9,10 +9,11 @@ import dev.ja.marketplace.client.CustomerId
 import dev.ja.marketplace.client.LicenseId
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.YearMonthDay
+import dev.ja.marketplace.client.times
 import dev.ja.marketplace.client.model.CustomerType
-import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.data.trackers.RecurringRevenueSales
 import dev.ja.marketplace.exchangeRate.ExchangeRates
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
@@ -47,16 +48,16 @@ class CustomerRecurringRevenue(
 
     private val customerMrr: List<Int2ObjectMap<BigDecimal>>
     private val customerTypes = Int2ObjectOpenHashMap<CustomerType>()
-    private val firstPaidMonthIndices = Int2ObjectOpenHashMap<Int>()
+    private val firstPaidMonthIndices = Int2IntOpenHashMap().apply { defaultReturnValue(-1) }
 
     init {
         val todayKey = monthKey(today)
         val latestLicenseSales = Int2ObjectOpenHashMap<Object2ObjectOpenHashMap<LicenseId, LicenseInfo>>()
         for (license in licenses) {
-            val validity = license.validity
-            if (validity == null || !license.isPaidLicense || !license.isSubscriptionLicense) {
+            if (!RecurringRevenueSales.isRecurring(license)) {
                 continue
             }
+            val validity = license.validity!!
 
             customerTypes.put(license.sale.customer.code, license.sale.customer.type)
 
@@ -105,7 +106,7 @@ class CustomerRecurringRevenue(
 
     /** Index of the first month, in which the customer had recurring revenue. */
     fun firstPaidMonthIndex(customer: CustomerId): Int? {
-        return firstPaidMonthIndices.get(customer)
+        return firstPaidMonthIndices.get(customer).takeIf { it >= 0 }
     }
 
     /**
@@ -115,13 +116,10 @@ class CustomerRecurringRevenue(
      */
     fun cohorts(): Map<Int, List<Pair<CustomerId, Int>>> {
         val customersByYear = sortedMapOf<Int, MutableList<Pair<CustomerId, Int>>>()
-        for (monthIndex in months.indices) {
-            for (customer in customers(monthIndex).keys) {
-                if (firstPaidMonthIndex(customer) == monthIndex) {
-                    customersByYear.getOrPut(months[monthIndex].year, ::mutableListOf) += customer to monthIndex
-                }
-            }
+        for (entry in firstPaidMonthIndices.int2IntEntrySet()) {
+            customersByYear.getOrPut(months[entry.intValue].year, ::mutableListOf) += entry.intKey to entry.intValue
         }
+        customersByYear.values.forEach { customers -> customers.sortWith(compareBy({ it.second }, { it.first })) }
         return customersByYear
     }
 
@@ -144,13 +142,9 @@ class CustomerRecurringRevenue(
     }
 
     internal fun monthlyAmount(license: LicenseInfo): BigDecimal {
-        val amount = exchangeRates.targetAmount(license.sale.date, license.amountUSD, license.amount)
+        val factor = RecurringRevenueSales.monthlyFactor(license.sale.licensePeriod)
+        return exchangeRates.targetAmount(license.sale.date, license.amountUSD * factor, license.amount * factor)
             .number.numberValue(BigDecimal::class.java)
-
-        return when (license.sale.licensePeriod) {
-            LicensePeriod.Annual -> amount.divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP)
-            LicensePeriod.Monthly, LicensePeriod.Perpetual -> amount
-        }
     }
 
     private fun monthKey(date: YearMonthDay): Int {
