@@ -341,6 +341,53 @@ export function lineChartKey(chart) {
 }
 
 /**
+ * Merges the line charts of different periods with the same units, which are shown per week or per day, e.g. the trials
+ * of the table of months and of the table of years. Their values per day share a date range, so they're compared in
+ * one chart. Charts per month or year keep their own chart, because their dates differ.
+ *
+ * @param {{period: string, units: string[], dateRange: [number, number], granularity: string}[]} charts
+ *  The line charts of {@link groupCharts} with their granularity.
+ * @return {{periods: string[], keys: string[], units: string[], dateRange: [number, number], granularity: string}[]}
+ *  The line charts with the periods of their series and the keys of the merged charts, see {@link lineChartKey},
+ *  at the position of the first merged chart.
+ */
+export function mergeFinerCharts(charts) {
+    const merged = [];
+    const byUnits = new Map();
+    for (const chart of charts) {
+        const isFiner = chart.granularity === "week" || chart.granularity === "day";
+        const groupKey = chart.granularity + "/" + chart.units.join("+");
+        const target = isFiner ? byUnits.get(groupKey) : undefined;
+        if (target === undefined) {
+            const {period, ...rest} = chart;
+            const entry = {...rest, periods: [period], keys: [lineChartKey(chart)]};
+            merged.push(entry);
+            if (isFiner) {
+                byUnits.set(groupKey, entry);
+            }
+        } else {
+            target.periods.push(chart.period);
+            target.keys.push(lineChartKey(chart));
+            target.dateRange = [Math.min(target.dateRange[0], chart.dateRange[0]), Math.max(target.dateRange[1], chart.dateRange[1])];
+        }
+    }
+    return merged;
+}
+
+/**
+ * @param {{label: string, period: string, measure?: string|null}} series A series with values per week or per day.
+ * @return {string} The label of the series with the window of its values per day, e.g. the sums of the 12 months
+ *  before each day of a yearly table, to tell them apart from the values of monthly tables in the same chart.
+ *  Values at each day, e.g. MRR, have no window.
+ */
+export function finerWindowLabel(series) {
+    if (series.measure !== "flow" && series.measure !== "ratio") {
+        return series.label;
+    }
+    return series.label + (series.period === "year" ? ", last 12 months" : ", last month");
+}
+
+/**
  * Granularities of the line charts of the values of tables. "month" is the period of the table, i.e. also the years of
  * yearly values and the days of tables like the days of the current month. Columns with values for each day, e.g. MRR,
  * can be shown per week or per day, and the values of yearly tables also at the end of each month ("monthEnd").

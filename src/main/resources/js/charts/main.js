@@ -11,7 +11,7 @@
 
 import {createFormatter} from "./format.js";
 import {
-    canCombineUnits, CHART_STYLES, dateRange, rangeLabel, rangeOfTimestamps, rangeTimestamps, rangeYears, exportFileName, finerPoints, granularitiesOf, groupCharts, hasFinerValues, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES, nextColor, pieSlices,
+    canCombineUnits, CHART_STYLES, dateRange, rangeLabel, rangeOfTimestamps, rangeTimestamps, rangeYears, exportFileName, finerPoints, finerWindowLabel, granularitiesOf, groupCharts, hasFinerValues, lineChartKey, mergeFinerCharts, MARKER_KINDS, MAX_PIES, MAX_SERIES, nextColor, pieSlices,
     visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear, rollingAverageOfDays, trailingAverage, trailingAverageOfDays,
 } from "./model.js";
 import {browserStorage, createSetupStorage, decodeView, encodeView} from "./storage.js";
@@ -32,6 +32,9 @@ const GRANULARITY_HINTS = {
         + "customer types. Columns without these values are shown per month.",
     year: "Month, Week and Day show the sums of the year before each date, e.g. the sales of the last 12 months. "
         + "Columns without values per day are shown per year.",
+    merged: "Week and Day show the values of tables of months and years in one chart: the sums of the month or "
+        + "of the year before each date, e.g. the sales of the last month and of the last 12 months, and the MRR and "
+        + "ARR at each date. Month shows the values of each table in its own chart.",
     day: "Month shows the days of the table. Week and Day show the whole history, the sums of the month before each "
         + "date, e.g. the sales of the last month, and the MRR and ARR at each date.",
 };
@@ -491,7 +494,15 @@ class ChartController {
         dialog.setAveragesOnly(this.averagesOnly);
         const markers = visibleMarkers(this.markers, this.shownMarkers, this.shownEvents);
 
-        const charts = groupCharts(this.series, this.combineUnits);
+        // charts of different periods with the same units share a chart per week or per day
+        const charts = mergeFinerCharts(groupCharts(this.series, this.combineUnits).map(chart => {
+            const unitSeries = this.series.filter(s => s.period === chart.period && chart.units.includes(s.unit));
+            const canBeFiner = hasFinerValues(unitSeries);
+            const granularities = granularitiesOf(chart.period, unitSeries.some(s => s.yearly));
+            const storedGranularity = this.granularities[lineChartKey(chart)];
+            const granularity = canBeFiner && granularities.includes(storedGranularity) ? storedGranularity : "month";
+            return {...chart, canBeFiner, granularities, granularity};
+        }));
         // with several charts, each chart can be removed
         const isRemovable = charts.length + this.pies.length > 1;
         const visibleRange = rangeTimestamps(this.dateRange);
@@ -502,25 +513,27 @@ class ChartController {
         // the trends, which apply to at least one series of the shown line charts
         const applicableOverlays = new Set();
         for (const chart of charts) {
-            const key = lineChartKey(chart);
-            let chartSeries = this.series.filter(s => s.period === chart.period);
-            const unitSeries = chartSeries.filter(s => chart.units.includes(s.unit));
-            const canBeFiner = hasFinerValues(unitSeries);
-            const granularities = granularitiesOf(chart.period, unitSeries.some(s => s.yearly));
-            const storedGranularity = this.granularities[key];
-            const granularity = canBeFiner && granularities.includes(storedGranularity) ? storedGranularity : "month";
+            const key = chart.keys[0];
+            const isMerged = chart.periods.length > 1;
+            let chartSeries = this.series.filter(s => chart.periods.includes(s.period));
+            const {canBeFiner, granularity} = chart;
+            // the buttons of a merged chart apply to all of its charts, "Month" shows the values of the tables again
+            const granularities = isMerged ? ["month", "week", "day"] : chart.granularities;
             const finerValues = granularity === "month" ? null : this.loadFinerValues(granularity);
             if (finerValues !== null) {
                 // the values per year replace the values of the table, the values per day the values per week and day
                 const id = s => granularity === "yearEnd" ? s.yearly : s.daily;
                 chartSeries = chartSeries.map(s => ({...s, ...(id(s) ? finerPoints(finerValues, id(s)) : null)}));
+                if (isMerged) {
+                    chartSeries = chartSeries.map(s => ({...s, label: finerWindowLabel(s)}));
+                }
             }
             if (!this.showIncomplete) {
                 chartSeries = chartSeries.map(withoutIncomplete);
             }
             // bars of every day would be too thin
             const chartStyle = granularity === "month" ? this.chartStyles[key] ?? this.preferredStyle : "lines";
-            this.shownStyles[key] = this.chartStyles[key] ?? this.preferredStyle;
+            chart.keys.forEach(k => this.shownStyles[k] = this.chartStyles[k] ?? this.preferredStyle);
             const overlays = this.trends(chartSeries.filter(s => chart.units.includes(s.unit)), granularity);
             for (const series of chartSeries.filter(s => chart.units.includes(s.unit))) {
                 OVERLAYS.filter(kind => overlayApplies(kind, series, granularity)).forEach(kind => applicableOverlays.add(kind));
@@ -538,7 +551,7 @@ class ChartController {
                 dateRange: chartDateRange,
                 markers,
                 formatter: this.formatter,
-                syncKey: "marketplace-charts-" + chart.period + "-" + granularity,
+                syncKey: "marketplace-charts-" + chart.periods.join("+") + "-" + granularity,
                 chartStyle,
                 granularity,
                 extremes: this.shownExtremes,
@@ -567,13 +580,13 @@ class ChartController {
             this.exports.push(chartExport);
             toolbar.append(this.exportMenu(chartExport));
             if (canBeFiner) {
-                toolbar.append(this.granularitySwitch(key, granularity, chart.period, granularities));
+                toolbar.append(this.granularitySwitch(chart.keys, granularity, isMerged ? null : chart.periods[0], granularities));
             }
             // disabled instead of hidden, so that the buttons don't move
             toolbar.append(this.styleSwitch(key, chartStyle, granularity !== "month"));
             if (isRemovable) {
                 toolbar.append(this.removeButton(() => {
-                    this.series = this.series.filter(s => s.period !== chart.period || !chart.units.includes(s.unit));
+                    this.series = this.series.filter(s => !chart.periods.includes(s.period) || !chart.units.includes(s.unit));
                 }));
             }
         }
@@ -694,25 +707,28 @@ class ChartController {
     }
 
     /**
-     * @param {"day"|"month"|"year"} period The period of the values of the table, the button "Month" (or "Year" for
+     * @param {string[]} keys The keys of the charts, which the buttons apply to, several for a merged chart, see
+     *  {@link mergeFinerCharts}.
+     * @param {"day"|"month"|"year"|null} period The period of the values of the table, the button "Month" (or "Year" for
      *  yearly tables) shows them. Tables of days, e.g. the days of the current month, show them with the button "Month".
+     *  `null` for a merged chart of several periods.
      * @param {string[]} granularities The granularities of the chart, see {@link granularitiesOf}.
      * @return {HTMLElement} Buttons to show a line chart per month or year, per week or per day, the values of
      *  yearly tables at the end of each month and the values of years of monthly values with values per year.
      */
-    granularitySwitch(key, current, period, granularities) {
+    granularitySwitch(keys, current, period, granularities) {
         const group = document.createElement("div");
         group.className = "chart-button-group";
         group.setAttribute("role", "group");
         group.setAttribute("aria-label", "Values per");
-        group.title = GRANULARITY_HINTS[period];
+        group.title = GRANULARITY_HINTS[period ?? "merged"];
         for (const granularity of granularities) {
             const button = document.createElement("button");
             button.type = "button";
             button.textContent = granularity === "month" && period === "year" ? "Year" : GRANULARITY_LABELS[granularity];
             button.setAttribute("aria-pressed", String(granularity === current));
             button.addEventListener("click", () => {
-                this.granularities = {...this.granularities, [key]: granularity};
+                this.granularities = {...this.granularities, ...Object.fromEntries(keys.map(key => [key, granularity]))};
                 this.save();
                 this.render();
             });

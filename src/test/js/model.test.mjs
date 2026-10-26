@@ -9,7 +9,7 @@ import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/chart
 import {
     averageShade, pinchedRange, rangeLabel, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, granularitiesOf, rollingAverageOfDays, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear, trailingAverageOfDays,
-    seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, groupCharts, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
+    seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, finerWindowLabel, groupCharts, mergeFinerCharts, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
 } from "../../main/resources/js/charts/model.js";
 
@@ -25,6 +25,34 @@ test("colors are assigned in the order of the palette", () => {
     assert.equal(nextColor([SERIES_COLORS[3]], SERIES_COLORS[3]), SERIES_COLORS[0]);
     assert.equal(nextColor([], "#123456"), SERIES_COLORS[0]);
     assert.equal(nextColor(SERIES_COLORS), undefined);
+});
+
+test("charts of months and years with the same units share a chart per week or per day", () => {
+    const charts = mergeFinerCharts([
+        {period: "month", units: ["count"], dateRange: [100, 200], granularity: "day"},
+        {period: "month", units: ["USD"], dateRange: [100, 200], granularity: "day"},
+        {period: "year", units: ["count"], dateRange: [50, 150], granularity: "day"},
+    ]);
+    assert.deepEqual(charts, [
+        {periods: ["month", "year"], keys: ["month/count", "year/count"], units: ["count"], dateRange: [50, 200], granularity: "day"},
+        {periods: ["month"], keys: ["month/USD"], units: ["USD"], dateRange: [100, 200], granularity: "day"},
+    ]);
+    // the values of the tables and different granularities keep their own charts
+    assert.equal(mergeFinerCharts([
+        {period: "month", units: ["count"], dateRange: [100, 200], granularity: "month"},
+        {period: "year", units: ["count"], dateRange: [50, 150], granularity: "month"},
+    ]).length, 2);
+    assert.equal(mergeFinerCharts([
+        {period: "month", units: ["count"], dateRange: [100, 200], granularity: "week"},
+        {period: "year", units: ["count"], dateRange: [50, 150], granularity: "day"},
+    ]).length, 2);
+});
+
+test("labels of merged charts name the window of sums and rates", () => {
+    assert.equal(finerWindowLabel({label: "Trials (Years)", period: "year", measure: "flow"}), "Trials (Years), last 12 months");
+    assert.equal(finerWindowLabel({label: "Trials (Overview)", period: "month", measure: "flow"}), "Trials (Overview), last month");
+    assert.equal(finerWindowLabel({label: "Conv. (Overview)", period: "month", measure: "ratio"}), "Conv. (Overview), last month");
+    assert.equal(finerWindowLabel({label: "ARR (Years)", period: "year", measure: "stock"}), "ARR (Years)");
 });
 
 test("units have separate charts, amounts are on the left axis with a second y-axis", () => {
