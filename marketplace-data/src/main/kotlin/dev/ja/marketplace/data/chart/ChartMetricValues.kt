@@ -65,7 +65,8 @@ class ChartMetricValues private constructor(
 
     private val today = windows.today
     private val dayCount = windows.dayCount
-    private val currency = exchangeRates.targetCurrency.currencyCode
+    /** The currency code of the amounts. */
+    val currency: String = exchangeRates.targetCurrency.currencyCode
     private val zero: MonetaryAmount = FastMoney.zero(exchangeRates.targetCurrency)
 
     private val cache = ConcurrentHashMap<Pair<ChartMetric, ChartWindow>, DailySeries>()

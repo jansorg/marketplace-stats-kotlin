@@ -1181,7 +1181,7 @@ dl.detail-grid dd {
     gap: 0.5rem;
 }
 
-.chart-dialog-header button:not(.chart-remove) {
+.chart-dialog-header > button:not(.chart-remove) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1197,11 +1197,11 @@ dl.detail-grid dd {
     cursor: pointer;
 }
 
-.chart-dialog-header button:not(.chart-remove):hover {
+.chart-dialog-header > button:not(.chart-remove):hover, .chart-dialog-header .chart-add-menu summary:hover {
     background-color: var(--button-hover-bgcolor);
 }
 
-.chart-dialog-header button:not(.chart-remove):focus-visible {
+.chart-dialog-header > button:not(.chart-remove):focus-visible {
     outline: 2px solid var(--link-color);
     outline-offset: 1px;
 }
@@ -1212,7 +1212,7 @@ dl.detail-grid dd {
     padding: 0;
 }
 
-.chart-dialog-header button .chart-icon {
+.chart-dialog-header > button .chart-icon, .chart-dialog-header .chart-add-menu summary .chart-icon {
     width: 18px;
     height: 18px;
     /* the larger icon would also have thicker lines */
@@ -1483,6 +1483,13 @@ dl.detail-grid dd {
     outline-offset: 1px;
 }
 
+/* a menu, which opens above its button, see menu.js */
+.chart-menu.chart-menu-up .chart-menu-items {
+    bottom: 100%;
+    margin-top: 0;
+    margin-bottom: 0.2rem;
+}
+
 .chart-menu-items {
     position: absolute;
     right: 0;
@@ -1530,9 +1537,89 @@ dl.detail-grid dd {
     visibility: visible;
 }
 
-.chart-range-menu .chart-menu-items, .chart-event-menu .chart-menu-items {
+.chart-range-menu .chart-menu-items, .chart-event-menu .chart-menu-items, .chart-add-menu .chart-menu-items {
     max-height: 60vh;
     overflow-y: auto;
+}
+
+/* the menu to add a metric has an icon like the buttons of the header of the dialog */
+.chart-dialog-header .chart-add-menu summary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 2.2rem;
+    height: 1.75rem;
+    padding: 0;
+    color: var(--text-color);
+    background-color: var(--button-bgcolor);
+}
+
+.chart-dialog-header .chart-add-menu summary::after {
+    content: none;
+}
+
+.chart-add-menu .chart-menu-items {
+    min-width: 14rem;
+}
+
+/* the window of the added metric */
+.chart-add-window {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.8rem 0.4rem;
+    border-bottom: 1px solid var(--separator-light-color);
+}
+
+.chart-add-window select {
+    font: inherit;
+}
+
+/* the groups of the metrics, e.g. the trials */
+.chart-add-menu .chart-menu-heading {
+    margin-top: 0;
+    padding: 0.3rem 0.8rem;
+    color: var(--text-color);
+    font-weight: 700;
+    background-color: var(--button-bgcolor);
+}
+
+/* the gear in the legend of a line, which selects its window */
+.chart-series-window {
+    display: inline-block;
+    margin-left: 0.3rem;
+    vertical-align: middle;
+    font-weight: normal;
+}
+
+.chart-series-window summary {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.05rem 0.15rem;
+    color: var(--text-color-disabled);
+    background: none;
+    border-color: transparent;
+}
+
+.chart-series-window summary:hover, .chart-series-window[open] summary {
+    color: var(--text-color);
+    border-color: var(--separator-light-color);
+}
+
+.chart-series-window summary::after {
+    content: none;
+}
+
+.chart-series-window .chart-icon {
+    width: 13px;
+    height: 13px;
+}
+
+.chart-series-window .chart-menu-items {
+    left: 0;
+    right: auto;
+    text-align: left;
 }
 
 /* the events may have long labels, they wrap on small screens */

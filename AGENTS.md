@@ -209,8 +209,15 @@ extend, must not fail a response:
     retention (compared with a year ago, like the table) ignore the window. `SubscriptionDailyValues` calculates the
     movements of the MRR per window and the values at each day once.
   - Detail level (`ChartDetail`): the dates of the values, each day or the end of each week, month or year, and today.
-  - The chart dialog has a menu "Window" and the buttons Year/Month/Week/Day for each chart of metrics, stored as
-    `chartLevels`. A new chart takes the level of the table (`DataTable.chartLevel`, `data-chart-window` and
+  - Each line has its own window (`window` of the series, the key is `metric:<id>@<window>`), so that e.g. the trials
+    of each calendar month and the trials of each day are two lines of one chart. The gear of a line in the legend
+    (`seriesWindowMenu` in `lineChart.js`) selects its window, the buttons Year/Month/Week/Day set the detail level of
+    the chart, stored as `chartLevels`. The window "Follow the level" (`follow`, only in the charts) is the calendar
+    window of the level, e.g. the calendar year at the level Year. Lines of tables with the calendar window of their
+    level follow the level (`tableWindow`). The "+" menu of the dialog adds a metric of `/chart-metrics` (the metrics
+    of the page, grouped by `ChartMetric.group`) with a selected window to the chart of its unit.
+  - Menus open above their button, if they don't fit below (`menu.js`), menus in scrolled containers like the legend
+    are placed in the window (`createMenu(label, {fixed: true})`). A new chart takes the level of the table (`DataTable.chartLevel`, `data-chart-window` and
     `data-chart-detail`), e.g. calendar month and month for the overview. A window, which is shorter than the steps
     of the dates (`windowApplies` in `model.js`), e.g. a day at the level Year, is disabled, a change of the level
     replaces it with the calendar window of the level.

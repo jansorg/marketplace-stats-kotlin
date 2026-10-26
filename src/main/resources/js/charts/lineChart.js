@@ -8,7 +8,8 @@
  */
 
 import {formatDate, SECONDS_PER_DAY, unitTitle} from "./format.js";
-import {alignSeries, availableComparisons, barLayout, cursorPosition, periodEnd, displayColor, extremeIndices, incompleteColor, averageShade, pinchedRange, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange} from "./model.js";
+import {createMenu} from "./menu.js";
+import {alignSeries, availableComparisons, barLayout, cursorPosition, periodEnd, WINDOW_LABELS, WINDOWS, displayColor, extremeIndices, incompleteColor, averageShade, pinchedRange, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange} from "./model.js";
 
 /**
  * The colors of the charts in the light and the dark mode. The surface is the background of the charts in the chart
@@ -624,6 +625,8 @@ function enableComparisons(plot, {rows, timestamps, datePeriod, formatter, value
     const shownIndices = timestamps.flatMap((timestamp, index) => timestamp >= shownRange[0] && timestamp <= shownRange[1] ? [index] : []);
     const latestIndex = shownIndices.length > 0 ? shownIndices[shownIndices.length - 1] : timestamps.length - 1;
     let shownIndex = null;
+    // the labels of the rows, see renderComparisonTable
+    const labels = new Map();
     let shownSeries = null;
 
     const update = () => {
@@ -646,7 +649,7 @@ function enableComparisons(plot, {rows, timestamps, datePeriod, formatter, value
         shownIndex = index;
         shownSeries = visibleSeries;
         if (valueTable) {
-            renderComparisonTable(table, {plot, rows, seriesPoints, comparisons, timestamp, datePeriod, formatter});
+            renderComparisonTable(table, {plot, rows, seriesPoints, comparisons, timestamp, datePeriod, formatter, labels});
         }
     };
     update();
@@ -668,7 +671,65 @@ function cell(tagName, className, text) {
  * The columns are in chronological order, the values at the cursor in the middle. Each other value shows the change
  * between its date and the date of the cursor, e.g. the change since the previous year.
  */
-function renderComparisonTable(table, {plot, rows, seriesPoints, comparisons, timestamp, datePeriod, formatter}) {
+/** The outline of a gear with 8 teeth, the icon of settings: the teeth alternate between two radii. */
+const GEAR_PATH = Array.from({length: 32}, (_, i) => {
+    const angle = (i + 0.5) * Math.PI / 16;
+    const radius = i % 4 === 1 || i % 4 === 2 ? 8.5 : 6.4;
+    return (i === 0 ? "M" : "L") + (10 + radius * Math.cos(angle)).toFixed(2) + " " + (10 + radius * Math.sin(angle)).toFixed(2);
+}).join(" ") + " Z";
+
+/**
+ * @param {{label: string, window: string, selectedWindow?: string}} series A line of a metric with its shown and its
+ *  selected window, e.g. the trials of each month, which follow the level of the chart.
+ * @param {string} detail The detail level of the chart.
+ * @param {(window: string) => void} onChange Called with the selected window.
+ * @return {HTMLElement} A menu with a gear icon to select the window of the line, e.g. in its legend.
+ */
+function seriesWindowMenu(series, detail, onChange) {
+    // the legend may scroll horizontally, the menu is placed in the window, a click on the small icon opens it
+    const {menu, items} = createMenu("", {fixed: true, hover: false});
+    menu.classList.add("chart-series-window");
+    const summary = menu.querySelector("summary");
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 20 20");
+    svg.setAttribute("aria-hidden", "true");
+    svg.classList.add("chart-icon");
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", "10");
+    circle.setAttribute("cy", "10");
+    circle.setAttribute("r", "2.6");
+    const gear = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    gear.setAttribute("d", GEAR_PATH);
+    svg.append(gear, circle);
+    summary.append(svg);
+    const selected = series.selectedWindow ?? series.window;
+    summary.title = "Window: " + (WINDOW_LABELS[selected] ?? selected);
+    summary.setAttribute("aria-label", "Window of " + series.label);
+    for (const window of WINDOWS) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = WINDOW_LABELS[window];
+        button.setAttribute("role", "menuitemradio");
+        button.setAttribute("aria-checked", String(window === selected));
+        button.addEventListener("click", () => {
+            menu.open = false;
+            onChange(window);
+        });
+        items.append(button);
+    }
+    // the menu doesn't inherit the tooltip of the legend, which shows and hides the line
+    menu.setAttribute("title", "");
+    // a click on the menu doesn't show or hide the line
+    menu.addEventListener("click", event => event.stopPropagation());
+    menu.addEventListener("keydown", event => event.stopPropagation());
+    return menu;
+}
+
+/**
+ * @param {Map<number, HTMLElement>} labels The labels of the rows, which are kept, when the table is shown again, e.g.
+ *  when the cursor leaves the chart, so that an open menu of the window of a line in a label stays open.
+ */
+function renderComparisonTable(table, {plot, rows, seriesPoints, comparisons, timestamp, datePeriod, formatter, labels}) {
     if (timestamp === undefined) {
         table.replaceChildren();
         return;
@@ -702,22 +763,29 @@ function renderComparisonTable(table, {plot, rows, seriesPoints, comparisons, ti
         const isShown = plot.series[plotIndex].show;
         const row = document.createElement("tr");
         row.classList.toggle("chart-comparison-hidden", !isShown);
-        const label = cell("th", "chart-comparison-series");
-        label.tabIndex = 0;
-        label.setAttribute("role", "button");
+        let label = labels.get(plotIndex);
+        if (label === undefined) {
+            label = cell("th", "chart-comparison-series");
+            label.tabIndex = 0;
+            label.setAttribute("role", "button");
+            const toggle = () => plot.setSeries(plotIndex, {show: !plot.series[plotIndex].show});
+            label.addEventListener("click", toggle);
+            label.addEventListener("keydown", event => {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    toggle();
+                }
+            });
+            const key = cell("span", "chart-tooltip-key");
+            key.style.backgroundColor = series.color;
+            label.append(key, series.label);
+            if (series.windowMenu) {
+                label.append(series.windowMenu());
+            }
+            labels.set(plotIndex, label);
+        }
         label.setAttribute("aria-pressed", String(isShown));
         label.title = isShown ? "Click to hide the line" : "Click to show the line";
-        const toggle = () => plot.setSeries(plotIndex, {show: !plot.series[plotIndex].show});
-        label.addEventListener("click", toggle);
-        label.addEventListener("keydown", event => {
-            if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                toggle();
-            }
-        });
-        const key = cell("span", "chart-tooltip-key");
-        key.style.backgroundColor = series.color;
-        label.append(key, series.label);
         row.append(label);
 
         columns.forEach((column, i) => {
@@ -875,6 +943,9 @@ function yAxis(unit, scale, side, style) {
  * @param {"month"|"week"|"day"} [options.granularity] Values per week or per day are labeled with their day.
  * @param {("min"|"max")[]} [options.extremes] If the minimum or the maximum of each series are marked.
  * @param {boolean} [options.valueTable] If a table compares the values at the cursor instead of the legend of uPlot.
+ * @param {string|null} [options.detail] The detail level of a chart of metrics, see DETAILS in model.js.
+ * @param {((key: string, window: string) => void)|null} [options.onSeriesWindowChange] Called with the key of a line of
+ *  a metric and a window, which is selected in the legend. Without it, the legend has no menus of the windows.
  * @param {boolean} [options.comparisonLines] If vertical lines mark the dates one month and one year before and after
  *  the cursor.
  * @param {{kind: string, base: string, label: string, points: Map<number, number>}[]} [options.overlays] Additional
@@ -896,7 +967,7 @@ function yAxis(unit, scale, side, style) {
  * @param {"light"|"dark"} [options.theme] The colors of the chart, by default the color scheme of the browser.
  * @return {uPlot}
  */
-export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, comparisonLines = false, overlays = [], averagesOnly = false, visibleRange = null, onZoom = null, hiddenSeries = new Set(), onSeriesVisibilityChange = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
+export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, comparisonLines = false, detail = null, onSeriesWindowChange = null, overlays = [], averagesOnly = false, visibleRange = null, onZoom = null, hiddenSeries = new Set(), onSeriesVisibilityChange = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
     const theme = CHART_THEMES[themeName];
     const style = {formatter, fonts: fonts(fontFamily), theme};
     const scaleKeys = ["y", "y2"];
@@ -1105,7 +1176,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     function valueTableRows() {
         return chartSeries.flatMap((s, seriesIndex) => {
             const label = s.isRightAxis ? s.label + " (right axis)" : s.label;
-            const seriesRow = s.isValueHidden ? [] : [{label, color: s.color, unit: s.unit, incomplete: s.incomplete, values: values[seriesIndex], plotIndex: seriesIndex + 1}];
+            const seriesRow = s.isValueHidden ? [] : [{label, color: s.color, unit: s.unit, incomplete: s.incomplete, values: values[seriesIndex], plotIndex: seriesIndex + 1,
+                windowMenu: windowMenuOf(s)}];
             return seriesRow.concat(chartOverlays
                 .map((overlay, overlayIndex) => ({overlay, overlayIndex}))
                 .filter(({overlay}) => overlay.base === s)
@@ -1120,9 +1192,27 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         });
     }
 
+    /** @return {(() => HTMLElement)|null} Creates the menu of the window of a line, see seriesWindowMenu. */
+    function windowMenuOf(series) {
+        return series.usesWindow && series.window && detail && onSeriesWindowChange
+            ? () => seriesWindowMenu(series, detail, window => onSeriesWindowChange(series.key, window))
+            : null;
+    }
+
     let updateTooltip = null;
     let updateComparisons = null;
     const plot = new uPlot(options, [timestamps, ...values, ...overlayValues], container);
+    // without the value table, the legend of uPlot has the menus of the windows
+    if (!valueTable) {
+        const legendLabels = [...plot.root.querySelectorAll(".u-legend .u-series .u-label")];
+        chartSeries.forEach((s, index) => {
+            const menu = windowMenuOf(s)?.();
+            const legendLabel = legendLabels.find(label => label.textContent === plot.series[index + 1].label);
+            if (menu && legendLabel) {
+                legendLabel.after(menu);
+            }
+        });
+    }
     updateTooltip = enableTooltip(plot, chartSeries, describe);
     updateComparisons = enableComparisons(plot, {rows: valueTableRows(), timestamps, datePeriod, formatter, valueTable, comparisonLines, shownRange: xRange});
     // the legend of uPlot doesn't list series, which only show their average

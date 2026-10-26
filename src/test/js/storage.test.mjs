@@ -19,7 +19,8 @@ test("a stored setup is loaded", () => {
         combineUnits: true, averagesOnly: true, maximized: false, preferredStyle: "bars", chartStyles: {"month/USD": "bars"}, chartLevels: {"metric/USD": {window: "year", detail: "day"}}, shownMarkers: ["ide"], shownEvents: ["price-announcement"], shownExtremes: ["max"], shownOverlays: ["average12", "previousYear"], showIncomplete: false, showValueTable: false, showComparisonLines: true,
         dateRange: {from: "2024-01-01", to: "2024-12-31"}, hiddenSeries: ["line/Overview/MRR", "line/Overview/MRR:average3"],
         entries: [
-            {type: "metric", metric: "mrr", label: "MRR", unit: "USD", measure: "stock", color: "#2a78d6"},
+            {type: "metric", metric: "mrr", usesWindow: false, label: "MRR", unit: "USD", measure: "stock", color: "#2a78d6"},
+            {type: "metric", metric: "trials", window: "day", usesWindow: true, label: "Trials", unit: "count", measure: "flow", color: "#1baf7a"},
             {type: "line", table: "Renewal Rates", column: "All", color: "#eb6834"},
             {type: "pie", table: "Top Countries", column: "% of Sales"},
         ],
@@ -38,6 +39,13 @@ test("the dialog is maximized by default", () => {
     assert.equal(load({maximized: false}).maximized, false);
 });
 
+test("the second y-axis is used by default", () => {
+    const load = stored => createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 2, entries: [], ...stored})})).load();
+    assert.equal(emptySetup().combineUnits, true);
+    assert.equal(load({}).combineUnits, true);
+    assert.equal(load({combineUnits: false}).combineUnits, false);
+});
+
 test("the comparison lines are hidden by default", () => {
     const load = stored => createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 2, entries: [], ...stored})})).load();
     assert.equal(emptySetup().showComparisonLines, false);
@@ -53,7 +61,7 @@ test("invalid data is ignored", () => {
         version: 2, preferredStyle: "pie", chartStyles: {"a": "bars", "b": "dots"}, shownMarkers: ["ide", "unknown", 1],
         chartLevels: {"a": {window: "year", detail: "week"}, "b": {window: "hour", detail: "day"}, "c": {window: "month"}},
         entries: [{type: "line", table: "Overview", column: "MRR"}, {type: "unknown", table: "X", column: "Y"}, {type: "pie", table: 1, column: "Y"},
-            {type: "metric", metric: "mrr", label: "MRR"}],
+            {type: "metric", metric: "mrr", label: "MRR"}, {type: "metric", metric: "trials", window: "hour", label: "Trials", unit: "count"}],
     };
     const setup = createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify(stored)})).load();
     assert.equal(setup.preferredStyle, "lines");
