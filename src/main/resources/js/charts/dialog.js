@@ -84,7 +84,7 @@ export class ChartDialog {
      *  selects the shown events in a menu.
      * @param {boolean} hasLineCharts If the page has columns, which can be shown in line charts.
      */
-    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange, onEventVisibilityChange, onExtremeVisibilityChange, onIncompleteVisibilityChange, onValueTableVisibilityChange, onComparisonLinesVisibilityChange, onOverlayVisibilityChange, onAveragesOnlyChange, onDateRangeChange, onAddMenuOpen}, markerKinds, hasLineCharts, customEvents = []) {
+    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange, onEventVisibilityChange, onExtremeVisibilityChange, onIncompleteVisibilityChange, onValueTableVisibilityChange, onComparisonLinesVisibilityChange, onOverlayVisibilityChange, onDateRangeChange, onAddMenuOpen}, markerKinds, hasLineCharts, customEvents = []) {
         this.element = document.createElement("dialog");
         this.element.className = "chart-dialog noprint";
         this.element.setAttribute("aria-labelledby", "chart-dialog-title");
@@ -186,26 +186,18 @@ export class ChartDialog {
             "Mark the dates one month and one year before and after the cursor with vertical lines",
             onComparisonLinesVisibilityChange);
 
-        // trends, which are only added to suitable lines
+        // trends, which are only added to suitable lines, the moving averages are lines of the menu "Add"
         const trendHeading = document.createElement("span");
         trendHeading.className = "chart-menu-heading";
         trendHeading.textContent = "Trend";
         viewOptions.append(trendHeading);
-        const monthsOnly = " For monthly values, and for the values per week and per day.";
         this.overlayTitles = {};
         this.overlayCheckboxes = Object.fromEntries([
-            ["average1", "1-month average", "Average of the values of all days of the month before each date. Only for the values per week and per day."],
-            ["average3", "3-month average", "Average of each month and the two months before it." + monthsOnly],
-            ["average12", "12-month average", "Average of each month and the eleven months before it, without seasonal changes." + monthsOnly],
             ["previousYear", "Previous year", "The values of the previous year as a faint line, e.g. to recognize seasonal changes."],
         ].map(([kind, text, title]) => {
             this.overlayTitles[kind] = {text, title};
             return [kind, this.addToggle(viewOptions, text, title, visible => onOverlayVisibilityChange(kind, visible))];
         }));
-        // the values of lines with an average can be hidden, lines without an average are always shown
-        this.averagesOnlyCheckbox = this.addToggle(viewOptions, "Only averages",
-            "Show only the moving average of lines with an average, not their values. The value table still shows the values.",
-            onAveragesOnlyChange);
         this.applicableOverlays = [];
         this.markerToggles.append(viewMenu);
 
@@ -394,9 +386,6 @@ export class ChartDialog {
             label.classList.toggle("chart-option-unavailable", !isApplicable);
             label.title = this.overlayTitles[kind].title + (isApplicable ? "" : "\nNot available for the shown charts.");
         }
-        // without a shown average, the option has no effect
-        const hasAverage = ["average1", "average3", "average12"].some(kind => kinds.includes(kind) && (this.shownOverlays ?? []).includes(kind));
-        this.averagesOnlyCheckbox.parentElement.classList.toggle("chart-option-unavailable", !hasAverage);
     }
 
     isOverlayApplicable(kind) {
@@ -415,10 +404,6 @@ export class ChartDialog {
             checkbox.checked = shownKinds.includes(kind);
         }
         this.shownOverlays = shownKinds;
-    }
-
-    setAveragesOnly(averagesOnly) {
-        this.averagesOnlyCheckbox.checked = averagesOnly;
     }
 
     setShowValueTable(visible) {

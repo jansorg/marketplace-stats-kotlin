@@ -19,7 +19,7 @@ const READ_VERSIONS = [1, VERSION];
 
 /**
  * @typedef {{type: "line"|"pie", table: string, column: string, row?: string, color?: string}
- *  |{type: "metric", metric: string, window?: string, usesWindow?: boolean, label: string, unit: string, measure?: string,
+ *  |{type: "metric", metric: string, window?: string, usesWindow?: boolean, average?: number, label: string, unit: string, measure?: string,
  *   row?: string, color?: string}} ChartEntry
  * @typedef {{window: string, detail: string}} ChartLevel
  * @typedef {{combineUnits: boolean, maximized: boolean, preferredStyle: "lines"|"bars",
@@ -83,6 +83,7 @@ function isValidMetricEntry(entry) {
         && typeof entry.unit === "string"
         && (entry.window === undefined || WINDOWS.includes(entry.window))
         && (entry.usesWindow === undefined || typeof entry.usesWindow === "boolean")
+        && (entry.average === undefined || [1, 3, 12].includes(entry.average))
         && (entry.measure === undefined || typeof entry.measure === "string")
         && (entry.color === undefined || typeof entry.color === "string")
         && (entry.row === undefined || typeof entry.row === "string");

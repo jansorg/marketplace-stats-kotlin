@@ -70,16 +70,16 @@ class ChartMetricAveragesTest {
     }
 
     @Test
-    fun averagesApplyOnlyToLongerMonthsThanTheWindow() {
+    fun averagesOfAllWindows() {
         assertTrue(ChartMetricValues.averageApplies(ChartMetric.Downloads, ChartWindow.Day, 1))
-        assertTrue(ChartMetricValues.averageApplies(ChartMetric.Downloads, ChartWindow.Month, 3))
-        assertFalse(ChartMetricValues.averageApplies(ChartMetric.Downloads, ChartWindow.Month, 1))
-        assertFalse(ChartMetricValues.averageApplies(ChartMetric.Downloads, ChartWindow.Quarter, 3))
-        assertFalse(ChartMetricValues.averageApplies(ChartMetric.Downloads, ChartWindow.Year, 12))
+        assertTrue(ChartMetricValues.averageApplies(ChartMetric.Downloads, ChartWindow.Year, 3))
         assertFalse(ChartMetricValues.averageApplies(ChartMetric.Downloads, ChartWindow.Month, 2))
-        // values at each day don't depend on the window
-        assertTrue(ChartMetricValues.averageApplies(ChartMetric.Mrr, ChartWindow.Year, 1))
-        assertNull(values.average(ChartMetric.Downloads, ChartWindow.Year, 12))
+        // a window, which isn't shorter than the months, is the average of a single window, its value
+        val day = YearMonthDay(2025, 3, 31)
+        assertEquals(value(values.series(ChartMetric.Downloads, ChartWindow.Year), day)!!.setScale(2),
+            value(values.average(ChartMetric.Downloads, ChartWindow.Year, 3), day))
+        assertEquals(value(values.series(ChartMetric.Downloads, ChartWindow.Month), day)!!.setScale(2),
+            value(values.average(ChartMetric.Downloads, ChartWindow.Month, 1), day))
         // no average before the first day
         assertNull(value(values.average(ChartMetric.Downloads, ChartWindow.Month, 12), YearMonthDay(2024, 6, 30)))
     }

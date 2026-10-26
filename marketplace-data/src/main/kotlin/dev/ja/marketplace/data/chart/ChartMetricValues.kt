@@ -135,12 +135,16 @@ class ChartMetricValues private constructor(
             var numerators = BigDecimal.ZERO
             var denominators = BigDecimal.ZERO
             var count = 0
+            var windowCount = 0
             var end = index
             while (end >= spanStart) {
                 val start = starts[end]
-                if (start < spanStart || (start == 0 && tileWindow.start(days[end]) < days.first())) {
+                // the window of the day is always used, also if it's longer than the months, e.g. the 12 months
+                // before the day for a 3-month average, the average is then the value of the day
+                if (windowCount > 0 && (start < spanStart || (start == 0 && tileWindow.start(days[end]) < days.first()))) {
                     break
                 }
+                windowCount++
                 if (ratio != null) {
                     // e.g. no retention without the recurring revenue at the start of the window
                     numerators += ratio.numerators[end] ?: return@List null
@@ -426,12 +430,12 @@ class ChartMetricValues private constructor(
         val AVERAGE_MONTHS = setOf(1, 3, 12)
 
         /**
-         * @return If the moving average of the [months] applies to the [metric] and the [window]: values at each day
-         *  can always be averaged, sums and rates only if the months are longer than the window. An average of the
-         *  sums of windows, which are longer than the months, would only show a part of each window.
+         * @return If there's a moving average of the [months]. All metrics and windows have averages, the average of
+         *  sums and rates of windows, which aren't shorter than the months, is the value of each day.
          */
+        @Suppress("UNUSED_PARAMETER")
         fun averageApplies(metric: ChartMetric, window: ChartWindow, months: Int): Boolean {
-            return months in AVERAGE_MONTHS && (!metric.usesWindow || months * 28 > window.approximateDays)
+            return months in AVERAGE_MONTHS
         }
 
         private val customerTypeShares = CustomerType.entries.associateBy(ChartMetric::customerTypeShare)
