@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -20,4 +20,6 @@ data class MarketplacePluginSearchRequest(
     val pricingModels: List<PluginPricingModel>? = null,
     val shouldHaveSource: Boolean? = null,
     val isFeaturedSearch: Boolean? = null,
+    /** How [dev.ja.marketplace.client.MarketplaceClientPublic.marketplacePluginsSearch] retrieves the results. */
+    val searchMode: PluginSearchMode = PluginSearchMode.Marketplace,
 )

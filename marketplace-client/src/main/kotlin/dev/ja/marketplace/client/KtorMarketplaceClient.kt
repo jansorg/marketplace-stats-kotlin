@@ -23,6 +23,7 @@ import kotlinx.coroutines.future.await
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import org.slf4j.LoggerFactory
 import java.net.URI
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
@@ -337,33 +338,133 @@ open class KtorMarketplaceClient(
         pageSize: Int
     ): List<MarketplacePluginSearchResultItem> {
         return withContext(dispatcher) {
-            val completeResult = mutableListOf<MarketplacePluginSearchResultItem>()
-
-            val maxResults = request.maxResults ?: Int.MAX_VALUE
-            var pendingResultSize = maxResults
-            var offset = request.offset
-            while (pendingResultSize > 0) {
-                val resultPage = marketplacePluginsSearchSinglePage(
-                    request.copy(
-                        offset = offset,
-                        maxResults = min(pageSize, pendingResultSize)
-                    )
-                )
-
-                if (resultPage.searchResult.isEmpty()) {
-                    break
-                }
-
-                completeResult += resultPage.searchResult
-
-                // The API throws an error if offset + maxResults is larger than the total size
-                offset += resultPage.searchResult.size
-                pendingResultSize = min(maxResults - completeResult.size, resultPage.totalResult - offset)
+            when (request.searchMode) {
+                PluginSearchMode.Marketplace -> searchWindow(request, pageSize)
+                PluginSearchMode.AnySizeWorkaround -> searchAnySize(request, pageSize)
             }
-
-            completeResult
         }
     }
+
+    /** The results of [request] within the window of the Marketplace. */
+    private suspend fun searchWindow(
+        request: MarketplacePluginSearchRequest,
+        pageSize: Int,
+    ): List<MarketplacePluginSearchResultItem> {
+        val window = Marketplace.MAX_SEARCH_RESULT_WINDOW
+        if (request.offset >= window) {
+            return emptyList()
+        }
+        val maxResults = request.maxResults ?: Int.MAX_VALUE
+        return searchPages(request, request.offset, min(maxResults, window - request.offset), pageSize).items
+    }
+
+    /**
+     * All results of [request], beyond the window of the Marketplace: if the query has more results than the window,
+     * the results of disjoint queries by tag in their order, see [searchSlices].
+     */
+    private suspend fun searchAnySize(
+        request: MarketplacePluginSearchRequest,
+        pageSize: Int,
+    ): List<MarketplacePluginSearchResultItem> {
+        val maxResults = request.maxResults ?: Int.MAX_VALUE
+        if (maxResults <= 0) {
+            return emptyList()
+        }
+
+        val probe = marketplacePluginsSearchSinglePage(request.copy(offset = 0, maxResults = 1))
+        if (probe.totalResult < Marketplace.MAX_SEARCH_RESULT_WINDOW) {
+            return searchWindow(request, pageSize)
+        }
+
+        var skippedResults = request.offset
+        val seenIds = HashSet<PluginId>()
+        val result = mutableListOf<MarketplacePluginSearchResultItem>()
+        for (slices in searchSlices(request).chunked(MAX_CONCURRENT_SEARCH_SLICES)) {
+            if (result.size >= maxResults) {
+                break
+            }
+
+            val sliceResults = coroutineScope {
+                slices.map { slice -> async { searchPages(slice, 0, Marketplace.MAX_SEARCH_RESULT_WINDOW, pageSize) } }.awaitAll()
+            }
+            for ((slice, sliceResult) in slices.zip(sliceResults)) {
+                if (sliceResult.isCapped) {
+                    logger.warn("Plugin search slice with tags ${slice.requiredTags} has more results than the Marketplace returns, results are missing")
+                }
+
+                for (item in sliceResult.items) {
+                    // the slices are disjoint, but plugins may change while they're loaded
+                    if (seenIds.add(item.id)) {
+                        if (skippedResults > 0) {
+                            skippedResults--
+                        } else {
+                            result += item
+                        }
+                    }
+                }
+            }
+        }
+        return result.take(maxResults)
+    }
+
+    override suspend fun marketplaceTags(): List<PluginTag> = withContext(dispatcher) {
+        httpClient.get("${apiPath}/tags").body()
+    }
+
+    /**
+     * Loads [count] results of the search, starting at [offset], in pages of [pageSize].
+     * [count] must not exceed the window of [Marketplace.MAX_SEARCH_RESULT_WINDOW] results.
+     */
+    private suspend fun searchPages(
+        request: MarketplacePluginSearchRequest,
+        offset: Int,
+        count: Int,
+        pageSize: Int,
+    ): SearchPages {
+        val result = mutableListOf<MarketplacePluginSearchResultItem>()
+        var isCapped = false
+        var nextOffset = offset
+        var pending = count
+        while (pending > 0) {
+            val page = marketplacePluginsSearchSinglePage(
+                request.copy(offset = nextOffset, maxResults = min(pageSize, pending))
+            )
+            isCapped = page.totalResult >= Marketplace.MAX_SEARCH_RESULT_WINDOW
+            if (page.searchResult.isEmpty()) {
+                break
+            }
+
+            result += page.searchResult
+            nextOffset += page.searchResult.size
+
+            // The API rejects requests if offset + maxResults is larger than the total size or the window
+            pending = min(count - result.size, min(page.totalResult, Marketplace.MAX_SEARCH_RESULT_WINDOW) - nextOffset)
+        }
+        return SearchPages(result, isCapped)
+    }
+
+    /**
+     * Disjoint queries, which together return all results of [request]:
+     * one query per tag, which excludes the tags of the previous queries, and, if the request doesn't require tags,
+     * a query for plugins without any of these tags.
+     */
+    private suspend fun searchSlices(request: MarketplacePluginSearchRequest): List<MarketplacePluginSearchRequest> {
+        val excludedTags = request.excludeTags.mapTo(HashSet()) { it.lowercase() }
+        val tags = request.requiredTags.ifEmpty { marketplaceTags().map(PluginTag::name) }
+            .filter { it.lowercase() !in excludedTags }
+            .distinctBy { it.lowercase() }
+
+        val baseRequest = request.copy(offset = 0, maxResults = null)
+        val slices = tags.mapIndexed { index, tag ->
+            baseRequest.copy(requiredTags = listOf(tag), excludeTags = request.excludeTags + tags.take(index))
+        }
+        return when {
+            request.requiredTags.isEmpty() -> slices + baseRequest.copy(excludeTags = request.excludeTags + tags)
+            else -> slices
+        }
+    }
+
+    private data class SearchPages(val items: List<MarketplacePluginSearchResultItem>, val isCapped: Boolean)
 
     override suspend fun reviewComments(plugin: PluginId, pageSize: Int): List<PluginReviewComment> = withContext(dispatcher) {
         val completeResult = mutableListOf<PluginReviewComment>()
@@ -579,6 +680,11 @@ open class KtorMarketplaceClient(
         }
     }
 }
+
+/** The number of slices of [KtorMarketplaceClient.marketplacePluginsSearch], which are loaded concurrently. */
+private const val MAX_CONCURRENT_SEARCH_SLICES: Int = 4
+
+private val logger = LoggerFactory.getLogger(KtorMarketplaceClient::class.java)
 
 /** The page size of [KtorMarketplaceClient.allPlugins]. */
 const val PLUGINS_PAGE_SIZE: Int = 100

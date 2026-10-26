@@ -457,6 +457,12 @@ class CaffeineCacheMarketplaceClient(
         }
     }
 
+    override suspend fun marketplaceTags(): List<PluginTag> {
+        return loadCached("marketplaceTags", Category.Daily) {
+            super.marketplaceTags()
+        }
+    }
+
     override suspend fun reviewComments(plugin: PluginId, pageSize: Int): List<PluginReviewComment> {
         return loadCached("reviewComments.$plugin", Category.Recent) {
             super.reviewComments(plugin, pageSize)

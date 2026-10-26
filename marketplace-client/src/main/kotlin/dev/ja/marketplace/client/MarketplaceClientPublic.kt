@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -80,19 +80,31 @@ interface MarketplaceClientPublic {
     suspend fun channels(plugin: PluginId): List<PluginChannel>
 
     /**
-     * Search for plugins.
-     * This method automatically retrieves paged results and returns the combined result set.
+     * Search for plugins, only a single page of results.
+     * The Marketplace returns at most [Marketplace.MAX_SEARCH_RESULT_SIZE] results per page and only the first
+     * [Marketplace.MAX_SEARCH_RESULT_WINDOW] results of a query (offset + page size), the reported total is capped
+     * at the same value.
      */
     suspend fun marketplacePluginsSearchSinglePage(request: MarketplacePluginSearchRequest): MarketplacePluginSearchResponse
 
     /**
      * Search for plugins.
      * This method automatically retrieves paged results and returns the combined result set.
+     *
+     * The Marketplace only returns the first [Marketplace.MAX_SEARCH_RESULT_WINDOW] results of a query.
+     * [MarketplacePluginSearchRequest.searchMode] defines, if the results are limited to them
+     * ([PluginSearchMode.Marketplace], in the requested order), or if all results are returned
+     * ([PluginSearchMode.AnySizeWorkaround], in the order of disjoint queries by tag, if the query has more results).
      */
     suspend fun marketplacePluginsSearch(
         request: MarketplacePluginSearchRequest,
         pageSize: Int = Marketplace.MAX_SEARCH_RESULT_SIZE,
     ): List<MarketplacePluginSearchResultItem>
+
+    /**
+     * @return All tags of the Marketplace, of all product families.
+     */
+    suspend fun marketplaceTags(): List<PluginTag>
 
     suspend fun pluginReleaseDependencies(pluginReleaseId: PluginReleaseId): List<PluginDependency>
 

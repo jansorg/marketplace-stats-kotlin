@@ -100,6 +100,15 @@ extend, must not fail a response:
   `data object` for each known value and a data class for unknown values. `findById` returns the predefined objects and
   creates an unknown value once per ID.
 
+The plugin search (`/api/searchPlugins`) returns pages of at most 24 plugins (`Marketplace.MAX_SEARCH_RESULT_SIZE`) and
+only the first 10,000 results of a query (`MAX_SEARCH_RESULT_WINDOW`): `offset + max` beyond it is answered with 400,
+and the reported total is capped at 10,000. `tags` are combined with OR, `excludeTags` excludes plugins with any of the
+tags. `MarketplacePluginSearchRequest.searchMode` selects how `marketplacePluginsSearch` loads the results:
+`PluginSearchMode.Marketplace` (the default) returns the results of the window in the requested order.
+`AnySizeWorkaround` returns all results: if the query has more results than the window, it ignores the requested order
+and loads disjoint queries, one per tag of `/api/tags` (`marketplaceTags`), which excludes the tags of the previous
+queries, and one which excludes all these tags. The results are in the order of these queries.
+
 ## Running the Web Server
 
 ```bash

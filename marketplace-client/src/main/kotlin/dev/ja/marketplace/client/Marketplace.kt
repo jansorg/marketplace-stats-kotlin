@@ -32,8 +32,14 @@ object Marketplace {
      */
     const val LICENSE_RENEWAL_GRACE_DAYS: Int = 90
 
-    // That's the limited imposed by the Marketplace API
-    const val MAX_SEARCH_RESULT_SIZE: Int = 20
+    // The maximum page size of the plugin search, the Marketplace API rejects larger pages
+    const val MAX_SEARCH_RESULT_SIZE: Int = 24
+
+    /**
+     * The plugin search only returns the first 10,000 results of a query (offset + page size ≤ 10,000),
+     * and reports at most 10,000 as the total.
+     */
+    const val MAX_SEARCH_RESULT_WINDOW: Int = 10_000
 
     val MarketplaceFrontendUrl: Url = Url("https://plugins.jetbrains.com")
 
