@@ -345,11 +345,11 @@ export function lineChartKey(chart) {
  * of the table of months and of the table of years. Their values per day share a date range, so they're compared in
  * one chart. Charts per month or year keep their own chart, because their dates differ.
  *
- * @param {{period: string, units: string[], dateRange: [number, number], granularity: string}[]} charts
- *  The line charts of {@link groupCharts} with their granularity.
- * @return {{periods: string[], keys: string[], units: string[], dateRange: [number, number], granularity: string}[]}
- *  The line charts with the periods of their series and the keys of the merged charts, see {@link lineChartKey},
- *  at the position of the first merged chart.
+ * @param {{period: string, units: string[], dateRange: [number, number], granularity: string, granularities: string[]}[]} charts
+ *  The line charts of {@link groupCharts} with their granularity and their granularities, see {@link granularitiesOf}.
+ * @return {{periods: string[], parts: {key: string, period: string, granularities: string[]}[], units: string[],
+ *  dateRange: [number, number], granularity: string}[]} The line charts with the periods of their series and the
+ *  merged charts with their keys, see {@link lineChartKey}, at the position of the first merged chart.
  */
 export function mergeFinerCharts(charts) {
     const merged = [];
@@ -360,18 +360,50 @@ export function mergeFinerCharts(charts) {
         const target = isFiner ? byUnits.get(groupKey) : undefined;
         if (target === undefined) {
             const {period, ...rest} = chart;
-            const entry = {...rest, periods: [period], keys: [lineChartKey(chart)]};
+            const entry = {...rest, periods: [period], parts: [chartPart(chart)]};
             merged.push(entry);
             if (isFiner) {
                 byUnits.set(groupKey, entry);
             }
         } else {
             target.periods.push(chart.period);
-            target.keys.push(lineChartKey(chart));
+            target.parts.push(chartPart(chart));
             target.dateRange = [Math.min(target.dateRange[0], chart.dateRange[0]), Math.max(target.dateRange[1], chart.dateRange[1])];
         }
     }
     return merged;
+}
+
+function chartPart(chart) {
+    return {key: lineChartKey(chart), period: chart.period, granularities: chart.granularities};
+}
+
+/**
+ * The levels of a merged chart, see {@link mergeFinerCharts}: Year, Month, Week and Day. Year and Month show the
+ * merged charts in their own charts again, see {@link partGranularity}.
+ *
+ * @param {{period: string, granularities: string[]}[]} parts The merged charts.
+ * @return {string[]} The levels, Year only if a chart has values per year.
+ */
+export function mergedGranularities(parts) {
+    return ["yearEnd", "month", "week", "day"].filter(level => level !== "yearEnd"
+        || parts.some(part => part.period === "year" || part.granularities.includes("yearEnd")));
+}
+
+/**
+ * @param {string} level The level of a merged chart, see {@link mergedGranularities}.
+ * @param {{period: string, granularities: string[]}} part A merged chart.
+ * @return {string} The granularity of the merged chart for the level: Year shows the values of the years, i.e. the
+ *  values of a yearly table and the values at the end of each year of a monthly table, Month the values of a monthly
+ *  table and the sums of the year at the end of each month of a yearly table. Charts without the level show the values
+ *  of their table.
+ */
+export function partGranularity(level, part) {
+    const isYearly = part.period === "year";
+    const granularity = level === "yearEnd" ? (isYearly ? "month" : "yearEnd")
+        : level === "month" ? (isYearly ? "monthEnd" : "month")
+            : level;
+    return part.granularities.includes(granularity) ? granularity : "month";
 }
 
 /**

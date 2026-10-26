@@ -11,7 +11,7 @@
 
 import {createFormatter} from "./format.js";
 import {
-    canCombineUnits, CHART_STYLES, dateRange, rangeLabel, rangeOfTimestamps, rangeTimestamps, rangeYears, exportFileName, finerPoints, finerWindowLabel, granularitiesOf, groupCharts, hasFinerValues, lineChartKey, mergeFinerCharts, MARKER_KINDS, MAX_PIES, MAX_SERIES, nextColor, pieSlices,
+    canCombineUnits, CHART_STYLES, dateRange, rangeLabel, rangeOfTimestamps, rangeTimestamps, rangeYears, exportFileName, finerPoints, finerWindowLabel, granularitiesOf, groupCharts, hasFinerValues, lineChartKey, mergedGranularities, mergeFinerCharts, partGranularity, MARKER_KINDS, MAX_PIES, MAX_SERIES, nextColor, pieSlices,
     visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear, rollingAverageOfDays, trailingAverage, trailingAverageOfDays,
 } from "./model.js";
 import {browserStorage, createSetupStorage, decodeView, encodeView} from "./storage.js";
@@ -34,7 +34,8 @@ const GRANULARITY_HINTS = {
         + "Columns without values per day are shown per year.",
     merged: "Week and Day show the values of tables of months and years in one chart: the sums of the month or "
         + "of the year before each date, e.g. the sales of the last month and of the last 12 months, and the MRR and "
-        + "ARR at each date. Month shows the values of each table in its own chart.",
+        + "ARR at each date. Year and Month show each table in its own chart: Year the values of the years, Month "
+        + "the values of the months and the sums of the year at the end of each month.",
     day: "Month shows the days of the table. Week and Day show the whole history, the sums of the month before each "
         + "date, e.g. the sales of the last month, and the MRR and ARR at each date.",
 };
@@ -513,12 +514,12 @@ class ChartController {
         // the trends, which apply to at least one series of the shown line charts
         const applicableOverlays = new Set();
         for (const chart of charts) {
-            const key = chart.keys[0];
+            const key = chart.parts[0].key;
             const isMerged = chart.periods.length > 1;
             let chartSeries = this.series.filter(s => chart.periods.includes(s.period));
             const {canBeFiner, granularity} = chart;
-            // the buttons of a merged chart apply to all of its charts, "Month" shows the values of the tables again
-            const granularities = isMerged ? ["month", "week", "day"] : chart.granularities;
+            // the buttons of a merged chart apply to all of its charts, Year and Month show them in their own charts again
+            const granularities = isMerged ? mergedGranularities(chart.parts) : chart.granularities;
             const finerValues = granularity === "month" ? null : this.loadFinerValues(granularity);
             if (finerValues !== null) {
                 // the values per year replace the values of the table, the values per day the values per week and day
@@ -533,7 +534,7 @@ class ChartController {
             }
             // bars of every day would be too thin
             const chartStyle = granularity === "month" ? this.chartStyles[key] ?? this.preferredStyle : "lines";
-            chart.keys.forEach(k => this.shownStyles[k] = this.chartStyles[k] ?? this.preferredStyle);
+            chart.parts.forEach(({key}) => this.shownStyles[key] = this.chartStyles[key] ?? this.preferredStyle);
             const overlays = this.trends(chartSeries.filter(s => chart.units.includes(s.unit)), granularity);
             for (const series of chartSeries.filter(s => chart.units.includes(s.unit))) {
                 OVERLAYS.filter(kind => overlayApplies(kind, series, granularity)).forEach(kind => applicableOverlays.add(kind));
@@ -580,7 +581,7 @@ class ChartController {
             this.exports.push(chartExport);
             toolbar.append(this.exportMenu(chartExport));
             if (canBeFiner) {
-                toolbar.append(this.granularitySwitch(chart.keys, granularity, isMerged ? null : chart.periods[0], granularities));
+                toolbar.append(this.granularitySwitch(chart.parts, granularity, isMerged ? null : chart.periods[0], granularities));
             }
             // disabled instead of hidden, so that the buttons don't move
             toolbar.append(this.styleSwitch(key, chartStyle, granularity !== "month"));
@@ -707,8 +708,8 @@ class ChartController {
     }
 
     /**
-     * @param {string[]} keys The keys of the charts, which the buttons apply to, several for a merged chart, see
-     *  {@link mergeFinerCharts}.
+     * @param {{key: string, period: string, granularities: string[]}[]} parts The charts, which the buttons apply to,
+     *  several for a merged chart, see {@link mergeFinerCharts}.
      * @param {"day"|"month"|"year"|null} period The period of the values of the table, the button "Month" (or "Year" for
      *  yearly tables) shows them. Tables of days, e.g. the days of the current month, show them with the button "Month".
      *  `null` for a merged chart of several periods.
@@ -716,7 +717,7 @@ class ChartController {
      * @return {HTMLElement} Buttons to show a line chart per month or year, per week or per day, the values of
      *  yearly tables at the end of each month and the values of years of monthly values with values per year.
      */
-    granularitySwitch(keys, current, period, granularities) {
+    granularitySwitch(parts, current, period, granularities) {
         const group = document.createElement("div");
         group.className = "chart-button-group";
         group.setAttribute("role", "group");
@@ -728,7 +729,10 @@ class ChartController {
             button.textContent = granularity === "month" && period === "year" ? "Year" : GRANULARITY_LABELS[granularity];
             button.setAttribute("aria-pressed", String(granularity === current));
             button.addEventListener("click", () => {
-                this.granularities = {...this.granularities, ...Object.fromEntries(keys.map(key => [key, granularity]))};
+                const selected = period === null
+                    ? parts.map(part => [part.key, partGranularity(granularity, part)])
+                    : [[parts[0].key, granularity]];
+                this.granularities = {...this.granularities, ...Object.fromEntries(selected)};
                 this.save();
                 this.render();
             });
