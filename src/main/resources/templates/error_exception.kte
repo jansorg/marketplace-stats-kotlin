@@ -7,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Request Error</title>
     @template.favicons()
+    @template.fonts()
     <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
     <link rel="stylesheet" type="text/css" media="print" href="/styles/print.css"/>
 </head>

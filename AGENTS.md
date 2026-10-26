@@ -280,7 +280,8 @@ extend, must not fail a response:
 - Pages are server-side rendered from JTE templates in `src/main/resources/templates/`. `main.kte` is the layout of the
   report pages; `dataTable.kte`, `dataTableSection.kte`, `dataRowGroup.kte` and `tableColumnsRow.kte` render the data tables.
 - All styling is in `src/main/resources/styles/main.css`, served at `/styles/main.css`. It defines colors as CSS custom
-  properties in `:root` and loads the Lato font from Google Fonts. Use these properties instead of fixed colors.
+  properties in `:root`. The Lato font is loaded from Google Fonts by `fonts.kte`, which all pages
+  include before `main.css` (no `@import`, so that the font loads in parallel). Use these properties instead of fixed colors.
 - Dark mode: `@media screen and (prefers-color-scheme: dark)` redefines the custom properties. Printing always uses the
   light colors. Text colors need a contrast of at least 4.5:1 on the page, the tables, their stripes and the hovered rows
   in both modes.

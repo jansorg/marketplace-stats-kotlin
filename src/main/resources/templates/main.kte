@@ -30,6 +30,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${plugin.name}: ${pageTitle ?: "Report"}</title>
     @template.favicons()
+    @template.fonts()
     <link rel="stylesheet" type="text/css" href="/styles/main.css"/>
     <link rel="stylesheet" type="text/css" media="print" href="/styles/print.css"/>
     <link href="/js/sortable-base.min.css" rel="stylesheet"/>
