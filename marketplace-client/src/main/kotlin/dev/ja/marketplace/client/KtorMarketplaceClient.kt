@@ -44,7 +44,10 @@ open class KtorMarketplaceClient(
 
     // downloads the CSV files of the reports, without the default headers of httpClient, see downloadReport
     private val reportHttpClient by lazy {
-        java.net.http.HttpClient.newBuilder().followRedirects(java.net.http.HttpClient.Redirect.NORMAL).build()
+        java.net.http.HttpClient.newBuilder()
+            .followRedirects(java.net.http.HttpClient.Redirect.NORMAL)
+            .connectTimeout(java.time.Duration.ofSeconds(30))
+            .build()
     }
 
     @Suppress("unused")
@@ -458,7 +461,7 @@ open class KtorMarketplaceClient(
      */
     private suspend fun downloadReport(reportUrlPath: String): String = withContext(dispatcher) {
         val reportUrl = httpClient.get(reportUrlPath).bodyAsText().trim()
-        val request = HttpRequest.newBuilder(URI(reportUrl)).GET().build()
+        val request = HttpRequest.newBuilder(URI(reportUrl)).timeout(java.time.Duration.ofMinutes(5)).GET().build()
         val response = reportHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString()).await()
         if (response.statusCode() != 200) {
             throw IllegalStateException("Unable to download the report, HTTP status ${response.statusCode()}")
@@ -471,10 +474,18 @@ open class KtorMarketplaceClient(
             throw IllegalArgumentException("File ${this@streamingDownload} already exists, unable to download $url.")
         }
 
-        Files.newByteChannel(this@streamingDownload, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE).use { outputChannel ->
-            httpClient.prepareGet(url).execute { httpResponse ->
-                httpResponse.body<ByteReadChannel>().copyTo(outputChannel)
+        // a failed download doesn't leave a partial file, the complete file is moved to the target
+        val target = this@streamingDownload
+        val temporaryFile = Files.createTempFile(target.toAbsolutePath().parent, target.fileName.toString(), ".download")
+        try {
+            Files.newByteChannel(temporaryFile, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING).use { outputChannel ->
+                httpClient.prepareGet(url).execute { httpResponse ->
+                    httpResponse.body<ByteReadChannel>().copyTo(outputChannel)
+                }
             }
+            Files.move(temporaryFile, target, java.nio.file.StandardCopyOption.ATOMIC_MOVE)
+        } finally {
+            Files.deleteIfExists(temporaryFile)
         }
     }
 

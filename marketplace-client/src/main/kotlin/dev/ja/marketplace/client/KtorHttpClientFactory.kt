@@ -67,9 +67,18 @@ object KtorHttpClientFactory {
                 install(HttpCache)
             }
 
+            // a stalled connection must not block the requests, which wait for it, forever.
+            // There's no limit of the whole request, downloads of large files take longer.
+            install(HttpTimeout) {
+                connectTimeoutMillis = 30_000
+                socketTimeoutMillis = 120_000
+            }
+
             if (enableRequestRetry) {
                 install(HttpRequestRetry) {
-                    retryOnExceptionOrServerErrors(4)
+                    // server errors and too many requests, e.g. of the many requests of the sales and the prices
+                    retryIf(4) { _, response -> response.status.value >= 500 || response.status == HttpStatusCode.TooManyRequests }
+                    retryOnException(4, retryOnTimeout = true)
                     exponentialDelay()
                 }
             }

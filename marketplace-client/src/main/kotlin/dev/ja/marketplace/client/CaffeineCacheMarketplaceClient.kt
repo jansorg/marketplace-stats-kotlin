@@ -13,6 +13,7 @@ import dev.ja.marketplace.client.persistentCache.*
 import dev.ja.marketplace.services.JetBrainsProductCode
 import io.ktor.client.*
 import io.ktor.client.plugins.*
+import io.ktor.http.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -29,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap
 import dev.ja.marketplace.client.CachingStrategy.Category
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * Client, which caches the API responses in memory.
@@ -493,7 +495,12 @@ class CaffeineCacheMarketplaceClient(
             try {
                 CacheValue(category, expiry, loader(), null, refresh)
             } catch (e: ClientRequestException) {
-                CacheValue(category, expiry, null, e, refresh)
+                // Only missing data is cached, briefly. Other errors, e.g. too many requests or a rejected API key,
+                // aren't cached, the next request tries again.
+                if (e.response.status != HttpStatusCode.NotFound) {
+                    throw e
+                }
+                CacheValue(category, minOf(expiry, NOT_FOUND_EXPIRY), null, e, refresh)
             }
         } ?: throw IllegalStateException("Failed to compute cache value for $key")
 
@@ -538,3 +545,6 @@ private class CacheExpiry : Expiry<String, CacheValue> {
 }
 
 private val logger = LoggerFactory.getLogger(CaffeineCacheMarketplaceClient::class.java)
+
+/** How long requests use the response, that data doesn't exist, e.g. of a removed plugin. */
+private val NOT_FOUND_EXPIRY: Duration = 5.minutes
