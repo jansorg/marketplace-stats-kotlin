@@ -1423,6 +1423,26 @@ dl.detail-grid dd {
     display: flex;
 }
 
+/* the buttons of a switch, on small screens a dropdown menu, see compactSwitch in main.js */
+.chart-switch {
+    display: flex;
+}
+
+.chart-switch .chart-compact-switch {
+    display: none;
+}
+
+/* on small screens, the levels and the styles of a chart are dropdown menus, they need less space than the buttons */
+@media (max-width: 600px) {
+    .chart-switch .chart-full-switch {
+        display: none;
+    }
+
+    .chart-switch .chart-compact-switch {
+        display: block;
+    }
+}
+
 /* removes a chart, if several charts are shown */
 .chart-remove {
     font: inherit;

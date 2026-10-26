@@ -79,6 +79,41 @@ function metricDataId(series) {
     return series.average ? `${series.metric}@avg${series.average}` : series.metric;
 }
 
+/**
+ * On small screens, a group of buttons, of which one is selected, e.g. the levels Year, Month, Week and Day, is a
+ * dropdown menu with the selected button as its label, which opens on hover or with a tap. See main.css.
+ *
+ * @param {HTMLElement} group The buttons with `aria-pressed`.
+ * @return {HTMLElement} The buttons and the menu, CSS shows one of them.
+ */
+function compactSwitch(group) {
+    const buttons = [...group.querySelectorAll("button")];
+    const selected = buttons.find(button => button.getAttribute("aria-pressed") === "true");
+    const {menu, items} = createMenu(selected?.textContent ?? "");
+    menu.classList.add("chart-compact-switch");
+    menu.title = group.title;
+    menu.querySelector("summary").setAttribute("aria-label", (group.getAttribute("aria-label") ?? "") + ": " + (selected?.textContent ?? ""));
+    for (const button of buttons) {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.textContent = button.textContent;
+        item.setAttribute("role", "menuitemradio");
+        item.setAttribute("aria-checked", String(button === selected));
+        item.disabled = button.disabled;
+        item.title = button.title;
+        item.addEventListener("click", () => {
+            menu.open = false;
+            button.click();
+        });
+        items.append(item);
+    }
+    const wrapper = document.createElement("div");
+    wrapper.className = "chart-switch";
+    group.classList.add("chart-full-switch");
+    wrapper.append(group, menu);
+    return wrapper;
+}
+
 /** @return {import("./storage.js").ChartEntry} The stored entry of a series of a metric. */
 function metricEntry(s) {
     return {type: "metric", metric: s.metric, ...(s.window ? {window: s.window} : {}), usesWindow: s.usesWindow, ...(s.average ? {average: s.average} : {}), label: s.label, unit: s.unit,
@@ -913,9 +948,9 @@ class ChartController {
             toolbar.append(this.exportMenu(chartExport));
             if (level !== null) {
                 // the window only applies to sums and rates
-                toolbar.append(this.detailSwitch(chart, level));
+                toolbar.append(compactSwitch(this.detailSwitch(chart, level)));
             }
-            toolbar.append(this.styleSwitch(key, chartStyle));
+            toolbar.append(compactSwitch(this.styleSwitch(key, chartStyle)));
             if (isRemovable) {
                 toolbar.append(this.removeButton(() => {
                     this.series = this.series.filter(s => s.period !== chart.period || !chart.units.includes(s.unit));
