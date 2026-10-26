@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
     averageShade, pinchedRange, rangeLabel, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
-    alignSeries, availableComparisons, chartLevel, chartLevelKeys, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
+    alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
 } from "../../main/resources/js/charts/model.js";
@@ -427,4 +427,17 @@ test("several averages of a series have different shades of its color", () => {
     const lightness = color => [1, 3, 5].reduce((sum, i) => sum + Number.parseInt(color.substring(i, i + 2), 16), 0);
     assert.ok(lightness(shades[0]) > lightness(shades[1]) && lightness(shades[1]) > lightness(shades[2]));
     assert.equal(averageShade("not a color", 0, 2), "not a color");
+});
+
+test("the cursor stays inside the chart at values on its edges", () => {
+    // values at -3, 100 and 200 pixels in a chart of 150 pixels
+    const positions = [-3, 100, 200];
+    const position = index => cursorPosition(index, i => positions[i], positions.length, 150, 5);
+    // a point on the y-axis keeps the cursor at the edge
+    assert.equal(position(0), 0);
+    assert.equal(position(1), 100);
+    // a value right of the chart isn't drawn, the cursor is at the previous value
+    assert.equal(position(2), 100);
+    // a value far left of the chart isn't drawn
+    assert.equal(cursorPosition(0, i => [-40, 30][i], 2, 150, 5), 30);
 });

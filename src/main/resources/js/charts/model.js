@@ -323,6 +323,28 @@ export function barLayout(seriesCount, slotWidth, {maxBarWidth, gap}) {
 }
 
 /**
+ * The position of the cursor of a line chart at the closest value. A value at the edge of the chart, e.g. a point on
+ * the y-axis, which is drawn outside of the plot by a few pixels, keeps the cursor at the edge, so that it's shown.
+ * A value, which isn't drawn, e.g. outside of the dates of a zoomed chart, is replaced by the next value inside.
+ *
+ * @param {number} index The index of the closest value.
+ * @param {(index: number) => number} positionOf The position of the value of an index on the x-axis, in pixels.
+ * @param {number} count The number of values.
+ * @param {number} width The width of the plot, in pixels.
+ * @param {number} margin The distance from the plot, up to which values are drawn, e.g. the radius of the points.
+ * @return {number} The position of the cursor, from 0 to the width.
+ */
+export function cursorPosition(index, positionOf, count, width, margin) {
+    let position = positionOf(index);
+    if (position < -margin && index + 1 < count) {
+        position = positionOf(index + 1);
+    } else if (position > width + margin && index > 0) {
+        position = positionOf(index - 1);
+    }
+    return Math.min(Math.max(position, 0), width);
+}
+
+/**
  * @return {number} The smallest distance between the sorted timestamps, or the fallback if there's only one timestamp.
  */
 export function smallestInterval(timestamps, fallback) {
