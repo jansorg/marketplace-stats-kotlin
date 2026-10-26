@@ -222,6 +222,8 @@ extend, must not fail a response:
   in and out (`enablePinchZoom`, `pinchedRange` in `model.js`). The range is part of the stored
   setup (`dateRange`, ISO dates). Only the x-axis is limited (`visibleRange`), all values are still used, e.g. by the
   value table and the averages. The y-axis, the minimum and maximum and the latest values use the shown dates.
+- Series and averages, which were hidden by a click on the legend or the value table, stay hidden when the charts are
+  drawn again, e.g. after changing the level (`hiddenSeries` of the setup, keys `<series>` and `<series>:<kind>`).
 - The chart setup (columns, colors, options) is stored in the browser's local storage (`marketplace-stats.charts`) and
   restored on all pages with the same tables. Values are never stored, they're read from the tables of the current page.
 - "Bookmark this view" of the Export menu writes the setup into the fragment of the address (`#charts=<base64url JSON>`,

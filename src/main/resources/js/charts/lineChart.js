@@ -365,6 +365,10 @@ function barGeometry(plot, chartSeries, interval) {
  * @return The color of an overlay: the shade of the color of its series for several averages, opaque if the series only
  *  shows its average.
  */
+function overlayKey(overlay) {
+    return overlay.base.key + ":" + overlay.kind;
+}
+
 function overlayColor(overlay) {
     return (overlay.shade ?? overlay.base.color) + (overlay.isMainLine ? "" : CHART_STYLE.overlays[overlay.kind].alpha);
 }
@@ -835,6 +839,10 @@ function yAxis(unit, scale, side, style) {
  *  the tooltip still show their values. Series without a moving average are always shown.
  * @param {[number, number]|null} [options.visibleRange] The shown dates, e.g. of a zoomed chart, all dates if null.
  *  The values outside of it are still used, e.g. by the value table to compare with the previous year.
+ * @param {Set<string>} [options.hiddenSeries] The keys of the series and of the overlays (`<series>:<kind>`), which
+ *  were hidden by a click on the legend, e.g. before the level of the chart was changed.
+ * @param {((key: string, visible: boolean) => void)|null} [options.onSeriesVisibilityChange] Called, when a series or an
+ *  overlay is shown or hidden by a click on the legend.
  * @param {((from: number|null, to: number|null) => void)|null} [options.onZoom] Called with the dates of a range,
  *  which is selected with the mouse or with two fingers, null for all dates. Without it, the chart can't be zoomed.
  * @param {string} options.fontFamily
@@ -844,7 +852,7 @@ function yAxis(unit, scale, side, style) {
  * @param {"light"|"dark"} [options.theme] The colors of the chart, by default the color scheme of the browser.
  * @return {uPlot}
  */
-export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, overlays = [], averagesOnly = false, visibleRange = null, onZoom = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
+export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, overlays = [], averagesOnly = false, visibleRange = null, onZoom = null, hiddenSeries = new Set(), onSeriesVisibilityChange = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
     const theme = CHART_THEMES[themeName];
     const style = {formatter, fonts: fonts(fontFamily), theme};
     const scaleKeys = ["y", "y2"];
@@ -968,6 +976,9 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
             }],
             // series are shown and hidden by a click on the legend, the overlays of a series are shown and hidden with it
             setSeries: [(plot, seriesIndex) => {
+                if (seriesIndex !== null) {
+                    onSeriesVisibilityChange?.(seriesKey(seriesIndex), plot.series[seriesIndex].show);
+                }
                 if (seriesIndex !== null && seriesIndex <= chartSeries.length) {
                     const base = chartSeries[seriesIndex - 1];
                     chartOverlays.forEach((overlay, i) => {
@@ -1002,6 +1013,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                 // points and bars are drawn by drawPoints and drawBars, to show incomplete values in a different color
                 points: {show: false},
                 ...(isBars || s.isValueHidden ? {paths: () => null} : {}),
+                show: !hiddenSeries.has(s.key),
             })),
             // overlays are lines, also in bar charts
             ...chartOverlays.map(overlay => ({
@@ -1012,6 +1024,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                 ...(CHART_STYLE.overlays[overlay.kind].dash && !overlay.isMainLine ? {dash: CHART_STYLE.overlays[overlay.kind].dash} : {}),
                 spanGaps: true,
                 points: {show: false},
+                show: !hiddenSeries.has(overlay.base.key) && !hiddenSeries.has(overlayKey(overlay)),
             })),
         ],
     };
@@ -1030,6 +1043,11 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
             .flatMap(({index}) => plot.data[index].filter((value, i) => value !== null && value !== undefined
                 && plot.data[0][i] >= xRange[0] && plot.data[0][i] <= xRange[1]));
         return drawn.length === 0 ? [min, max] : [Math.min(...drawn), Math.max(...drawn)];
+    }
+
+    /** @return The key of the uPlot series at the index, of a series or of an overlay, see `hiddenSeries`. */
+    function seriesKey(seriesIndex) {
+        return seriesIndex <= chartSeries.length ? chartSeries[seriesIndex - 1].key : overlayKey(chartOverlays[seriesIndex - chartSeries.length - 1]);
     }
 
     /**
