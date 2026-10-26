@@ -1200,9 +1200,14 @@ dl.detail-grid dd {
     font-size: 1.25rem;
 }
 
+/* a long name of a plugin is shortened, the buttons stay in the row of the title */
 .chart-dialog-header h2 {
-    flex-grow: 1;
+    flex: 1 1 0;
+    min-width: 6rem;
     margin: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .chart-dialog-combine[hidden] {

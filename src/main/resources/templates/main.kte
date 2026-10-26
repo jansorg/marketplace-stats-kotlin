@@ -39,7 +39,7 @@
     <script type="module" src="/js/charts/main.js"></script>
     <script type="module" src="/js/collapsibleTables.js"></script>
 </head>
-<body class="${cssClass}" data-locale="${java.util.Locale.getDefault().toLanguageTag()}">
+<body class="${cssClass}" data-plugin-name="${plugin.name}" data-locale="${java.util.Locale.getDefault().toLanguageTag()}">
 @template.pluginHeader(plugin = plugin, urls = urls, rating = rating, today = today, otherPlugins = otherPlugins)
 
 @template.navbar(plugin = plugin, showResellerCharges = settings.showResellerCharges)

@@ -87,7 +87,11 @@ export class ChartDialog {
 
         const title = document.createElement("h2");
         title.id = "chart-dialog-title";
-        title.textContent = "Charts";
+        // the name of the plugin of the page, see data-plugin-name of the templates
+        const pluginName = document.body.dataset.pluginName;
+        title.textContent = pluginName ? `${pluginName} Charts` : "Charts";
+        // the complete title, if it's shortened on small screens
+        title.title = title.textContent;
 
         this.combineCheckbox = document.createElement("input");
         this.combineCheckbox.type = "checkbox";
