@@ -517,8 +517,10 @@ kbd {
  */
 .tables {
     display: grid;
-    /* columns of the same width, so that the cards of all rows are aligned. The cards of a row have the same height. */
+    /* columns of the same width, so that the cards of all rows are aligned. The cards have the height of their table,
+       the page background is shown below the cards, which are lower than their row. */
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+    align-items: start;
     gap: 1rem;
 }
 
