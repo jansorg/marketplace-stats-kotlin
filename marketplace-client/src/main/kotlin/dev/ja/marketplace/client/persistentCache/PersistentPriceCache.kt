@@ -68,18 +68,18 @@ internal class PersistentPriceCache(
     /**
      * @param forceFetch If the prices are fetched, also if the stored prices aren't outdated yet, e.g. by the automatic refresh.
      */
-    suspend fun get(plugin: PluginId, countryIsoCode: String, forceFetch: Boolean = false, loader: suspend () -> PluginPriceInfo): PluginPriceInfo {
+    suspend fun get(plugin: PluginId, countryIsoCode: String, forceFetch: Boolean = false, loader: suspend () -> PluginPriceInfo): Stored<PluginPriceInfo> {
         val prices = plugins[plugin] ?: withContext(Dispatchers.IO) { plugins.computeIfAbsent(plugin, ::readStored) }
         val now = currentTimeMillis()
         val cached = prices.entries[countryIsoCode]
         if (!forceFetch && cached != null && cached.fetchedMillis >= invalidatedMillis && now - cached.fetchedMillis < maxAge.inWholeMilliseconds) {
-            return cached.priceInfo
+            return Stored(cached.priceInfo, cached.fetchedMillis)
         }
 
         val priceInfo = loader()
         prices.entries[countryIsoCode] = Entry(now, priceInfo)
         scheduleWrite(plugin, prices)
-        return priceInfo
+        return Stored(priceInfo, now)
     }
 
     /**

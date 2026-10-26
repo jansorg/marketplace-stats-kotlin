@@ -53,7 +53,7 @@ class PersistentPriceCacheTest {
         return get(1, country) {
             loads.incrementAndGet()
             value
-        }
+        }.value
     }
 
     @Test
