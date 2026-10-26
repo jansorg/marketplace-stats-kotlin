@@ -12,6 +12,7 @@ import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.DataTableRow
 import dev.ja.marketplace.data.LinkedCustomer
 import dev.ja.marketplace.data.LinkedLicense
+import dev.ja.marketplace.data.NoValue
 import dev.ja.marketplace.data.RenderedDataTable
 import dev.ja.marketplace.data.TransferredLicenseEnd
 import dev.ja.marketplace.data.customers.CustomerTable
@@ -92,7 +93,7 @@ class TransferredLicensesTest {
         val table = render(CustomerTable(nowDate = today))
         assertTrue(table.columns.any { it.id == "customer-licenses-transferred" })
 
-        // the names link to the customers, the IDs of customers with a name aren't linked
+        // the IDs and the names link to the customers
         val rowsByCustomer = table.rows().associateBy { (table.value(it, "customer-id") as LinkedCustomer).id }
         val previous = rowsByCustomer.getValue(previousOwner.code)
         assertEquals(BigInteger.ZERO, table.value(previous, "customer-licenses-active"))
@@ -103,6 +104,34 @@ class TransferredLicensesTest {
         val new = rowsByCustomer.getValue(newOwner.code)
         assertEquals(BigInteger.ONE, table.value(new, "customer-licenses-active"))
         assertEquals(BigInteger.ZERO, table.value(new, "customer-licenses-transferred"))
+
+        // the transferred license is counted once in the footer, it's active
+        val footer = table.sections.single().footer!!.rows.single()
+        assertEquals(BigInteger.TWO, footer.getValue(table.columns.single { it.id == "customer-licenses-total" }))
+        assertEquals(BigInteger.ONE, footer.getValue(table.columns.single { it.id == "customer-licenses-active" }))
+        assertEquals(BigInteger.ONE, footer.getValue(table.columns.single { it.id == "customer-licenses-churned" }))
+    }
+
+    @Test
+    fun customerWithAPerpetualLicense() = runBlocking {
+        val customer = CustomerInfo(3, "Germany", CustomerType.Individual)
+        val amount = FastMoney.of(150, MarketplaceCurrencies.USD)
+        val lineItem = PerpetualPluginSaleItem(PluginSaleItemType.New, listOf("perpetual"), amount, amount, emptyList())
+        val perpetualSale = PluginSale("ref-4", YearMonthDay(2025, 6, 1), amount, amount, LicensePeriod.Perpetual, customer, null, listOf(lineItem))
+
+        val data = McpTestData.pluginData(sales = sales + perpetualSale)
+        val table = CustomerTable(nowDate = today)
+        table.init(data)
+        data.getLicenses()!!.forEach { table.process(it) }
+        val rendered = table.renderTable()
+
+        // the perpetual license is active, it starts at its sale and doesn't end
+        val row = rendered.rows().single { (rendered.value(it, "customer-id") as LinkedCustomer).id == customer.code }
+        assertEquals(YearMonthDay(2025, 6, 1), rendered.value(row, "customer-since"))
+        assertEquals(NoValue, rendered.value(row, "customer-until"))
+        assertEquals(BigInteger.ONE, rendered.value(row, "customer-licenses-active"))
+        // customers without an end are shown last
+        assertEquals(customer.code, (rendered.value(rendered.rows().last(), "customer-id") as LinkedCustomer).id)
     }
 
     @Test
