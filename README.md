@@ -1,196 +1,249 @@
 # JetBrains Marketplace Statistics
 
-This software provides statistics for paid plugins on the [JetBrains Marketplace](https://plugins.jetbrains.com/).
-It's a redevelopment of [marketplace-stats](https://github.com/jansorg/marketplace-stats) as a web-based application using Kotlin instead of
-Golang.
+Marketplace Stats shows sales and usage statistics for paid plugins on the
+[JetBrains Marketplace](https://plugins.jetbrains.com/).
+It is a web application: you start it on your computer or server and open the reports in your browser.
 
-## How to Get It
+Features:
 
-Releases are available [on GitHub](https://github.com/jansorg/marketplace-stats-kotlin/releases).
-Release asset `marketplace-stats-all.jar` is a JAR file with all dependencies in it.
-It can be launched with `java -jar`:
+- Reports of sales, licenses, customers, trials, countries, subscriptions, resellers and prices
+- Charts of the table values, with trends, vertical lines for releases and your own events
+- A summary of all your paid plugins
+- An optional cache on disk, so that restarts are fast
+- An optional refresh in the background, so that the pages don't wait for the Marketplace
+- An [MCP](https://modelcontextprotocol.io/) server, so that AI agents can analyze your data
+
+This is a new version of [marketplace-stats](https://github.com/jansorg/marketplace-stats). It is written in Kotlin
+instead of Go.
+
+## Contents
+
+- [Quick Start](#quick-start)
+- [Requirements](#requirements)
+- [Configuration](#configuration)
+- [Persistent Cache](#persistent-cache)
+- [Automatic Refresh](#automatic-refresh)
+- [Custom Events in the Charts](#custom-events-in-the-charts)
+- [MCP Server for AI Agents](#mcp-server-for-ai-agents)
+- [Building From Source](#building-from-source)
+- [License](#license)
+
+## Quick Start
+
+You need an API key of the JetBrains Marketplace. You create it in your account on the
+[JetBrains Marketplace](https://plugins.jetbrains.com/).
+
+### With Docker
+
+The Docker image is [jansorg/jetbrains-marketplace-stats](https://hub.docker.com/r/jansorg/jetbrains-marketplace-stats).
 
 ```bash
-java -jar /path/to/marketplace-stats-all.jar \
-  --api-key="Your JetBrains API key" ]
+docker run \
+  --env MARKETPLACE_API_KEY="your-api-key" \
+  --publish 8080:8080 \
+  --volume marketplace-stats-cache:/root/.cache/marketplace-stats \
+  jansorg/jetbrains-marketplace-stats:latest
 ```
+
+Open <http://localhost:8080> in your browser.
+
+The image stores the [persistent cache](#persistent-cache) in `/root/.cache/marketplace-stats`.
+The volume keeps the cache when you replace the container, e.g. with a new version.
+
+### With docker-compose
+
+The file `docker-compose.yml` is a template. It explains all settings in comments.
+
+1. Copy `docker-compose.yml` to your server.
+2. Replace `your-api-key` with your API key.
+3. Optional: enable the [automatic refresh](#automatic-refresh) and the [custom events](#custom-events-in-the-charts).
+4. Run `docker-compose up` to test the setup. Run `docker-compose up -d` to start it in the background.
+
+### With Java
+
+Download `marketplace-stats-all.jar` from the [releases on GitHub](https://github.com/jansorg/marketplace-stats-kotlin/releases).
+This JAR file contains all dependencies.
+
+```bash
+java -jar marketplace-stats-all.jar --api-key="your-api-key"
+```
+
+Open <http://localhost:8080> in your browser.
 
 ## Requirements
 
-Building this software requires JDK 27. The application runs on Java 25 or later.
+- To run the JAR file: Java 25 or later.
+- To build the application: JDK 27.
+- The Docker image already contains Java.
 
-## Building
+## Configuration
 
-If you don't want to use the release assets, you can build it yourself:
+There are three ways to configure the application. You can combine them.
+
+1. **Command line options**, e.g. `--port=3030`.
+2. **Environment variables**, e.g. `MARKETPLACE_SERVER_PORT=3030`. They are useful with Docker.
+3. **A configuration file** in JSON format. Its path is the last argument, e.g.
+   `java -jar marketplace-stats-all.jar /path/to/config.json`. A command line option or an environment variable
+   overrides the value of the file.
+
+### All Settings
+
+| Option                                            | Environment variable              | Key of the config file | Default   | Description                                                                                                               |
+|---------------------------------------------------|-----------------------------------|------------------------|-----------|---------------------------------------------------------------------------------------------------------------------------|
+| `-k`, `--api-key`                                 | `MARKETPLACE_API_KEY`             | `apiKey`               | —         | The API key of the JetBrains Marketplace. Required.                                                                       |
+| `-h`, `--host`                                    | `MARKETPLACE_SERVER_HOSTNAME`     | —                      | `0.0.0.0` | The IP address or hostname of the web server.                                                                             |
+| `-p`, `--port`                                    | `MARKETPLACE_SERVER_PORT`         | —                      | `8080`    | The port of the web server.                                                                                               |
+| `-c`, `--currency`                                | `MARKETPLACE_DISPLAY_CURRENCY`    | `displayedCurrency`    | `USD`     | The currency of the shown amounts, e.g. `EUR`.                                                                            |
+| `--show-reseller-charges`                         | `MARKETPLACE_SHOW_RESELLER_CHARGES` | `showResellerCharges` | off       | Show the incorrect charges of sales through resellers.                                                                    |
+| `--cache-dir`                                     | `MARKETPLACE_CACHE_DIR`           | `cacheDir`             | none      | The directory of the [persistent cache](#persistent-cache). Without it, the data is only kept in memory.                  |
+| `--auto-refresh[=<minutes>]`                      | `MARKETPLACE_AUTO_REFRESH`        | —                      | off       | Load new data in the background, every 30 minutes or every `<minutes>`. See [Automatic Refresh](#automatic-refresh).      |
+| `--events`                                        | `MARKETPLACE_EVENTS_FILE`         | `eventsFile`           | none      | A YAML file with your own events for the charts. See [Custom Events](#custom-events-in-the-charts).                       |
+| `--all-plugins-summary`, `--no-all-plugins-summary` | `MARKETPLACE_ALL_PLUGINS_SUMMARY` | —                    | on        | Show the sales and downloads of all paid plugins above the list of plugins.                                               |
+| `--mcp`, `--no-mcp`                               | `MARKETPLACE_MCP`                 | —                      | on        | Serve the [MCP server](#mcp-server-for-ai-agents) at `/mcp`.                                                              |
+| `--mcp-allowed-hosts`                             | `MARKETPLACE_MCP_ALLOWED_HOSTS`   | —                      | none      | More hostnames for the MCP server, comma-separated. See [Security](#security).                                            |
+| `-d`, `--debug`                                   | `MARKETPLACE_LOG_LEVEL`           | —                      | `none`    | The log level: `none`, `normal` or `verbose`.                                                                             |
+
+Use `true` or `false` as the value of the environment variables of options that are on or off.
+`java -jar marketplace-stats-all.jar --help` prints all options.
+
+### Paths
+
+The settings `--cache-dir` and `--events` contain a path:
+
+- A leading `~` is your home directory. This also works in environment variables and in the configuration file.
+- A relative path in the configuration file is relative to the directory of the configuration file.
+- A relative path of an option or of an environment variable is relative to the working directory.
+
+### Configuration File
+
+`config-template.json` is a template:
+
+```json
+{
+  "apiKey": "your-api-key",
+  "displayedCurrency": "USD"
+}
+```
+
+The file contains your API key. Don't share it, and don't add it to a Git repository.
+
+## Persistent Cache
+
+The application needs many requests to the Marketplace to load the data of a plugin.
+By default, it only keeps the data in memory. After a restart, it loads all data again.
+
+With `--cache-dir`, the application also stores the data in a directory:
 
 ```bash
-# Build
-./gradlew clean build
+java -jar marketplace-stats-all.jar \
+  --api-key="your-api-key" \
+  --cache-dir="~/.cache/marketplace-stats"
 ```
 
-## Usage
+The Docker image uses a cache in `/root/.cache/marketplace-stats` by default. An empty `MARKETPLACE_CACHE_DIR` disables it.
 
-The application launches an integrated HTTP server to provide the reports.
-The default is port `8080`: [http://localhost:8080](http://localhost:8080).
+### When Is the Data Loaded Again?
 
-An API key for the JetBrains Marketplace is required.
+| Data                                  | Loaded again                                                                                     |
+|---------------------------------------|--------------------------------------------------------------------------------------------------|
+| Sales and trials of the last 45 days  | After each start (in the background), and when a report needs data older than 30 minutes       |
+| All sales and trials                  | Once a week                                                                                      |
+| Downloads, ratings, releases          | Once a day                                                                                       |
+| Products and releases of JetBrains    | Once a day                                                                                       |
+| Prices                                | Once a week                                                                                      |
+| Exchange rates                        | After six hours                                                                                  |
 
-Command line option `--help` prints usage instructions:
+After a restart, the reports show the stored data immediately. If the stored data is older than a day, e.g. after a
+long downtime, the application loads the recent data before it shows the report.
 
-```text
-Usage: marketplace-stats [<options>] [<config.json file path>]
+The button "Drop caches" in the footer of a report deletes the cached data of the plugin. The application then loads
+all data again.
 
-  Marketplace Stats provides reports for plugins hosted on the JetBrains Marketplace.
+### Good to Know
 
-Options:
-  --version                          Show the version and exit
-  -k, --api-key=<text>               API key for the JetBrains Marketplace. The key is used to find available plugins and to load the data needed to
-                                     generate a plugin report.
-  -h, --host=<text>                  IP address or hostname the integrated webserver is bound to. (default: 0.0.0.0)
-  -p, --port=<int>                   Port used by the integrated webserver. (default: 8080)
-  -c, --currency=<text>              Currency for the displayed monetary amounts.
-  --cache-dir=<text>                 Directory of the persistent cache. Sales, trials, prices and exchange rates are stored there to speed up
-                                     restarts. The data is kept in memory only if no directory is set or if it's empty. A leading ~ is the
-                                     home directory.
-  --show-reseller-charges            Show incorrect charges for sales through resellers.
-  --events=<file>                    YAML file with custom events, which the charts can show as vertical lines, e.g. blog posts or
-                                     changes of the trial period. The file is read again when it's modified. See README.md for the
-                                     format.
-  --auto-refresh[=<minutes>]         Refreshes the data of the plugins, which were requested in the last 24 hours, in the background every
-                                     MINUTES (default: 30), so that the pages don't wait for the Marketplace. Use --auto-refresh or
-                                     --auto-refresh=MINUTES, 0 disables it. Disabled by default.
-  --all-plugins-summary / --no-all-plugins-summary
-                                     Show the sales and downloads of all paid plugins above the list of plugins. The data of these plugins is
-                                     loaded at the start, or taken from the persistent cache. (default: enabled)
-  --mcp / --no-mcp                   Serve the MCP server for AI agents at /mcp of the integrated webserver. (default: enabled)
-  --mcp-allowed-hosts=<text>         Comma-separated hostnames, which are accepted in the Host and Origin headers of requests to the MCP server, in
-                                     addition to localhost, 127.0.0.1, [::1] and the hostname of --host. Ports are ignored. Protects against DNS
-                                     rebinding attacks.
-                                     (default: none)
-  -d, --debug=(none|normal|verbose)  The log level used for the server and the API requests to the marketplace (default: None)
-  --help                             Show this message and exit
+- Each API key has its own directory. The API key itself is not stored.
+- The products of JetBrains are stored once for all API keys.
+- The directory contains sales and customer data. Protect it like other private data.
+- You can delete the directory at any time. The application then loads all data again.
+- The application ignores and replaces damaged files and files of other versions.
 
-Arguments:
-  <config.json file path>  Path to the application configuration JSON file. It's used as fallback for the other command line options. A template is
-                           available at https://github.com/jansorg/marketplace-stats-kotlin/blob/main/config-template.json.
-```
+## Automatic Refresh
 
-### Launch With the Command Line
+The Marketplace API is slow. Without the automatic refresh, a report loads new data when the cached data is older than
+30 minutes. The page waits for this.
+
+With the automatic refresh, the application loads new data in the background. The pages always use the cached data and
+don't wait.
 
 ```bash
-java -jar ./build/libs/marketplace-stats-all.jar \
-  --api-key="Your JetBrains API key"
-```
-
-Use `--port` to use your own port
-
-```bash
-java -jar ./build/libs/marketplace-stats-all.jar \
-  --api-key="Your JetBrains API key" \
-  --port=3030
-```
-
-### Launch With Environment Variables
-
-Instead of options, you can use the following environment variables:
-
-```text
---api-key:           MARKETPLACE_API_KEY
---port:              MARKETPLACE_SERVER_PORT
---host:              MARKETPLACE_SERVER_HOSTNAME
---display-currency:  MARKETPLACE_DISPLAY_CURRENCY
---debug:             MARKETPLACE_LOG_LEVEL
---cache-dir:         MARKETPLACE_CACHE_DIR
---mcp, --no-mcp:     MARKETPLACE_MCP (true or false)
---all-plugins-summary, --no-all-plugins-summary:
-                     MARKETPLACE_ALL_PLUGINS_SUMMARY (true or false)
---mcp-allowed-hosts: MARKETPLACE_MCP_ALLOWED_HOSTS
---auto-refresh:      MARKETPLACE_AUTO_REFRESH (interval in minutes, 0 disables it)
---events:            MARKETPLACE_EVENTS_FILE
-```
-
-For example:
-
-```bash
-export MARKETPLACE_API_KEY="Your JetBrains API key"
-export MARKETPLACE_SERVER_PORT=3030
-java -jar ./build/libs/marketplace-stats-all.jar
-```
-
-### Launch With a Configuration File
-
-1. Prepare your configuration file. You can find a template at `config-template.json`. The file contains the plugin ID and the API key to
-   access the JetBrains Marketplace.
-   ```json
-   {
-      "apiKey": "the API key to access the JetBrains marketplace"
-   }
-   ```
-2. Launch the application:
-    ```bash
-    java -jar ./build/libs/marketplace-stats-all.jar /path/to/config.json
-    ```
-3. Open http://localhost:8080 in your browser to use the application.
-
-The configuration file also supports the keys `displayedCurrency`, `showResellerCharges` and `cacheDir`.
-
-### Automatic Refresh
-
-The Marketplace API is slow. Without the automatic refresh, a report loads the data again when it's older than
-30 minutes, and the page waits for it.
-
-With `--auto-refresh` (or `MARKETPLACE_AUTO_REFRESH=30`), the data of the plugins, which were requested, is loaded again
-in the background every 30 minutes, and the pages use the cached data without waiting. `--auto-refresh=15` sets another
-interval in minutes. It's disabled by default.
-
-- Only plugins, which were requested, are refreshed: a report page, a request of the MCP server for the plugin, or the
-  summary of all paid plugins on the list of plugins for these plugins. Other plugins aren't refreshed.
-- The refresh of a plugin stops 24 hours after the last request for it. Its data is loaded again by the next request.
-- Recent data, e.g. the sales and trials of the last 45 days, is loaded at each refresh. Data, which changes less often,
-  e.g. downloads and releases (daily) or prices (weekly), is loaded when it would be outdated before the next refresh.
-- If a refresh fails, the previous data is kept and used.
-
-```bash
-java -jar ./build/libs/marketplace-stats-all.jar \
-  --api-key="Your JetBrains API key" \
-  --cache-dir="$HOME/.cache/marketplace-stats" \
+java -jar marketplace-stats-all.jar \
+  --api-key="your-api-key" \
+  --cache-dir="~/.cache/marketplace-stats" \
   --auto-refresh
 ```
 
-### Custom Events in the Charts
+- `--auto-refresh` loads new data every 30 minutes. `--auto-refresh=15` loads it every 15 minutes.
+- With Docker, use `MARKETPLACE_AUTO_REFRESH=30`. The value is the interval in minutes. `0` disables it.
+- The automatic refresh is off by default.
 
-The line charts can show vertical lines for the releases of the plugin, its price changes and the releases of IntelliJ IDEA.
-Other events aren't part of the data of the Marketplace, e.g. blog posts or a change of the trial period.
-They can be added with a YAML file, set with `--events` (or `MARKETPLACE_EVENTS_FILE`, or `eventsFile` in the configuration file):
+How it works:
+
+- The application only refreshes plugins that you opened: a report page of the plugin, a request of the MCP server for
+  the plugin, or the summary of all plugins on the start page. It doesn't refresh other plugins.
+- 24 hours after the last request for a plugin, the refresh of this plugin stops. The next request loads the data again
+  and starts the refresh again.
+- Each refresh loads the recent data, e.g. the sales and trials of the last 45 days. Data that changes less often,
+  e.g. downloads or prices, is only loaded when it would be outdated before the next refresh.
+- If a refresh fails, the application keeps the previous data and uses it.
+
+## Custom Events in the Charts
+
+The line charts can show vertical lines for the releases of your plugin, its price changes and the releases of
+IntelliJ IDEA. Other events are not part of the data of the Marketplace, e.g. a blog post or a change of the trial
+period. You can add such events with a YAML file.
+
+### File Format
 
 ```yaml
 events:
-  - id: price-announcement           # optional, the ID of the event, the default is the date and the label
-    plugin: 12345                    # required, the ID of the plugin, e.g. of the address of its report
-    date: 2026-10-16                 # required, YYYY-MM-DD
-    label: "Announced price change"  # required, shown above the line
-  - trial-period:                    # a key without value is the ID, too
+  - id: price-announcement           # optional: the ID of the event, the default is the date and the label
+    plugin: 12345                    # required: the ID of the plugin
+    date: 2026-10-16                 # required: the date in the format YYYY-MM-DD
+    label: "Announced price change"  # required: the text above the line
+
+  - trial-period:                    # a key without a value is also the ID
     plugin: 12345
     date: 2026-03-01
     label: "Trial period of 30 days"
 ```
 
-The menu "Events" of the chart dialog lists the events of the plugin, each selected event is shown as a vertical line.
-The summary of all plugins on the list of plugins shows the events of all plugins.
-The selection is stored in the browser, by the IDs of the events.
-The file is read again when it's modified. If it's invalid at the start, the server doesn't start. If it becomes invalid
-while the server is running, the error is logged and the previous events are used.
+- You find the ID of a plugin in the address of its report, e.g. `?pluginId=12345`.
+- The IDs of the events must be unique.
+- `events.yml` in this repository is an example.
+
+### Use the File
+
+Set the path of the file with `--events`, with `MARKETPLACE_EVENTS_FILE` or with `eventsFile` in the configuration file:
 
 ```bash
-java -jar ./build/libs/marketplace-stats-all.jar \
-  --api-key="Your JetBrains API key" \
-  --events="$HOME/marketplace-stats/events.yaml"
+java -jar marketplace-stats-all.jar \
+  --api-key="your-api-key" \
+  --events="~/marketplace-stats/events.yaml"
 ```
 
-A leading `~` is the home directory. A relative `eventsFile` of the configuration file is relative to the directory of
-the file, a relative `--events` or `MARKETPLACE_EVENTS_FILE` to the working directory.
+In the chart dialog, the menu "Events" lists the events of the plugin. Select an event to show it as a vertical line.
+Your browser stores the selection. The summary of all plugins on the start page shows the events of all plugins.
 
-With Docker, mount the directory of the file read-only and set the path in the container, e.g. with `docker-compose.yml`:
+The application reads the file again when you change it. You don't need to restart it.
+
+- If the file is invalid when the application starts, the application doesn't start. The error message names the
+  event and the problem.
+- If you change the file and it becomes invalid, the application writes the error to the log and keeps the previous
+  events.
+
+### With Docker
+
+Mount the directory of the file into the container, read-only. Then set the path of the file in the container:
 
 ```yaml
     environment:
@@ -199,44 +252,14 @@ With Docker, mount the directory of the file read-only and set the path in the c
       - ./config:/config:ro
 ```
 
-Mount the directory, not the file itself: many editors replace a file when it's saved, and a mounted file would keep its
+Mount the directory, not the file. Many editors replace a file when they save it. A mounted file would then keep its
 old content in the container.
-
-### Persistent Cache
-
-Loading the sales, trials, prices and downloads of a plugin takes many requests to the JetBrains Marketplace.
-By default, the data is only cached in memory and loaded again after a restart.
-With `--cache-dir` (or `MARKETPLACE_CACHE_DIR`), the data is also stored in the given directory:
-
-```bash
-java -jar ./build/libs/marketplace-stats-all.jar \
-  --api-key="Your JetBrains API key" \
-  --cache-dir="$HOME/.cache/marketplace-stats"
-```
-
-A leading `~` is the home directory, also in `MARKETPLACE_CACHE_DIR` and in the configuration file.
-A relative `cacheDir` of the configuration file is relative to the directory of the file,
-a relative `--cache-dir` or `MARKETPLACE_CACHE_DIR` to the working directory.
-
-After a restart, the stored data is shown immediately. The sales and trials of the last 45 days and newer ones are
-loaded again in the background right after the start, for all plugins with stored data and also if the stored data is
-recent, to catch changes like refunds. If the stored data is
-older than a day, for example after a long downtime, they are loaded before the report is shown.
-While the server is running, they are loaded again when a report is shown and the data is older than 30 minutes,
-or in the background with the [automatic refresh](#automatic-refresh).
-The complete history is loaded again once a week.
-Prices are loaded again after a week, exchange rates after six hours, downloads and the products and releases of JetBrains after a day.
-The button "Drop caches" in the footer of a report (`POST /refresh?reload=true`) ignores the stored data and loads everything again.
-
-The data of each API key is stored in a separate directory, the key itself isn't stored. The products of JetBrains are shared by all keys.
-The directory contains sales and customer data, protect it accordingly. It's safe to delete it at any time.
-Files of an older or newer version of the application, and damaged files, are ignored and replaced.
 
 ## MCP Server for AI Agents
 
-The web server also provides an [MCP](https://modelcontextprotocol.io/) server at `/mcp`,
-e.g. `http://localhost:8080/mcp`. It uses the stateless Streamable HTTP transport, without sessions.
-AI agents can use it to analyze the sales and trends of your plugins.
+The web server also provides an [MCP](https://modelcontextprotocol.io/) server at `/mcp`, e.g. `http://localhost:8080/mcp`.
+AI agents can use it to analyze the sales and the trends of your plugins.
+It uses the Streamable HTTP transport and has no sessions.
 
 For example, to add it to Claude Code:
 
@@ -275,7 +298,7 @@ claude mcp add --transport http marketplace-stats http://localhost:8080/mcp
 |------------------------------------|---------------------------------------------------------------------------------------------------------|
 | `list_sales`                       | Sales with customer, amounts and line items, with filters, totals and grouping                          |
 | `list_customers`                   | Customers with status (active or inactive), active, churned and transferred licenses and total sales    |
-| `list_licenses`                    | Licenses with status, validity and renewals, e.g. licenses expiring in a month                          |
+| `list_licenses`                    | Licenses with status, validity and renewals, e.g. licenses that expire in a month                       |
 | `list_customer_licenses`           | Licenses of a customer with their status and purchases                                                  |
 | `list_trials`                      | Single trials with customer and conversion, and a summary per month                                     |
 | `get_license_cohorts`              | Renewals of the subscription licenses by the month of their first paid subscription                     |
@@ -311,62 +334,49 @@ claude mcp add --transport http marketplace-stats http://localhost:8080/mcp
 
 | Tool                               | Data                                                                                                    |
 |------------------------------------|---------------------------------------------------------------------------------------------------------|
-| `refresh_data`                     | Drops the cached data of a plugin or of all plugins, like the reload of the web interface               |
+| `refresh_data`                     | Deletes the cached data of a plugin or of all plugins, like the button "Drop caches" of the reports     |
 
 ### Arguments and Results
 
-The table tools of a plugin provide the tables of the plugin's overview page as JSON. They take the plugin ID and an optional date range
-`startDate` and `endDate` (`YYYY-MM-DD`, inclusive). Without a date range, all available data is returned.
-Tables with a row per day, month or year are calculated with all data and only the rows of the date range are returned,
-so that values like the recurring revenue and churn stay correct. The other tables only use the sales, licenses and trials of the date range.
+- **Tables:** the table tools return the tables of the overview page of a plugin as JSON. They take the ID of the plugin
+  and an optional date range `startDate` and `endDate` (`YYYY-MM-DD`, inclusive). Without a date range, they return all
+  data.
+- **Tables per day, month or year:** these are calculated with all data, and only the rows of the date range are
+  returned. This keeps values like the recurring revenue and the churn correct. The other tables only use the sales,
+  licenses and trials of the date range.
+- **Columns and values:** each column has a unique key, a title and a unit, e.g. the currency or `%`. The rows contain
+  plain numbers. Values of the current period are marked as incomplete. Churn rates include the numbers of churned and
+  previously active licenses.
+- **Lists:** the other tools return lists of sales, customers, licenses, trials, reviews, prices and releases. Lists
+  accept `limit` and `offset` and return the total count.
+- **Amounts:** amounts are in the displayed currency. They are also in USD and in the currency of the customer, if these
+  are different. Sales include the fee of the Marketplace. The tools with amounts accept an optional `currency`, e.g.
+  `EUR`. The amounts are then converted with the ECB exchange rate of the day of each sale. `get_exchange_rates` lists
+  the supported currencies.
+- **Enum values** are lower camel case, e.g. `individual` or `annual`.
+- **Conventions:** the instructions of the MCP server describe the conventions once, not in each tool. This saves
+  tokens. Unknown arguments are rejected.
 
-Table results have columns with a unique key, a title and a unit, e.g. the currency or `%`, and rows with plain numbers.
-Values of the current period are marked as incomplete, churn rates include the numbers of churned and previously active licenses.
-
-The other tools return lists of sales, customers, licenses, trials, reviews, prices and releases. Lists accept `limit` and `offset`
-and return the total count. Amounts are returned in the displayed currency, and also in USD and in the currency paid by the customer,
-if they differ. Sales and purchases include the fee of the Marketplace. Enum values are lower camel case, e.g. `individual` or `annual`. The tools with amounts accept an optional `currency`, e.g. `EUR`, to convert the amounts with the ECB exchange rate
-of the day of each sale, see `get_exchange_rates` for the supported currencies.
-
-The conventions of the arguments and results are described once in the instructions of the MCP server, not in each tool,
-to save tokens. Unknown arguments are rejected.
-
-The Marketplace API doesn't provide downloads by IDE version and installs. The page views of `get_page_views` are sampled data of
-Google Analytics, the Marketplace warns that page visits and referrals may be inaccurate.
+Limits of the data: the Marketplace API has no downloads by IDE version and no installs. The page views of
+`get_page_views` are sampled data of Google Analytics. The Marketplace warns that page visits and referrals may be
+inaccurate.
 
 ### Security
 
-The MCP server has no authentication, like the web interface. To protect against DNS rebinding attacks,
-it only accepts requests for the hostnames `localhost`, `127.0.0.1`, `[::1]` and the hostname of `--host`.
-If you access the server with another hostname, e.g. in a Docker deployment, add it with `--mcp-allowed-hosts`.
-Use `--no-mcp` to disable the MCP server.
+The MCP server has no authentication, like the web interface. To protect against DNS rebinding attacks, it only accepts
+requests for the hostnames `localhost`, `127.0.0.1`, `[::1]` and the hostname of `--host`.
 
-## Deployment
+- If you use another hostname, e.g. with Docker on a server, add it with `--mcp-allowed-hosts`.
+- `--no-mcp` disables the MCP server.
 
-### Deploy with Docker
+## Building From Source
 
-[jansorg/jetbrains-marketplace-stats](https://hub.docker.com/r/jansorg/jetbrains-marketplace-stats) is a Docker container.
+You need JDK 27. Gradle downloads it, if it isn't installed.
 
 ```bash
-docker run \
-  --env MARKETPLACE_API_KEY="your-api-key" \
-  --publish 8080:8080 \
-  --volume marketplace-stats-cache:/root/.cache/marketplace-stats \
-  jansorg/jetbrains-marketplace-stats:latest
+./gradlew build      # compiles the code and runs the tests
+./gradlew shadowJar  # creates build/libs/marketplace-stats-all.jar
 ```
-
-The image stores the [persistent cache](#persistent-cache) in `/root/.cache/marketplace-stats`.
-Mount a volume there to keep the cache when the container is replaced, e.g. by a new version.
-An empty `MARKETPLACE_CACHE_DIR` disables the cache.
-
-### Deploy with docker-compose
-
-Please refer to `docker-compose.yml` for a template setup.
-
-1. Copy `docker-compose.yml` to your server.
-2. Add your API key in the file. Optionally, enable the [custom events](#custom-events-in-the-charts) and the
-   [automatic refresh](#automatic-refresh).
-3. Run `docker-compose up` to test it and `docker-compose up -d` to launch it in the background.
 
 ## License
 
