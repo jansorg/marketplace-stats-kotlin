@@ -7,6 +7,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
+    rangeLabel, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, granularitiesOf, rollingAverageOfDays, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear, trailingAverageOfDays,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, groupCharts, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
@@ -193,6 +194,8 @@ test("incomplete values are removed from a series", () => {
 test("the minimum and the maximum ignore missing and incomplete values", () => {
     assert.deepEqual(extremeIndices([1, 2, 3, 4], [5, null, 9, 1], new Set([4])), {min: 0, max: 2});
     assert.deepEqual(extremeIndices([1, 2, 3], [5, 9, 9], new Set()), {min: 0, max: 1});
+    // only the values within the shown dates
+    assert.deepEqual(extremeIndices([1, 2, 3, 4], [1, 5, 3, 9], new Set(), [2, 3]), {min: 2, max: 1});
     assert.equal(extremeIndices([1, 2], [5, 5], new Set()), null);
     assert.equal(extremeIndices([1], [5], new Set()), null);
     assert.equal(extremeIndices([1, 2], [5, 9], new Set([1, 2])), null);
@@ -375,4 +378,22 @@ test("the 1-month average is the average of the days of the month before each da
     assert.equal(overlayApplies("average1", series, "month"), false);
     assert.equal(overlayApplies("average1", series, "week"), true);
     assert.equal(overlayApplies("average1", series, "day"), true);
+});
+
+test("date ranges of the line charts", () => {
+    const day = isoDateToTimestamp;
+    const series = [{points: new Map([[day("2023-12-31"), 1], [day("2025-01-31"), 2]])}, {points: new Map([[day("2024-06-30"), 3]])}];
+    assert.deepEqual(rangeYears(series), [2025, 2024, 2023]);
+    assert.deepEqual(rangeYears([]), []);
+
+    assert.deepEqual(rangeOfYear(2024), {from: "2024-01-01", to: "2024-12-31"});
+    assert.deepEqual(rangeTimestamps(rangeOfYear(2024)), [day("2024-01-01"), day("2025-01-01") - 1]);
+    assert.equal(rangeTimestamps(null), null);
+
+    // a selection within days and from right to left
+    assert.deepEqual(rangeOfTimestamps(day("2024-03-05") + 3600, day("2024-02-01") + 100), {from: "2024-02-01", to: "2024-03-05"});
+
+    assert.equal(rangeLabel(null), "All");
+    assert.equal(rangeLabel(rangeOfYear(2024)), "2024");
+    assert.equal(rangeLabel({from: "2024-02-01", to: "2024-03-05"}), "2024-02-01 – 2024-03-05");
 });

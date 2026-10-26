@@ -17,13 +17,14 @@ test("a stored setup is loaded", () => {
     const setupStorage = createSetupStorage(storage);
     const setup = {
         combineUnits: true, averagesOnly: true, maximized: false, preferredStyle: "bars", chartStyles: {"month/USD": "bars"}, granularities: {"month/USD": "day"}, shownMarkers: ["ide"], shownEvents: ["price-announcement"], shownExtremes: ["max"], shownOverlays: ["average12", "previousYear"], showIncomplete: false, showValueTable: false,
+        dateRange: {from: "2024-01-01", to: "2024-12-31"},
         entries: [{type: "line", table: "Overview", column: "MRR", color: "#2a78d6"}, {type: "pie", table: "Top Countries", column: "% of Sales"}],
     };
     setupStorage.save(setup);
     assert.deepEqual(setupStorage.load(), setup);
     // only the setup is stored, no values of the tables
     assert.deepEqual(Object.keys(JSON.parse(storage.values.get(STORAGE_KEY))).sort(),
-        ["averagesOnly", "chartStyles", "combineUnits", "entries", "granularities", "maximized", "preferredStyle", "showIncomplete", "showValueTable", "shownEvents", "shownExtremes", "shownMarkers", "shownOverlays", "version"]);
+        ["averagesOnly", "chartStyles", "combineUnits", "dateRange", "entries", "granularities", "maximized", "preferredStyle", "showIncomplete", "showValueTable", "shownEvents", "shownExtremes", "shownMarkers", "shownOverlays", "version"]);
 });
 
 test("the dialog is maximized by default", () => {
@@ -65,7 +66,7 @@ test("an unavailable storage doesn't fail", () => {
 
 test("a bookmarked view is the setup in the fragment of the address", () => {
     const setup = {
-        ...emptySetup(), granularities: {"year/USD": "monthEnd"}, shownMarkers: ["release"],
+        ...emptySetup(), granularities: {"year/USD": "monthEnd"}, shownMarkers: ["release"], dateRange: {from: "2025-03-01", to: "2025-06-30"},
         entries: [{type: "line", table: "Years", column: "Sales Total", color: "#2a78d6"}, {type: "pie", table: "Top Countries", column: "% of Sales"}],
     };
     const fragment = encodeView(setup);
@@ -75,6 +76,17 @@ test("a bookmarked view is the setup in the fragment of the address", () => {
     // non-ASCII names of tables and columns
     const named = {...emptySetup(), entries: [{type: "line", table: "Übersicht", column: "Umsatz €"}]};
     assert.deepEqual(decodeView(encodeView(named)), named);
+});
+
+test("an invalid date range shows all dates", () => {
+    const load = dateRange => createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 1, entries: [], dateRange})})).load().dateRange;
+    assert.equal(load(undefined), null);
+    assert.equal(load("2025"), null);
+    assert.equal(load({from: "2025-01-01"}), null);
+    assert.equal(load({from: "2025-13-45", to: "2025-12-31"}), null);
+    // the end before the start
+    assert.equal(load({from: "2025-12-31", to: "2025-01-01"}), null);
+    assert.deepEqual(load({from: "2025-01-01", to: "2025-01-01", other: 1}), {from: "2025-01-01", to: "2025-01-01"});
 });
 
 test("an invalid bookmarked view is ignored", () => {

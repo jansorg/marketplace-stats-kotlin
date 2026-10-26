@@ -16,13 +16,13 @@ const VERSION = 1;
  * @typedef {{combineUnits: boolean, maximized: boolean, preferredStyle: "lines"|"bars",
  *  chartStyles: Object<string, "lines"|"bars">, granularities: Object<string, "yearEnd"|"month"|"monthEnd"|"week"|"day">, shownMarkers: string[], shownEvents: string[],
  *  shownExtremes: ("min"|"max")[], shownOverlays: string[], showIncomplete: boolean, showValueTable: boolean, averagesOnly: boolean,
- *  entries: ChartEntry[]}} ChartSetup
+ *  dateRange: {from: string, to: string}|null, entries: ChartEntry[]}} ChartSetup
  */
 
 /** @return {ChartSetup} */
 export function emptySetup() {
     // vertical lines are hidden by default, the dialog is maximized
-    return {combineUnits: false, maximized: true, preferredStyle: "lines", chartStyles: {}, granularities: {}, shownMarkers: [], shownEvents: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, averagesOnly: false, entries: []};
+    return {combineUnits: false, maximized: true, preferredStyle: "lines", chartStyles: {}, granularities: {}, shownMarkers: [], shownEvents: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, averagesOnly: false, dateRange: null, entries: []};
 }
 
 const STYLES = ["lines", "bars"];
@@ -45,6 +45,16 @@ function validValues(map, values) {
         return {};
     }
     return Object.fromEntries(Object.entries(map).filter(([key, value]) => typeof key === "string" && values.includes(value)));
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** @return {{from: string, to: string}|null} The stored date range of the line charts, null for all dates. */
+function validDateRange(range) {
+    if (range === null || typeof range !== "object" || !ISO_DATE.test(range.from) || !ISO_DATE.test(range.to)) {
+        return null;
+    }
+    return range.from <= range.to && !isNaN(Date.parse(range.from)) && !isNaN(Date.parse(range.to)) ? {from: range.from, to: range.to} : null;
 }
 
 function isValidEntry(entry) {
@@ -79,6 +89,7 @@ function parseSetup(setup) {
         showIncomplete: setup.showIncomplete !== false,
         showValueTable: setup.showValueTable !== false,
         averagesOnly: setup.averagesOnly === true,
+        dateRange: validDateRange(setup.dateRange ?? null),
         entries: setup.entries.filter(isValidEntry),
     };
 }

@@ -11,7 +11,7 @@
 
 import {createFormatter} from "./format.js";
 import {
-    canCombineUnits, CHART_STYLES, dateRange, exportFileName, finerPoints, granularitiesOf, groupCharts, hasFinerValues, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES, nextColor, pieSlices,
+    canCombineUnits, CHART_STYLES, dateRange, rangeLabel, rangeOfTimestamps, rangeTimestamps, rangeYears, exportFileName, finerPoints, granularitiesOf, groupCharts, hasFinerValues, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES, nextColor, pieSlices,
     visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear, rollingAverageOfDays, trailingAverage, trailingAverageOfDays,
 } from "./model.js";
 import {browserStorage, createSetupStorage, decodeView, encodeView} from "./storage.js";
@@ -72,6 +72,8 @@ class ChartController {
         this.showValueTable = true;
         // if lines with a moving average only show the average
         this.averagesOnly = false;
+        // the shown dates of the line charts, null for all dates, see storage.js
+        this.dateRange = null;
         // trends of the line charts, see OVERLAYS
         this.shownOverlays = [];
         this.hasLineCharts = false;
@@ -297,6 +299,7 @@ class ChartController {
         this.showIncomplete = setup.showIncomplete;
         this.showValueTable = setup.showValueTable;
         this.averagesOnly = setup.averagesOnly;
+        this.dateRange = setup.dateRange;
 
         for (const entry of setup.entries) {
             const column = columns.find(c => c.type === entry.type && c.table === entry.table && c.column === entry.column);
@@ -366,6 +369,7 @@ class ChartController {
             showIncomplete: this.showIncomplete,
             showValueTable: this.showValueTable,
             averagesOnly: this.averagesOnly,
+            dateRange: this.dateRange,
             entries: [
                 ...this.series.map(s => ({type: "line", table: s.table, column: s.column, ...(s.row ? {row: s.row} : {}), color: s.color})),
                 ...this.pies.map(p => ({type: "pie", table: p.table, column: p.column})),
@@ -418,6 +422,7 @@ class ChartController {
                     this.save();
                     this.render();
                 },
+                onDateRangeChange: range => this.setDateRange(range),
                 onValueTableVisibilityChange: visible => {
                     this.showValueTable = visible;
                     this.save();
@@ -432,6 +437,23 @@ class ChartController {
             this.markers.filter(marker => marker.kind === "custom"));
         }
         return this.dialog;
+    }
+
+    /** @param {{from: string, to: string}|null} range The shown dates of the line charts, null for all dates. */
+    setDateRange(range) {
+        if (rangeLabel(range) === rangeLabel(this.dateRange)) {
+            return;
+        }
+        this.dateRange = range;
+        this.save();
+        // the synchronized charts report the same selection, the charts are drawn once
+        if (!this.isRenderPending) {
+            this.isRenderPending = true;
+            requestAnimationFrame(() => {
+                this.isRenderPending = false;
+                this.render();
+            });
+        }
     }
 
     openDialog(message) {
@@ -459,6 +481,8 @@ class ChartController {
         const markers = visibleMarkers(this.markers, this.shownMarkers, this.shownEvents);
 
         const charts = groupCharts(this.series, this.combineUnits);
+        const visibleRange = rangeTimestamps(this.dateRange);
+        dialog.setDateRange(rangeYears(this.series), this.dateRange);
         const height = dialog.chartHeight(charts.length);
         // the styles of the shown charts, a new style of one chart must not change the others
         this.shownStyles = {};
@@ -507,9 +531,11 @@ class ChartController {
                 extremes: this.shownExtremes,
                 valueTable: this.showValueTable,
                 averagesOnly: this.averagesOnly,
+                visibleRange,
                 fontFamily: this.fontFamily,
             };
-            const plot = createLineChart({...chartOptions, width: dialog.chartWidth, height, container: panel});
+            const onZoom = (from, to) => this.setDateRange(rangeOfTimestamps(from, to));
+            const plot = createLineChart({...chartOptions, onZoom, width: dialog.chartWidth, height, container: panel});
             this.plots.push(plot);
             const title = document.title;
             const labels = chartSeries.filter(s => chart.units.includes(s.unit)).map(s => s.label);

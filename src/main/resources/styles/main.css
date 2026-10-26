@@ -1405,6 +1405,23 @@ dl.detail-grid dd {
     background-color: var(--button-bgcolor);
 }
 
+/* the selected item of a menu with one choice, e.g. the date range */
+.chart-menu-items button[role="menuitemradio"]::before {
+    content: "✓";
+    display: inline-block;
+    width: 1.2em;
+    visibility: hidden;
+}
+
+.chart-menu-items button[aria-checked="true"]::before {
+    visibility: visible;
+}
+
+.chart-range-menu .chart-menu-items {
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
 .chart-menu-items label {
     display: flex;
     align-items: center;
