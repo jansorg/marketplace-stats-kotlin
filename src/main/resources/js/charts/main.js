@@ -31,10 +31,7 @@ const STYLE_LABELS = {lines: "Lines", bars: "Bars"};
 const LOADING_MESSAGE = "Loading the values…";
 const DETAIL_LABELS = {year: "Year", month: "Month", week: "Week", day: "Day"};
 const DETAIL_HINT = "The dates of the values: the end of each year, of each month or of each week, or each day, and today.";
-const WINDOW_HINT = "The sums and rates of each date are the sums and rates of the window before the date, e.g. the sales "
-    + "of the last 12 months. At the end of a month, quarter or year, the window is the calendar period. "
-    + "The calendar windows start at the first day of the period, e.g. the sales of the month until the date, "
-    + "like the tables. Values at a date, like the MRR, don't depend on the window.";
+const WINDOW_HINT = "The period of the sums and rates at each date: the last days or months before it, or its calendar period until it.";
 
 /**
  * @return {HTMLElement} A new element with the content of the element, which is added to the element.
@@ -293,14 +290,25 @@ class ChartController {
 
     /**
      * Adds the series of a metric column, a series for each row of a column with the values of the rows over time.
-     * A new chart shows the values of the table, an existing chart of the unit keeps its level.
+     * A new chart shows the values of the table, an existing chart of the unit keeps its level. A metric, which is
+     * already shown, is shown again with the level and the dates of the table, e.g. the trials of the table of the
+     * years after the trials of the table of the months.
      * The charts of a table of a few days, e.g. of the past 7 days, show its dates.
      */
     addMetricSeries(table, columnIndex) {
         const level = readMetricLevel(table, columnIndex);
-        this.setTableDateRange(table);
+        const allSeries = readMetricSeries(table, columnIndex);
+        const shownSeries = this.series.filter(s => allSeries.some(series => series.key === s.key));
+        if (shownSeries.length > 0) {
+            this.dateRange = readTableDateRange(table);
+            if (level !== null) {
+                new Set(shownSeries.map(s => s.unit)).forEach(unit => this.setTableLevel(unit, level));
+            }
+        } else {
+            this.setTableDateRange(table);
+        }
         let rejection = null;
-        for (const series of readMetricSeries(table, columnIndex)) {
+        for (const series of allSeries) {
             rejection = this.rejectSeries(series);
             // the rows, which are already shown, are skipped
             if (rejection === "") {
@@ -310,15 +318,22 @@ class ChartController {
                 break;
             }
             if (level !== null && !this.series.some(s => s.period === METRIC_PERIOD && s.unit === series.unit)) {
-                // the stored levels of combined charts with the unit don't apply to the new chart
-                this.chartLevels = Object.fromEntries(Object.entries(this.chartLevels)
-                    .filter(([key]) => !(key.startsWith(METRIC_PERIOD + "/") && key.includes("+") && key.substring(METRIC_PERIOD.length + 1).split("+").includes(series.unit))));
-                this.setChartLevel({period: METRIC_PERIOD, units: [series.unit]}, level);
+                this.setTableLevel(series.unit, level);
             }
             this.series.push(metricSeries(series, nextColor(this.series.map(s => s.color))));
         }
         this.save();
         this.openDialog(rejection);
+    }
+
+    /**
+     * Shows the chart of the unit with the level of a table. The stored levels of combined charts with the unit don't
+     * apply to it.
+     */
+    setTableLevel(unit, level) {
+        this.chartLevels = Object.fromEntries(Object.entries(this.chartLevels)
+            .filter(([key]) => !(key.startsWith(METRIC_PERIOD + "/") && key.includes("+") && key.substring(METRIC_PERIOD.length + 1).split("+").includes(unit))));
+        this.setChartLevel({period: METRIC_PERIOD, units: [unit]}, level);
     }
 
     /**
