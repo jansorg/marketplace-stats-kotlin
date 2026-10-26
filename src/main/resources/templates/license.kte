@@ -28,7 +28,7 @@
     <link rel="stylesheet" type="text/css" media="print" href="/styles/print.css"/>
 </head>
 
-<body class="${cssClass}">
+<body class="${cssClass}" data-plugin-name="${plugin.name}">
 <%-- the page only exists for this plugin, the menu of the other plugins links to their overview --%>
 @template.pluginHeader(plugin = plugin, urls = urls, rating = rating, today = today, otherPlugins = otherPlugins, otherPluginPath = "/")
 @template.navbar(plugin = plugin, showResellerCharges = settings.showResellerCharges)
