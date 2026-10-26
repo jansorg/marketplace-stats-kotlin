@@ -134,7 +134,8 @@ open class KtorMarketplaceClient(
         assert(response.dimension == DownloadDimension.Plugin)
         assert(response.data.dimension == DownloadDimension.Plugin)
 
-        response.data.serie.single().value
+        // no values, e.g. with a filter without downloads
+        response.data.serie.sumOf { it.value }
     }
 
     override suspend fun downloads(
@@ -292,7 +293,8 @@ open class KtorMarketplaceClient(
         return withContext(dispatcher) {
             val completeResult = mutableListOf<MarketplacePluginSearchResultItem>()
 
-            var pendingResultSize = request.maxResults ?: Int.MAX_VALUE
+            val maxResults = request.maxResults ?: Int.MAX_VALUE
+            var pendingResultSize = maxResults
             var offset = request.offset
             while (pendingResultSize > 0) {
                 val resultPage = marketplacePluginsSearchSinglePage(
@@ -310,7 +312,7 @@ open class KtorMarketplaceClient(
 
                 // The API throws an error if offset + maxResults is larger than the total size
                 offset += resultPage.searchResult.size
-                pendingResultSize = resultPage.totalResult - completeResult.size
+                pendingResultSize = min(maxResults - completeResult.size, resultPage.totalResult - offset)
             }
 
             completeResult
