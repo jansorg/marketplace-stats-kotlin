@@ -36,7 +36,7 @@ class ResponsePropertiesTest {
         assertTrue(review.isResolved)
         assertTrue(review.isResolveRequested)
         assertTrue(review.isDeleted)
-        assertEquals(mapOf("PERFORMANCE" to 4, "USER_INTERFACE" to 5), review.subRating)
+        assertEquals(mapOf(PerformanceRating to 4, UserInterfaceRating to 5), review.subRating)
         assertEquals("IU-251.1", review.ideVersion)
         assertEquals(3, review.releaseId)
         assertEquals("1.2.3", review.releaseVersion)

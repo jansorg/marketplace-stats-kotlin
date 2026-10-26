@@ -19,6 +19,27 @@ interface MarketplaceClient : MarketplaceUrlSupport, MarketplaceClientPublic {
     ): List<PluginInfoSummary>
 
     /**
+     * @return The plugins of the user of all pages of [plugins].
+     */
+    suspend fun allPlugins(userId: UserId, family: List<ProductFamily>? = null): List<PluginInfoSummary>
+
+    /**
+     * @return The organizations of the account, i.e. the vendors of its plugins, with their contact details.
+     */
+    suspend fun vendors(): List<PluginVendor>
+
+    /**
+     * The Check License API of the Marketplace, see https://plugins.jetbrains.com/docs/marketplace/check-license.html.
+     * Requires the API key of a developer of the plugin.
+     *
+     * @param productCode The product code of the paid plugin, see [PluginPurchaseInfo.productCode].
+     * @param email The email of the account of the customer at JetBrains.
+     * @return The licenses and trials of the customer for the plugin, also of organizations, which assigned a license.
+     */
+    @PaidPluginAPI
+    suspend fun checkLicense(productCode: String, email: String): LicenseCheckResult
+
+    /**
      * @return all plugin sales since the inception of the marketplace until the current date
      */
     @PaidPluginAPI
@@ -71,6 +92,7 @@ interface MarketplaceClient : MarketplaceUrlSupport, MarketplaceClientPublic {
         countType: DownloadCountType,
         startDate: YearMonthDay? = null,
         vararg filters: DownloadFilter,
+        endDate: YearMonthDay? = null,
     ): DownloadResponse
 
     /**
@@ -78,7 +100,8 @@ interface MarketplaceClient : MarketplaceUrlSupport, MarketplaceClientPublic {
      * @param groupType The dimension of the groups, e.g. [DownloadRequestDimension.ProductCode] or [DownloadRequestDimension.Update]
      * @param filters The API applies the filters by product ([DownloadFilter.productCode]) and by release ([DownloadFilter.update]),
      *  filters by country and by major version are ignored. Grouping by product and release in one request isn't supported by the API,
-     *  but the downloads per release can be requested for each product.
+     *  but the downloads per release can be requested for each product. The API doesn't support grouping by country.
+     * @param endDate The last day of the downloads, today if it's `null`.
      * @return Downloads grouped by two dimensions, e.g. the downloads per month of each product.
      */
     suspend fun groupedDownloads(
@@ -88,6 +111,7 @@ interface MarketplaceClient : MarketplaceUrlSupport, MarketplaceClientPublic {
         countType: DownloadCountType,
         startDate: YearMonthDay? = null,
         vararg filters: DownloadFilter,
+        endDate: YearMonthDay? = null,
     ): GroupedDownloadResponse
 
     /**

@@ -94,12 +94,47 @@ open class KtorMarketplaceClient(
         }.body()
     }
 
+    override suspend fun vendors(): List<PluginVendor> = withContext(dispatcher) {
+        httpClient.get("${apiPath}/users/me/vendors").body()
+    }
+
+    override suspend fun checkLicense(productCode: String, email: String): LicenseCheckResult = withContext(dispatcher) {
+        httpClient.get("${apiPath}/marketplace/plugin/$productCode/license") {
+            parameter("email", email)
+        }.body()
+    }
+
+    override suspend fun allPlugins(userId: UserId, family: List<ProductFamily>?): List<PluginInfoSummary> {
+        val result = mutableListOf<PluginInfoSummary>()
+        var page = 1
+        while (true) {
+            val plugins = plugins(userId, family, page, PLUGINS_PAGE_SIZE)
+            result += plugins
+            if (plugins.size < PLUGINS_PAGE_SIZE) {
+                return result
+            }
+            page++
+        }
+    }
+
     override suspend fun pluginInfo(plugin: PluginId): PluginInfo = withContext(dispatcher) {
         httpClient.get("${apiPath}/plugins/$plugin").body()
     }
 
     override suspend fun pluginRating(id: PluginId): PluginRating = withContext(dispatcher) {
         httpClient.get("${apiPath}/plugins/$id/rating").body()
+    }
+
+    override suspend fun pluginRatingByCategory(id: PluginId): Map<PluginRatingCategory, PluginCategoryRating> = withContext(dispatcher) {
+        httpClient.get("${apiPath}/plugins/$id/rating-granular").body()
+    }
+
+    override suspend fun verificationResults(pluginReleaseId: PluginReleaseId, type: PluginVerificationType): List<PluginVerificationResult> {
+        return withContext(dispatcher) {
+            httpClient.get("${apiPath}/verifications/update/$pluginReleaseId") {
+                parameter("verificationType", type.requestParameter)
+            }.body()
+        }
     }
 
     override suspend fun salesInfo(plugin: PluginId): List<PluginSale> = withContext(dispatcher) {
@@ -146,12 +181,16 @@ open class KtorMarketplaceClient(
         groupType: DownloadRequestDimension,
         countType: DownloadCountType,
         startDate: YearMonthDay?,
-        vararg filters: DownloadFilter
+        vararg filters: DownloadFilter,
+        endDate: YearMonthDay?,
     ): DownloadResponse = withContext(dispatcher) {
         httpClient.get("/statistic/${countType.requestPathSegment}/${groupType.requestPathSegment}") {
             parameter("plugin", plugin)
             if (startDate != null) {
                 parameter("startDate", startDate.asIsoString)
+            }
+            if (endDate != null) {
+                parameter("endDate", endDate.asIsoString)
             }
             addDownloadFilters(filters)
         }.body<DownloadResponse>()
@@ -164,11 +203,15 @@ open class KtorMarketplaceClient(
         countType: DownloadCountType,
         startDate: YearMonthDay?,
         vararg filters: DownloadFilter,
+        endDate: YearMonthDay?,
     ): GroupedDownloadResponse = withContext(dispatcher) {
         httpClient.get("/statistic/${countType.requestPathSegment}/${dimension.requestPathSegment}/${groupType.requestPathSegment}") {
             parameter("plugin", plugin)
             if (startDate != null) {
                 parameter("startDate", startDate.asIsoString)
+            }
+            if (endDate != null) {
+                parameter("endDate", endDate.asIsoString)
             }
             addDownloadFilters(filters)
         }.body<GroupedDownloadResponse>()
@@ -534,3 +577,6 @@ open class KtorMarketplaceClient(
         }
     }
 }
+
+/** The page size of [KtorMarketplaceClient.allPlugins]. */
+const val PLUGINS_PAGE_SIZE: Int = 100

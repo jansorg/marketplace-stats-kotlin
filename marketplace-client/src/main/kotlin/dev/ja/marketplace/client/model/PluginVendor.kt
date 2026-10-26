@@ -48,6 +48,9 @@ data class PluginVendor(
     /** The postal address and phone of the vendor, only for the vendor's own plugins. */
     @SerialName("details")
     val details: PluginVendorDetails? = null,
+    /** The description of the organization, only of the account's own organizations, see [dev.ja.marketplace.client.MarketplaceClient.vendors]. */
+    @SerialName("description")
+    val description: String? = null,
 ) : PluginVendorInformation
 
 /**

@@ -85,9 +85,12 @@ class LiveApiCoverageTest {
         check("searchPlugins", MarketplacePluginSearchResponse.serializer()) {
             marketplace.get("/api/searchPlugins") { parameter("max", 20) }
         }
+        check("users/me/vendors", ListSerializer(PluginVendor.serializer())) { marketplace.get("/api/users/me/vendors") }
 
+        // the licenses of the account itself, e.g. of the developer of the plugin
+        val email = user?.jsonObject?.get("email")?.jsonPrimitive?.contentOrNull
         for (plugin in plugins) {
-            checkPlugin(plugin)
+            checkPlugin(plugin, email)
         }
 
         val report = buildString {
@@ -111,11 +114,18 @@ class LiveApiCoverageTest {
         assertTrue(unknownKeys.isEmpty() && decodingErrors.isEmpty(), report)
     }
 
-    private suspend fun checkPlugin(plugin: PluginId) {
+    private suspend fun checkPlugin(plugin: PluginId, email: String?) {
         val api = "/api/plugins/$plugin"
         val marketplaceApi = "/api/marketplace/plugin/$plugin"
-        check("plugins/{id}", PluginInfo.serializer()) { marketplace.get(api) }
+        val info = check("plugins/{id}", PluginInfo.serializer()) { marketplace.get(api) }
+        val productCode = info?.jsonObject?.get("purchaseInfo")?.jsonObject?.get("productCode")?.jsonPrimitive?.contentOrNull
+        if (productCode != null && email != null) {
+            check("marketplace/plugin/{productCode}/license", LicenseCheckResult.serializer()) {
+                marketplace.get("/api/marketplace/plugin/$productCode/license") { parameter("email", email) }
+            }
+        }
         check("plugins/{id}/rating", PluginRating.serializer()) { marketplace.get("$api/rating") }
+        check("plugins/{id}/rating-granular", MapSerializer(PluginRatingCategory.serializer(), PluginCategoryRating.serializer())) { marketplace.get("$api/rating-granular") }
         check("plugins/{id}/compatible-products", ListSerializer(String.serializer())) { marketplace.get("$api/compatible-products") }
         check("plugins/{id}/developers", ListSerializer(JetBrainsAccountInfo.serializer())) { marketplace.get("$api/developers") }
         check("plugins/{id}/channels", ListSerializer(String.serializer())) { marketplace.get("$api/channels") }
@@ -132,6 +142,11 @@ class LiveApiCoverageTest {
         }
         releases?.jsonArray?.take(3)?.mapNotNull { it.jsonObject["id"]?.jsonPrimitive?.content }?.forEach { release ->
             check("updates/{id}/dependencies", ListSerializer(PluginDependency.serializer())) { marketplace.get("/api/updates/$release/dependencies") }
+            for (type in PluginVerificationType.entries) {
+                check("verifications/update/{id}", ListSerializer(PluginVerificationResult.serializer())) {
+                    marketplace.get("/api/verifications/update/$release") { parameter("verificationType", type.requestParameter) }
+                }
+            }
             check("products-dependencies/updates/{id}/unsupported", ListSerializer(PluginUnsupportedProduct.serializer())) {
                 marketplace.get("/api/products-dependencies/updates/$release/unsupported")
             }

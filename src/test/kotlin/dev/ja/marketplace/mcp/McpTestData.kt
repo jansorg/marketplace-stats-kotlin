@@ -127,7 +127,7 @@ object McpTestData {
         review(4, "2025-06-02T10:00:00Z", 1, spam = true),
         // don't count for the rating: a resolved review and a comment without rating
         review(5, "2025-01-25T10:00:00Z", 1, resolveState = "RESOLVED"),
-        review(6, "2025-01-26T10:00:00Z", 0, subRating = mapOf("PERFORMANCE" to 4)),
+        review(6, "2025-01-26T10:00:00Z", 0, subRating = mapOf(PerformanceRating to 4)),
     )
 
     /** Number of calls of [McpDataProvider.dropCachedData]. */
@@ -382,7 +382,7 @@ object McpTestData {
         rating: Int,
         spam: Boolean = false,
         resolveState: String = "INIT",
-        subRating: Map<String, Int>? = null,
+        subRating: Map<PluginRatingCategory, Int>? = null,
     ): PluginReviewComment {
         return PluginReviewComment(
             id = id,
