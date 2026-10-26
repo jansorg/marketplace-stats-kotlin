@@ -16,6 +16,8 @@ const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const ICON_PATHS = {
     maximize: "M3 8V3h5 M3 3l6 6 M17 8V3h-5 M17 3l-6 6 M3 12v5h5 M3 17l6-6 M17 12v5h-5 M17 17l-6-6",
     restore: "M8 3v5H3 M8 8L2 2 M12 3v5h5 M12 8l6-6 M8 17v-5H3 M8 12l-6 6 M12 17v-5h5 M12 12l6 6",
+    // a trash can, to remove all charts
+    clear: "M3.5 5h13 M8 5V3h4v2 M5.5 5l1 12h7l1-12 M8.5 8v6 M11.5 8v6",
 };
 
 /** Titles of the kinds of vertical lines in the menu "Events". */
@@ -99,7 +101,12 @@ export class ChartDialog {
 
         const header = document.createElement("div");
         header.className = "chart-dialog-header";
-        header.append(title, this.combineLabel, button("Clear", onRemoveAll), this.maximizeButton, removeButton("Close", () => this.close()));
+        const clearButton = button("", onRemoveAll, "chart-dialog-clear");
+        clearButton.append(icon("clear"));
+        clearButton.title = "Remove all charts and close the dialog";
+        clearButton.setAttribute("aria-label", "Remove all charts");
+
+        header.append(title, this.combineLabel, clearButton, this.maximizeButton, removeButton("Close", () => this.close()));
 
         const hint = document.createElement("p");
         hint.className = "chart-dialog-hint";
