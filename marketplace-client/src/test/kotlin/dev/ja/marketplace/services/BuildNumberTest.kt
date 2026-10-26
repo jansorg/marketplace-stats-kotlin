@@ -15,4 +15,13 @@ class BuildNumberTest {
         assertEquals(BuildNumber(intArrayOf(221, 123)), BuildNumber.of("221.123"))
         assertEquals(BuildNumber(intArrayOf(162, 1236)), BuildNumber.of("162.1236"))
     }
+
+    @Test
+    fun compare() {
+        // a build with more segments is later, in both directions
+        assertEquals(-1, BuildNumber.of("251").compareTo(BuildNumber.of("251.1")))
+        assertEquals(1, BuildNumber.of("251.1").compareTo(BuildNumber.of("251")))
+        assertEquals(0, BuildNumber.of("251.1").compareTo(BuildNumber.of("251.1")))
+        assertEquals(listOf("243.2", "251", "251.1").map(BuildNumber::of), listOf("251.1", "251", "243.2").map(BuildNumber::of).sorted())
+    }
 }
