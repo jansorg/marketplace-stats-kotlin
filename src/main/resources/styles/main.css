@@ -1765,6 +1765,12 @@ dl.detail-grid dd {
     font-size: .7rem;
 }
 
+/* the line above a heading separates it from the items above it, the first heading has none */
+.chart-menu-heading:first-child {
+    margin-top: 0;
+    border-top: none;
+}
+
 /* options, which don't apply to the shown charts */
 .chart-menu-items label.chart-option-unavailable {
     color: var(--text-color-disabled);
