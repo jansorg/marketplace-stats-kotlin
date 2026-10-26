@@ -16,7 +16,6 @@ import dev.ja.marketplace.data.trackers.getResultWithinConversionPeriod
 import dev.ja.marketplace.data.trackers.conversionTooltip
 import dev.ja.marketplace.data.trackers.maxTrialDays
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
-import java.math.BigDecimal
 
 class TopTrialCountriesTable(
     private val maxItems: Int?,
@@ -127,7 +126,6 @@ class TopTrialCountriesTable(
                         values = mapOf(
                             columnCountry to "${countryToTrialCount.size} countries",
                             columnTrialCount to countryToTrialCount.values.sum().toBigInteger(),
-                            columnTrialsPercentage to PercentageValue(BigDecimal(100.0)),
                             columnTrialConversionRate to trialsTrialDuration.convertedTrialsPercentage,
                         ),
                         tooltips = mapOf(

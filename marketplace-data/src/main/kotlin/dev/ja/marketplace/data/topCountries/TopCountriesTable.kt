@@ -198,6 +198,7 @@ class TopCountriesTable(
                     maxItems != null -> SimpleTableSection(
                         SimpleDateTableRow(
                             columnCountry to "${countries.size} countries",
+                            columnSales to totalSalesAmount,
                         )
                     )
 
