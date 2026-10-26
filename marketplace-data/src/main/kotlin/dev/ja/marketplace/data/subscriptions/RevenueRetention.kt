@@ -25,16 +25,16 @@ data class RevenueRetention(
     /** Current MRR of the same customers, limited to their MRR a year ago, i.e. without expansion. */
     val currentMrrWithoutExpansion: BigDecimal,
 ) {
-    val customerRetention: PercentageValue
-        get() = PercentageValue.of(retainedCustomers, previousCustomers)
+    val customerRetention: PercentageValue?
+        get() = PercentageValue.rateOf(retainedCustomers, previousCustomers)
 
     /** Net revenue retention (NRR), includes expansion and contraction of the existing customers. */
-    val netRevenueRetention: PercentageValue
-        get() = PercentageValue.of(currentMrr, previousMrr)
+    val netRevenueRetention: PercentageValue?
+        get() = PercentageValue.rateOf(currentMrr, previousMrr)
 
     /** Gross revenue retention (GRR), includes contraction and churn, but not expansion. It's at most 100%. */
-    val grossRevenueRetention: PercentageValue
-        get() = PercentageValue.of(currentMrrWithoutExpansion, previousMrr)
+    val grossRevenueRetention: PercentageValue?
+        get() = PercentageValue.rateOf(currentMrrWithoutExpansion, previousMrr)
 
     companion object {
         const val MONTHS: Int = 12

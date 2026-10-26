@@ -42,6 +42,17 @@ data class PercentageValue(val value: BigDecimal) {
             return PercentageValue(firstValue.divide(secondValue, 10, RoundingMode.HALF_UP) * ONE_HUNDRED_DECIMAL)
         }
 
+        /**
+         * @return The share of [part] of [total] for rates, e.g. a retention, `null` if [total] is zero and there's
+         *  nothing to compare. A share of zero is 0 %, unlike [ZERO] of [of], which is shown as "no value".
+         */
+        fun rateOf(part: Int, total: Int): PercentageValue? = rateOf(BigDecimal(part), BigDecimal(total))
+
+        /** @see rateOf */
+        fun rateOf(part: BigDecimal, total: BigDecimal): PercentageValue? {
+            return if (total.signum() == 0) null else PercentageValue(part.divide(total, 10, RoundingMode.HALF_UP) * ONE_HUNDRED_DECIMAL)
+        }
+
         fun of(first: BigDecimal, second: BigDecimal): PercentageValue {
             if (first.isZero() || second.isZero()) {
                 return ZERO

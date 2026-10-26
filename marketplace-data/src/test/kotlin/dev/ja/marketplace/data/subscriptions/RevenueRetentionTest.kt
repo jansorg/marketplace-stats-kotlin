@@ -49,7 +49,7 @@ class RevenueRetentionTest {
         assertPercentage("66.67", retention.grossRevenueRetention)
     }
 
-    private fun assertPercentage(expected: String, actual: PercentageValue) {
-        assertEquals(BigDecimal(expected), actual.value.setScale(2, RoundingMode.HALF_UP))
+    private fun assertPercentage(expected: String, actual: PercentageValue?) {
+        assertEquals(BigDecimal(expected), actual!!.value.setScale(2, RoundingMode.HALF_UP))
     }
 }

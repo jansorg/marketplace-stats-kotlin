@@ -70,14 +70,14 @@ class RenewalRateTable(private val licensePeriod: LicensePeriod) : SimpleDataTab
             val tooltips = mutableMapOf<DataTableColumn, String?>()
             for (rate in periodRates) {
                 val column = ageColumns[rate.previousRenewals]
-                values[column] = valueOf(rate.rate, rate.due, rate.isIncomplete)
+                values[column] = valueOf(rate.rate, rate.isIncomplete)
                 tooltips[column] = tooltip(rate.renewed, rate.due, rate.isIncomplete)
             }
 
             val due = periodRates.sumOf { it.due }
             val renewed = periodRates.sumOf { it.renewed }
             val isIncomplete = periodRates.any { it.isIncomplete }
-            values[columnAll] = valueOf(PercentageValue.of(renewed, due), due, isIncomplete)
+            values[columnAll] = valueOf(PercentageValue.rateOf(renewed, due), isIncomplete)
             tooltips[columnAll] = tooltip(renewed, due, isIncomplete)
 
             SimpleDateTableRow(values, tooltips)
@@ -90,9 +90,10 @@ class RenewalRateTable(private val licensePeriod: LicensePeriod) : SimpleDataTab
      * Without due subscriptions there's no rate, e.g. if all subscriptions of a month can still be renewed.
      * The cell is empty instead of 0%, which charts would show.
      */
-    private fun valueOf(rate: PercentageValue, due: Int, isIncomplete: Boolean): Any? {
+    // without due subscriptions there's no rate
+    private fun valueOf(rate: PercentageValue?, isIncomplete: Boolean): Any? {
         return when {
-            due == 0 -> null
+            rate == null -> null
             isIncomplete -> IncompleteValue(rate)
             else -> rate
         }

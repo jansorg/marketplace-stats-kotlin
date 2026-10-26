@@ -28,8 +28,8 @@ data class RenewalRate(
     /** `true` if some subscriptions, which ended in the year or month, can still be renewed. */
     val isIncomplete: Boolean,
 ) {
-    val rate: PercentageValue
-        get() = PercentageValue.of(renewed, due)
+    val rate: PercentageValue?
+        get() = PercentageValue.rateOf(renewed, due)
 }
 
 object RenewalRates {

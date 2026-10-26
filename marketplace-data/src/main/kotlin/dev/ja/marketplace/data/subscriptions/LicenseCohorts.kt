@@ -40,12 +40,12 @@ data class LicenseCohortRenewal(
     val decided: Int,
 ) {
     /** Share of the licenses due for this renewal, which were renewed. */
-    val renewalRate: PercentageValue
-        get() = PercentageValue.of(renewed, due)
+    val renewalRate: PercentageValue?
+        get() = PercentageValue.rateOf(renewed, due)
 
     /** Share of the decided licenses of the cohort, which were renewed at least [renewal] times. */
-    val retention: PercentageValue
-        get() = PercentageValue.of(renewed, decided)
+    val retention: PercentageValue?
+        get() = PercentageValue.rateOf(renewed, decided)
 
     /** `true` if the values may still change, because licenses of the cohort can still be renewed. */
     val isIncomplete: Boolean

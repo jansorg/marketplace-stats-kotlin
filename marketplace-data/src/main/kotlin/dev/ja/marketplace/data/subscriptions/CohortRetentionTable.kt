@@ -9,6 +9,7 @@ import dev.ja.marketplace.data.ChartPeriod
 import dev.ja.marketplace.data.DataTableColumn
 import dev.ja.marketplace.data.DataTableSection
 import dev.ja.marketplace.data.IncompleteValue
+import dev.ja.marketplace.data.NoValue
 import dev.ja.marketplace.data.SimpleDateTableRow
 import dev.ja.marketplace.data.SimpleTableSection
 
@@ -58,9 +59,9 @@ class CohortRetentionTable : RecurringRevenueTable("Cohorts", "customer-cohorts"
             cohort.anniversaries.forEachIndexed { index, anniversary ->
                 val column = anniversaryColumns[index]
                 val retention = anniversary.customerRetention
-                values[column] = if (anniversary.isIncomplete) IncompleteValue(retention) else retention
+                values[column] = retention?.let { if (anniversary.isIncomplete) IncompleteValue(it) else it }
                 tooltips[column] = "${anniversary.retainedCustomers} of ${anniversary.customers} customers, " +
-                        "MRR: ${anniversary.revenueRetention} of the initial MRR"
+                        "MRR: ${anniversary.revenueRetention ?: NoValue} of the initial MRR"
             }
             SimpleDateTableRow(values, tooltips)
         }
