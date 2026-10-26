@@ -85,9 +85,10 @@ class OverviewDailyValues private constructor(
                 return OverviewDailyValues(emptyList(), emptyMap())
             }
 
-            return Builder(YearMonthDay.firstOfMonth(firstDate.year, firstDate.month), today, exchangeRates).run {
+            val windows = DailyWindows(YearMonthDay.firstOfMonth(firstDate.year, firstDate.month), today)
+            return Builder(windows, exchangeRates).run {
                 OverviewDailyValues(
-                    days,
+                    windows.days,
                     buildMap {
                         val (salesSeries, invoiceSeries) = sales(sales)
                         put(OverviewDailyColumn.Sales, salesSeries)
@@ -105,101 +106,32 @@ class OverviewDailyValues private constructor(
         }
     }
 
-    private class Builder(start: YearMonthDay, private val today: YearMonthDay, private val exchangeRates: ExchangeRates) {
-        private val first = start
-        private val dayCount = (start daysUntil today).toInt() + 1
-        val days: List<YearMonthDay> = List(dayCount) { start.add(0, 0, it) }
-
+    private class Builder(private val windows: DailyWindows, private val exchangeRates: ExchangeRates) {
+        private val dayCount = windows.dayCount
         private val currency = exchangeRates.targetCurrency.currencyCode
         private val zero: MonetaryAmount = FastMoney.zero(exchangeRates.targetCurrency)
 
-        // the sums of the current day may still change
-        private val incompleteSums = dayCount - 1
-
-        // recurring revenue of the current month is incomplete like in the table,
+        // the recurring revenue of the current month is incomplete like in the table,
         // it's the value of today, it changes until the end of the month
-        private val incompleteRecurringRevenue = maxOf(0, index(YearMonthDay.firstOfMonth(today.year, today.month)))
-
-        /** Index of the first day of the month before each day, see [OverviewDailyValues]. */
-        private val monthStartIndices = IntArray(dayCount) { index ->
-            val day = days[index]
-            val monthStart = when (day) {
-                YearMonthDay.lastOfMonth(day.year, day.month) -> YearMonthDay.firstOfMonth(day.year, day.month)
-                else -> day.add(0, -1, 1)
-            }
-            maxOf(0, index(monthStart))
-        }
-
-        private fun index(date: YearMonthDay): Int = (first daysUntil date).toInt()
-
-        /** The amount in the displayed currency, like [dev.ja.marketplace.data.trackers.MonetaryAmountTracker]. */
-        private fun convert(date: YearMonthDay, amountUSD: MonetaryAmount, amount: MonetaryAmount): MonetaryAmount {
-            return exchangeRates.targetAmount(date, amountUSD, amount)
-        }
+        private val incompleteRecurringRevenue = windows.incompleteRecurringRevenue
 
         private fun amountSeries(values: List<MonetaryAmount>, incompleteFrom: Int): DailySeries {
-            return DailySeries(
-                currency,
-                values.map { it.number.numberValue(BigDecimal::class.java).setScale(2, RoundingMode.HALF_UP) },
-                incompleteFrom,
-            )
+            return DailySeries(currency, DailyWindows.amounts(values), incompleteFrom)
         }
 
         /** @return The sales and the invoiced amounts, i.e. the sales without the fees, of the month before each day. */
         fun sales(sales: List<PluginSale>): Pair<DailySeries, DailySeries> {
-            val totals = Array(dayCount) { zero }
-            val fees = Array(dayCount) { zero }
-            for (sale in sales) {
-                val index = index(sale.date)
-                if (index in 0 until dayCount) {
-                    totals[index] += convert(sale.date, sale.amountUSD, sale.amount)
-                    fees[index] += convert(
-                        sale.date,
-                        Marketplace.feeAmount(sale.date, sale.amountUSD),
-                        Marketplace.feeAmount(sale.date, sale.amount),
-                    )
-                }
-            }
-
-            val totalsOfMonth = amountsOfMonth(totals)
-            val feesOfMonth = amountsOfMonth(fees)
-            return amountSeries(totalsOfMonth, incompleteSums) to
-                    amountSeries(totalsOfMonth.mapIndexed { index, total -> total - feesOfMonth[index] }, incompleteSums)
-        }
-
-        private fun amountsOfMonth(amounts: Array<MonetaryAmount>): List<MonetaryAmount> {
-            val sums = runningSums(amounts)
-            return List(dayCount) { index ->
-                val start = monthStartIndices[index]
-                if (start == 0) sums[index] else sums[index] - sums[start - 1]
-            }
-        }
-
-        private fun runningSums(amounts: Array<MonetaryAmount>): Array<MonetaryAmount> {
-            val result = amounts.copyOf()
-            for (index in 1 until dayCount) {
-                result[index] = result[index - 1] + amounts[index]
-            }
-            return result
+            val (totals, fees) = windows.salesAndFeesPerDay(sales, exchangeRates)
+            val totalsOfMonth = windows.windowSums(totals, windows.monthStarts)
+            val feesOfMonth = windows.windowSums(fees, windows.monthStarts)
+            return amountSeries(totalsOfMonth, windows.incompleteSums) to
+                    amountSeries(totalsOfMonth.mapIndexed { index, total -> total - feesOfMonth[index] }, windows.incompleteSums)
         }
 
         /** @return The sum of the values of the month before each day, e.g. downloads. */
         fun countsOfMonth(values: List<Pair<YearMonthDay, Long>>): DailySeries {
-            val perDay = LongArray(dayCount)
-            for ((date, value) in values) {
-                val index = index(date)
-                if (index in 0 until dayCount) {
-                    perDay[index] += value
-                }
-            }
-            for (index in 1 until dayCount) {
-                perDay[index] += perDay[index - 1]
-            }
-            val sums = List(dayCount) { index ->
-                val start = monthStartIndices[index]
-                BigDecimal.valueOf(if (start == 0) perDay[index] else perDay[index] - perDay[start - 1])
-            }
-            return DailySeries("count", sums, incompleteSums)
+            val sums = windows.windowSums(windows.countsPerDay(values), windows.monthStarts)
+            return DailySeries("count", sums.map(BigDecimal::valueOf), windows.incompleteSums)
         }
 
         /** @return The number of licenses, which are valid at each day. Licenses with several sales are counted once. */
@@ -236,8 +168,8 @@ class OverviewDailyValues private constructor(
 
         /** Calls [action] with the indices of the days from [start] to [end], which are within the days. */
         private inline fun addToDays(start: YearMonthDay, end: YearMonthDay, action: (Int, Int) -> Unit) {
-            val from = maxOf(0, index(start))
-            val to = minOf(dayCount - 1, index(end))
+            val from = maxOf(0, windows.index(start))
+            val to = minOf(dayCount - 1, windows.index(end))
             if (from <= to) {
                 action(from, to)
             }
@@ -271,8 +203,8 @@ class OverviewDailyValues private constructor(
 
                     val mrrFactor = if (latest.sale.licensePeriod == LicensePeriod.Annual) annualToMonthly else BigDecimal.ONE
                     val arrFactor = if (latest.sale.licensePeriod == LicensePeriod.Monthly) monthlyToAnnual else BigDecimal.ONE
-                    val mrr = convert(latest.sale.date, latest.amountUSD * mrrFactor, latest.amount * mrrFactor)
-                    val arr = convert(latest.sale.date, latest.amountUSD * arrFactor, latest.amount * arrFactor)
+                    val mrr = exchangeRates.targetAmount(latest.sale.date, latest.amountUSD * mrrFactor, latest.amount * mrrFactor)
+                    val arr = exchangeRates.targetAmount(latest.sale.date, latest.amountUSD * arrFactor, latest.amount * arrFactor)
                     addToDays(segmentStart, nextStart.add(0, 0, -1)) { from, to ->
                         mrrChanges[from] += mrr
                         mrrChanges[to + 1] -= mrr
@@ -282,8 +214,8 @@ class OverviewDailyValues private constructor(
                 }
             }
 
-            val mrr = runningSums(mrrChanges.copyOf(dayCount).requireNoNulls())
-            val arr = runningSums(arrChanges.copyOf(dayCount).requireNoNulls())
+            val mrr = windows.runningSums(mrrChanges.copyOf(dayCount).requireNoNulls())
+            val arr = windows.runningSums(arrChanges.copyOf(dayCount).requireNoNulls())
             return amountSeries(mrr.toList(), incompleteRecurringRevenue) to amountSeries(arr.toList(), incompleteRecurringRevenue)
         }
     }

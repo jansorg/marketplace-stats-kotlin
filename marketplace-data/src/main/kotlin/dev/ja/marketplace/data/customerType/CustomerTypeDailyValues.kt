@@ -9,6 +9,7 @@ import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.overview.DailySeries
+import dev.ja.marketplace.data.overview.DailyWindows
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -40,72 +41,38 @@ object CustomerTypeDailyValues {
             return emptyMap()
         }
 
-        val first = days.first()
-        val dayCount = days.size
-        fun index(date: YearMonthDay): Int = (first daysUntil date).toInt()
+        val windows = DailyWindows(days.first(), days.last())
 
-        // the running sums of the amounts in the displayed currency, of all sales and of each customer type
-        val totals = Array<BigDecimal>(dayCount) { BigDecimal.ZERO }
-        val byType = CustomerType.entries.associateWith { Array<BigDecimal>(dayCount) { BigDecimal.ZERO } }
+        // the amounts in the displayed currency of each day, of all sales and of each customer type
+        val totals = Array<BigDecimal>(windows.dayCount) { BigDecimal.ZERO }
+        val byType = CustomerType.entries.associateWith { Array<BigDecimal>(windows.dayCount) { BigDecimal.ZERO } }
         for (sale in sales) {
-            val index = index(sale.date)
-            if (index in 0 until dayCount) {
-                val amount = amount(sale, exchangeRates)
+            val index = windows.index(sale.date)
+            if (index in 0 until windows.dayCount) {
+                val amount = exchangeRates.targetAmount(sale.date, sale.amountUSD, sale.amount).number.numberValue(BigDecimal::class.java)
                 totals[index] += amount
                 byType.getValue(sale.customer.type)[index] += amount
             }
         }
-        for (index in 1 until dayCount) {
-            totals[index] += totals[index - 1]
-            byType.values.forEach { it[index] += it[index - 1] }
-        }
-
-        // index of the first day of the month or year before each day, the last day of a period starts the calendar period
-        val monthStarts = IntArray(dayCount) { index ->
-            val day = days[index]
-            val start = when (day) {
-                YearMonthDay.lastOfMonth(day.year, day.month) -> YearMonthDay.firstOfMonth(day.year, day.month)
-                else -> day.add(0, -1, 1)
-            }
-            index(start)
-        }
-        val yearStarts = IntArray(dayCount) { index ->
-            val day = days[index]
-            val start = when {
-                day.month == 12 && day.day == 31 -> YearMonthDay(day.year, 1, 1)
-                else -> day.add(-1, 0, 1)
-            }
-            index(start)
-        }
-
-        fun sum(sums: Array<BigDecimal>, start: Int, index: Int): BigDecimal {
-            return if (start <= 0) sums[index] else sums[index] - sums[start - 1]
-        }
 
         fun shares(type: CustomerType, starts: IntArray): List<BigDecimal?> {
-            val sums = byType.getValue(type)
-            return List(dayCount) { index ->
-                val total = sum(totals, starts[index], index)
+            val windowTotals = windows.windowSums(totals, starts)
+            val windowSums = windows.windowSums(byType.getValue(type), starts)
+            return windowTotals.mapIndexed { index, total ->
                 when (total.signum()) {
                     0 -> null
-                    else -> sum(sums, starts[index], index).multiply(HUNDRED).divide(total, 2, RoundingMode.HALF_UP)
+                    else -> windowSums[index].multiply(HUNDRED).divide(total, 2, RoundingMode.HALF_UP)
                 }
             }
         }
 
-        // the sums of today may still change
-        val incompleteFrom = dayCount - 1
         return CustomerType.entries.flatMap { type ->
             listOf(
-                seriesId("month", type) to DailySeries("%", shares(type, monthStarts), incompleteFrom),
-                seriesId("year", type) to DailySeries("%", shares(type, yearStarts), incompleteFrom),
+                seriesId("month", type) to DailySeries("%", shares(type, windows.monthStarts), windows.incompleteSums),
+                seriesId("year", type) to DailySeries("%", shares(type, windows.yearStarts), windows.incompleteSums),
             )
         }.toMap()
     }
 
     private val HUNDRED = BigDecimal(100)
-
-    private fun amount(sale: PluginSale, exchangeRates: ExchangeRates): BigDecimal {
-        return exchangeRates.targetAmount(sale.date, sale.amountUSD, sale.amount).number.numberValue(BigDecimal::class.java)
-    }
 }
