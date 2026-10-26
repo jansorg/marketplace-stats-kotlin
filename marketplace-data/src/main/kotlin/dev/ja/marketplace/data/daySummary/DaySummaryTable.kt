@@ -28,11 +28,11 @@ class DaySummaryTable(
     private val sales = linkedMapOf<Pair<CustomerType, LicensePeriod>, MonetaryAmountTracker>()
     private lateinit var trials: List<PluginTrial>
 
-    private val columnSubscriptionType = DataTableColumn("sales-subscription", null, "col-right")
-    private val columnCustomerType = DataTableColumn("sales-type", null, "col-right")
+    private val columnSubscriptionType = DataTableColumn("sales-subscription", null, "col-right", accessibleTitle = "Subscription")
+    private val columnCustomerType = DataTableColumn("sales-type", null, "col-right", accessibleTitle = "Customer type")
     private val columnAmount = DataTableColumn("sales-amount", "Sales", "num", preSorted = AriaSortOrder.Descending)
 
-    private val columnTrialCountry = DataTableColumn("trial-country", null, "col-right", columnSpan = 2)
+    private val columnTrialCountry = DataTableColumn("trial-country", null, "col-right", columnSpan = 2, accessibleTitle = "Country")
     private val columnTrialCount = DataTableColumn("trial-count", "Trials", "num", preSorted = AriaSortOrder.Descending)
 
     override val columns: List<DataTableColumn> = listOf(columnSubscriptionType, columnCustomerType, columnAmount)

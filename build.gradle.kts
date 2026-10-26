@@ -207,6 +207,24 @@ project(":") {
                 includeGroup("npm")
             }
         }
+        // the packages of the scope @fontsource, e.g. @fontsource/lato
+        exclusiveContent {
+            forRepository {
+                ivy {
+                    name = "npm-fontsource"
+                    url = uri("https://registry.npmjs.org/@fontsource")
+                    patternLayout {
+                        artifact("[module]/-/[module]-[revision].[ext]")
+                    }
+                    metadataSources {
+                        artifact()
+                    }
+                }
+            }
+            filter {
+                includeGroup("npm-fontsource")
+            }
+        }
     }
 
     val javascriptLibraries by configurations.creating {
@@ -219,6 +237,8 @@ project(":") {
         javascriptLibraries("npm:uplot:1.6.32@tgz")
         // https://www.npmjs.com/package/sortable-tablesort, used for the sortable tables
         javascriptLibraries("npm:sortable-tablesort:4.1.7@tgz")
+        // https://www.npmjs.com/package/@fontsource/lato, the font of the pages, served instead of Google Fonts
+        javascriptLibraries("npm-fontsource:lato:5.3.0@tgz")
     }
 
     // Extracts the files of the JavaScript libraries, which are served from the "js" directory of the resources.
@@ -229,19 +249,29 @@ project(":") {
         files.filter { it.asFile.name.startsWith("$name-") }.map { archives.tarTree(archives.gzip(it.asFile)) }
     }
 
-    // the served files of each library: the paths in the package and the names in the "js" directory
+    // the served files of each library: the paths in the package and in the resources
     val javascriptLibraryFiles = mapOf(
         "uplot" to mapOf(
-            "package/dist/uPlot.iife.min.js" to "uPlot.iife.min.js",
-            "package/dist/uPlot.min.css" to "uPlot.min.css",
-            "package/LICENSE" to "uPlot.LICENSE.txt",
+            "package/dist/uPlot.iife.min.js" to "js/uPlot.iife.min.js",
+            "package/dist/uPlot.min.css" to "js/uPlot.min.css",
+            "package/LICENSE" to "js/uPlot.LICENSE.txt",
         ),
         // the base styles only contain the arrows of the sorting, sortable.min.css also styles the table like the
         // example of the package, e.g. with gray headers, which doesn't fit the tables of the pages
         "sortable-tablesort" to mapOf(
-            "package/dist/sortable.min.js" to "sortable.min.js",
-            "package/dist/sortable-base.min.css" to "sortable-base.min.css",
-            "package/LICENSE" to "sortable.LICENSE.txt",
+            "package/dist/sortable.min.js" to "js/sortable.min.js",
+            "package/dist/sortable-base.min.css" to "js/sortable-base.min.css",
+            "package/LICENSE" to "js/sortable.LICENSE.txt",
+        ),
+        // the subsets latin and latin-ext of the styles of the pages, see fonts.kte
+        "lato" to mapOf(
+            "package/files/lato-latin-400-normal.woff2" to "fonts/lato-latin-400-normal.woff2",
+            "package/files/lato-latin-ext-400-normal.woff2" to "fonts/lato-latin-ext-400-normal.woff2",
+            "package/files/lato-latin-700-normal.woff2" to "fonts/lato-latin-700-normal.woff2",
+            "package/files/lato-latin-ext-700-normal.woff2" to "fonts/lato-latin-ext-700-normal.woff2",
+            "package/files/lato-latin-400-italic.woff2" to "fonts/lato-latin-400-italic.woff2",
+            "package/files/lato-latin-ext-400-italic.woff2" to "fonts/lato-latin-ext-400-italic.woff2",
+            "package/LICENSE" to "fonts/Lato.LICENSE.txt",
         ),
     )
 
@@ -250,7 +280,7 @@ project(":") {
             from(library(libraryName)) {
                 include(files.keys)
                 eachFile {
-                    relativePath = RelativePath(true, "js", files.getValue(path))
+                    relativePath = RelativePath.parse(true, files.getValue(path))
                 }
                 includeEmptyDirs = false
             }
@@ -306,6 +336,9 @@ project(":") {
     val minifyStylesheets by tasks.registering(MinifyCss::class) {
         description = "Minifies the stylesheets"
         source.from(fileTree("src/main/resources/styles") { include("*.css") })
+        // the styles of the sortable tables and of uPlot, after the own styles like the links of the pages before
+        appendedToMain.from(bundleJavascriptLibraries.map { it.destinationDir.resolve("js/sortable-base.min.css") })
+        appendedToMain.from(bundleJavascriptLibraries.map { it.destinationDir.resolve("js/uPlot.min.css") })
         outputDirectory.set(layout.buildDirectory.dir("generated/stylesheets/styles"))
     }
 
@@ -481,6 +514,14 @@ abstract class MinifyCss : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val source: ConfigurableFileCollection
 
+    /**
+     * The stylesheets of libraries, which are appended to `main.css` in their order, so that the pages load a single
+     * stylesheet, which doesn't block the rendering longer than needed.
+     */
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.NAME_ONLY)
+    abstract val appendedToMain: ConfigurableFileCollection
+
     @get:OutputDirectory
     abstract val outputDirectory: DirectoryProperty
 
@@ -490,7 +531,11 @@ abstract class MinifyCss : DefaultTask() {
         target.deleteRecursively()
         target.mkdirs()
         for (file in source.files) {
-            target.resolve(file.name.removeSuffix(".css") + ".min.css").writeText(minify(file.readText()))
+            val css = when (file.name) {
+                "main.css" -> (listOf(file) + appendedToMain.files).joinToString("\n") { it.readText() }
+                else -> file.readText()
+            }
+            target.resolve(file.name.removeSuffix(".css") + ".min.css").writeText(minify(css))
         }
     }
 

@@ -12,6 +12,7 @@
     <link rel="stylesheet" type="text/css" media="print" href="${dev.ja.marketplace.StaticAssets.url("/styles/print.min.css")}"/>
 </head>
 <body>
+<main>
 <h1>Error</h1>
 
 <p class="desc margin-bottom">
@@ -27,6 +28,8 @@
         <pre>${exception.stackTraceToString()}</pre>
     </dd>
 </dl>
+
+</main>
 
 @template.siteFooter()
 </body>

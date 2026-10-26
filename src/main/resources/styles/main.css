@@ -121,6 +121,16 @@ html, body, h1, h2, h3, h4, h5, p, div, table, tr, th, td, svg, img, dl, dt, dd 
     line-height: 1.4;
 }
 
+/* text for screen readers, which isn't shown, e.g. the name of a column without a title */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
 /* html tags */
 html {
     font-family: 'Lato', sans-serif;

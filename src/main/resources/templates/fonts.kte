@@ -1,5 +1,6 @@
-<%-- The Lato font of all pages from Google Fonts. The links let the browser load the font while it loads the styles,
-an @import in main.css would only start after main.css was loaded. --%>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:ital,wght@0,400;0,700;1,400&display=swap">
+<%-- The Lato font of all pages, served by the server (the npm package @fontsource/lato, see build.gradle.kts).
+     The rules are part of the page, so that the font files are requested without waiting for a stylesheet, and the
+     files of the regular and the bold text of the latin subset are preloaded. --%>
+<link rel="preload" href="${dev.ja.marketplace.StaticAssets.url("/fonts/lato-latin-400-normal.woff2")}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="${dev.ja.marketplace.StaticAssets.url("/fonts/lato-latin-700-normal.woff2")}" as="font" type="font/woff2" crossorigin>
+<style>$unsafe{dev.ja.marketplace.StaticAssets.fontFaceRules()}</style>

@@ -31,6 +31,7 @@
 <%-- the page only exists for this plugin, the menu of the other plugins links to their overview --%>
 @template.pluginHeader(plugin = plugin, urls = urls, rating = rating, today = today, otherPlugins = otherPlugins, otherPluginPath = "/")
 @template.navbar(plugin = plugin, showResellerCharges = settings.showResellerCharges)
+<main>
 
 <h2 class="centered">Sale ${sale.ref}</h2>
 
@@ -115,6 +116,8 @@
         </div>
     @endfor
 </div>
+
+</main>
 
 @template.siteFooter()
 </body>

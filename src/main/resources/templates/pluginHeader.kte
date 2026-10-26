@@ -17,7 +17,7 @@
 !{val iconUrl = plugin.iconUrlPath?.let { urls.assetUrl(it) }}
 @if(iconUrl != null)
     <div class="centered">
-        <img src="${iconUrl}" alt="logo" class="plugin-icon"/>
+        <img src="${iconUrl}" alt="logo" class="plugin-icon" width="64" height="64"/>
     </div>
 @endif
 <h1>${plugin.name}<%--

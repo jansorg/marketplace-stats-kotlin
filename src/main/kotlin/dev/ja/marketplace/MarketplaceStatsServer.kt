@@ -346,6 +346,7 @@ class MarketplaceStatsServer(
             staticAssets("/styles", "styles")
             staticAssets("/js", "js")
             staticAssets("/favicon", "favicon")
+            staticAssets("/fonts", "fonts")
             // browsers request /favicon.ico, also for pages without a link to it
             get("/favicon.ico") {
                 call.respondBytes(faviconIco, ContentType("image", "x-icon"))

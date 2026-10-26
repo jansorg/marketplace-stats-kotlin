@@ -163,6 +163,11 @@ data class DataTableColumn(
      * type per month. A line chart shows a series for each row. The first column of each row must contain its name.
      */
     val rowHistoryPeriod: ChartPeriod? = null,
+    /**
+     * The name of the column for screen readers, if it has no [title], e.g. the column of the countries of a small
+     * table. Without it, the cells of the column have no header.
+     */
+    val accessibleTitle: String? = chartTitle,
 )
 
 data class SimpleTableSection(

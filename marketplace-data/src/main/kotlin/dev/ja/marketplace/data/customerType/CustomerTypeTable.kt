@@ -21,7 +21,7 @@ import java.util.*
 class CustomerTypeTable(
     private val today: YearMonthDay = YearMonthDay.now(),
 ) : SimpleDataTable("Customer Type", "customer-type"), MarketplaceDataSink {
-    private val columnType = DataTableColumn("customer-type", null)
+    private val columnType = DataTableColumn("customer-type", null, accessibleTitle = "Customer type")
     private val columnAmount = DataTableColumn("amount", null, "num", chartTitle = "Total Sales")
     private val columnPercentage = DataTableColumn(
         "percentage", "% of Sales", "num num-percentage",
