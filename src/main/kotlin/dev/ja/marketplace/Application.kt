@@ -198,5 +198,9 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
 private const val DEFAULT_AUTO_REFRESH_MINUTES = 30
 
 fun main(args: Array<String>) {
+    // the chart images of the MCP server are drawn with AWT, the server never opens windows
+    if (System.getProperty("java.awt.headless") == null) {
+        System.setProperty("java.awt.headless", "true")
+    }
     Application(BuildConfig.APP_VERSION).main(args)
 }

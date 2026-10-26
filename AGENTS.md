@@ -121,6 +121,9 @@ extend, must not fail a response:
   `/pricing`, `/downloads/monthly`, `/chart-data` (JSON), `/chart-export` (CSV or JSON of the lines of a chart, see "Charts"), all with `?pluginId=<id>`. `POST /refresh?pluginId=<id>&reload=true` drops cached data.
   See the routing in `MarketplaceStatsServer.kt`.
 - The MCP server is served at `/mcp` (Streamable HTTP, `src/main/kotlin/dev/ja/marketplace/mcp/`, see README.md).
+  Tools return JSON (`McpToolDefinition.call`), tools with images also a `McpToolResult` with `McpContent`
+  (`McpToolDefinition.result`), e.g. `create_chart` (`McpChartTool`), which renders charts of `ChartMetricValues`
+  as PNG (image content) or SVG (text content).
   It's disabled with `--no-mcp`. Requests must use one of the allowed hostnames (`localhost`, `127.0.0.1`, `[::1]`, `--host`,
   `--mcp-allowed-hosts`) in the `Host` header. The server is stateless, it has no sessions: send each request as POST with
   `Accept: application/json, text/event-stream`, a tool call doesn't need an `initialize` before. GET and DELETE return 405.
@@ -297,6 +300,14 @@ extend, must not fail a response:
 - uPlot isn't committed. Gradle downloads the npm package (`npm:uplot:<version>@tgz` in `build.gradle.kts`, from an
   Ivy repository for the npm registry) and the task `bundleJavascriptLibraries` extracts it into
   `build/generated/javascript/js`, which is added to the resources and served at `/js/`. To upgrade, change the version.
+- Chart images on the server (`src/main/kotlin/dev/ja/marketplace/chartImage/`, the MCP tool `create_chart`): no
+  charting library, `ChartImageRenderer` draws a `ChartImage` with the shapes of `java.awt.geom` on a `ChartCanvas`,
+  which writes SVG (`SvgChartCanvas`) or draws with Java2D into a `BufferedImage` for PNG (`Graphics2DChartCanvas`),
+  so both formats share the code. It ports the rules of the web charts (`alignedRanges`, `incompleteColor`,
+  `lineDetail`, the colors and dashes of `CHART_STYLE`, the light theme), keep both in sync when the look of the web
+  charts changes. The texts are measured with the AWT font `SansSerif`, PNG needs fonts and fontconfig (the
+  `eclipse-temurin` image has DejaVu), without fonts the widths are estimated. The server runs headless
+  (`java.awt.headless`).
 - Tables opt in with `DataTable.isChartable` (line charts over the date in the first column) or columns with
   `DataTableColumn.isShareOfTotal` (pie charts with one slice per row) or `DataTableColumn.rowHistoryPeriod` (line
   charts with one series per row, e.g. the share of each customer type, with a metric for each row

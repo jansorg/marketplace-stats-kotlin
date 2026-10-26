@@ -334,6 +334,12 @@ claude mcp add --transport http marketplace-stats http://localhost:8080/mcp
 | `list_jetbrains_product_releases`  | Versions of a JetBrains product with date and build, or its major releases                              |
 | `get_jetbrains_product_release`    | Metadata of a release of a JetBrains product, optionally with what's new, downloads and patches         |
 
+#### Charts
+
+| Tool                               | Data                                                                                                    |
+|------------------------------------|---------------------------------------------------------------------------------------------------------|
+| `create_chart`                     | A line or bar chart of metrics over time as PNG or SVG, with the options of the chart dialog            |
+
 #### Cache
 
 | Tool                               | Data                                                                                                    |
@@ -360,6 +366,25 @@ claude mcp add --transport http marketplace-stats http://localhost:8080/mcp
 - **Enum values** are lower camel case, e.g. `individual` or `annual`.
 - **Conventions:** the instructions of the MCP server describe the conventions once, not in each tool. This saves
   tokens. Unknown arguments are rejected.
+
+- **Charts:** `create_chart` renders the charts of the web interface on the server, e.g. to show them in a chat or to
+  add them to a report. Its arguments are the options of the chart dialog:
+  - `pluginId`, without it the summary of all paid plugins.
+  - `series`: up to 8 lines, each with a `metric` (the IDs of `/chart-metrics`, e.g. `sales`, `trials`, `mrr`,
+    `churn-annual`), an optional `window` (`follow`, `day`, `week`, `month`, `quarter`, `year`, `calendar-month`,
+    `calendar-quarter`, `calendar-year`), an optional moving `average` of 1, 3 or 12 months, a `style` (`lines` or
+    `bars`) and a `color`. Example: `[{"metric": "sales"}, {"metric": "sales", "average": 12}, {"metric": "trials", "style": "bars"}]`.
+  - `detail` (`year`, `month`, `week`, `day`), the default `window` and `style` of the series.
+  - The shown dates: `range` (`all`, `today`, `past-7-days`, `this-month` or a year like `2025`) or `startDate` and
+    `endDate`.
+  - The options of the View menu: `previousYear`, `showIncomplete`, `extremes` (`min`, `max`), `hideAxisValues`, and
+    the vertical lines of `markers` (`release`, `price`, `ide`, `events`).
+  - `format` (`png` or `svg`), `width` and `height` (default 1000 × 500) and `scale` (the pixel density of the PNG).
+
+  A chart shows at most two units on two y-axes, e.g. amounts and counts. The result has a JSON description of the
+  series with their latest values, followed by the image: a PNG as image content (`image/png`), which clients like
+  Claude show and pass to the model, and an SVG as text content with the SVG markup, because most clients don't
+  accept SVG images. The PNG needs fonts, the Docker image has them.
 
 Limits of the data: the Marketplace API has no downloads by IDE version and no installs. The page views of
 `get_page_views` are sampled data of Google Analytics. The Marketplace warns that page visits and referrals may be
