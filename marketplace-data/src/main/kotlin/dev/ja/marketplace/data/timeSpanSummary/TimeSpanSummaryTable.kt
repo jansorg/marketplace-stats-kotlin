@@ -9,6 +9,7 @@ import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
+import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import java.util.*
@@ -67,16 +68,16 @@ class TimeSpanSummaryTable(
         }
     }
 
-    override suspend fun process(licenseInfo: LicenseInfo) {
-        if (licenseInfo.sale.date in dateRange) {
-            totalSales.add(licenseInfo.sale.date, licenseInfo.amountUSD, licenseInfo.amount)
-
-            daySummaries.compute(licenseInfo.sale.date) { _, current ->
-                current!!.also {
-                    it.sales.add(licenseInfo.sale.date, licenseInfo.amountUSD, licenseInfo.amount)
-                }
-            }
+    // the amounts of the sales, like the other tables: the amounts of the licenses of a changed sale may be higher
+    override suspend fun process(sale: PluginSale) {
+        if (sale.date in dateRange) {
+            totalSales.add(sale.date, sale.amountUSD, sale.amount)
+            daySummaries.getValue(sale.date).sales.add(sale.date, sale.amountUSD, sale.amount)
         }
+    }
+
+    override suspend fun process(licenseInfo: LicenseInfo) {
+        // the sales are processed
     }
 
     override suspend fun createSections(): List<DataTableSection> {
