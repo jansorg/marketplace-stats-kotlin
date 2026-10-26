@@ -156,14 +156,31 @@ class EcbExchangeRateCacheTest {
     }
 
     @Test
-    fun invalidateDownloadsRates() {
+    fun invalidateUpdatesRatesInBackground() {
         val store = PersistentCacheStore(tempDir)
         val downloads = AtomicInteger()
-        val data = EcbExchangeRateData(downloader = { downloads.incrementAndGet(); newerTable })
+        val data = EcbExchangeRateData(downloader = { if (downloads.incrementAndGet() == 1) olderTable else newerTable })
         data.enablePersistentCache(store)
         data.get()
         data.invalidate()
-        data.get()
+        assertEquals(date("2024-04-12"), data.get().lastDate, "the rates are used until the update is done")
+        data.awaitBackgroundRefresh()
+        assertEquals(2, downloads.get())
+        assertEquals(date("2024-04-16"), data.get().lastDate)
+    }
+
+    @Test
+    fun outdatedRatesInMemoryAreUsedAndUpdatedInBackground() {
+        // without a persistent cache, e.g. if the ECB can't be reached after the rates are outdated
+        val clock = MutableClock(Instant.parse("2024-04-12T18:00:00Z"))
+        val downloads = AtomicInteger()
+        val data = EcbExchangeRateData(clock = clock, downloader = { if (downloads.incrementAndGet() == 1) olderTable else throw IllegalStateException("offline") })
+        assertEquals(date("2024-04-12"), data.get().lastDate)
+
+        clock.now = clock.now.plus(Duration.ofDays(1))
+        assertEquals(date("2024-04-12"), data.get().lastDate)
+        data.awaitBackgroundRefresh()
+        assertEquals(date("2024-04-12"), data.get().lastDate)
         assertEquals(2, downloads.get())
     }
 
