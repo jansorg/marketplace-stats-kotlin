@@ -111,8 +111,8 @@ data class PluginPricing(
             }
 
             ContinuityDiscount.ThirdYear -> when (licensePeriod) {
-                LicensePeriod.Monthly -> pricing.monthly?.secondYear?.price
-                LicensePeriod.Annual -> pricing.annual?.secondYear?.price
+                LicensePeriod.Monthly -> pricing.monthly?.thirdYear?.price
+                LicensePeriod.Annual -> pricing.annual?.thirdYear?.price
                 LicensePeriod.Perpetual -> null
             }
         } ?: return null
