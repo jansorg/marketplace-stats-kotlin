@@ -336,7 +336,13 @@ export class ChartDialog {
      */
     setDateRange(years, range) {
         const label = rangeLabel(range);
-        this.rangeMenu.querySelector("summary").textContent = "Range: " + label;
+        // small screens only show the range, see main.css
+        const prefix = document.createElement("span");
+        prefix.className = "chart-range-prefix";
+        prefix.textContent = "Range: ";
+        const summary = this.rangeMenu.querySelector("summary");
+        summary.replaceChildren(prefix, label);
+        summary.title = "Range: " + label;
         // a limited range is highlighted, e.g. the dates of a table of a few days, so that it isn't missed
         this.rangeMenu.classList.toggle("chart-menu-modified", range !== null);
         const items = [
