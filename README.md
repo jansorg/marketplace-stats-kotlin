@@ -231,8 +231,10 @@ java -jar marketplace-stats-all.jar \
   --events="~/marketplace-stats/events.yaml"
 ```
 
-In the chart dialog, the menu "Events" lists the events of the plugin. Select an event to show it as a vertical line.
-Your browser stores the selection. The summary of all plugins on the start page shows the events of all plugins.
+In the chart dialog, the menu "Events" lists the events of the plugin, followed by the releases of the plugin, its price
+changes and the releases of IntelliJ IDEA. Select an event to show it as a vertical line.
+Your browser stores the selection. The summary of all plugins on the start page shows the events of all paid plugins,
+because it only contains the paid plugins.
 
 The application reads the file again when you change it. You don't need to restart it.
 

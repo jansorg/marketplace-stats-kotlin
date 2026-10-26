@@ -765,6 +765,22 @@ export const MARKER_KINDS = ["release", "price", "ide"];
 export const MARKER_LABELS = {release: "Product version", price: "Price changes", ide: "IntelliJ IDEA releases", custom: "Events"};
 
 /**
+ * The items of the menu "Events" of the chart dialog: the custom events of the page first, then a separator and the
+ * kinds of vertical lines of the page, e.g. the releases.
+ *
+ * @param {object[]} customEvents The custom events of the page.
+ * @param {string[]} markerKinds The kinds of vertical lines of the page, see {@link MARKER_KINDS}.
+ * @return {({type: "event", event: object}|{type: "separator"}|{type: "marker", kind: string})[]} The items, empty
+ *  without events and kinds.
+ */
+export function eventMenuItems(customEvents, markerKinds) {
+    const events = customEvents.map(event => ({type: "event", event}));
+    const markers = markerKinds.map(kind => ({type: "marker", kind}));
+    const separator = events.length > 0 && markers.length > 0 ? [{type: "separator"}] : [];
+    return [...events, ...separator, ...markers];
+}
+
+/**
  * @param {string[]} shownKinds The kinds of the shown vertical lines, see {@link MARKER_KINDS}.
  * @param {string[]} shownEvents The IDs of the shown custom events, they are selected one by one.
  * @return {object[]} The markers of the shown kinds and the shown custom events, sorted by date, as needed to place

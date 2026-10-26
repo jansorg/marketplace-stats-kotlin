@@ -194,8 +194,12 @@ added to the models as optional properties at the end of the constructors, unkno
 - Vertical lines in line charts: major releases of the plugin (`MajorReleases`, from the plugin's releases), changes of the
   annual base price (`PriceChanges`, derived from undiscounted new US sales, the API has no price history) and major
   releases of IntelliJ IDEA (`IdeReleaseProvider`, from the JetBrains product service, cached for a day), and custom
-  events of a YAML file (`--events`, `CustomEventsFile`, read again when it's modified), which the user selects one by
-  one in the menu "Events" of the dialog (stored as `shownEvents`).
+  events of a YAML file (`--events`, `CustomEventsFile`, read again when it's modified). Each custom event belongs to a
+  plugin (`plugin`), a page only contains the events of its plugin, the summary of all plugins the events of the paid
+  plugins. The menu "Events" of the dialog lists the custom events (selected one by one, stored as `shownEvents`), a
+  separator and the kinds of lines of the page (stored as `shownMarkers`), see `eventMenuItems` in `model.js`.
+- On screens up to 600px wide, the chart dialog fills the window and hides its hint. The button to close the dialog is
+  the × of `removeButton` (`dialog.js`), which also removes a chart.
 - Only series of the same period (`DataTable.chartPeriod`: day, month or year) share a line chart and its date range.
   Values of months and years are located at the end of the period, the current period at today (`ChartValues.xValue`).
   The ticks of yearly values are at the end of each year and at today (`yearEndTicks` in `model.js`). Line charts of

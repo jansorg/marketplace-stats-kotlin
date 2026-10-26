@@ -16,7 +16,7 @@ import {
 } from "./model.js";
 import {browserStorage, createSetupStorage, decodeView, encodeView} from "./storage.js";
 import {chartColumns, readLineSeries, readMarkers, readPieRows, readRowHistorySeries} from "./tableData.js";
-import {ChartDialog} from "./dialog.js";
+import {ChartDialog, removeButton} from "./dialog.js";
 import {createLineChart, lineChartTheme} from "./lineChart.js";
 import {renderPie} from "./pieChart.js";
 import {createMenu} from "./menu.js";
@@ -711,18 +711,11 @@ class ChartController {
      * @return {HTMLButtonElement} A button to remove the chart.
      */
     removeButton(remove) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "chart-remove";
-        button.textContent = "×";
-        button.title = "Remove this chart";
-        button.setAttribute("aria-label", "Remove this chart");
-        button.addEventListener("click", () => {
+        return removeButton("Remove this chart", () => {
             remove();
             this.save();
             this.render();
         });
-        return button;
     }
 
     toolbar(panel) {
