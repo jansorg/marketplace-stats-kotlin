@@ -12,7 +12,12 @@ import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.TrialTracker
 import kotlin.math.absoluteValue
 
-class FunnelTable : SimpleDataTable("Trial Funnel", "funnel", "table-centered sortable"), MarketplaceDataSink {
+/**
+ * @param collapsedRowCount The number of rows shown before a click on "Show all", `null` to show all rows.
+ */
+class FunnelTable(
+    override val collapsedRowCount: Int? = null,
+) : SimpleDataTable("Trial Funnel", "funnel", "table-centered sortable"), MarketplaceDataSink {
     private var pluginId: PluginId? = null
     private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
     private val trialTracker: TrialTracker = SimpleTrialTracker()

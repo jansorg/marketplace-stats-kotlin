@@ -6,6 +6,7 @@
 /**
  * Tables with the attribute data-collapsed-rows only show their first rows, a row with a button below them shows the
  * other rows. Without JavaScript, all rows are shown. The hidden rows stay in the table, e.g. for the charts.
+ * Sorting a table shows all rows, the sorted rows wouldn't be the first rows of the table.
  */
 for (const table of document.querySelectorAll("table[data-collapsed-rows]")) {
     const shownRows = Number(table.dataset.collapsedRows);
@@ -26,9 +27,12 @@ for (const table of document.querySelectorAll("table[data-collapsed-rows]")) {
     button.type = "button";
     button.textContent = "Show all ▾";
     button.title = `Show all ${shownRows + hiddenRows.length} rows`;
-    button.addEventListener("click", () => {
+    const expand = () => {
         hiddenRows.forEach(row => row.hidden = false);
         expandRow.remove();
-    });
+    };
+    button.addEventListener("click", expand);
+    // the event of sortable-tablesort, before the rows are sorted
+    table.addEventListener("sort-start", expand, {once: true});
     cell.append(button);
 }

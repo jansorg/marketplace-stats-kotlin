@@ -14,8 +14,9 @@ class TopCountriesFactory(
     private val maxCountries: Int? = 10,
     private val showTrials: Boolean = false,
     private val showChurn: Boolean = false,
+    private val collapsedRowCount: Int? = null,
 ) : MarketplaceDataTableFactory {
     override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable {
-        return TopCountriesTable(smallSpace, maxCountries, showTrials, showChurn)
+        return TopCountriesTable(smallSpace, maxCountries, showTrials, showChurn, collapsedRowCount)
     }
 }
