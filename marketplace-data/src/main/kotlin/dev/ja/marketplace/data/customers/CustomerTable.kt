@@ -146,8 +146,8 @@ class CustomerTable(
                     mapOf(
                         columnValidUntil to validUntil.takeIf { showValidUntil },
                         columnValidSince to validSince,
-                        // the name links to the customer, most customers have no name, their ID is the link
-                        columnId to if (customer.name != null) customer.code else LinkedCustomer(customer.code, pluginId = pluginId!!),
+                        // the ID and the name link to the customer
+                        columnId to LinkedCustomer(customer.code, pluginId = pluginId!!),
                         columnName to (customer.name?.let { LinkedCustomerName(it, customer.code, pluginId!!) } ?: NoValue),
                         columnCountry to customer.country,
                         columnType to customer.type,
