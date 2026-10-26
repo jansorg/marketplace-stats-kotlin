@@ -1018,6 +1018,25 @@ th.highlighted, td.highlighted {
     width: 100%;
 }
 
+/* details in a grid of at most 4 columns, each with its label above its value, e.g. on the page of a sale */
+dl.detail-grid {
+    display: grid;
+    /* the minimum width of a quarter limits the grid to 4 columns, the column gap is part of the calculation */
+    grid-template-columns: repeat(auto-fill, minmax(max(12rem, calc((100% - 3 * 2rem) / 4)), 1fr));
+    gap: 0.75rem 2rem;
+    margin: 0 0 1rem;
+}
+
+dl.detail-grid dt {
+    color: var(--text-color-disabled);
+    font-weight: 400;
+}
+
+dl.detail-grid dd {
+    margin: 0.1rem 0 0;
+    max-width: none;
+}
+
 .section-fit {
     width: max-content;
     margin: 0 1rem 0 0;
