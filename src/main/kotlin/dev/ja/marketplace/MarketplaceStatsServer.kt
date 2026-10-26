@@ -413,7 +413,12 @@ class MarketplaceStatsServer(
                                 "urls" to client as MarketplaceUrlSupport,
                                 "summaryTables" to allPluginsSummary(),
                                 "ideReleases" to if (serverConfiguration.showAllPluginsSummary) ideReleases.majorReleases() else emptyList(),
-                                "customEvents" to if (serverConfiguration.showAllPluginsSummary) serverConfiguration.customEvents(null) else emptyList(),
+                                // the summary only contains the paid plugins, the events of the free plugins don't apply to it
+                                "customEvents" to if (serverConfiguration.showAllPluginsSummary) {
+                                    serverConfiguration.customEvents(allPlugins.filter(PluginInfoSummary::isPaidOrFreemium).map(PluginInfoSummary::id).toSet())
+                                } else {
+                                    emptyList()
+                                },
                             )
                         )
                     )

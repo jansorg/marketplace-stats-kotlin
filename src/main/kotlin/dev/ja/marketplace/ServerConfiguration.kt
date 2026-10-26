@@ -16,10 +16,10 @@ data class ServerConfiguration(
     val customEvents: CustomEventsFile? = null,
 ) {
     /**
-     * @param plugin The plugin of a page, `null` for the summary of all plugins.
-     * @return The custom events of the plugin, shown as vertical lines of the charts.
+     * @param plugins The plugins of a page, e.g. all paid plugins for the summary of all plugins.
+     * @return The custom events of the plugins, shown as vertical lines of the charts.
      */
-    fun customEvents(plugin: PluginId?): List<CustomEvent> {
-        return customEvents?.events()?.filter { it.appliesTo(plugin) } ?: emptyList()
+    fun customEvents(plugins: Collection<PluginId>): List<CustomEvent> {
+        return customEvents?.events()?.filter { it.appliesTo(plugins) } ?: emptyList()
     }
 }

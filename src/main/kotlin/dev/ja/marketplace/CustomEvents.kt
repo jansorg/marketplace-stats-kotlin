@@ -25,9 +25,9 @@ import java.time.format.DateTimeParseException
  */
 data class CustomEvent(val id: String, val date: YearMonthDay, val label: String, val plugin: PluginId) {
     /**
-     * @param plugin The plugin of a page, `null` for the summary of all plugins, which shows all events.
+     * @param plugins The plugins of a page, e.g. all paid plugins for the summary of all plugins.
      */
-    fun appliesTo(plugin: PluginId?): Boolean = plugin == null || plugin == this.plugin
+    fun appliesTo(plugins: Collection<PluginId>): Boolean = plugin in plugins
 }
 
 /**
