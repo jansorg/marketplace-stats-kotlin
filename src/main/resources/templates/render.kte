@@ -15,7 +15,6 @@
 @import javax.money.MonetaryAmount
 
 @param value: Any?
-
 <%-- The values have no whitespace around them: the cells of large tables would contain more whitespace than values.
      The comments join the lines without adding whitespace to the output. --%>@if(value is Array<*>)<%--
     --%>@for(i in ForSupport.of(value))@template.render(i.get())@if(!i.isLast)<br>@endif@endfor<%--
