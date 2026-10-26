@@ -16,7 +16,7 @@
 import {createFormatter} from "./format.js";
 import {
     canCombineUnits, chartLevel, chartLevelKeys, CHART_STYLES, dateRange, DETAILS, detailGranularity, detailPeriod, rangeLabel, rangeOfTimestamps, rangeTimestamps, rangeYears, exportFileName, groupCharts, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES,
-    METRIC_PERIOD, metricLabel, metricPoints, nextColor, pieSlices, WINDOW_LABELS, windowApplies, WINDOWS, withDetail,
+    METRIC_PERIOD, metricLabel, metricPoints, nextColor, pieSlices, storedChartLevel, WINDOW_LABELS, windowApplies, WINDOWS,
     AVERAGE_MONTHS, visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear, trailingAverage,
 } from "./model.js";
 import {browserStorage, createSetupStorage, decodeView, encodeView} from "./storage.js";
@@ -927,7 +927,8 @@ class ChartController {
             button.textContent = DETAIL_LABELS[detail];
             button.setAttribute("aria-pressed", String(detail === level.detail));
             button.addEventListener("click", () => {
-                this.setChartLevel(chart, withDetail(level, detail));
+                // the selected window is kept, it's shown again with the levels, to which it applies
+                this.setChartLevel(chart, {...storedChartLevel(chart, this.chartLevels), detail});
                 this.save();
                 this.render();
             });

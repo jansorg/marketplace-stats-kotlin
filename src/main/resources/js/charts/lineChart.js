@@ -259,6 +259,8 @@ function drawPoints(plot, chartSeries, theme) {
         const values = plot.data[index + 1];
         timestamps.forEach((timestamp, i) => {
             const isIncomplete = series.incomplete.has(timestamp);
+            // the value of a partial period, e.g. the first year of a plugin, is a hollow point in the color of the series
+            const isPartial = !isIncomplete && Boolean(series.partial?.has(timestamp));
             if (values[i] === null || values[i] === undefined) {
                 return;
             }
@@ -271,10 +273,10 @@ function drawPoints(plot, chartSeries, theme) {
             context.fill();
 
             context.beginPath();
-            if (isIncomplete) {
+            if (isIncomplete || isPartial) {
                 context.arc(x, y, radius - pixelRatio, 0, 2 * Math.PI);
                 context.lineWidth = 2 * pixelRatio;
-                context.strokeStyle = incompleteColor(series.color, theme.isDark);
+                context.strokeStyle = isIncomplete ? incompleteColor(series.color, theme.isDark) : series.color;
                 context.stroke();
             } else {
                 context.arc(x, y, radius, 0, 2 * Math.PI);
@@ -393,7 +395,8 @@ function drawExtremes(plot, chartSeries, chartOverlays, {kinds, isBars, interval
     // the drawn series, and the averages, which are drawn instead of their series with "Only averages"
     const lines = [
         ...chartSeries
-            .map((series, index) => ({plotIndex: index + 1, color: series.color, unit: series.unit, incomplete: series.incomplete, isBar: isBars, barIndex: index, isHidden: series.isValueHidden}))
+            // partial values, e.g. of the first year of a plugin, aren't the minimum or the maximum
+            .map((series, index) => ({plotIndex: index + 1, color: series.color, unit: series.unit, incomplete: new Set([...series.incomplete, ...(series.partial ?? [])]), isBar: isBars, barIndex: index, isHidden: series.isValueHidden}))
             .filter(line => !line.isHidden),
         ...chartOverlays
             .map((overlay, index) => ({plotIndex: chartSeries.length + index + 1, color: overlayColor(overlay), unit: overlay.base.unit, incomplete: new Set(), isBar: false, isMainLine: overlay.isMainLine}))
@@ -483,11 +486,14 @@ function drawBars(plot, chartSeries, interval, theme) {
             }
             const x = plot.valToPos(timestamps[i], "x", true);
             const isIncomplete = series.incomplete.has(timestamps[i]);
-            context.fillStyle = isIncomplete ? stripePattern(context, incompleteColor(series.color, theme.isDark), pixelRatio, theme.surfaceColor) : series.color;
+            // a partial period, e.g. the first year of a plugin, is an outlined bar in the color of the series
+            const isPartial = !isIncomplete && Boolean(series.partial?.has(timestamps[i]));
+            context.fillStyle = isIncomplete ? stripePattern(context, incompleteColor(series.color, theme.isDark), pixelRatio, theme.surfaceColor)
+                : isPartial ? theme.surfaceColor : series.color;
             drawBar(context, x + offsets[position], width, plot.valToPos(value, scale, true), baseY, CHART_STYLE.barRadius * pixelRatio);
-            if (isIncomplete) {
-                context.lineWidth = pixelRatio;
-                context.strokeStyle = incompleteColor(series.color, theme.isDark);
+            if (isIncomplete || isPartial) {
+                context.lineWidth = (isPartial ? 2 : 1) * pixelRatio;
+                context.strokeStyle = isIncomplete ? incompleteColor(series.color, theme.isDark) : series.color;
                 context.stroke();
             }
         });
@@ -934,7 +940,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
             .map(({s, seriesIndex}) => {
                 const value = values[seriesIndex][index];
                 const incomplete = value !== null && s.incomplete.has(timestamps[index]);
-                return {color: s.color, label: s.label + (incomplete ? " (incomplete)" : ""), value: formatter.value(value, s.unit)};
+                const partial = value !== null && !incomplete && Boolean(s.partial?.has(timestamps[index]));
+                return {color: s.color, label: s.label + (incomplete ? " (incomplete)" : partial ? " (partial period)" : ""), value: formatter.value(value, s.unit)};
             })
             .concat(chartOverlays
                 .map((overlay, i) => ({overlay, value: overlayValues[i][index], isShown: plot.series[overlayIndex(i)].show}))

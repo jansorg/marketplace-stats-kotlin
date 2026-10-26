@@ -417,12 +417,21 @@ const DEFAULT_LEVEL = {window: "calendar-month", detail: "month"};
  * @param {{period: string, units: string[]}} chart A line chart of metrics.
  * @param {Object<string, {window: string, detail: string}>} levels The stored levels by the keys of the charts, also of
  *  each unit, see {@link chartLevelKeys}.
- * @return {{window: string, detail: string}} The window and the detail level of the chart, the level of a combined
- *  chart is the level of its first unit until it's changed.
+ * @return {{window: string, detail: string}} The shown window and detail level of the chart, the level of a combined
+ *  chart is the level of its first unit until it's changed. A selected window, which is shorter than the steps of the
+ *  dates, is replaced by the calendar window of the detail level, see {@link withDetail}.
  */
 export function chartLevel(chart, levels) {
-    const level = levels[lineChartKey(chart)] ?? levels[lineChartKey({...chart, units: [chart.units[0]]})] ?? DEFAULT_LEVEL;
+    const level = storedChartLevel(chart, levels);
     return withDetail(level, level.detail);
+}
+
+/**
+ * @return {{window: string, detail: string}} The stored level of a chart with the selected window, which is kept, if a
+ *  level is selected, to which the window doesn't apply, see {@link chartLevel}.
+ */
+export function storedChartLevel(chart, levels) {
+    return levels[lineChartKey(chart)] ?? levels[lineChartKey({...chart, units: [chart.units[0]]})] ?? DEFAULT_LEVEL;
 }
 
 /**
@@ -488,8 +497,10 @@ export function yearEndTicks(min, max, lastValue) {
  * @param {{dates: string[], series: Object<string, {values: number[], incompleteFrom: number}>}} data
  *  The values of metrics, loaded from /chart-data.
  * @param {string} id The ID of a metric.
- * @return {{points: Map<number, number>, incomplete: Set<number>}|null} The values of the metric, or null if there are none.
- *  The values start with the last zero before the first value, the data of all metrics starts with the first activity.
+ * @return {{points: Map<number, number>, incomplete: Set<number>, partial: Set<number>}|null} The values of the metric,
+ *  or null if there are none. The values start with the last zero before the first value, the data of all metrics
+ *  starts with the first activity. Partial values only cover a part of their window, e.g. the first year of a plugin,
+ *  which started in February.
  */
 export function metricPoints(data, id) {
     const series = data?.series?.[id];
@@ -498,6 +509,7 @@ export function metricPoints(data, id) {
     }
     const points = new Map();
     const incomplete = new Set();
+    const partial = new Set();
     // values without data are null, e.g. the revenue retention of the first year
     const firstValue = series.values.findIndex(value => value !== 0 && value !== null);
     const start = firstValue === -1 ? 0 : Math.max(0, firstValue - 1);
@@ -508,8 +520,11 @@ export function metricPoints(data, id) {
         if (index >= series.incompleteFrom) {
             incomplete.add(timestamp);
         }
+        if (index < (series.partialUntil ?? 0) && series.values[index] !== 0) {
+            partial.add(timestamp);
+        }
     });
-    return {points, incomplete};
+    return {points, incomplete, partial};
 }
 
 /**

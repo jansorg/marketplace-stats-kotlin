@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
     averageShade, pinchedRange, rangeLabel, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
-    alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
+    alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, storedChartLevel, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
 } from "../../main/resources/js/charts/model.js";
@@ -440,4 +440,14 @@ test("the cursor stays inside the chart at values on its edges", () => {
     assert.equal(position(2), 100);
     // a value far left of the chart isn't drawn
     assert.equal(cursorPosition(0, i => [-40, 30][i], 2, 150, 5), 30);
+});
+
+test("the selected window is kept for the levels, to which it applies", () => {
+    const chart = {period: METRIC_PERIOD, units: ["USD"]};
+    // the calendar month at the level Year is shown as the calendar year, but stored as selected
+    const levels = {"metric/USD": {window: "calendar-month", detail: "year"}};
+    assert.deepEqual(chartLevel(chart, levels), {window: "calendar-year", detail: "year"});
+    assert.deepEqual(storedChartLevel(chart, levels), {window: "calendar-month", detail: "year"});
+    // back at the level Month, the selected window applies again
+    assert.deepEqual(chartLevel(chart, {"metric/USD": {window: "calendar-month", detail: "month"}}), {window: "calendar-month", detail: "month"});
 });

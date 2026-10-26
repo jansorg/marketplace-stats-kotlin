@@ -65,6 +65,20 @@ class ChartDataTest {
     }
 
     @Test
+    suspend fun sumsOfTheFirstYearArePartial() {
+        // the data starts in 2024, the sums of 2024 only cover a part of the year
+        val series = json(listOf("sales", "mrr"), ChartWindow.CalendarYear, ChartDetail.Year)["series"]!!.jsonObject
+        assertEquals("1", series["sales"]!!.jsonObject["partialUntil"]!!.jsonPrimitive.content)
+        // values at a day aren't partial
+        assertEquals("0", series["mrr"]!!.jsonObject["partialUntil"]!!.jsonPrimitive.content)
+        // values per day aren't partial after the first day with data
+        val days = json(listOf("sales"), ChartWindow.Day, ChartDetail.Day)
+        val partialDays = days["series"]!!.jsonObject["sales"]!!.jsonObject["partialUntil"]!!.jsonPrimitive.content.toInt()
+        assertEquals("2024-01-01", days.dates().first())
+        assertEquals(McpTestData.pluginData().getFirstActivityDate()!!.asIsoString, days.dates()[partialDays])
+    }
+
+    @Test
     suspend fun valuesAtTheEndOfEachYear() {
         val json = json(listOf("customer-type-share.Individual"), ChartWindow.Year, ChartDetail.Year)
         assertEquals("2024-12-31", json.dates().first())

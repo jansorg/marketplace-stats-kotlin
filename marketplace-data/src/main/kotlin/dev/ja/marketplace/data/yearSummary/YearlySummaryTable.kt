@@ -15,6 +15,9 @@ import java.util.*
 
 class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide") {
     private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
+
+    /** The first day with data of the plugin, the sums of the first year only cover a part of it. */
+    private var pluginStart: YearMonthDay? = null
     private lateinit var downloads: List<MonthlyDownload>
 
     private val trialsTracker: TrialTracker = SimpleTrialTracker()
@@ -46,6 +49,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
         super.init(data)
 
         this.maxTrialDays = data.getPluginInfo().maxTrialDays
+        this.pluginStart = data.getFirstActivityDate()
         this.downloads = data.getDownloadsMonthly()
         this.totalSales = PaymentAmountTracker(YearMonthDayRange.MAX, data.exchangeRates)
 
@@ -109,22 +113,25 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                 // it's the value of today, it changes until the end of the year
                 val arrValue = yearData.annualRevenue.getResult().amounts.getTotalAmount()
                     .let { if (year == now.year) IncompleteValue(it) else it }
+                // the sums of the current year and of the first year of the plugin, if it started within the year
+                val isPartialYear = isPartialPeriod(yearDateRange.start, pluginStart)
+                val incompleteSums = year == now.year || isPartialYear
                 SimpleDateTableRow(
                     values = mapOf(
                         columnYear to year,
-                        columnSalesTotal to yearData.sales.totalAmount,
-                        columnSalesFees to yearData.sales.feesAmount,
-                        columnSalesPaid to yearData.sales.paidAmount,
+                        columnSalesTotal to incompleteIf(yearData.sales.totalAmount, incompleteSums),
+                        columnSalesFees to incompleteIf(yearData.sales.feesAmount, incompleteSums),
+                        columnSalesPaid to incompleteIf(yearData.sales.paidAmount, incompleteSums),
                         columnARR to arrValue,
-                        columnDownloads to downloads
+                        columnDownloads to incompleteIf(downloads
                             .filter { it.firstOfMonth.year == year }
                             .sumOf(MonthlyDownload::downloads)
-                            .toBigInteger()
-                            .let { if (year == now.year) IncompleteValue(it) else it },
-                        columnTrials to (trialResultAnyDuration.totalTrials.takeIf { it > 0 }?.toBigInteger() ?: NoValue),
-                        columnTrialsConverted to trialResultTrialDuration.displayedConversionRate,
+                            .toBigInteger(), incompleteSums),
+                        columnTrials to incompleteIf(trialResultAnyDuration.totalTrials.takeIf { it > 0 }?.toBigInteger() ?: NoValue, incompleteSums),
+                        columnTrialsConverted to incompleteIf(trialResultTrialDuration.displayedConversionRate, incompleteSums),
                     ),
                     tooltips = mapOf(
+                        columnYear to pluginStart?.let(::partialPeriodTooltip).takeIf { isPartialYear },
                         columnARR to IncompleteRecurringRevenueTooltip.takeIf { year == now.year },
                         columnTrialsConverted to conversionTooltip(trialResultAnyDuration, trialResultTrialDuration, maxTrialDays)
                     ),

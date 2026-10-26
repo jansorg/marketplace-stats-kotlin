@@ -8,6 +8,7 @@ package dev.ja.marketplace.data.yearSummary
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
+import dev.ja.marketplace.client.model.DailyDownload
 import dev.ja.marketplace.client.model.MonthlyDownload
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.*
@@ -61,10 +62,22 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
         columnYear, columnSalesTotal, columnSalesFees, columnSalesPaid, columnMrr, columnArr, columnDownloads,
     )
 
+    /** The first day with data of the plugins, the sums of the first year only cover a part of it. */
+    private var start: YearMonthDay? = null
+
     /**
      * Adds the sales, the licenses and the downloads of a plugin.
+     *
+     * @param dailyDownloads The downloads of each day, for the first day with data.
      */
-    fun add(sales: List<PluginSale>, licenses: List<LicenseInfo>, downloads: List<MonthlyDownload>) {
+    fun add(sales: List<PluginSale>, licenses: List<LicenseInfo>, downloads: List<MonthlyDownload>, dailyDownloads: List<DailyDownload> = emptyList()) {
+        // the first day like the charts, see ChartMetricValues
+        start = listOfNotNull(
+            start,
+            sales.minOfOrNull { it.date },
+            licenses.mapNotNull { it.validity?.start }.minOrNull(),
+            dailyDownloads.filter { it.downloads > 0 }.minOfOrNull { it.day },
+        ).minOrNull()
         for (sale in sales) {
             totalSales.add(sale.date, sale.amountUSD, sale.amount)
             salesByYear.getOrPut(sale.date.year) { PaymentAmountTracker(YearMonthDayRange.ofYear(sale.date.year), displayExchangeRates) }
@@ -109,25 +122,27 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
         // the years without data between the first year and today are shown, too
         val rows = (now.year downTo years.last()).map { year ->
             val sales = salesByYear[year] ?: PaymentAmountTracker(YearMonthDayRange.ofYear(year), displayExchangeRates)
+            // the sums of the current year and of the first year, if the plugins started within the year
+            val isPartialYear = isPartialPeriod(YearMonthDay(year, 1, 1), start)
+            val incompleteSums = year == now.year || isPartialYear
             SimpleDateTableRow(
                 values = mapOf(
                     columnYear to year,
-                    columnSalesTotal to sales.totalAmount,
-                    columnSalesFees to sales.feesAmount,
-                    columnSalesPaid to sales.paidAmount,
+                    columnSalesTotal to incompleteIf(sales.totalAmount, incompleteSums),
+                    columnSalesFees to incompleteIf(sales.feesAmount, incompleteSums),
+                    columnSalesPaid to incompleteIf(sales.paidAmount, incompleteSums),
                     // the recurring revenue of the current year is incomplete,
                     // it's the value of today, it changes until the end of the year
                     columnMrr to recurringRevenue(mrrByYear[year], year == now.year),
                     columnArr to recurringRevenue(arrByYear[year], year == now.year),
                     // the downloads of a day are reported on the next day at the earliest
-                    columnDownloads to (downloadsByYear[year] ?: BigInteger.ZERO).let {
-                        if (year == now.year) IncompleteValue(it) else it
-                    },
+                    columnDownloads to incompleteIf(downloadsByYear[year] ?: BigInteger.ZERO, incompleteSums),
                 ),
                 tooltips = mapOf(
                     columnMrr to IncompleteRecurringRevenueTooltip.takeIf { year == now.year },
                     columnArr to IncompleteRecurringRevenueTooltip.takeIf { year == now.year },
                     columnDownloads to IncompleteDownloadsTooltip.takeIf { year == now.year },
+                    columnYear to start?.let(::partialPeriodTooltip).takeIf { isPartialYear },
                 ),
                 cssClass = if (year == now.year) "today" else null,
             )

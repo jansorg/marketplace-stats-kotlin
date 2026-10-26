@@ -6,6 +6,7 @@
 package dev.ja.marketplace.data.downloads
 
 import dev.ja.marketplace.client.LicenseInfo
+import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.model.MonthlyDownload
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.chart.ChartMetric
@@ -28,15 +29,25 @@ class DownloadsTable : SimpleDataTable("", "downloads"), MarketplaceDataSink {
         super.init(data)
 
         this.data = data.getDownloadsMonthly()
+        this.pluginStart = data.getFirstActivityDate()
     }
+
+    /** The first day with data of the plugin, the downloads of the first month only cover a part of it. */
+    private var pluginStart: YearMonthDay? = null
 
     override suspend fun createSections(): List<DataTableSection> {
         return listOf(
             SimpleTableSection(
                 rows = data.map {
+                    val now = YearMonthDay.now()
+                    val isCurrentMonth = it.firstOfMonth.year == now.year && it.firstOfMonth.month == now.month
+                    val isPartialMonth = isPartialPeriod(it.firstOfMonth, pluginStart)
                     SimpleDateTableRow(
-                        columnMonth to it.firstOfMonth,
-                        columnDownloads to it.downloads.toBigInteger(),
+                        values = mapOf(
+                            columnMonth to it.firstOfMonth,
+                            columnDownloads to incompleteIf(it.downloads.toBigInteger(), isCurrentMonth || isPartialMonth),
+                        ),
+                        tooltips = mapOf(columnMonth to pluginStart?.let(::partialPeriodTooltip).takeIf { isPartialMonth }),
                     )
                 },
                 footer = SimpleRowGroup(

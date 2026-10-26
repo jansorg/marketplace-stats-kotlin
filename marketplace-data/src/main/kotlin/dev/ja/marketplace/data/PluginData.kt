@@ -107,11 +107,13 @@ data class PluginData(
     }
 
     /**
-     * @return The first day with a sale, a trial or a download, or `null` if there's no such day.
+     * @return The first day with a sale, a license, a trial or a download, or `null` if there's no such day.
+     *  Like the charts, see [dev.ja.marketplace.data.chart.ChartMetricValues].
      */
     suspend fun getFirstActivityDate(): YearMonthDay? {
         return listOfNotNull(
             getSales()?.minOfOrNull { it.date },
+            getLicenses()?.mapNotNull { it.validity?.start }?.minOrNull(),
             getTrials()?.minOfOrNull { it.date },
             getDownloadsDaily().filter { it.downloads > 0 }.minOfOrNull { it.day },
         ).minOrNull()

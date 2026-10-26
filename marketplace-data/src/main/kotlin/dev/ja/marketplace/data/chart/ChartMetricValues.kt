@@ -47,6 +47,7 @@ import javax.money.MonetaryAmount
  * @param licensesOfPlugins The licenses of each plugin, several for the summary of all plugins.
  * @param revenue The recurring revenue of the customers of a single plugin, required for the subscription metrics.
  * @param metrics The metrics with values, e.g. only the metrics of the summary of all plugins.
+ * @param dataStart The first day with data, sums and rates of windows, which start before it, are partial.
  */
 class ChartMetricValues private constructor(
     private val windows: DailyWindows,
@@ -58,6 +59,7 @@ class ChartMetricValues private constructor(
     private val exchangeRates: ExchangeRates,
     private val maxTrialDays: Int,
     val metrics: Set<ChartMetric>,
+    private val dataStart: YearMonthDay?,
 ) {
     val days: List<YearMonthDay> get() = windows.days
 
@@ -83,7 +85,10 @@ class ChartMetricValues private constructor(
         synchronized(this) {
             cache[key]?.let { return it }
             // the subscription metrics are calculated together, the values of the other metrics are added to the cache
-            calculate(metric, key.second).forEach { (calculatedMetric, series) -> cache.putIfAbsent(calculatedMetric to key.second, series) }
+            calculate(metric, key.second).forEach { (calculatedMetric, series) ->
+                val partialUntil = if (calculatedMetric.usesWindow) partialUntil { key.second.start(it) } else 0
+                cache.putIfAbsent(calculatedMetric to key.second, series.copy(partialUntil = partialUntil))
+            }
             return cache[key]
         }
     }
@@ -161,7 +166,20 @@ class ChartMetricValues private constructor(
                 else -> sum.divide(BigDecimal.valueOf(count.toLong()), 2, RoundingMode.HALF_UP)
             }
         }
-        return DailySeries(base.unit, values, base.incompleteFrom)
+        // the averages of sums and rates, whose months start before the first day with data
+        val partialUntil = if (metric.usesWindow) partialUntil { ChartWindow.monthsBefore(it, months) } else 0
+        return DailySeries(base.unit, values, base.incompleteFrom, partialUntil = partialUntil)
+    }
+
+    /**
+     * @param start The first day of the window of a day.
+     * @return The index of the first day, whose window doesn't start before the first day with data. The values of the
+     *  days before only cover a part of their window, e.g. the first year of a plugin, which started in February.
+     *  The windows start later for later days.
+     */
+    private fun partialUntil(start: (YearMonthDay) -> YearMonthDay): Int {
+        val first = dataStart ?: return 0
+        return days.indexOfFirst { start(it) >= first }.takeIf { it >= 0 } ?: days.size
     }
 
     private val salesAndFees: Pair<Array<MonetaryAmount>, Array<MonetaryAmount>> by lazy { windows.salesAndFeesPerDay(sales, exchangeRates) }
@@ -476,7 +494,7 @@ class ChartMetricValues private constructor(
                 else -> YearMonthDay(firstDate.year, 1, 1)
             }
             val windows = DailyWindows(first, today)
-            return ChartMetricValues(windows, sales, licensesOfPlugins, trials, downloads, revenue, exchangeRates, maxTrialDays, metrics)
+            return ChartMetricValues(windows, sales, licensesOfPlugins, trials, downloads, revenue, exchangeRates, maxTrialDays, metrics, firstDate)
         }
 
         /**
