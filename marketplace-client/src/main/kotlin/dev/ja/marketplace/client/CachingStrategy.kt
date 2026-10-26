@@ -93,7 +93,8 @@ class CachingStrategy(
      */
     fun historyCategory(range: YearMonthDayRange, today: YearMonthDay = YearMonthDay.now()): Category {
         return when {
-            range.start daysUntil today > UNSTABLE_HISTORY_DAYS -> Category.Static
+            // the whole range must be older, the recent days of a range starting earlier may still change
+            range.end daysUntil today > UNSTABLE_HISTORY_DAYS -> Category.Static
             else -> Category.Recent
         }
     }

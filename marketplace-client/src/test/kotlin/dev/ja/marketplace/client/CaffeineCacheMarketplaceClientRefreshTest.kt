@@ -62,7 +62,7 @@ class CaffeineCacheMarketplaceClientRefreshTest {
         // only the recent months of the plugin, which may still change, the older months are kept
         assertEquals(listOf("1"), requests.map { it.first }.distinct())
         val unstableStart = YearMonthDay.now().add(0, 0, -CachingStrategy.UNSTABLE_HISTORY_DAYS)
-        assertTrue(requests.isNotEmpty() && requests.all { it.second.start >= unstableStart }, "$requests")
+        assertTrue(requests.isNotEmpty() && requests.all { it.second.end >= unstableStart }, "$requests")
 
         // requests use the refreshed data without fetching it
         requests.clear()
