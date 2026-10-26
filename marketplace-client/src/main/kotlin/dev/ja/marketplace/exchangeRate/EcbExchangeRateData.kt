@@ -252,8 +252,9 @@ class EcbExchangeRateData(
                 return latest.second
             }
 
-            // outdated stored rates are good enough until the update in the background is done
-            if (latest != null && store != null) {
+            // outdated rates are good enough until the update in the background is done, the reports don't wait for
+            // the download and don't fail, if the ECB can't be reached
+            if (latest != null) {
                 refreshInBackground()
                 return latest.second
             }
@@ -267,12 +268,12 @@ class EcbExchangeRateData(
     }
 
     /**
-     * Drops the cached rates. The next call of [get] downloads the rates, the stored rates are ignored.
+     * Marks the rates as outdated. The next call of [get] returns them and updates them in the background.
      */
     fun invalidate() {
         synchronized(this) {
-            cached = null
-            isDiskChecked = true
+            val current = cached ?: readStored().also { isDiskChecked = true }
+            cached = current?.let { Instant.EPOCH to it.second }
             lastRefreshStart = null
         }
     }
