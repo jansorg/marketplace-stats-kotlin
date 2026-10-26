@@ -11,6 +11,7 @@ import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.times
 import dev.ja.marketplace.client.model.CustomerType
+import dev.ja.marketplace.data.chart.ChartWindow
 import dev.ja.marketplace.data.monthLabel
 import dev.ja.marketplace.data.trackers.RecurringRevenueSales
 import dev.ja.marketplace.exchangeRate.ExchangeRates
@@ -31,8 +32,9 @@ import javax.money.MonetaryAmount
  * licenses, which are valid at the end of a month, contribute. Only the latest sale of each license is used,
  * annual licenses contribute 1/12 of the billed amount. Amounts are converted at the date of the sale.
  *
- * The months start with the first month with recurring revenue and end with the current month,
- * whose values are still incomplete.
+ * The months start with the first month with recurring revenue and end with the current month, whose values are
+ * still incomplete: the current month is measured at today, like the overview and the charts, with the licenses,
+ * which are valid at today.
  */
 class CustomerRecurringRevenue(
     licenses: Iterable<LicenseInfo>,
@@ -47,12 +49,18 @@ class CustomerRecurringRevenue(
     /** Index of the current month in [months], or `-1` if there are no months. */
     val currentMonthIndex: Int
 
+    /** The MRR of each customer a year before today, the retention of the current month compares with it. */
+    val customersYearBeforeToday: Int2ObjectMap<BigDecimal>
+
     private val customerMrr: List<Int2ObjectMap<BigDecimal>>
     private val customerTypes = Int2ObjectOpenHashMap<CustomerType>()
     private val firstPaidMonthIndices = Int2IntOpenHashMap().apply { defaultReturnValue(-1) }
 
     init {
         val todayKey = monthKey(today)
+        // the retention of the current month compares with the same day of the previous year, like the charts
+        val yearBeforeToday = ChartWindow.Year.start(today).add(0, 0, -1)
+        val latestYearBeforeToday = Object2ObjectOpenHashMap<LicenseId, LicenseInfo>()
         val latestLicenseSales = Int2ObjectOpenHashMap<Object2ObjectOpenHashMap<LicenseId, LicenseInfo>>()
         for (license in licenses) {
             if (!RecurringRevenueSales.isRecurring(license)) {
@@ -62,13 +70,17 @@ class CustomerRecurringRevenue(
 
             customerTypes.put(license.sale.customer.code, license.sale.customer.type)
 
-            // all months, which end within the validity of the license
+            // all previous months, which end within the validity of the license, and the current month at today
             val end = validity.end
             val isEndOfMonth = end == YearMonthDay.lastOfMonth(end.year, end.month)
-            val lastKey = minOf(todayKey, if (isEndOfMonth) monthKey(end) else monthKey(end) - 1)
-            for (key in monthKey(validity.start)..lastKey) {
+            val lastKey = minOf(todayKey - 1, if (isEndOfMonth) monthKey(end) else monthKey(end) - 1)
+            val keys = (monthKey(validity.start)..lastKey) + listOfNotNull(todayKey.takeIf { today in validity })
+            for (key in keys) {
                 latestLicenseSales.computeIfAbsent(key) { Object2ObjectOpenHashMap() }
                     .merge(license.id, license, RecurringRevenueSales::preferred)
+            }
+            if (yearBeforeToday in validity) {
+                latestYearBeforeToday.merge(license.id, license, RecurringRevenueSales::preferred)
             }
         }
 
@@ -90,9 +102,13 @@ class CustomerRecurringRevenue(
             }
             currentMonthIndex = months.lastIndex
         }
+        customersYearBeforeToday = Int2ObjectOpenHashMap<BigDecimal>().apply {
+            latestYearBeforeToday.values.forEach { license -> merge(license.sale.customer.code, monthlyAmount(license), BigDecimal::add) }
+        }
     }
 
-    /** The MRR of each customer with recurring revenue at the end of the month. */
+
+    /** The MRR of each customer with recurring revenue at the end of the month, of the current month at today. */
     fun customers(monthIndex: Int): Int2ObjectMap<BigDecimal> {
         return customerMrr.getOrNull(monthIndex) ?: Int2ObjectOpenHashMap()
     }
