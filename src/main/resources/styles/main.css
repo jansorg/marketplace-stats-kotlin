@@ -1206,10 +1206,26 @@ dl.detail-grid dd {
     outline-offset: 1px;
 }
 
-/* the button to close the dialog is the button to remove a chart, as high as the other buttons */
+/* the icons fill the buttons, the width is the width of the former padding around the icons */
+.chart-dialog-header button.chart-dialog-clear, .chart-dialog-header button.chart-dialog-maximize {
+    width: 2.2rem;
+    padding: 0;
+}
+
+.chart-dialog-header button .chart-icon {
+    width: 100%;
+    height: 100%;
+    /* the larger icon would also have thicker lines */
+    stroke-width: 1.3;
+}
+
+/* the button to close the dialog is the button to remove a chart, as high as the other buttons,
+   the × fills it without padding */
 .chart-dialog-header .chart-remove {
+    width: 1.65rem;
     height: 1.75rem;
-    font-size: 1.25rem;
+    padding: 0;
+    font-size: 1.75rem;
 }
 
 /* a long name of a plugin is shortened, the buttons stay in the row of the title */
