@@ -46,7 +46,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         }
     }
 
-    private data class MonthData(
+    private class MonthData(
         val year: Int,
         val month: Int,
         val licenses: LicenseTracker<CustomerSegment>,
@@ -160,7 +160,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         super.init(data)
 
         this.pluginId = data.pluginId
-        this.maxTrialDays = data.getPluginInfo().purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
+        this.maxTrialDays = data.getPluginInfo().maxTrialDays
 
         val now = YearMonthDay.now()
         this.downloadsMonthly = data.getDownloadsMonthly()
@@ -345,9 +345,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                             columnAnnualRecurringRevenue to IncompleteRecurringRevenueTooltip.takeIf { isCurrentMonth },
                             columnLicenseChurnAnnual to annualLicenseChurn.getChurnRateTooltip(isIncomplete = isCurrentMonth),
                             columnLicenseChurnMonthly to monthlyLicenseChurn.getChurnRateTooltip(isIncomplete = isCurrentMonth),
-                            columnTrialsConverted to trialsMonthAnyLength.getTooltipConverted() +
-                                    "\n" +
-                                    trialsMonthByLength.getTooltipConverted(trialConversionDays(maxTrialDays)),
+                            columnTrialsConverted to conversionTooltip(trialsMonthAnyLength, trialsMonthByLength, maxTrialDays),
                         ),
                         cssClass = cssClass
                     )
@@ -378,9 +376,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                                 columnLicenseChurnAnnual to yearLicenseChurnAnnual.getChurnRateTooltip(isIncomplete = isCurrentYear),
                                 columnLicenseChurnMonthly to yearLicenseChurnMonthly.getChurnRateTooltip(isIncomplete = isCurrentYear),
                                 columnTrialsConverted to
-                                        trialsYearAnyDuration.getTooltipConverted()
-                                        + "\n"
-                                        + trialsYearTrialLength.getTooltipConverted(trialConversionDays(maxTrialDays)),
+                                        conversionTooltip(trialsYearAnyDuration, trialsYearTrialLength, maxTrialDays),
                             )
                         )
                     )
@@ -392,7 +388,6 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         val churnDate = timeRange.end
         val activeDate = timeRange.start.add(0, 0, -1)
         val processor = LicenseChurnProcessor(activeDate, churnDate)
-        processor.init()
         return processor
     }
 }

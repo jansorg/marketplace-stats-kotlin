@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -12,18 +12,16 @@ import dev.ja.marketplace.client.YearMonthDayRange
 /**
  * Churn rate is calculated as "number of users lost in the date range / users at beginning of the date range".
  *
- * Churn processor, which uses the license type (new / renewal) to decide if a user churned or not.
- * Users with renewals even after the end of the range (e.g. after end of month) are considered as active and not as churned.
- * We're not using any kind of grace period because it's implicitly used if the license type is "renewal".
+ * A value, e.g. a license, is active at the start of the range if it's valid at [previouslyActiveMarkerDate] and churned if
+ * it's no longer valid at [currentlyActiveMarkerDate]. The validities must cover the grace period of renewals, see
+ * [ChurnValidities]: a license renewed within the grace period is valid until the start of its renewal.
  *
- * This class is abstract top optimize performance. Subclasses define non-generic getId() methods to avoid boxing Int IDs to objects.
+ * This class is abstract to optimize performance. Subclasses store the values in sets without boxing Int IDs.
  */
 abstract class MarketplaceChurnProcessor<T>(
     private val previouslyActiveMarkerDate: YearMonthDay,
     private val currentlyActiveMarkerDate: YearMonthDay,
 ) : ChurnProcessor<T> {
-    override fun init() {}
-
     protected abstract fun previousPeriodItemCount(): Int
 
     protected abstract fun activeItemsCount(): Int
@@ -52,7 +50,6 @@ abstract class MarketplaceChurnProcessor<T>(
             }
         }
     }
-
 
     override fun getResult(period: LicensePeriod): ChurnResult<T> {
         val activeAtStart = previousPeriodItemCount()

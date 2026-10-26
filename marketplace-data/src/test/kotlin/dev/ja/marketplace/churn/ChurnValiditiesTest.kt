@@ -43,7 +43,6 @@ class ChurnValiditiesTest {
     private fun churnedInJanuary(licenses: List<LicenseInfo>): Int {
         val validities = ChurnValidities(licenses)
         val processor = LicenseChurnProcessor(YearMonthDay(2024, 12, 31), YearMonthDay(2025, 1, 31))
-        processor.init()
         for (license in licenses) {
             processor.processValue(license, validities.validity(license)!!, license.isPaidLicense)
         }

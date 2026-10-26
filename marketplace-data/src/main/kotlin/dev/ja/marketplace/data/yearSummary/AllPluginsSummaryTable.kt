@@ -15,6 +15,7 @@ import dev.ja.marketplace.data.trackers.AnnualRecurringRevenueTracker
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.data.trackers.MonthlyRecurringRevenueTracker
 import dev.ja.marketplace.data.trackers.PaymentAmountTracker
+import dev.ja.marketplace.data.trackers.RecurringRevenueSales
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import java.math.BigInteger
 import java.util.*
@@ -62,7 +63,7 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
     /**
      * Adds the sales, the licenses and the downloads of a plugin.
      */
-    suspend fun add(sales: List<PluginSale>, licenses: List<LicenseInfo>, downloads: List<MonthlyDownload>) {
+    fun add(sales: List<PluginSale>, licenses: List<LicenseInfo>, downloads: List<MonthlyDownload>) {
         for (sale in sales) {
             totalSales.add(sale.date, sale.amountUSD, sale.amount)
             salesByYear.getOrPut(sale.date.year) { PaymentAmountTracker(YearMonthDayRange.ofYear(sale.date.year), displayExchangeRates) }
@@ -74,13 +75,14 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
 
         // the trackers of each plugin, the IDs of the licenses of different plugins could be the same
         val firstYear = licenses.mapNotNull { it.validity?.start?.year }.minOrNull() ?: return
+        val subscriptions = licenses.filter(RecurringRevenueSales::isRecurring)
         val today = YearMonthDay.now()
         for (year in firstYear..today.year) {
             // the recurring revenue of the current year at today
             val yearRange = YearMonthDayRange.ofYear(year).let { it.copy(end = minOf(it.end, today)) }
             val mrr = MonthlyRecurringRevenueTracker(yearRange, displayExchangeRates)
             val arr = AnnualRecurringRevenueTracker(yearRange, displayExchangeRates)
-            for (license in licenses) {
+            for (license in subscriptions) {
                 mrr.processLicenseSale(license)
                 arr.processLicenseSale(license)
             }

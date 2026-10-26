@@ -13,7 +13,8 @@ import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.TrialTracker
 import dev.ja.marketplace.data.trackers.getResultWithinConversionPeriod
-import dev.ja.marketplace.data.trackers.trialConversionDays
+import dev.ja.marketplace.data.trackers.conversionTooltip
+import dev.ja.marketplace.data.trackers.maxTrialDays
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
 import java.math.BigDecimal
 
@@ -60,7 +61,7 @@ class TopTrialCountriesTable(
     override suspend fun init(data: PluginData) {
         super.init(data)
 
-        maxTrialsDays = data.getPluginInfo().purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
+        maxTrialsDays = data.getPluginInfo().maxTrialDays
 
         val pluginTrials = data.getTrials() ?: emptyList()
         allTrialsTracker.init(pluginTrials)
@@ -130,17 +131,11 @@ class TopTrialCountriesTable(
                             columnTrialConversionRate to trialsTrialDuration.convertedTrialsPercentage,
                         ),
                         tooltips = mapOf(
-                            columnTrialConversionRate to trialsAnyDuration.getTooltipConverted() +
-                                    "\n" +
-                                    trialsTrialDuration.getTooltipConverted(trialConversionDays(maxTrialsDays))
+                            columnTrialConversionRate to conversionTooltip(trialsAnyDuration, trialsTrialDuration, maxTrialsDays)
                         )
                     )
                 )
             )
         )
     }
-}
-
-private fun String.orEmptyCountry(): String {
-    return ifEmpty { NoValue }
 }

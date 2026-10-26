@@ -905,7 +905,6 @@ class MarketplaceStatsServer(
         val data = loader.load()
 
         val churnProcessor = LicenseChurnProcessor(lastActiveMarker, activeMarker)
-        churnProcessor.init()
 
         val licenses = data.getLicenses()!!
         val churnValidities = ChurnValidities(licenses)

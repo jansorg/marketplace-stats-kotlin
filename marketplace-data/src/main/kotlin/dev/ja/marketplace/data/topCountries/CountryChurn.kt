@@ -42,7 +42,6 @@ class CountryChurn(licenses: List<LicenseInfo>, today: YearMonthDay) {
         val churnValidities = ChurnValidities(licenses)
         for (period in listOf(LicensePeriod.Annual, LicensePeriod.Monthly)) {
             val processor = LicenseChurnProcessor(previouslyActiveDate, activeDate)
-            processor.init()
             val countries = HashMap<LicenseId, String>()
             for (license in licenses) {
                 val validity = churnValidities.validity(license) ?: continue

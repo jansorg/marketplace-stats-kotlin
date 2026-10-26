@@ -12,6 +12,7 @@ import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
+import dev.ja.marketplace.data.trackers.maxTrialDays
 import java.util.*
 
 /**
@@ -57,7 +58,7 @@ class TimeSpanSummaryTable(
         super.init(data)
 
         this.totalSales = MonetaryAmountTracker(exchangeRates)
-        this.maxTrialDays = data.getPluginInfo().purchaseInfo?.trialPeriod ?: Marketplace.MAX_TRIAL_DAYS_DEFAULT
+        this.maxTrialDays = data.getPluginInfo().maxTrialDays
 
         val downloadsByDay = data.getDownloadsDaily().associate { it.day to it.downloads }
         val trialsByDay = data.getTrials()?.groupingBy { it.date }?.eachCount() ?: emptyMap()
