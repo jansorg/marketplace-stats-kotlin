@@ -1145,13 +1145,19 @@ dl.detail-grid dd {
         height: 100dvh;
         max-height: none;
         margin: 0;
-        padding: 0.75rem;
+        /* little padding, the charts get the width of the screen */
+        padding: 0.5rem 0.25rem;
         border: none;
         border-radius: 0;
     }
 
     .chart-dialog-hint {
         display: none;
+    }
+
+    /* more specific than the general rule of the panels, which follows */
+    .chart-dialog .chart-panel:not(:last-child) {
+        margin-bottom: 1rem;
     }
 }
 
@@ -1744,6 +1750,14 @@ dl.detail-grid dd {
     flex: none;
     width: min(200px, 40vw);
     height: min(200px, 40vw);
+}
+
+/* larger pie charts on large screens */
+@media (min-width: 1000px) {
+    .chart-pie svg {
+        width: 300px;
+        height: 300px;
+    }
 }
 
 .chart-pie svg {
