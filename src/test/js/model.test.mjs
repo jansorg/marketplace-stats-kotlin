@@ -7,7 +7,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
-    alignSeries, availableComparisons, granularitiesOf, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear, trailingAverageOfDays,
+    alignSeries, availableComparisons, granularitiesOf, rollingAverageOfDays, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear, trailingAverageOfDays,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, groupCharts, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
 } from "../../main/resources/js/charts/model.js";
@@ -354,4 +354,25 @@ test("custom events are shown one by one", () => {
     assert.deepEqual(visibleMarkers(markers, ["release"], ["b"]).map(m => m.label), ["v2", "Blog post"]);
     assert.deepEqual(visibleMarkers(markers, [], ["a", "b"]).map(m => m.label), ["Trial period", "Blog post"]);
     assert.deepEqual(visibleMarkers(markers, ["release"]).map(m => m.label), ["v2"]);
+});
+
+test("the 1-month average is the average of the days of the month before each date", () => {
+    const day = isoDateToTimestamp;
+    // a value per day from 2026-08-01 until 2026-10-31, the value is the day of the month
+    const points = new Map();
+    for (let timestamp = day("2026-08-01"); timestamp <= day("2026-10-31"); timestamp += SECONDS_PER_DAY) {
+        points.set(timestamp, new Date(timestamp * 1000).getUTCDate());
+    }
+    const averages = rollingAverageOfDays({points, incomplete: new Set()}, [day("2026-09-30"), day("2026-10-31"), day("2026-08-15")]);
+    // September: 1 to 30, October: 1 to 31
+    assert.equal(averages.get(day("2026-09-30")), 15.5);
+    assert.equal(averages.get(day("2026-10-31")), 16);
+    // the days before 2026-08-01 have no values
+    assert.equal(averages.has(day("2026-08-15")), false);
+
+    // only the values per week and per day
+    const series = {period: "month", unit: "USD", daily: "sales"};
+    assert.equal(overlayApplies("average1", series, "month"), false);
+    assert.equal(overlayApplies("average1", series, "week"), true);
+    assert.equal(overlayApplies("average1", series, "day"), true);
 });

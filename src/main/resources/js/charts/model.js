@@ -526,7 +526,7 @@ export function withoutIncomplete(series) {
 /**
  * Trends, which can be added to line charts: moving averages of 3 and 12 months and the values of the previous year.
  */
-export const OVERLAYS = ["average3", "average12", "previousYear"];
+export const OVERLAYS = ["average1", "average3", "average12", "previousYear"];
 
 /**
  * @param {{measure?: string|null, unit: string}} series
@@ -538,9 +538,10 @@ export function seriesMeasure(series) {
 }
 
 /**
- * Moving averages apply to monthly values with the granularity Month, and to all series with values per day with the
- * granularity Week or Day, e.g. also of the table of the years: the average of each date is the average of the values
- * per day at the same day of the previous months, see {@link trailingAverageOfDays}.
+ * The 3- and 12-month averages apply to monthly values with the granularity Month, and to all series with values per
+ * day with the granularity Week or Day, e.g. also of the table of the years: the average of each date is the average
+ * of the values per day at the same day of the previous months, see {@link trailingAverageOfDays}.
+ * The 1-month average only applies to the values per week and per day, see {@link rollingAverageOfDays}.
  * The previous year can be compared for all values, except yearly values.
  *
  * @param {string} kind One of {@link OVERLAYS}.
@@ -550,6 +551,10 @@ export function seriesMeasure(series) {
 export function overlayApplies(kind, series, granularity) {
     if (kind === "previousYear") {
         return series.period !== "year";
+    }
+    // the average of a month of monthly values would be the values
+    if (kind === "average1" && granularity === "month") {
+        return false;
     }
     switch (granularity) {
         case "month":
@@ -617,6 +622,39 @@ export function trailingAverageOfDays(dailySeries, months, timestamps = dailySer
         }
         if (count === months) {
             result.set(timestamp, sum / months);
+        }
+    }
+    return result;
+}
+
+/**
+ * The average of the values of all days of the month before each date, i.e. from the day after the same day of the
+ * previous month until the date. It smooths values per day, which are already sums of the month before each day.
+ * Incomplete values are ignored, there's no average if a day of the month has no value.
+ *
+ * @param {{points: Map<number, number>, incomplete: Set<number>}} dailySeries Values of each day.
+ * @param {Iterable<number>} [timestamps] The dates of the averages, e.g. the ends of the weeks. Defaults to all days.
+ * @return {Map<number, number>} The averages at the dates.
+ */
+export function rollingAverageOfDays(dailySeries, timestamps = dailySeries.points.keys()) {
+    const values = new Map(completePoints(dailySeries));
+    const result = new Map();
+    for (const timestamp of timestamps) {
+        const start = shiftDate(timestamp, 0, -1) + SECONDS_PER_DAY;
+        let sum = 0;
+        let count = 0;
+        let isComplete = true;
+        for (let day = start; day <= timestamp; day += SECONDS_PER_DAY) {
+            const value = values.get(day);
+            if (value === undefined) {
+                isComplete = false;
+                break;
+            }
+            sum += value;
+            count++;
+        }
+        if (isComplete && count > 0) {
+            result.set(timestamp, sum / count);
         }
     }
     return result;
