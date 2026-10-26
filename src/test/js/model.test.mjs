@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
     averageShade, pinchedRange, rangeLabel, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
-    alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, storedChartLevel, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
+    alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, periodEnd, storedChartLevel, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
 } from "../../main/resources/js/charts/model.js";
@@ -450,4 +450,15 @@ test("the selected window is kept for the levels, to which it applies", () => {
     assert.deepEqual(storedChartLevel(chart, levels), {window: "calendar-month", detail: "year"});
     // back at the level Month, the selected window applies again
     assert.deepEqual(chartLevel(chart, {"metric/USD": {window: "calendar-month", detail: "month"}}), {window: "calendar-month", detail: "month"});
+});
+
+test("the date axis ends with the period of the last value", () => {
+    const day = isoDateToTimestamp;
+    assert.equal(periodEnd(day("2026-10-26"), "yearEnd"), day("2026-12-31"));
+    assert.equal(periodEnd(day("2026-10-26"), "monthEnd"), day("2026-10-31"));
+    assert.equal(periodEnd(day("2026-02-10"), "month"), day("2026-02-28"));
+    // Monday, the week ends at Sunday
+    assert.equal(periodEnd(day("2026-10-26"), "week"), day("2026-11-01"));
+    assert.equal(periodEnd(day("2026-11-01"), "week"), day("2026-11-01"));
+    assert.equal(periodEnd(day("2026-10-26"), "day"), day("2026-10-26"));
 });

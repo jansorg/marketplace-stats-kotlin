@@ -19,7 +19,7 @@ import {
     METRIC_PERIOD, metricLabel, metricPoints, nextColor, pieSlices, storedChartLevel, WINDOW_LABELS, windowApplies, WINDOWS,
     AVERAGE_MONTHS, visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear, trailingAverage,
 } from "./model.js";
-import {browserStorage, createSetupStorage, decodeView, encodeView} from "./storage.js";
+import {browserStorage, createSetupStorage, decodeView, emptySetup, encodeView} from "./storage.js";
 import {chartColumns, metricKey, readLineSeries, readMarkers, readMetricLevel, readMetricSeries, readPieRows, readRowHistorySeries, readTableDateRange} from "./tableData.js";
 import {ChartDialog, removeButton} from "./dialog.js";
 import {createLineChart, lineChartTheme} from "./lineChart.js";
@@ -347,24 +347,22 @@ class ChartController {
         this.openDialog(rejection);
     }
 
+    /**
+     * Removes all charts and resets the whole setup, e.g. the styles, the levels of the charts, the range and the
+     * options of the menus, also of the charts of other pages.
+     */
     removeAll() {
         this.series = [];
         this.pies = [];
-        this.hiddenSeries = new Set();
         this.unresolvedEntries = [];
+        this.applySetup(emptySetup());
         this.save();
         this.dialog.close();
         this.render();
     }
 
-    /**
-     * Restores the chart setup of a bookmarked view or the stored chart setup with the values of the tables of this page.
-     *
-     * @return {boolean} If the setup of a bookmarked view was restored, see {@link bookmark}.
-     */
-    restore(columns) {
-        const view = decodeView(window.location.hash);
-        const setup = view ?? this.storage.load();
+    /** Applies the options of a setup, e.g. the styles and the levels of the charts, without its entries. */
+    applySetup(setup) {
         this.combineUnits = setup.combineUnits;
         this.maximized = setup.maximized;
         this.chartStyles = setup.chartStyles;
@@ -380,6 +378,17 @@ class ChartController {
         this.averagesOnly = setup.averagesOnly;
         this.dateRange = setup.dateRange;
         this.hiddenSeries = new Set(setup.hiddenSeries);
+    }
+
+    /**
+     * Restores the chart setup of a bookmarked view or the stored chart setup with the values of the tables of this page.
+     *
+     * @return {boolean} If the setup of a bookmarked view was restored, see {@link bookmark}.
+     */
+    restore(columns) {
+        const view = decodeView(window.location.hash);
+        const setup = view ?? this.storage.load();
+        this.applySetup(setup);
 
         for (const entry of setup.entries) {
             if (entry.type === "metric") {
@@ -626,9 +635,7 @@ class ChartController {
                 chartSeries = chartSeries.map(withoutIncomplete);
             }
             const detail = level?.detail ?? null;
-            // bars of every day would be too thin
-            const canBeBars = detail === null || detail === "month" || detail === "year";
-            const chartStyle = canBeBars ? this.chartStyles[key] ?? this.preferredStyle : "lines";
+            const chartStyle = this.chartStyles[key] ?? this.preferredStyle;
             this.shownStyles[key] = this.chartStyles[key] ?? this.preferredStyle;
             const overlays = this.trends(chartSeries, detail);
             for (const series of chartSeries) {
@@ -685,8 +692,7 @@ class ChartController {
                 }
                 toolbar.append(this.detailSwitch(chart, level));
             }
-            // disabled instead of hidden, so that the buttons don't move
-            toolbar.append(this.styleSwitch(key, chartStyle, !canBeBars));
+            toolbar.append(this.styleSwitch(key, chartStyle));
             if (isRemovable) {
                 toolbar.append(this.removeButton(() => {
                     this.series = this.series.filter(s => s.period !== chart.period || !chart.units.includes(s.unit));
@@ -1038,10 +1044,9 @@ class ChartController {
     }
 
     /**
-     * @param {boolean} disabled Values per week or per day are only shown as lines.
      * @return {HTMLElement} Buttons to switch a line chart between lines and bars.
      */
-    styleSwitch(key, currentStyle, disabled) {
+    styleSwitch(key, currentStyle) {
         const group = document.createElement("div");
         group.className = "chart-button-group chart-style-switch";
         group.setAttribute("role", "group");
@@ -1051,10 +1056,6 @@ class ChartController {
             button.type = "button";
             button.textContent = STYLE_LABELS[style];
             button.setAttribute("aria-pressed", String(style === currentStyle));
-            button.disabled = disabled;
-            if (disabled) {
-                button.title = "Values per week or per day are shown as lines";
-            }
             button.addEventListener("click", () => {
                 // only this chart changes, the other charts keep their current style
                 this.chartStyles = {...this.chartStyles, ...this.shownStyles, [key]: style};
