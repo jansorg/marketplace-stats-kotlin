@@ -138,7 +138,10 @@ object SubscriptionDailyValues {
         // a customer is new in the first month, whose end a paid license covered, like in the table of the MRR movements.
         // The first day with recurring revenue is only used for customers, whose licenses didn't cover the end of a month.
         val firstPaidMonthDays = Int2IntOpenHashMap().apply { defaultReturnValue(Int.MAX_VALUE) }
-        for (customer in firstPaidIndices.keys) {
+        // nextInt() doesn't box the customers, the next() of a for loop is deprecated
+        val customers = firstPaidIndices.keys.iterator()
+        while (customers.hasNext()) {
+            val customer = customers.nextInt()
             val month = revenue.firstPaidMonthIndex(customer)?.let(revenue.months::get) ?: continue
             firstPaidMonthDays.put(customer, index(minOf(YearMonthDay.lastOfMonth(month.year, month.month), today)))
         }

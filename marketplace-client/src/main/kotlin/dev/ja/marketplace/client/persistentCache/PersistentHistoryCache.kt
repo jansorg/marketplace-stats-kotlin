@@ -311,7 +311,8 @@ internal class PersistentHistoryCache<T, C>(
             onIncrementalFetch(range, fetchTime)
         }
         snapshot = updated
-        if (isFull || isStoredDataChanged(previous!!, updated)) {
+        // isFull is true without previous data
+        if (isFull || isStoredDataChanged(previous, updated)) {
             write(updated)
         }
         return updated

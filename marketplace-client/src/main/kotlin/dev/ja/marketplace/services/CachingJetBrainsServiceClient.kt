@@ -69,7 +69,7 @@ class CachingJetBrainsServiceClient(
                 else -> persistent.get(fileName, key, serializer, loader = loader)
             }
         }
-        return stored!!.value as T
+        return stored.value as T
     }
 
     private class StoredExpiry(private val maxAge: Duration) : Expiry<String, Stored<Any>> {
