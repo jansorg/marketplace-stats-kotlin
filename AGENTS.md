@@ -170,9 +170,9 @@ extend, must not fail a response:
   - `exportImage.js`: images of the charts with title and legend, for downloads (PNG, pie charts also SVG) and
     printing. Printing adds the images to the page and `print.css` hides everything else (`body.print-charts`).
 - The key C shows and hides the chart dialog.
-- The cursor of a line chart snaps to the closest value. Dashed and dotted lines mark the dates one year and one month
-  before and after it, the table below the chart compares the values at these dates (`enableComparisons` in
-  `lineChart.js`). The table replaces the uPlot legend, it lists each series followed by its trends, e.g. its moving
+- The cursor of a line chart snaps to the closest value. With the option "Comparison lines" of the View menu
+  (`showComparisonLines`, off by default), dashed and dotted lines mark the dates one year and one month before and
+  after it. The table below the chart compares the values at these dates (`enableComparisons` in `lineChart.js`). The table replaces the uPlot legend, it lists each series followed by its trends, e.g. its moving
   averages (`valueTableRows`). A click on the label of a line only shows or hides this line, not the trends of a
   series. Without the option "Value table" of the View menu, the uPlot legend is shown instead, it only shows and
   hides the lines.

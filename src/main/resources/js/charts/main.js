@@ -87,6 +87,8 @@ class ChartController {
         this.showIncomplete = true;
         // if a table with the values at the cursor replaces the legend of the line charts
         this.showValueTable = true;
+        // if vertical lines mark the dates one month and one year before and after the cursor
+        this.showComparisonLines = false;
         // if lines with a moving average only show the average
         this.averagesOnly = false;
         // the shown dates of the line charts, null for all dates, see storage.js
@@ -359,6 +361,7 @@ class ChartController {
         this.shownOverlays = setup.shownOverlays;
         this.showIncomplete = setup.showIncomplete;
         this.showValueTable = setup.showValueTable;
+        this.showComparisonLines = setup.showComparisonLines;
         this.averagesOnly = setup.averagesOnly;
         this.dateRange = setup.dateRange;
         this.hiddenSeries = new Set(setup.hiddenSeries);
@@ -447,6 +450,7 @@ class ChartController {
             shownOverlays: this.shownOverlays,
             showIncomplete: this.showIncomplete,
             showValueTable: this.showValueTable,
+            showComparisonLines: this.showComparisonLines,
             averagesOnly: this.averagesOnly,
             dateRange: this.dateRange,
             hiddenSeries: [...this.hiddenSeries],
@@ -510,6 +514,11 @@ class ChartController {
                     this.save();
                     this.render();
                 },
+                onComparisonLinesVisibilityChange: visible => {
+                    this.showComparisonLines = visible;
+                    this.save();
+                    this.render();
+                },
                 onIncompleteVisibilityChange: visible => {
                     this.showIncomplete = visible;
                     this.save();
@@ -558,6 +567,7 @@ class ChartController {
         dialog.setShownExtremes(this.shownExtremes);
         dialog.setShowIncomplete(this.showIncomplete);
         dialog.setShowValueTable(this.showValueTable);
+        dialog.setShowComparisonLines(this.showComparisonLines);
         dialog.setShownOverlays(this.shownOverlays);
         dialog.setAveragesOnly(this.averagesOnly);
         const markers = visibleMarkers(this.markers, this.shownMarkers, this.shownEvents);
@@ -629,6 +639,7 @@ class ChartController {
                 granularity: detail === null ? "month" : detailGranularity(detail),
                 extremes: this.shownExtremes,
                 valueTable: this.showValueTable,
+                comparisonLines: this.showComparisonLines,
                 averagesOnly: this.averagesOnly,
                 visibleRange,
                 hiddenSeries: this.hiddenSeries,
