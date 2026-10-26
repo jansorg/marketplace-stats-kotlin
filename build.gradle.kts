@@ -361,6 +361,8 @@ project(":") {
         implementation("io.ktor:ktor-server-core:$ktorVersion")
         implementation("io.ktor:ktor-server-netty:$ktorVersion")
         implementation("io.ktor:ktor-server-compression:$ktorVersion")
+        implementation("io.ktor:ktor-server-conditional-headers:$ktorVersion")
+        testImplementation("io.ktor:ktor-server-test-host:$ktorVersion")
         implementation("io.ktor:ktor-server-jte:$ktorVersion")
         implementation("io.ktor:ktor-server-status-pages:$ktorVersion")
 
