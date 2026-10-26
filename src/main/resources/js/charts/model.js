@@ -158,6 +158,31 @@ export function rangeTimestamps(range) {
 }
 
 /**
+ * The shown dates while two fingers pinch a chart: the dates under the fingers stay under them.
+ *
+ * @param {[number, number]} shown The shown dates when the fingers touched the chart.
+ * @param {[number, number]} start The positions of the fingers on the x-axis at the start, in pixels from the left.
+ * @param {[number, number]} current The positions of the fingers now.
+ * @param {number} width The width of the plot in pixels.
+ * @param {[number, number]} limits The dates of the values, the chart doesn't show dates before and after them.
+ * @return {[number, number]} The dates, which are shown now.
+ */
+export function pinchedRange(shown, start, current, width, limits) {
+    const startDistance = Math.abs(start[1] - start[0]);
+    const currentDistance = Math.abs(current[1] - current[0]);
+    if (width <= 0 || startDistance < 1 || currentDistance < 1) {
+        return shown;
+    }
+    const scale = (shown[1] - shown[0]) / width;
+    const center = shown[0] + (start[0] + start[1]) / 2 * scale;
+    const span = Math.min((shown[1] - shown[0]) * startDistance / currentDistance, limits[1] - limits[0]);
+    const from = center - (current[0] + current[1]) / 2 / width * span;
+    // the range is moved back within the limits
+    const clamped = Math.min(Math.max(from, limits[0]), limits[1] - span);
+    return [clamped, clamped + span];
+}
+
+/**
  * @param {DateRange|null} range
  * @return {string} The label of the range in the menu, e.g. "2025" for a year, "All" without a range.
  */

@@ -534,7 +534,7 @@ class ChartController {
                 visibleRange,
                 fontFamily: this.fontFamily,
             };
-            const onZoom = (from, to) => this.setDateRange(rangeOfTimestamps(from, to));
+            const onZoom = (from, to) => this.setDateRange(from === null ? null : rangeOfTimestamps(from, to));
             const plot = createLineChart({...chartOptions, onZoom, width: dialog.chartWidth, height, container: panel});
             this.plots.push(plot);
             const title = document.title;

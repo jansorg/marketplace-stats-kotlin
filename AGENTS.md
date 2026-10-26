@@ -199,7 +199,8 @@ added to the models as optional properties at the end of the constructors, unkno
   yearly tables can also show the sums of the year before the end of each month (granularity `monthEnd`,
   `/chart-series?granularity=month`).
 - The menu "Range" of the dialog selects the shown dates of all line charts: all dates or a year with values
-  (`rangeYears`). Dragging over a line chart zooms in (`onZoom` in `lineChart.js`). The range is part of the stored
+  (`rangeYears`). Dragging over a line chart zooms in (`onZoom` in `lineChart.js`), on touch devices two fingers zoom
+  in and out (`enablePinchZoom`, `pinchedRange` in `model.js`). The range is part of the stored
   setup (`dateRange`, ISO dates). Only the x-axis is limited (`visibleRange`), all values are still used, e.g. by the
   value table and the averages. The y-axis, the minimum and maximum and the latest values use the shown dates.
 - The chart setup (columns, colors, options) is stored in the browser's local storage (`marketplace-stats.charts`) and
