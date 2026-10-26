@@ -31,7 +31,7 @@ data class PercentageValue(val value: BigDecimal) {
         val ZERO = PercentageValue(BigDecimal(0.0))
 
         fun of(first: MonetaryAmount, second: MonetaryAmount): PercentageValue {
-            assert(first.currency == second.currency)
+            require(first.currency == second.currency) { "Amounts of different currencies: ${first.currency} and ${second.currency}" }
 
             if (first.isZero || second.isZero) {
                 return ZERO

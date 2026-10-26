@@ -24,7 +24,7 @@ class TrialsTable(
     private val columnCustomerType = DataTableColumn("trial-type", "Type")
     private val columnCustomerCountry = DataTableColumn("trial-country", "Country")
 
-    private val trialData = TreeMap<YearMonthDay, List<PluginTrial>>()
+    private var trialData = TreeMap<YearMonthDay, MutableList<PluginTrial>>()
 
     private var pluginId: PluginId? = null
 
@@ -37,11 +37,7 @@ class TrialsTable(
         super.init(data)
 
         this.pluginId = data.pluginId
-        data.getTrials()?.forEach {
-            if (trialFilter(it)) {
-                trialData.merge(it.date, listOf(it)) { a, b -> a + b }
-            }
-        }
+        trialData = data.getTrials().orEmpty().filter(trialFilter).groupByTo(TreeMap()) { it.date }
     }
 
     override suspend fun process(licenseInfo: LicenseInfo) {
