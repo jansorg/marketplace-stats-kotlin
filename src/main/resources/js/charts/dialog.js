@@ -166,7 +166,8 @@ export class ChartDialog {
         this.rangeMenu = rangeMenu;
         this.rangeItems = rangeItems;
         this.onDateRangeChange = onDateRangeChange;
-        this.markerToggles.append(rangeMenu);
+        // after the events, before the view options
+        viewMenu.before(rangeMenu);
 
         this.message = document.createElement("p");
         this.message.className = "chart-dialog-message";

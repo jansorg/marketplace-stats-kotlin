@@ -7,7 +7,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
-    rangeLabel, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
+    pinchedRange, rangeLabel, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, granularitiesOf, rollingAverageOfDays, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear, trailingAverageOfDays,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, finerPoints, groupCharts, hasFinerValues, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
@@ -396,4 +396,17 @@ test("date ranges of the line charts", () => {
     assert.equal(rangeLabel(null), "All");
     assert.equal(rangeLabel(rangeOfYear(2024)), "2024");
     assert.equal(rangeLabel({from: "2024-02-01", to: "2024-03-05"}), "2024-02-01 – 2024-03-05");
+});
+
+test("pinching keeps the dates under the fingers", () => {
+    const limits = [0, 1000];
+    // the fingers move apart around the center, the range is halved around the center
+    assert.deepEqual(pinchedRange([0, 1000], [400, 600], [300, 700], 1000, limits), [250, 750]);
+    // both fingers move right, the range moves left by the same dates
+    assert.deepEqual(pinchedRange([200, 600], [400, 600], [500, 700], 1000, limits), [160, 560]);
+    // zooming out stops at the dates of the values
+    assert.deepEqual(pinchedRange([250, 750], [300, 700], [450, 550], 1000, limits), [0, 1000]);
+    assert.deepEqual(pinchedRange([800, 1000], [400, 600], [450, 550], 1000, limits), [600, 1000]);
+    // fingers at the same position don't change the range
+    assert.deepEqual(pinchedRange([0, 1000], [500, 500], [300, 700], 1000, limits), [0, 1000]);
 });

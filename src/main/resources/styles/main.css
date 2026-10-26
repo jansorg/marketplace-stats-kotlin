@@ -1259,7 +1259,8 @@ dl.detail-grid dd {
 }
 
 /* on touch devices, the cursor follows the finger and vertical swipes scroll the dialog, see enableTouchCursor.
-   Maximized charts fit into the dialog, all swipes move the cursor. */
+   Maximized charts fit into the dialog, all swipes move the cursor. Two fingers zoom the chart instead of the page,
+   see enablePinchZoom. */
 .chart-panel .u-over {
     touch-action: pan-y;
 }
@@ -1448,8 +1449,8 @@ dl.detail-grid dd {
     background-color: var(--button-bgcolor);
 }
 
-/* the view options follow the options of the vertical lines, the items open to the right like the row */
-.chart-view-menu .chart-menu-items {
+/* the range and the view options follow the options of the vertical lines, the items open to the right like the row */
+.chart-view-menu .chart-menu-items, .chart-range-menu .chart-menu-items {
     left: 0;
     right: auto;
 }

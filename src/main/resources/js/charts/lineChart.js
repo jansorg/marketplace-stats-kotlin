@@ -8,7 +8,7 @@
  */
 
 import {formatDate, SECONDS_PER_DAY, unitTitle} from "./format.js";
-import {alignSeries, availableComparisons, barLayout, displayColor, extremeIndices, incompleteColor, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange} from "./model.js";
+import {alignSeries, availableComparisons, barLayout, displayColor, extremeIndices, incompleteColor, pinchedRange, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange} from "./model.js";
 
 /**
  * The colors of the charts in the light and the dark mode. The surface is the background of the charts in the chart
@@ -702,13 +702,55 @@ function enableTouchCursor(plot) {
     const over = plot.over;
     const moveCursor = event => {
         const touch = event.touches[0];
-        if (touch !== undefined) {
+        // two fingers zoom, see enablePinchZoom
+        if (touch !== undefined && event.touches.length === 1) {
             const bounds = over.getBoundingClientRect();
             plot.setCursor({left: touch.clientX - bounds.left, top: touch.clientY - bounds.top});
         }
     };
     over.addEventListener("touchstart", moveCursor, {passive: true});
     over.addEventListener("touchmove", moveCursor, {passive: true});
+}
+
+/**
+ * Two fingers zoom in and out on touch devices: the dates under the fingers stay under them. The chart shows the new
+ * range while the fingers move, {@link onZoom} receives it when they're lifted.
+ *
+ * @param {{limits: [number, number], onZoom: Function, setPreview: (range: [number, number]|null) => void}} options
+ */
+function enablePinchZoom(plot, {limits, onZoom, setPreview}) {
+    const over = plot.over;
+    let pinch = null;
+    const positions = touches => {
+        const bounds = over.getBoundingClientRect();
+        return [touches[0].clientX - bounds.left, touches[1].clientX - bounds.left];
+    };
+    over.addEventListener("touchstart", event => {
+        if (event.touches.length === 2) {
+            pinch = {shown: [plot.scales.x.min, plot.scales.x.max], start: positions(event.touches), range: null};
+        }
+    }, {passive: true});
+    over.addEventListener("touchmove", event => {
+        if (pinch !== null && event.touches.length === 2) {
+            pinch.range = pinchedRange(pinch.shown, pinch.start, positions(event.touches), over.clientWidth, limits);
+            setPreview(pinch.range);
+            plot.setScale("x", {min: pinch.range[0], max: pinch.range[1]});
+        }
+    }, {passive: true});
+    const end = event => {
+        if (pinch === null || event.touches.length >= 2) {
+            return;
+        }
+        const range = pinch.range;
+        pinch = null;
+        if (range !== null) {
+            // all dates without a selected range
+            const isAll = range[1] - range[0] >= (limits[1] - limits[0]) * 0.999;
+            isAll ? onZoom(null, null) : onZoom(range[0], range[1]);
+        }
+    };
+    over.addEventListener("touchend", end, {passive: true});
+    over.addEventListener("touchcancel", end, {passive: true});
 }
 
 const DAY = 24 * 60 * 60;
@@ -784,8 +826,8 @@ function yAxis(unit, scale, side, style) {
  *  the tooltip still show their values. Series without a moving average are always shown.
  * @param {[number, number]|null} [options.visibleRange] The shown dates, e.g. of a zoomed chart, all dates if null.
  *  The values outside of it are still used, e.g. by the value table to compare with the previous year.
- * @param {((from: number, to: number) => void)|null} [options.onZoom] Called with the dates of a range, which is
- *  selected with the mouse. Without it, ranges can't be selected.
+ * @param {((from: number|null, to: number|null) => void)|null} [options.onZoom] Called with the dates of a range,
+ *  which is selected with the mouse or with two fingers, null for all dates. Without it, the chart can't be zoomed.
  * @param {string} options.fontFamily
  * @param {number} options.width
  * @param {number} options.height
@@ -842,13 +884,14 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     // the range of yearly values covers the years until today
     // the values per year of monthly values have the ticks and the range of yearly values
     const axisPeriod = granularity === "yearEnd" ? "year" : period;
-    const xRange = visibleRange !== null
-        ? [visibleRange[0] - xPadding, visibleRange[1] + xPadding]
-        : axisPeriod === "year"
-            ? yearRange(dateRange, granularity !== "month" && granularity !== "yearEnd")
-            : [dateRange[0] - xPadding, dateRange[1] + xPadding];
+    const fullRange = axisPeriod === "year"
+        ? yearRange(dateRange, granularity !== "month" && granularity !== "yearEnd")
+        : [dateRange[0] - xPadding, dateRange[1] + xPadding];
+    const xRange = visibleRange !== null ? [visibleRange[0] - xPadding, visibleRange[1] + xPadding] : fullRange;
+    // the range while two fingers zoom, see enablePinchZoom
+    let pinchPreview = null;
     const scales = {
-        x: {time: true, range: () => xRange},
+        x: {time: true, range: () => pinchPreview ?? xRange},
         y: {range: (plot, min, max) => uPlot.rangeNum(...zeroBasedRange(...drawnRange(plot, "y", min, max)), 0.1, true)},
     };
     const axes = [
@@ -976,6 +1019,9 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     updateTooltip = enableTooltip(plot, chartSeries, describe);
     updateComparisons = enableComparisons(plot, {chartSeries, timestamps, values, datePeriod, formatter, valueTable, shownRange: xRange});
     enableTouchCursor(plot);
+    if (onZoom !== null) {
+        enablePinchZoom(plot, {limits: fullRange, onZoom, setPreview: range => pinchPreview = range});
+    }
     legendData.set(plot, {chartSeries, markers, isBars, chartOverlays, theme});
     return plot;
 }
