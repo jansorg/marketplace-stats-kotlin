@@ -544,6 +544,10 @@ open class KtorMarketplaceClient(
         httpClient.get("$apiPath/plugins/$plugin/developers").body()
     }
 
+    override suspend fun pluginFeatures(plugin: PluginId): List<PluginFeature> = withContext(dispatcher) {
+        httpClient.get("$apiPath/plugins/$plugin/features").body()
+    }
+
     override suspend fun downloadRelease(target: Path, update: PluginReleaseInfo) {
         target.streamingDownload(update.getMarketplaceDownloadLink())
     }

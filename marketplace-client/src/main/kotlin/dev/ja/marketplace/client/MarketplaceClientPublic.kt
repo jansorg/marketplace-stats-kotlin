@@ -115,6 +115,12 @@ interface MarketplaceClientPublic {
      */
     suspend fun pluginDevelopers(plugin: PluginId): List<JetBrainsAccountInfo>
 
+    /**
+     * The features are public, they don't need an API key.
+     * @return The features of the plugin, e.g. the supported file types, see [PluginFeature.FILE_TYPE].
+     */
+    suspend fun pluginFeatures(plugin: PluginId): List<PluginFeature>
+
     suspend fun downloadRelease(target: Path, update: PluginReleaseInfo)
 
     suspend fun downloadRelease(target: Path, update: PluginReleaseId)
