@@ -20,7 +20,8 @@
  * - rows of line charts: `data-chart-x` (ISO date), cells of columns without a metric: `data-chart-value`,
  *   `data-chart-unit`, `data-chart-incomplete`
  * - rows of pie charts: `data-chart-category`, cells: `data-chart-share` (percentage)
- * - vertical lines: `#chart-major-releases`, `#chart-price-changes`, `#chart-ide-releases` and `#chart-custom-events`
+ * - vertical lines: `#chart-major-releases`, `#chart-price-changes`, `#chart-continuity-discount`, `#chart-ide-releases`
+ *   and `#chart-custom-events`
  *   with `li[data-date]`, the custom events also with `data-event-id`
  */
 
@@ -239,13 +240,15 @@ export function readPieRows(table, columnIndex) {
 const MARKER_SOURCES = [
     {kind: "release", selector: "#chart-major-releases li", label: text => "v" + text},
     {kind: "price", selector: "#chart-price-changes li", label: text => text},
+    {kind: "continuity", selector: "#chart-continuity-discount li", label: text => text},
     {kind: "ide", selector: "#chart-ide-releases li", label: text => "IDEA " + text},
     {kind: "custom", selector: "#chart-custom-events li", label: text => text},
 ];
 
 /**
- * @return {{kind: "release"|"price"|"ide"|"custom", timestamp: number, label: string, id?: string}[]} The vertical lines
- *  of the line charts: major releases of the plugin, changes of its base price, major releases of IntelliJ IDEA and the
+ * @return {{kind: "release"|"price"|"continuity"|"ide"|"custom", timestamp: number, label: string, id?: string}[]} The vertical lines
+ *  of the line charts: major releases of the plugin, changes of its base price, the date at which it disabled
+ *  the continuity discount, major releases of IntelliJ IDEA and the
  *  custom events of the configured file, which have an ID.
  */
 export function readMarkers(document) {

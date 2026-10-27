@@ -76,6 +76,7 @@ class DefaultPluginPageDefinition(
             "majorReleases" to majorReleases.await(),
             "ideReleases" to ideReleases.await(),
             "priceChanges" to (data.getSales()?.let(PriceChanges::find) ?: emptyList()),
+            "continuityDiscountDisabledAt" to data.getMarketplacePluginInfo()?.continuityDiscountDisabledAt,
             "customEvents" to serverConfiguration.customEvents(setOf(data.pluginId)),
         )
     }

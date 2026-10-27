@@ -1087,10 +1087,10 @@ export function previousYear(series) {
 }
 
 /** Kinds of vertical lines in the line charts. */
-export const MARKER_KINDS = ["release", "price", "ide"];
+export const MARKER_KINDS = ["release", "price", "continuity", "ide"];
 
 /** Labels of the kinds of vertical lines. */
-export const MARKER_LABELS = {release: "Product version", price: "Price changes", ide: "IntelliJ IDEA releases", custom: "Events"};
+export const MARKER_LABELS = {release: "Product version", price: "Price changes", continuity: "Continuity discount", ide: "IntelliJ IDEA releases", custom: "Events"};
 
 /**
  * The items of the menu "Events" of the chart dialog: the custom events of the page first, then a separator and the
