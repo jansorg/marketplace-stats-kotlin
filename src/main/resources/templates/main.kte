@@ -31,6 +31,7 @@
     <title>${plugin.name}: ${pageTitle ?: "Report"}</title>
     <meta name="description" content="${pageTitle ?: "Report"} of ${plugin.name}: sales, licenses, customers, trials and downloads of the JetBrains Marketplace">
     @template.favicons()
+    @template.themeScript()
     @template.fonts()
     <link rel="stylesheet" type="text/css" href="${dev.ja.marketplace.StaticAssets.url("/styles/main.min.css")}"/>
     <link rel="stylesheet" type="text/css" media="print" href="${dev.ja.marketplace.StaticAssets.url("/styles/print.min.css")}"/>

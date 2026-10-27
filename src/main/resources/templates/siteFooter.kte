@@ -1,5 +1,6 @@
 <%-- The footer of all pages: the version, links to the project and its author, and the date and the time of the page,
-     e.g. for archived and printed pages. The pages of a plugin show a button to drop the cached data of the plugin. --%>
+     e.g. for archived and printed pages. The pages of a plugin show a button to drop the cached data of the plugin.
+     The theme of the pages is stored in the browser, see themeScript.kte. --%>
 @param dropCachesPluginId: Int? = null
 
 !{val renderedAt = java.time.ZonedDateTime.now().truncatedTo(java.time.temporal.ChronoUnit.MINUTES)}
@@ -8,7 +9,56 @@
     @if(dropCachesPluginId != null)
         <form class="noprint" action="/refresh?pluginId=${dropCachesPluginId}&reload=true" method="POST"><button class="site-footer-button" title="Drops the cached data and loads it again"><svg class="site-footer-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9 M12.5 1.5v3h-3"/></svg>Drop caches</button></form>
     @endif
+    <label class="site-footer-theme noprint" title="The colors of the pages, Auto follows the color scheme of the browser">Theme
+        <select id="site-theme">
+            <option value="auto">Auto</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+        </select>
+    </label>
     <a href="https://github.com/jansorg/marketplace-stats-kotlin" target="_blank" rel="noopener">GitHub</a>
     <a href="https://j-a.dev" target="_blank" rel="noopener">j-a.dev</a>
     <time class="site-footer-date" datetime="${renderedAt.toOffsetDateTime().toString()}">${renderedAt.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm z"))}</time>
 </footer>
+<script>
+    (function () {
+        var key = "marketplace-stats.theme";
+        var select = document.getElementById("site-theme");
+        var media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+        function choice() {
+            try {
+                return localStorage.getItem(key) || "auto";
+            } catch (e) {
+                return "auto";
+            }
+        }
+
+        // the theme of <html>, the charts are drawn again with the colors of the theme
+        function apply() {
+            var current = choice();
+            var theme = current === "dark" || (current !== "light" && !!media && media.matches) ? "dark" : "light";
+            if (document.documentElement.dataset.theme !== theme) {
+                document.documentElement.dataset.theme = theme;
+                document.dispatchEvent(new CustomEvent("marketplace-themechange", {detail: theme}));
+            }
+        }
+
+        select.value = choice();
+        select.addEventListener("change", function () {
+            try {
+                if (select.value === "auto") {
+                    localStorage.removeItem(key);
+                } else {
+                    localStorage.setItem(key, select.value);
+                }
+            } catch (e) {
+            }
+            apply();
+        });
+        // "Auto" follows changes of the color scheme of the browser
+        if (media) {
+            media.addEventListener("change", apply);
+        }
+    })();
+</script>

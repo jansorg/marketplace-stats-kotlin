@@ -1,0 +1,14 @@
+<%-- The theme of the pages, in the <head> of all pages, before they're drawn: the choice of the footer (siteFooter.kte),
+     "auto" by default, which follows the color scheme of the browser. It sets data-theme="light|dark" of <html>, see
+     the dark mode of main.css. The charts of the server (MCP create_chart) have their own theme. --%>
+<script>
+    (function () {
+        var choice = "auto";
+        try {
+            choice = localStorage.getItem("marketplace-stats.theme") || "auto";
+        } catch (e) {
+        }
+        var dark = choice === "dark" || (choice !== "light" && !!window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+    })();
+</script>

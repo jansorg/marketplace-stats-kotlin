@@ -17,6 +17,7 @@
     <title>All Available Plugins</title>
     <meta name="description" content="The plugins of the account with the sales, licenses and trials of the JetBrains Marketplace">
     @template.favicons()
+    @template.themeScript()
     @template.fonts()
     <link rel="stylesheet" type="text/css" href="${dev.ja.marketplace.StaticAssets.url("/styles/main.min.css")}"/>
     <link rel="stylesheet" type="text/css" media="print" href="${dev.ja.marketplace.StaticAssets.url("/styles/print.min.css")}"/>

@@ -434,8 +434,12 @@ queries, and one which excludes all these tags. The results are in the order of 
 - Pages have a `<main>` element between the navigation and the footer, and a meta description. Columns without a title
   have an `accessibleTitle` (by default their chart title), which the header cell contains for screen readers
   (`visually-hidden`), so that the cells have a header.
-- Dark mode: `@media screen and (prefers-color-scheme: dark)` redefines the custom properties. Printing always uses the
-  light colors. Text colors need a contrast of at least 4.5:1 on the page, the tables, their stripes and the hovered rows
+- Dark mode: `:root[data-theme="dark"]` (within `@media screen`) redefines the custom properties. The theme is chosen
+  in the footer of all pages (Auto, Light, Dark, `siteFooter.kte`), stored in the local storage of the browser
+  (`marketplace-stats.theme`, without it "Auto"), and set as `data-theme` of `<html>` by `themeScript.kte` in the
+  `<head>` of all pages, before they're drawn. "Auto" follows the color scheme of the browser, also when it changes.
+  Changes dispatch the event `marketplace-themechange`, which draws the charts again (`preferredChartTheme`). Without
+  JavaScript, the pages are light. Printing always uses the light colors. Text colors need a contrast of at least 4.5:1 on the page, the tables, their stripes and the hovered rows
   in both modes.
 - `dataTable.kte` wraps each table in a `.table-card`. The cards of `.tables` flow in rows: narrow tables share a row,
   tables with `tables-row` or `table-column-wide` use a full row, wide tables scroll horizontally with a sticky first

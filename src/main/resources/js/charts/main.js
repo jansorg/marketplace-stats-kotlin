@@ -115,8 +115,8 @@ class ChartController {
             this.save();
             this.openDialog(null);
         }
-        // the colors of the charts follow the color scheme of the browser
-        window.matchMedia?.("(prefers-color-scheme: dark)").addEventListener("change", () => {
+        // the colors of the charts follow the theme of the page, see siteFooter.kte
+        document.addEventListener("marketplace-themechange", () => {
             if (this.dialog?.isOpen) {
                 this.render();
             }

@@ -26,6 +26,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Customer Details: @if (customer.name.isNullOrEmpty()) ${customer.code} @else ${customer.name}@endif</title>
     @template.favicons()
+    @template.themeScript()
     @template.fonts()
     <link rel="stylesheet" type="text/css" href="${dev.ja.marketplace.StaticAssets.url("/styles/main.min.css")}"/>
     <link rel="stylesheet" type="text/css" media="print" href="${dev.ja.marketplace.StaticAssets.url("/styles/print.min.css")}"/>
