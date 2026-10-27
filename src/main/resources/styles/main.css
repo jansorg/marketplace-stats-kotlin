@@ -896,9 +896,10 @@ tr.disabled a:hover {
     cursor: help;
 }
 
-/* the symbol of expired licenses, besides the gray of their rows, see ExpiredLicenseEnd */
+/* the symbol of expired licenses, besides the gray of their rows, see ExpiredLicenseEnd. It precedes the date, so that
+   the right-aligned dates of expired and active licenses line up. */
 .expired-marker {
-    margin-left: 0.3em;
+    margin-right: 0.3em;
     cursor: help;
 }
 
