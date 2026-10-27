@@ -73,6 +73,9 @@ class ChartDataTest {
         assertEquals("sales", metrics.first().id)
         assertEquals("Sales", metrics.first().group)
         assertFalse(metrics.any { it.id.endsWith(".Unknown") })
+        // the tooltips of the menu to add metrics, each metric has its own
+        assertTrue(metrics.all { it.description.isNotBlank() })
+        assertEquals(metrics.size, metrics.map { it.description }.toSet().size)
     }
 
     @Test
