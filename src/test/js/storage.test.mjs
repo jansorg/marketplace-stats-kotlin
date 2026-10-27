@@ -5,7 +5,7 @@
 
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {createSetupStorage, decodeView, emptySetup, encodeView, STORAGE_KEY} from "../../main/resources/js/charts/storage.js";
+import {createSetupStorage, decodeView, emptySetup, encodeView, setupStorageKey, STORAGE_KEY} from "../../main/resources/js/charts/storage.js";
 
 function memoryStorage(initial = {}) {
     const values = new Map(Object.entries(initial));
@@ -28,7 +28,7 @@ test("a stored setup is loaded", () => {
     setupStorage.save(setup);
     assert.deepEqual(setupStorage.load(), setup);
     // only the setup is stored, no values of the tables
-    assert.deepEqual(Object.keys(JSON.parse(storage.values.get(STORAGE_KEY))).sort(),
+    assert.deepEqual(Object.keys(JSON.parse(storage.values.get(setupStorageKey(null)))).sort(),
         ["averagesOnly", "chartLevels", "chartStyles", "combineUnits", "dateRange", "entries", "hiddenSeries", "hideAxisValues", "maximized", "preferredStyle", "showComparisonLines", "showIncomplete", "showValueTable", "shownEvents", "shownExtremes", "shownMarkers", "shownOverlays", "version"]);
 });
 
@@ -160,4 +160,60 @@ test("a range until today is stored with its preset, an unknown preset is ignore
     assert.deepEqual(storage.load().dateRange, dateRange);
     storage.save({...emptySetup(), dateRange: {...dateRange, preset: "yesterday"}});
     assert.deepEqual(storage.load().dateRange, {from: "2026-10-20", to: "2026-10-26"});
+});
+
+const salesEntry = {type: "metric", metric: "sales", label: "Sales", unit: "USD"};
+const trialsEntry = {type: "metric", metric: "trials", label: "Trials", unit: "count"};
+
+test("each plugin and the summary of all plugins have their own key", () => {
+    assert.equal(setupStorageKey("1"), "marketplace-stats.charts.plugin-1");
+    assert.equal(setupStorageKey(2), "marketplace-stats.charts.plugin-2");
+    assert.equal(setupStorageKey(null), "marketplace-stats.charts.all-plugins");
+    assert.equal(setupStorageKey(undefined), setupStorageKey(null));
+    assert.equal(setupStorageKey(""), setupStorageKey(null));
+    assert.notEqual(setupStorageKey("1"), STORAGE_KEY);
+});
+
+test("the setup of a plugin doesn't change the setups of other plugins", () => {
+    const storage = memoryStorage();
+    const first = createSetupStorage(storage, "1");
+    const second = createSetupStorage(storage, "2");
+    const summary = createSetupStorage(storage, null);
+    first.save({...emptySetup(), entries: [salesEntry]});
+    second.save({...emptySetup(), entries: [trialsEntry]});
+    summary.save({...emptySetup(), preferredStyle: "bars", entries: [salesEntry, trialsEntry]});
+
+    // removing all charts of a plugin stores an empty setup of this plugin
+    first.save(emptySetup());
+    assert.deepEqual(first.load(), emptySetup());
+    assert.deepEqual(second.load().entries, [trialsEntry]);
+    assert.deepEqual(summary.load().entries, [salesEntry, trialsEntry]);
+    assert.equal(summary.load().preferredStyle, "bars");
+    // all pages of a plugin share its setup
+    assert.deepEqual(createSetupStorage(storage, "2").load().entries, [trialsEntry]);
+});
+
+test("the setup, which was shared by all plugins, is the initial setup of plugins without their own setup", () => {
+    const storage = memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 2, ...emptySetup(), entries: [salesEntry]})});
+    const first = createSetupStorage(storage, "1");
+    assert.deepEqual(first.load().entries, [salesEntry]);
+    assert.deepEqual(createSetupStorage(storage, null).load().entries, [salesEntry]);
+
+    first.save({...emptySetup(), entries: [trialsEntry]});
+    assert.deepEqual(first.load().entries, [trialsEntry]);
+    // removing all charts of a plugin doesn't restore the shared setup
+    first.save(emptySetup());
+    assert.deepEqual(first.load(), emptySetup());
+    // the shared setup isn't changed
+    assert.deepEqual(JSON.parse(storage.values.get(STORAGE_KEY)).entries, [salesEntry]);
+    assert.deepEqual(createSetupStorage(storage, "2").load().entries, [salesEntry]);
+});
+
+test("a bookmarked view is stored as the setup of the plugin of the page", () => {
+    const storage = memoryStorage();
+    createSetupStorage(storage, "2").save({...emptySetup(), entries: [trialsEntry]});
+    const view = decodeView("#" + encodeView({...emptySetup(), entries: [salesEntry]}));
+    createSetupStorage(storage, "1").save(view);
+    assert.deepEqual(createSetupStorage(storage, "1").load().entries, [salesEntry]);
+    assert.deepEqual(createSetupStorage(storage, "2").load().entries, [trialsEntry]);
 });

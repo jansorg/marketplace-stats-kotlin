@@ -8,7 +8,20 @@
  * Only the selected columns and the options are stored, never the values of the tables.
  */
 
+/**
+ * The key of the setup, which was shared by all plugins. Each plugin and the summary of all plugins now have their own
+ * setup (see {@link setupStorageKey}). This setup is only read: it's the initial setup of a plugin without its own setup.
+ */
 export const STORAGE_KEY = "marketplace-stats.charts";
+
+/**
+ * @param {string|null|undefined} pluginId The ID of the plugin of the page, empty or null for the summary of all plugins.
+ * @return {string} The key of the setup of the plugin in the local storage. All pages of a plugin share the setup.
+ */
+export function setupStorageKey(pluginId) {
+    const id = pluginId == null ? "" : String(pluginId).trim();
+    return id === "" ? `${STORAGE_KEY}.all-plugins` : `${STORAGE_KEY}.plugin-${id}`;
+}
 /**
  * Version 2 stores the series of metrics with the ID of the metric instead of the table and the column, and the window
  * and the detail level of each chart of metrics. A setup of version 1 is still read: its series of tables are shown
@@ -180,23 +193,30 @@ export function decodeView(fragment) {
 
 /**
  * @param {Storage|null} storage The local storage, or null if it's unavailable.
+ * @param {string|null} [pluginId] The ID of the plugin of the page, null for the summary of all plugins, see
+ *  {@link setupStorageKey}.
  */
-export function createSetupStorage(storage) {
+export function createSetupStorage(storage, pluginId = null) {
+    const key = setupStorageKey(pluginId);
     return {
-        /** @return {ChartSetup} The stored setup, or an empty setup if there is none or it's invalid. */
+        /**
+         * @return {ChartSetup} The stored setup of the plugin. Without one, the setup, which was shared by all plugins
+         *  before each plugin had its own setup, or else an empty setup. An invalid setup is an empty setup.
+         */
         load() {
             try {
-                return parseSetup(JSON.parse(storage?.getItem(STORAGE_KEY) ?? "null")) ?? emptySetup();
+                const stored = storage?.getItem(key) ?? storage?.getItem(STORAGE_KEY) ?? null;
+                return parseSetup(JSON.parse(stored ?? "null")) ?? emptySetup();
             } catch (e) {
                 // invalid data or a storage, which can't be accessed
                 return emptySetup();
             }
         },
 
-        /** @param {ChartSetup} setup */
+        /** @param {ChartSetup} setup The setup of the plugin, the setups of other plugins are unchanged. */
         save(setup) {
             try {
-                storage?.setItem(STORAGE_KEY, JSON.stringify({version: VERSION, ...setup}));
+                storage?.setItem(key, JSON.stringify({version: VERSION, ...setup}));
             } catch (e) {
                 // the setup is just not stored if the storage is full or can't be accessed, e.g. in a private window
             }

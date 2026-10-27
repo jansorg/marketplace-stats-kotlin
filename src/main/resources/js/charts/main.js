@@ -151,7 +151,8 @@ class ChartController {
         // trends of the line charts, see OVERLAYS
         this.shownOverlays = [];
         this.hasLineCharts = false;
-        this.storage = createSetupStorage(browserStorage());
+        // each plugin and the summary of all plugins have their own setup, see data-plugin-id of the templates
+        this.storage = createSetupStorage(browserStorage(), document.body.dataset.pluginId ?? null);
 
         this.series = [];
         this.pies = [];
@@ -571,7 +572,8 @@ class ChartController {
 
     /**
      * Removes all charts and resets the whole setup, e.g. the styles, the levels of the charts, the range and the
-     * options of the menus, also of the charts of other pages.
+     * options of the menus, also of the other pages of the plugin. The setups of other plugins and of the summary of
+     * all plugins are unchanged.
      */
     removeAll() {
         this.series = [];

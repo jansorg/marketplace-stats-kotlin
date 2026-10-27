@@ -290,13 +290,18 @@ queries, and one which excludes all these tags. The results are in the order of 
   value table and the averages. The y-axis, the minimum and maximum and the latest values use the shown dates.
 - Series and averages, which were hidden by a click on the legend or the value table, stay hidden when the charts are
   drawn again, e.g. after changing the level (`hiddenSeries` of the setup, keys `<series>` and `<series>:<kind>`).
-- The chart setup (columns, colors, options) is stored in the browser's local storage (`marketplace-stats.charts`,
-  version 2, version 1 is still read). The series of metrics are restored on all pages, the other series and the pie
-  charts on all pages with the same tables. Values are never stored. "Remove all charts" (the trash icon) resets the
-  whole setup (`emptySetup`), e.g. the styles, the levels and the range.
+- The chart setup (columns, colors, options) is stored in the browser's local storage (version 2, version 1 is still
+  read). Each plugin and the summary of all plugins have their own setup (`setupStorageKey` in `storage.js`:
+  `marketplace-stats.charts.plugin-<id>` and `marketplace-stats.charts.all-plugins`), the plugin of a page is
+  `data-plugin-id` of the `<body>` (`main.kte`, the plugin list has none). All pages of a plugin share its setup: the
+  series of metrics are restored on all its pages, the other series and the pie charts on its pages with the same
+  tables. Values are never stored. "Remove all charts" (the trash icon) resets the whole setup of the plugin
+  (`emptySetup`), e.g. the styles, the levels and the range, the setups of other plugins are unchanged. The setup of
+  `marketplace-stats.charts`, which all plugins shared before, is only read: it's the initial setup of a plugin
+  without its own setup. After "Remove all charts", a plugin has its own empty setup.
 - "Bookmark this view" of the Export menu writes the setup into the fragment of the address (`#charts=<base64url JSON>`,
-  `encodeView`/`decodeView` in `storage.js`) and copies the address. Opening it replaces the stored setup with the
-  view, opens the dialog and removes the fragment. Changing the charts also removes it.
+  `encodeView`/`decodeView` in `storage.js`) and copies the address. Opening it replaces the stored setup of the
+  plugin of the page with the view, opens the dialog and removes the fragment. Changing the charts also removes it.
 - "Copy data URL" of the Export menu of a chart of metrics copies the address of `/chart-export` (`ChartExport.kt`),
   which returns the values of the shown lines, e.g. for an AI agent (`chartExportUrl` and `exportLineId` in
   `model.js`, `copyDataUrl` in `main.js`; without access to the clipboard the message shows the address). One address
