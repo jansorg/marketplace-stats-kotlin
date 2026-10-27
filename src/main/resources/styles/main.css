@@ -1130,12 +1130,15 @@ dl.detail-grid dd {
     text-decoration-color: currentColor;
 }
 
+/*
+ * The sizes of the dialog are percentages of the window, not viewport units: Safari on the iPad keeps outdated values of
+ * vw and dvh, after it returned from another app, e.g. the sizes of the other orientation of the snapshots of the app
+ * switcher, until the device is rotated. The window of a fixed element excludes the toolbars of mobile browsers.
+ */
 .chart-dialog {
     box-sizing: border-box;
-    width: min(1100px, 92vw);
-    max-height: 90vh;
-    /* the dynamic viewport excludes the toolbars of mobile browsers, e.g. of Safari on the iPad */
-    max-height: 90dvh;
+    width: min(1100px, 92%);
+    max-height: 90%;
     padding: 1rem 1.5rem 1.5rem;
     /* scrolling the dialog never scrolls the page behind it */
     overscroll-behavior: contain;
@@ -1152,10 +1155,10 @@ dl.detail-grid dd {
 
 /* the maximized dialog fills the window, without a gap, border or rounded corners around it */
 .chart-dialog.maximized {
-    width: 100vw;
+    inset: 0;
+    width: auto;
     max-width: none;
-    height: 100vh;
-    height: 100dvh;
+    height: auto;
     max-height: none;
     margin: 0;
     /* little padding, the charts get the size of the window */
@@ -1176,10 +1179,10 @@ dl.detail-grid dd {
 /* small screens: the dialog fills the window, without the hint */
 @media (max-width: 600px) {
     .chart-dialog, .chart-dialog:not(.maximized), .chart-dialog.maximized {
-        width: 100vw;
+        inset: 0;
+        width: auto;
         max-width: none;
-        height: 100vh;
-        height: 100dvh;
+        height: auto;
         max-height: none;
         margin: 0;
         /* little padding, the charts get the width of the screen */

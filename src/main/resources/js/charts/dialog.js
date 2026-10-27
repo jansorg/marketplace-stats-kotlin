@@ -21,6 +21,12 @@ const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 /** The time, after which a message of the dialog is hidden, in milliseconds. */
 const MESSAGE_DURATION = 10_000;
 
+/**
+ * The time after a page is shown again, after which the charts are measured once more, in milliseconds. Safari on the
+ * iPad restores the size of the window only after it showed the page.
+ */
+const RESUME_LAYOUT_DELAY = 500;
+
 /** Arrows pointing to the corners to maximize, and to the center to restore. */
 const ICON_PATHS = {
     maximize: "M3 8V3h5 M3 3l6 6 M17 8V3h-5 M17 3l-6 6 M3 12v5h5 M3 17l6-6 M17 12v5h-5 M17 17l-6-6",
@@ -270,7 +276,9 @@ export class ChartDialog {
     /**
      * The charts follow the size of the dialog. The resize event of the window isn't enough: on tablets, it's fired
      * before the layout of the rotated screen is complete, and the toolbars of mobile browsers change the size of the
-     * dialog without it. A page, which is shown again, e.g. after switching apps, is measured again.
+     * dialog without it. A page, which is shown again, e.g. after switching apps, is measured again after its layout,
+     * and once more after Safari on the iPad restored the size of the window, which it changes for the snapshots of the
+     * app switcher.
      */
     followSize(onResize) {
         let lastSize = null;
@@ -286,13 +294,19 @@ export class ChartDialog {
         };
         // called after the layout, also for hidden pages
         new ResizeObserver(() => resize(false)).observe(this.element);
-        // measured after the layout of the page, which is shown again
-        window.addEventListener("pageshow", () => requestAnimationFrame(() => resize(true)));
+        // measured after the layout of the page, which is shown again, and after the window got its size again
+        const resizeShownPage = () => {
+            requestAnimationFrame(() => resize(true));
+            setTimeout(() => resize(false), RESUME_LAYOUT_DELAY);
+        };
+        window.addEventListener("pageshow", resizeShownPage);
         document.addEventListener("visibilitychange", () => {
             if (document.visibilityState === "visible") {
-                requestAnimationFrame(() => resize(true));
+                resizeShownPage();
             }
         });
+        // the visible part of the window changes, e.g. with the toolbars of Safari, also without a change of the dialog
+        window.visualViewport?.addEventListener("resize", () => requestAnimationFrame(() => resize(false)));
     }
 
     /** @return {boolean} If the position of the viewport is within the bounds of the dialog. */
@@ -576,8 +590,9 @@ export class ChartDialog {
         if (!this.isMaximized) {
             return 300;
         }
-        // the space for the header and the legends is an estimate
-        const available = window.innerHeight - 140 - chartCount * 90;
+        // the height of the maximized dialog is the height of the window, which Safari may report wrongly for a moment,
+        // after it returned from another app. The space for the header and the legends is an estimate.
+        const available = (this.element.clientHeight || window.innerHeight) - 140 - chartCount * 90;
         return Math.max(300, Math.floor(available / Math.max(1, chartCount)));
     }
 }
