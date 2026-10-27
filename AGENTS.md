@@ -292,8 +292,8 @@ queries, and one which excludes all these tags. The results are in the order of 
   value table and the averages. The y-axis, the minimum and maximum and the latest values use the shown dates.
 - Series and averages, which were hidden by a click on the legend or the value table, stay hidden when the charts are
   drawn again, e.g. after changing the level (`hiddenSeries` of the setup, keys `<series>` and `<series>:<kind>`).
-- The chart setup (columns, colors, options) is stored in the browser's local storage (version 2, version 1 is still
-  read). Each plugin and the summary of all plugins have their own setup (`setupStorageKey` in `storage.js`:
+- The chart setup (columns, colors, options) is stored in the browser's local storage (version 2, other versions are
+  ignored). Each plugin and the summary of all plugins have their own setup (`setupStorageKey` in `storage.js`:
   `marketplace-stats.charts.plugin-<id>` and `marketplace-stats.charts.all-plugins`), the plugin of a page is
   `data-plugin-id` of the `<body>` (`main.kte`, the plugin list has none). All pages of a plugin share its setup: the
   series of metrics are restored on all its pages, the other series and the pie charts on its pages with the same
