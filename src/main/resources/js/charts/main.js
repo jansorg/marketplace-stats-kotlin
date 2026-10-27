@@ -558,6 +558,7 @@ class ChartController {
         dialog.setShownOverlays(this.shownOverlays);
 
         const charts = groupCharts(this.series, this.combineUnits);
+        dialog.setLineChartsShown(charts.length > 0);
         this.requestMetricValues(charts);
         const context = {
             markers: visibleMarkers(this.markers, this.shownMarkers, this.shownEvents),

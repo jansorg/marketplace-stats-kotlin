@@ -156,6 +156,7 @@ export class ChartDialog {
         // the row of the menus of the line charts
         this.markerToggles = document.createElement("div");
         this.markerToggles.className = "chart-marker-toggles";
+        this.hasLineCharts = hasLineCharts;
         this.markerToggles.hidden = !hasLineCharts;
         // the vertical lines: the custom events of the configured file, each event is shown separately, and the kinds
         // of vertical lines of the page, with a sample of each line as key
@@ -519,6 +520,16 @@ export class ChartDialog {
     /**
      * @param {boolean} visible The option is only shown if it would combine charts.
      */
+    /**
+     * Shows the menus of the line charts, e.g. "Range" and "View", also on pages without columns for line charts, if
+     * line charts are shown, e.g. of a metric of the menu "Add" or of the button of a row of a table.
+     *
+     * @param {boolean} shown If line charts are shown.
+     */
+    setLineChartsShown(shown) {
+        this.markerToggles.hidden = !(this.hasLineCharts || shown);
+    }
+
     setCombineUnits(combine, visible) {
         this.combineCheckbox.checked = combine;
         this.combineLabel.hidden = !visible;
