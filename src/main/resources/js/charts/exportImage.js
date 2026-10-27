@@ -99,10 +99,11 @@ function drawSwatch(context, entry, x, centerY) {
 
 /**
  * @param {uPlot} plot A line chart.
- * @param {{title: string, fontFamily: string}} options
+ * @param {{title: string, fontFamily: string, transparent?: boolean}} options Without `transparent`, the image has the
+ *  surface color as background, e.g. for a download. Printed images have no background.
  * @return {HTMLCanvasElement} The chart with the title above and the legend below, in the resolution of the chart.
  */
-export function lineChartImage(plot, {title, fontFamily}) {
+export function lineChartImage(plot, {title, fontFamily, transparent = false}) {
     const source = plot.ctx.canvas;
     const ratio = source.width / plot.width;
     const textFont = `${TEXT_SIZE}px ${fontFamily}`;
@@ -122,8 +123,10 @@ export function lineChartImage(plot, {title, fontFamily}) {
     const context = canvas.getContext("2d");
     context.scale(ratio, ratio);
 
-    context.fillStyle = CHART_THEMES.light.surfaceColor;
-    context.fillRect(0, 0, width, height);
+    if (!transparent) {
+        context.fillStyle = CHART_THEMES.light.surfaceColor;
+        context.fillRect(0, 0, width, height);
+    }
 
     context.fillStyle = TEXT_COLOR;
     context.font = `700 ${TITLE_SIZE}px ${fontFamily}`;
@@ -159,9 +162,11 @@ function svgElement(tagName, attributes, text) {
  * @param {{label: string, slices: {label: string, value: number, color: string}[]}} pie
  * @param {{value: Function}} formatter
  * @param {string} fontFamily
+ * @param {{transparent?: boolean}} [options] Without `transparent`, the SVG has the surface color as background, see
+ *  {@link lineChartImage}.
  * @return {SVGSVGElement} A standalone SVG of the pie chart with its title and legend.
  */
-export function pieChartSvg(pie, formatter, fontFamily) {
+export function pieChartSvg(pie, formatter, fontFamily, {transparent = false} = {}) {
     const textFont = `${TEXT_SIZE}px ${fontFamily}`;
     const values = pie.slices.map(slice => formatter.value(slice.value, "%"));
     const labelWidth = Math.max(0, ...pie.slices.map(slice => measureText(slice.label, textFont)));
@@ -183,8 +188,10 @@ export function pieChartSvg(pie, formatter, fontFamily) {
         "font-size": TEXT_SIZE,
         fill: TEXT_COLOR,
     });
+    if (!transparent) {
+        svg.append(svgElement("rect", {width, height, fill: CHART_THEMES.light.surfaceColor}));
+    }
     svg.append(
-        svgElement("rect", {width, height, fill: CHART_THEMES.light.surfaceColor}),
         svgElement("text", {x: PADDING, y: PADDING, "dominant-baseline": "hanging", "font-size": TITLE_SIZE, "font-weight": 700}, pie.label),
     );
 

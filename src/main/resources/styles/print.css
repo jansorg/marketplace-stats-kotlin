@@ -21,6 +21,21 @@ body.print-charts .chart-print {
     display: block;
 }
 
+/* only the charts are printed, without the background of the page and of the open chart dialog */
+html:has(body.print-charts), body.print-charts {
+    background: none !important;
+}
+
+body.print-charts .chart-dialog::backdrop {
+    background: none !important;
+}
+
+/* the open chart dialog fixes the scrolled page, see fixPage in dialog.js, the charts start at the top of the paper */
+body.print-charts {
+    position: static !important;
+    top: auto !important;
+}
+
 .chart-print figure {
     margin: 0 0 0.5cm;
     break-inside: avoid;
