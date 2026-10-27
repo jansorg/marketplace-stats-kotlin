@@ -544,6 +544,10 @@ open class KtorMarketplaceClient(
         httpClient.get("$apiPath/plugins/$plugin/developers").body()
     }
 
+    override suspend fun userVendors(userId: UserId): List<PluginVendor> = withContext(dispatcher) {
+        httpClient.get("$apiPath/users/$userId/vendors").body()
+    }
+
     override suspend fun pluginFeatures(plugin: PluginId): List<PluginFeature> = withContext(dispatcher) {
         httpClient.get("$apiPath/plugins/$plugin/features").body()
     }

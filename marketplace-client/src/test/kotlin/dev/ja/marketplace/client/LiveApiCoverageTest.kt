@@ -81,6 +81,7 @@ class LiveApiCoverageTest {
             check("users/{id}/plugins", ListSerializer(PluginInfoSummary.serializer())) {
                 marketplace.get("/api/users/$userId/plugins") { parameter("size", 100) }
             }
+            check("users/{id}/vendors", ListSerializer(PluginVendor.serializer())) { marketplace.get("/api/users/$userId/vendors") }
         }
         check("searchPlugins", MarketplacePluginSearchResponse.serializer()) {
             marketplace.get("/api/searchPlugins") { parameter("max", 20) }
