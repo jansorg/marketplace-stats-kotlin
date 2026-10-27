@@ -1396,11 +1396,6 @@ dl.detail-grid dd {
     margin: 0 1.2rem 0.3rem 0;
 }
 
-/* series, which only show their average, aren't listed, see averagesOnly in lineChart.js */
-.chart-panel .u-legend .u-series.chart-legend-hidden {
-    display: none;
-}
-
 .chart-panel .u-legend .u-series > * {
     display: block;
     padding: 0;

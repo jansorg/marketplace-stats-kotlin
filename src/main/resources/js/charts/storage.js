@@ -8,6 +8,8 @@
  * Only the selected columns and the options are stored, never the values of the tables.
  */
 
+import {AVERAGE_MONTHS, CHART_STYLES, DETAILS, MARKER_KINDS, OVERLAYS, RANGE_PRESETS, WINDOWS} from "./model.js";
+
 /** The prefix of the keys of the setups in the local storage, see {@link setupStorageKey}. */
 export const STORAGE_KEY = "marketplace-stats.charts";
 
@@ -32,30 +34,18 @@ const VERSION = 2;
  * @typedef {{window: string, detail: string}} ChartLevel
  * @typedef {{combineUnits: boolean, maximized: boolean, preferredStyle: "lines"|"bars",
  *  chartStyles: Object<string, "lines"|"bars">, chartLevels: Object<string, ChartLevel>, shownMarkers: string[], shownEvents: string[],
- *  shownExtremes: ("min"|"max")[], shownOverlays: string[], showIncomplete: boolean, showValueTable: boolean, showComparisonLines: boolean, hideAxisValues: boolean, averagesOnly: boolean,
+ *  shownExtremes: ("min"|"max")[], shownOverlays: string[], showIncomplete: boolean, showValueTable: boolean, showComparisonLines: boolean, hideAxisValues: boolean,
  *  dateRange: {from: string, to: string, preset?: string}|null, hiddenSeries: string[], entries: ChartEntry[]}} ChartSetup
  */
 
 /** @return {ChartSetup} */
 export function emptySetup() {
     // vertical lines are hidden by default, the dialog is maximized, two units share a chart with a second y-axis
-    return {combineUnits: true, maximized: true, preferredStyle: "lines", chartStyles: {}, chartLevels: {}, shownMarkers: [], shownEvents: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, showComparisonLines: false, hideAxisValues: false, averagesOnly: false, dateRange: null, hiddenSeries: [], entries: []};
+    return {combineUnits: true, maximized: true, preferredStyle: "lines", chartStyles: {}, chartLevels: {}, shownMarkers: [], shownEvents: [], shownExtremes: [], shownOverlays: [], showIncomplete: true, showValueTable: true, showComparisonLines: false, hideAxisValues: false, dateRange: null, hiddenSeries: [], entries: []};
 }
 
-const STYLES = ["lines", "bars"];
 const EXTREMES = ["min", "max"];
-const OVERLAYS = ["average1", "average3", "average12", "previousYear"];
-
-function validExtremes(setup) {
-    if (Array.isArray(setup.shownExtremes)) {
-        return EXTREMES.filter(kind => setup.shownExtremes.includes(kind));
-    }
-    // the option "Minimum and maximum" was split into two options
-    return setup.showExtremes === true ? [...EXTREMES] : [];
-}
-const WINDOWS = ["follow", "day", "week", "month", "quarter", "year", "calendar-month", "calendar-quarter", "calendar-year"];
-const DETAILS = ["year", "month", "week", "day"];
-const MARKER_KINDS = ["release", "price", "ide"];
+const AVERAGES = Object.values(AVERAGE_MONTHS);
 
 /** @return {object} The entries of the map with valid values. */
 function validValues(map, values) {
@@ -67,21 +57,24 @@ function validValues(map, values) {
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** The ranges, which end today, e.g. the past 7 days, see RANGE_PRESETS in model.js. */
-const RANGE_PRESETS = ["today", "past-7-days", "this-month"];
+/** @return {boolean} If the text is an ISO date of a day, which exists, e.g. not February 31. */
+function isIsoDate(text) {
+    if (typeof text !== "string" || !ISO_DATE.test(text)) {
+        return false;
+    }
+    const time = Date.parse(text + "T00:00:00Z");
+    return !Number.isNaN(time) && new Date(time).toISOString().startsWith(text);
+}
 
 /**
  * @return {{from: string, to: string, preset?: string}|null} The stored date range of the line charts, null for all
  *  dates. A range, which ends today, has its preset, its dates are calculated again when it's shown.
  */
 function validDateRange(range) {
-    if (range === null || typeof range !== "object" || !ISO_DATE.test(range.from) || !ISO_DATE.test(range.to)) {
+    if (range === null || typeof range !== "object" || !isIsoDate(range.from) || !isIsoDate(range.to) || range.from > range.to) {
         return null;
     }
-    if (range.from > range.to || isNaN(Date.parse(range.from)) || isNaN(Date.parse(range.to))) {
-        return null;
-    }
-    return RANGE_PRESETS.includes(range.preset) ? {from: range.from, to: range.to, preset: range.preset} : {from: range.from, to: range.to};
+    return Object.hasOwn(RANGE_PRESETS, range.preset) ? {from: range.from, to: range.to, preset: range.preset} : {from: range.from, to: range.to};
 }
 
 /** @return {Object<string, ChartLevel>} The valid levels of the charts by the keys of the charts. */
@@ -100,10 +93,10 @@ function isValidMetricEntry(entry) {
         && typeof entry.unit === "string"
         && (entry.window === undefined || WINDOWS.includes(entry.window))
         && (entry.usesWindow === undefined || typeof entry.usesWindow === "boolean")
-        && (entry.average === undefined || [1, 3, 12].includes(entry.average))
+        && (entry.average === undefined || AVERAGES.includes(entry.average))
         && (entry.measure === undefined || typeof entry.measure === "string")
         && (entry.color === undefined || typeof entry.color === "string")
-        && (entry.style === undefined || STYLES.includes(entry.style))
+        && (entry.style === undefined || CHART_STYLES.includes(entry.style))
         && (entry.row === undefined || typeof entry.row === "string");
 }
 
@@ -116,7 +109,7 @@ function isValidEntry(entry) {
         && typeof entry.table === "string"
         && typeof entry.column === "string"
         && (entry.color === undefined || typeof entry.color === "string")
-        && (entry.style === undefined || STYLES.includes(entry.style))
+        && (entry.style === undefined || CHART_STYLES.includes(entry.style))
         && (entry.row === undefined || typeof entry.row === "string");
 }
 
@@ -132,13 +125,13 @@ function parseSetup(setup) {
         // a second y-axis is used by default
         combineUnits: setup.combineUnits !== false,
         maximized: setup.maximized !== false,
-        preferredStyle: STYLES.includes(setup.preferredStyle) ? setup.preferredStyle : "lines",
-        chartStyles: validValues(setup.chartStyles, STYLES),
+        preferredStyle: CHART_STYLES.includes(setup.preferredStyle) ? setup.preferredStyle : "lines",
+        chartStyles: validValues(setup.chartStyles, CHART_STYLES),
         chartLevels: validLevels(setup.chartLevels),
         shownMarkers: Array.isArray(setup.shownMarkers) ? setup.shownMarkers.filter(kind => MARKER_KINDS.includes(kind)) : [],
         // the IDs of the shown custom events, also of events of other pages
         shownEvents: Array.isArray(setup.shownEvents) ? setup.shownEvents.filter(id => typeof id === "string") : [],
-        shownExtremes: validExtremes(setup),
+        shownExtremes: Array.isArray(setup.shownExtremes) ? EXTREMES.filter(kind => setup.shownExtremes.includes(kind)) : [],
         shownOverlays: Array.isArray(setup.shownOverlays) ? OVERLAYS.filter(kind => setup.shownOverlays.includes(kind)) : [],
         // shown by default, also with a setup stored before the option existed
         showIncomplete: setup.showIncomplete !== false,
@@ -146,7 +139,6 @@ function parseSetup(setup) {
         // hidden by default, also with a setup stored before the option existed
         showComparisonLines: setup.showComparisonLines === true,
         hideAxisValues: setup.hideAxisValues === true,
-        averagesOnly: setup.averagesOnly === true,
         dateRange: validDateRange(setup.dateRange ?? null),
         // the keys of the series and overlays, which are hidden by a click on the legend
         hiddenSeries: Array.isArray(setup.hiddenSeries) ? setup.hiddenSeries.filter(key => typeof key === "string") : [],
@@ -163,7 +155,8 @@ export const VIEW_FRAGMENT_PREFIX = "charts=";
  */
 export function encodeView(setup) {
     const bytes = new TextEncoder().encode(JSON.stringify({version: VERSION, ...setup}));
-    const base64 = btoa(String.fromCharCode(...bytes));
+    // the bytes aren't spread into the arguments of fromCharCode, a long setup would exceed their maximum number
+    const base64 = btoa(Array.from(bytes, byte => String.fromCharCode(byte)).join(""));
     return VIEW_FRAGMENT_PREFIX + base64.replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
 }
 

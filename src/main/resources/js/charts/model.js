@@ -115,10 +115,16 @@ export function dateRange(seriesList) {
             max = Math.max(max, timestamp);
         }
     }
+    return paddedRange(min, max);
+}
+
+/**
+ * @return {[number, number]|null} The range of the dates, null without dates. A single date needs a range to be shown.
+ */
+function paddedRange(min, max) {
     if (min === Infinity) {
         return null;
     }
-    // a single date needs a range to be shown
     return min === max ? [min - SECONDS_PER_DAY, max + SECONDS_PER_DAY] : [min, max];
 }
 
@@ -143,10 +149,7 @@ export function shownDateRange(timestamps, valuesList, shown) {
             }
         });
     });
-    if (min === Infinity) {
-        return null;
-    }
-    return min === max ? [min - SECONDS_PER_DAY, max + SECONDS_PER_DAY] : [min, max];
+    return paddedRange(min, max);
 }
 
 /**
@@ -307,11 +310,7 @@ export function zeroBasedRange(min, max) {
  */
 export function niceStep(span, count) {
     const raw = span / Math.max(1, count);
-    if (!(raw > 0)) {
-        return 1;
-    }
-    const magnitude = 10 ** Math.floor(Math.log10(raw));
-    return [1, 2, 2.5, 5, 10].map(factor => factor * magnitude).find(step => step >= raw * (1 - 1e-9));
+    return raw > 0 ? niceCeil(raw) : 1;
 }
 
 /** @return {number} The smallest step of 1, 2, 2.5 or 5 times a power of ten, which isn't smaller than the value. */
@@ -852,27 +851,6 @@ function hexToHsl(hex) {
         hue /= 6;
     }
     return [hue, saturation, lightness];
-}
-
-/**
- * Several averages of the same series, e.g. of 3 and 12 months, have different shades of the color of the series:
- * from a lighter shade for the first, e.g. the shortest average, to a darker shade for the last.
- *
- * @param {string} color The color of the series, like `#2a78d6`.
- * @param {number} index The position of the average among the averages of the series.
- * @param {number} count The number of averages of the series.
- * @return {string} The color of the average, the color of the series for a single average.
- */
-export function averageShade(color, index, count) {
-    const match = /^#([0-9a-f]{6})$/i.exec(color);
-    if (match === null || count <= 1) {
-        return color;
-    }
-    const [hue, saturation, lightness] = hexToHsl(match[1]);
-    // from 1 for the lightest to -1 for the darkest shade
-    const position = 1 - 2 * index / (count - 1);
-    const shifted = position >= 0 ? lightness + (1 - lightness) * 0.35 * position : lightness * (1 + 0.35 * position);
-    return hslToHex(hue, saturation, shifted);
 }
 
 function hslToHex(hue, saturation, lightness) {
