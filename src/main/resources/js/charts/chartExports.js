@@ -29,17 +29,24 @@ import {createMenu} from "./menu.js";
  */
 export function exportMenu(chartExport, {allExports, bookmark, showMessage}) {
     const items = [
-        {label: "Print", run: () => print([chartExport])},
+        {label: "Print", title: "Print this chart without the rest of the page", run: () => print([chartExport])},
         // shown when the menu opens, the other charts are added after this menu
-        {label: "Print all charts", run: () => print(allExports()), isShown: () => allExports().length > 1},
-        {label: "Download PNG", run: async () => downloadCanvas(await chartExport.image(), chartExport.fileName("png"))},
+        {label: "Print all charts", title: "Print all charts of the dialog without the rest of the page",
+            run: () => print(allExports()), isShown: () => allExports().length > 1},
+        {label: "Download PNG", title: "Download the chart with its title and legend as a PNG image",
+            run: async () => downloadCanvas(await chartExport.image(), chartExport.fileName("png"))},
         // the same image as the download, e.g. to paste it into a message
-        ...(canCopyImages() ? [{label: "Copy PNG", run: () => copyImage(chartExport, showMessage)}] : []),
+        ...(canCopyImages() ? [{label: "Copy PNG", title: "Copy the PNG image of the chart into the clipboard, e.g. to paste it into a message",
+            run: () => copyImage(chartExport, showMessage)}] : []),
         // the values of the chart for an AI agent or another program
-        ...(chartExport.dataUrl ? [{label: "Copy data URL", run: () => copyDataUrl(chartExport, showMessage)}] : []),
-        ...(chartExport.svg ? [{label: "Download SVG", run: async () => downloadSvg(chartExport.svg(), chartExport.fileName("svg"))}] : []),
+        ...(chartExport.dataUrl ? [{label: "Copy data URL",
+            title: "Copy the address of the values of the shown lines as CSV, e.g. for an AI agent or a spreadsheet",
+            run: () => copyDataUrl(chartExport, showMessage)}] : []),
+        ...(chartExport.svg ? [{label: "Download SVG", title: "Download the chart with its title and legend as an SVG image, which can be scaled without losing quality",
+            run: async () => downloadSvg(chartExport.svg(), chartExport.fileName("svg"))}] : []),
         // the bookmark is the last item
-        {label: "Bookmark this view", run: bookmark},
+        {label: "Bookmark this view", title: "Show this view of the charts in the address of the page and copy the address, opening it shows the charts again",
+            run: bookmark},
     ];
 
     const {menu, items: list} = createMenu("Export");
@@ -48,6 +55,7 @@ export function exportMenu(chartExport, {allExports, bookmark, showMessage}) {
         button.type = "button";
         button.setAttribute("role", "menuitem");
         button.textContent = item.label;
+        button.title = item.title;
         button.addEventListener("click", () => {
             menu.open = false;
             item.run().catch(error => console.error("Export of the chart failed", error));
