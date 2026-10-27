@@ -922,6 +922,13 @@ tr.disabled a:hover {
     cursor: help;
 }
 
+/* the symbol is part of the style, the large lists of licenses have it in many rows, the alternative text is for screen
+   readers, see render.kte */
+.expired-marker::before {
+    content: "⊘";
+    content: "⊘" / "expired";
+}
+
 .desc, .incomplete {
     font-style: italic;
 }

@@ -451,6 +451,11 @@ queries, and one which excludes all these tags. The results are in the order of 
   `/js/`. To upgrade, change the version in `build.gradle.kts`.
 - `src/main/resources/styles/print.css` contains the print-only rules (`.noprint`, `.noprintlink`, A4 landscape `@page`).
   Templates link `print.min.css` with `media="print"`.
+- The cells of the tables are written with `HtmlAttributes.of` (`dataTableSection.kte`): only attributes with a value,
+  without the spaces, which JTE keeps for omitted attributes. The lists can have tens of thousands of rows, e.g. the
+  licenses: keep the markup of the cells small, e.g. the links of IDs have no class (`print.css` hides them by their
+  target), the symbol of expired licenses is part of the CSS. Numbers in texts, e.g. footers and tooltips, are
+  formatted with `Formatters.formatInteger` and `Formatters.MonetaryAmount`.
 - Table styling is partly set from Kotlin: `DataTable` subclasses in `marketplace-data` pass CSS class names (for example
   `cssClass = "small table-striped"`) and per-column `cssClass`/`cssStyle` values (`DataTable.kt`). These classes must exist in `main.css`.
 - Static resources are served by `staticAssets("/styles", "styles")`, `staticAssets("/js", "js")`,

@@ -7,6 +7,12 @@
     display: none;
 }
 
+/* the IDs of customers, licenses and sales, which link to their pages, aren't printed. The links of the large tables
+   have no class, see render.kte */
+td > a[href^="/customer/"], td > a[href^="/license/"], td > a[href^="/refnum/"] {
+    display: none;
+}
+
 /* the footer is printed with the date of the page, without the button to drop the caches */
 .site-footer .noprint {
     display: none;
