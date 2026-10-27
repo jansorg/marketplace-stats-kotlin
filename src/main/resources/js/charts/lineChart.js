@@ -9,7 +9,7 @@
 
 import {formatDate, SECONDS_PER_DAY, unitTitle} from "./format.js";
 import {createMenu} from "./menu.js";
-import {alignSeries, availableComparisons, barLayout, cursorPosition, periodEnd, displayColor, extremeIndices, incompleteColor, averageShade, pinchedRange, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange, alignedRanges, niceStep, rangeTicks, seriesMenuSections, seriesStyle} from "./model.js";
+import {alignSeries, availableComparisons, barLayout, cursorPosition, periodEnd, displayColor, extremeIndices, incompleteColor, averageShade, pinchedRange, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange, alignedRanges, niceStep, rangeTicks, seriesMenuSections, seriesStyle, shownDateRange} from "./model.js";
 
 /**
  * The colors of the charts in the light and the dark mode. The surface is the background of the charts in the chart
@@ -1149,10 +1149,28 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     // the values per year of monthly values have the ticks and the range of yearly values
     const axisPeriod = granularity === "yearEnd" ? "year" : period;
     // the axis ends with the period of the last value, e.g. the current month, whose value is located at today
-    const fullRange = axisPeriod === "year"
-        ? yearRange(dateRange, granularity !== "month" && granularity !== "yearEnd")
-        : [dateRange[0] - xPadding, Math.max(dateRange[1], periodEnd(dateRange[1], granularity ?? "month")) + xPadding];
-    const xRange = visibleRange !== null ? [visibleRange[0] - xPadding, visibleRange[1] + xPadding] : fullRange;
+    const axisRange = range => axisPeriod === "year"
+        ? yearRange(range, granularity !== "month" && granularity !== "yearEnd")
+        : [range[0] - xPadding, Math.max(range[1], periodEnd(range[1], granularity ?? "month")) + xPadding];
+    const fullRange = axisRange(dateRange);
+    /**
+     * With all dates, the axis covers the dates of the shown lines: hiding a line, whose values start earlier than
+     * the values of the other lines, e.g. than a 12-month average, shortens the axis. The values of series with
+     * averagesOnly aren't drawn.
+     *
+     * @param {boolean[]} shown If each series and each overlay is shown.
+     */
+    const shownRange = shown => {
+        const drawn = shown.map((isShown, index) => isShown && !chartSeries[index]?.isValueHidden);
+        if (drawn.every(Boolean)) {
+            return fullRange;
+        }
+        const range = shownDateRange(timestamps, allValues, drawn);
+        return range === null ? fullRange : axisRange(range);
+    };
+    let xRange = visibleRange !== null
+        ? [visibleRange[0] - xPadding, visibleRange[1] + xPadding]
+        : shownRange([...chartSeries.map(s => !hiddenSeries.has(s.key)), ...chartOverlays.map(overlay => !hiddenSeries.has(overlayKey(overlay)))]);
     // the range while two fingers zoom, see enablePinchZoom
     let pinchPreview = null;
     // the ranges and the steps of the ticks of two y-axes, see alignedRange, and the preferred number of steps
@@ -1239,6 +1257,13 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
             setSeries: [(plot, seriesIndex) => {
                 if (seriesIndex !== null) {
                     onSeriesVisibilityChange?.(seriesKey(seriesIndex), plot.series[seriesIndex].show);
+                }
+                if (visibleRange === null) {
+                    const range = shownRange(plot.series.slice(1).map(plotSeries => plotSeries.show));
+                    if (range[0] !== xRange[0] || range[1] !== xRange[1]) {
+                        xRange = range;
+                        plot.setScale("x", {min: range[0], max: range[1]});
+                    }
                 }
                 updateComparisons?.();
                 showUsedAxes(plot);

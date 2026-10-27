@@ -123,6 +123,33 @@ export function dateRange(seriesList) {
 }
 
 /**
+ * @param {number[]} timestamps The dates of the values.
+ * @param {(number|null|undefined)[][]} valuesList The values of each line at the dates.
+ * @param {boolean[]} shown If each line is shown, e.g. not hidden by a click on the legend.
+ * @return {[number, number]|null} The first and the last date with a value of a shown line, like {@link dateRange},
+ *  null without values of shown lines.
+ */
+export function shownDateRange(timestamps, valuesList, shown) {
+    let min = Infinity;
+    let max = -Infinity;
+    valuesList.forEach((values, line) => {
+        if (!shown[line]) {
+            return;
+        }
+        values.forEach((value, index) => {
+            if (value !== null && value !== undefined) {
+                min = Math.min(min, timestamps[index]);
+                max = Math.max(max, timestamps[index]);
+            }
+        });
+    });
+    if (min === Infinity) {
+        return null;
+    }
+    return min === max ? [min - SECONDS_PER_DAY, max + SECONDS_PER_DAY] : [min, max];
+}
+
+/**
  * @typedef {{from: string, to: string}} DateRange The selected dates of the line charts, ISO dates, both inclusive.
  */
 
