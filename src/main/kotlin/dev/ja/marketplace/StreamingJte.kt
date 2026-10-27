@@ -20,7 +20,7 @@ class StreamingJteConfig {
 
 /**
  * Responds to [JteContent] like the plugin `Jte` of Ktor, but writes the rendered template directly to the response
- * instead of rendering it into a string first. The browser receives the start of a large page, e.g. a list of 35,000
+ * instead of rendering it into a string first. The browser receives the start of a large page, e.g. a list of tens of thousands of
  * licenses, while the rest is rendered, and the server doesn't keep the whole page in memory. An exception while the
  * template is rendered can't be answered with an error page, the response is incomplete.
  */

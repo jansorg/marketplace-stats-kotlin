@@ -6,7 +6,7 @@
 package dev.ja.marketplace
 
 /**
- * The attributes of the cells of large tables, e.g. of the 420,000 cells of a list of licenses. JTE omits attributes
+ * The attributes of the cells of large tables, e.g. of the hundreds of thousands of cells of a list of licenses. JTE omits attributes
  * without a value, but keeps the space before each of them, and writes attributes with complex expressions, e.g. a
  * lambda, also without a value. These attributes are only written with a value and without extra spaces.
  *

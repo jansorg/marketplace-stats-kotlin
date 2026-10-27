@@ -26,7 +26,7 @@ object Formatters {
 
     /**
      * The formatted amounts by amount, see [formatAmount]. The same amounts occur many times, e.g. the prices of the
-     * 35,000 licenses of a list, the format of Moneta allocates much memory for each call. Amounts converted with the
+     * licenses of a list, the format of Moneta allocates much memory for each call. Amounts converted with the
      * exchange rate of each day are mostly unique, the cache keeps the frequent amounts (W-TinyLFU of Caffeine).
      */
     private val formattedAmounts: Cache<MonetaryAmount, String> = Caffeine.newBuilder()

@@ -9,7 +9,7 @@ import dev.ja.marketplace.data.DataTableColumn
 import dev.ja.marketplace.data.RenderedDataTable
 
 /**
- * The styles of the columns of a table as rules of the table instead of a class of each cell, e.g. of the 420,000 cells
+ * The styles of the columns of a table as rules of the table instead of a class of each cell, e.g. of the hundreds of thousands of cells
  * of a list of licenses. HTML has no inheritance from `<col>` for the alignment, the rules select the cells by their
  * position (`dataTable.kte`). The declarations are the ones of the classes of the cells in `main.css`, the rules have
  * the specificity of a class of a cell (`:where`).
