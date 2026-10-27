@@ -100,6 +100,12 @@ extend, must not fail a response:
   `data object` for each known value and a data class for unknown values. `findById` returns the predefined objects and
   creates an unknown value once per ID.
 
+A plugin can disable the continuity discount at a date: licenses bought before keep it for their renewals, later
+licenses pay the price of the 1st year every year. The API may return `continuityDiscountDisabledAt` of
+`MarketplacePluginInfo` without `hasContinuityDiscount`, `PricingOverviewTable.hasContinuityDiscount` combines both.
+The calculations use the billed amounts and don't need it. The pricing page shows a single annual price without
+prices of the 2nd and 3rd year, its description and `get_pricing` (`continuityDiscount`) tell when it was disabled.
+
 The plugin search (`/api/searchPlugins`) returns pages of at most 24 plugins (`Marketplace.MAX_SEARCH_RESULT_SIZE`) and
 only the first 10,000 results of a query (`MAX_SEARCH_RESULT_WINDOW`): `offset + max` beyond it is answered with 400,
 and the reported total is capped at 10,000. `tags` are combined with OR, `excludeTags` excludes plugins with any of the

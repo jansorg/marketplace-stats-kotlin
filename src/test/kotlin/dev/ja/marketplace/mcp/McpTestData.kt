@@ -149,12 +149,26 @@ object McpTestData {
      */
     fun providerWithSales(sales: List<PluginSale>): McpDataProvider = TestProvider(withPricing = false, sales)
 
-    private class TestProvider(private val withPricing: Boolean, private val sales: List<PluginSale> = McpTestData.sales) : McpDataProvider {
+    /**
+     * @return A provider of plugin data with prices and the info of the plugin, e.g. without continuity discount.
+     */
+    fun providerWithPricing(info: MarketplacePluginInfo, withRenewalPrices: Boolean): McpDataProvider {
+        return TestProvider(withPricing = true, marketplacePluginInfo = info, withRenewalPrices = withRenewalPrices)
+    }
+
+    private class TestProvider(
+        private val withPricing: Boolean,
+        private val sales: List<PluginSale> = McpTestData.sales,
+        private val marketplacePluginInfo: MarketplacePluginInfo? = null,
+        private val withRenewalPrices: Boolean = true,
+    ) : McpDataProvider {
         override suspend fun userInfo(): UserInfo = UserInfo("user-1", "Test User")
 
         override fun plugins(): List<PluginInfoSummary> = listOf(plugin)
 
-        override suspend fun pluginData(plugin: PluginInfoSummary): PluginData = pluginData(withPricing, sales)
+        override suspend fun pluginData(plugin: PluginInfoSummary): PluginData {
+            return pluginData(withPricing, sales, marketplacePluginInfo, withRenewalPrices)
+        }
 
         override suspend fun pluginReleases(plugin: PluginInfoSummary, channel: PluginChannel): List<PluginReleaseInfo> {
             return pluginReleases.filter { it.channel == channel }
@@ -258,6 +272,8 @@ object McpTestData {
         withPricing: Boolean = false,
         sales: List<PluginSale> = McpTestData.sales,
         marketplacePluginInfo: MarketplacePluginInfo? = null,
+        /** If the prices have a 2nd and 3rd year, the prices of plugins without continuity discount haven't. */
+        withRenewalPrices: Boolean = true,
     ): PluginData {
         val pluginInfo = PluginInfo(
             id = PLUGIN_ID,
@@ -293,7 +309,7 @@ object McpTestData {
                     DailyDownload(YearMonthDay(2025, 1, 20), 60),
                 )
             ),
-            if (withPricing) PluginPricing.create(pricingClient(), PLUGIN_ID, countries) else null,
+            if (withPricing) PluginPricing.create(pricingClient(withRenewalPrices), PLUGIN_ID, countries) else null,
             CompletableDeferred(SalesWithLicensesInfo(sales, LicenseInfo.createFrom(sales))),
             CompletableDeferred(trials),
             CompletableDeferred(marketplacePluginInfo),
@@ -320,13 +336,18 @@ object McpTestData {
     /**
      * A client, which only provides the prices: annual prices in Germany and France, annual, monthly and perpetual prices in the United States.
      */
-    private fun pricingClient(): MarketplaceClient {
+    private fun pricingClient(withRenewalPrices: Boolean): MarketplaceClient {
         return Proxy.newProxyInstance(javaClass.classLoader, arrayOf(MarketplaceClient::class.java)) { _, method, args ->
             when (method.name) {
                 "priceInfo" -> when (args[1]) {
                     "DE", "FR" -> priceInfo(
                         "EUR",
-                        PriceInfoByPeriod(annual = PriceInfoTypeData(price("50", "59.50"), price("40", "47.60"), price("30", "35.70"))),
+                        PriceInfoByPeriod(
+                            annual = when {
+                                withRenewalPrices -> PriceInfoTypeData(price("50", "59.50"), price("40", "47.60"), price("30", "35.70"))
+                                else -> PriceInfoTypeData(price("50", "59.50"))
+                            },
+                        ),
                     )
 
                     else -> priceInfo(

@@ -218,6 +218,21 @@ class MarketplaceMcpRecordToolsTest {
     }
 
     @Test
+    suspend fun pricingWithoutContinuityDiscount() {
+        val info = MarketplacePluginInfo("PCODE", "Plugin", emptyList(), hasContinuityDiscount = false, continuityDiscountDisabledAt = YearMonthDay(2025, 3, 1))
+        val result = MarketplaceMcpTools(McpTestData.providerWithPricing(info, withRenewalPrices = false)).call("get_pricing", arguments())
+        val discount = result["continuityDiscount"]!!.jsonObject
+        assertFalse(discount["enabled"]!!.jsonPrimitive.boolean)
+        assertEquals("2025-03-01", discount["disabledAt"]!!.jsonPrimitive.content)
+        val germany = result["priceGroups"]!!.jsonArray.map { it.jsonObject }.first { it["currency"]!!.jsonPrimitive.content == "EUR" }
+        // only the price of the 1st year
+        assertEquals(listOf("50.00"), germany["individual"]!!.jsonObject["annual"]!!.jsonArray.map { it.jsonPrimitive.content })
+
+        // without the info of the plugin, the continuity discount is unknown
+        assertNull(toolsWithPricing.call("get_pricing", arguments())["continuityDiscount"])
+    }
+
+    @Test
     suspend fun pricingOfSelectedCountries() {
         val result = toolsWithPricing.call("get_pricing", arguments { put("countryCodes", buildJsonArray { add("de") }) })
         val group = result["priceGroups"]!!.jsonArray.single().jsonObject

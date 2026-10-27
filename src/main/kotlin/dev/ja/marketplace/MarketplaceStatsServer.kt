@@ -31,6 +31,7 @@ import dev.ja.marketplace.data.licenses.LicenseTableFactory
 import dev.ja.marketplace.data.lineItems.LineItemLicensesTable
 import dev.ja.marketplace.data.lineItems.SaleLineItemSummary
 import dev.ja.marketplace.data.overview.OverviewTableFactory
+import dev.ja.marketplace.data.privingOverview.PricingOverviewTable
 import dev.ja.marketplace.data.privingOverview.PricingOverviewTableFactory
 import dev.ja.marketplace.data.resellers.ResellerTableFactory
 import dev.ja.marketplace.data.subscriptions.AverageRevenuePerCustomerTableFactory
@@ -233,6 +234,7 @@ class MarketplaceStatsServer(
         pageTitle = "Plugin Pricing",
         pageDescription = "The pricing shown on the JetBrains Marketplace.<br>" +
                 "If there are two prices in the same column, then the 1st excludes VAT and the 2nd includes VAT.",
+        pageNote = { data -> PricingOverviewTable.continuityDiscountNote(data.getMarketplacePluginInfo()) },
         // the prices are loaded when the table is calculated, they aren't part of the version of the data
         cacheTables = false,
     )

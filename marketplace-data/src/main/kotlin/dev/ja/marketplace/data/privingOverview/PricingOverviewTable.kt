@@ -6,8 +6,10 @@
 package dev.ja.marketplace.data.privingOverview
 
 import dev.ja.marketplace.client.LicenseInfo
+import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.LicensePeriod
+import dev.ja.marketplace.client.model.MarketplacePluginInfo
 import dev.ja.marketplace.client.model.PluginPriceInfo
 import dev.ja.marketplace.client.model.PriceInfoTypeData
 import dev.ja.marketplace.data.*
@@ -26,7 +28,8 @@ import javax.money.MonetaryAmount
 /**
  * The current prices of the plugin in the countries, grouped by currency: the annual prices of the years of a
  * subscription, or the perpetual prices of a plugin with perpetual licenses. The monthly prices are calculated from
- * the annual prices by the Marketplace.
+ * the annual prices by the Marketplace. Without a continuity discount, the prices have no 2nd and 3rd year, the
+ * table has a single annual price, see [continuityDiscountNote].
  */
 class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column-wide"),
     MarketplaceDataSink {
@@ -35,6 +38,9 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
 
     // the Marketplace offers either subscriptions or perpetual licenses
     private var isPerpetual = false
+
+    // the prices of plugins without continuity discount have no 2nd and 3rd year
+    private var hasRenewalPrices = true
 
     private val columnEmpty = DataTableColumn("pricing-empty", "", columnSpan = 2)
     private val columnPersonal = DataTableColumn("pricing-personal", "Personal", columnSpan = 3)
@@ -48,12 +54,17 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
     private val columnSecondYearCommercial = DataTableColumn("pricing-second-year-commercial", "2nd Year", "num")
     private val columnThirdYearCommercial = DataTableColumn("pricing-third-year-commercial", "3rd Year", "num")
 
+    private val columnAnnualPersonal = DataTableColumn("pricing-first-year", "Annual", "num highlighted")
+    private val columnAnnualCommercial = DataTableColumn("pricing-first-year-commercial", "Annual", "num")
+
     private val columnPerpetualPersonal = DataTableColumn("pricing-perpetual", "Perpetual", "num highlighted")
     private val columnPerpetualCommercial = DataTableColumn("pricing-perpetual-commercial", "Perpetual", "num")
 
     override val columns: List<DataTableColumn>
         get() = when {
             isPerpetual -> listOf(columnEmpty, columnPersonal.copy(columnSpan = 1), columnCommercial.copy(columnSpan = 1))
+            // the country and a column of each customer type
+            !hasRenewalPrices -> listOf(columnEmpty.copy(columnSpan = 1), columnPersonal.copy(columnSpan = 1), columnCommercial.copy(columnSpan = 1))
             else -> listOf(columnEmpty, columnPersonal, columnCommercial)
         }
 
@@ -93,8 +104,12 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
         if (!isPerpetual && prices.none { it.personal.annual != null } && prices.any { it.personal.perpetual != null }) {
             isPerpetual = true
         }
+        hasRenewalPrices = prices.any { price ->
+            listOf(price.personal.annual, price.commercial.annual).any { it?.secondYear != null || it?.thirdYear != null }
+        }
         val subColumns = when {
             isPerpetual -> listOf(columnCountry, columnPerpetualPersonal, columnPerpetualCommercial)
+            !hasRenewalPrices -> listOf(columnCountry, columnAnnualPersonal, columnAnnualCommercial)
             else -> listOf(
                 columnCountry,
                 columnFirstYearPersonal,
@@ -124,6 +139,20 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
                         val (commercialTaxedA, commercialTaxedB, commercialTaxedC) = priceInfo.prices.commercial.annual.mapYearsTaxed(
                             currency
                         )
+
+                        if (!hasRenewalPrices) {
+                            return@map SimpleDateTableRow(
+                                values = mapOf(
+                                    columnCountry to countryWithCurrency.country.printableName,
+                                    columnAnnualPersonal to listOfNotNull(personalA, personalTaxedA),
+                                    columnAnnualCommercial to listOfNotNull(commercialA, commercialTaxedA),
+                                ),
+                                sortValues = mapOf(
+                                    columnAnnualPersonal to personalA?.sortValue(),
+                                    columnAnnualCommercial to commercialA?.sortValue(),
+                                ),
+                            )
+                        }
 
                         SimpleDateTableRow(
                             values = mapOf(
@@ -195,5 +224,36 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
 
     private fun BigDecimal.withCurrency(currency: Currency): MonetaryAmount {
         return Money.of(this, currency.isoCode)
+    }
+
+    companion object {
+        /**
+         * @return A note about the continuity discount of a plugin without it, `null` with the discount or without the
+         *  info. The Marketplace allows to disable it at a date: licenses bought before keep it for their renewals,
+         *  licenses bought later pay the price of the 1st year every year. The API may return the date without
+         *  `hasContinuityDiscount`.
+         */
+        fun continuityDiscountNote(info: MarketplacePluginInfo?, today: YearMonthDay = YearMonthDay.now()): String? {
+            val disabledAt = info?.continuityDiscountDisabledAt
+            return when {
+                disabledAt != null && disabledAt <= today ->
+                    "The continuity discount was disabled on ${disabledAt.asIsoString}: licenses bought before keep it for " +
+                            "their renewals, licenses bought later pay the price of the 1st year every year."
+
+                info?.hasContinuityDiscount == false -> "The plugin has no continuity discount: renewals pay the price of the 1st year."
+                else -> null
+            }
+        }
+
+        /**
+         * @return If the plugin has a continuity discount for new licenses, `null` if it's unknown, see [continuityDiscountNote].
+         */
+        fun hasContinuityDiscount(info: MarketplacePluginInfo?, today: YearMonthDay = YearMonthDay.now()): Boolean? {
+            val disabledAt = info?.continuityDiscountDisabledAt
+            return when {
+                disabledAt != null && disabledAt <= today -> false
+                else -> info?.hasContinuityDiscount
+            }
+        }
     }
 }

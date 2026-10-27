@@ -26,6 +26,7 @@ import dev.ja.marketplace.data.subscriptions.RealizedLifetimeValueTable
 import dev.ja.marketplace.data.subscriptions.RenewalRateTable
 import dev.ja.marketplace.data.subscriptions.RevenueRetentionTable
 import dev.ja.marketplace.data.prices.PriceChanges
+import dev.ja.marketplace.data.privingOverview.PricingOverviewTable
 import dev.ja.marketplace.data.releases.IdeMajorReleases
 import dev.ja.marketplace.data.releases.MajorReleases
 import dev.ja.marketplace.data.timeSpanSummary.TimeSpanSummaryTable
@@ -405,7 +406,9 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
             "get_pricing",
             "Prices by country",
             "Current prices by country in the country's currency, by customer type, license period and year of subscription " +
-                    "(continuity discount). Countries with the same prices are grouped. Missing periods aren't offered.",
+                    "(continuity discount). Countries with the same prices are grouped. Missing periods aren't offered. " +
+                    "Plugins without continuity discount only have the price of the 1st year, continuityDiscount tells " +
+                    "if the plugin has it and when it was disabled: licenses bought before keep it for their renewals.",
             buildJsonObject {
                 put("pluginId", pluginIdProperty)
                 put("countryCodes", stringArrayProperty("ISO 3166 codes, e.g. [\"US\",\"DE\"]. Default: all countries (slow on the first call)"))
@@ -786,9 +789,17 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
                 .filterNotNull()
         }
 
+        val info = data.getMarketplacePluginInfo()
+        val hasContinuityDiscount = PricingOverviewTable.hasContinuityDiscount(info)
         return buildJsonObject {
             putPlugin(plugin)
             put("includesTax", includeTax)
+            if (hasContinuityDiscount != null) {
+                put("continuityDiscount", buildJsonObject {
+                    put("enabled", hasContinuityDiscount)
+                    info?.continuityDiscountDisabledAt?.let { put("disabledAt", it.asIsoString) }
+                })
+            }
             put("priceGroups", buildJsonArray {
                 // countries with the same currency and prices are combined
                 val groups = pricesByCountry.groupBy({ (country, prices) -> country.currency.isoCode to prices }, { it.first })
