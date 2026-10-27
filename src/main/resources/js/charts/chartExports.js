@@ -23,7 +23,8 @@ import {createMenu} from "./menu.js";
  * @param {object} options
  * @param {() => ChartExport[]} options.allExports The exports of all shown charts, for "Print all charts".
  * @param {() => Promise<void>} options.bookmark Shows the view in the address of the page and copies it.
- * @param {(text: string) => void} options.showMessage Shows a message in the dialog.
+ * @param {(text: string, options?: {persistent?: boolean}) => void} options.showMessage Shows a message in the dialog,
+ *  see ChartDialog.showMessage.
  * @return {HTMLElement} A menu to print the chart, to download it as PNG and, if available, as SVG, and to bookmark
  *  the view of the charts.
  */
@@ -83,7 +84,8 @@ async function copyDataUrl(chartExport, showMessage) {
         showMessage("The data URL was copied. It returns the values of the shown lines as CSV, e.g. for an AI agent, "
             + "with &format=json as JSON with the units and incomplete values.");
     } catch (error) {
-        showMessage("The data URL of the values: " + url);
+        // the address is copied by hand, the message stays until it's closed
+        showMessage("The data URL of the values: " + url, {persistent: true});
     }
 }
 

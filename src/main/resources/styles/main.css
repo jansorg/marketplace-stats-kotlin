@@ -1344,14 +1344,49 @@ dl.detail-grid dd {
         var(--chart-custom-color) 13px 15px, transparent 15px 18px);
 }
 
-.chart-dialog-hint, .chart-dialog-message {
+.chart-dialog-hint {
     font-size: .8rem;
     color: var(--future-color);
     margin: 0.25rem 0 0.75rem;
 }
 
+/* the messages of the dialog overlay the charts at the top of the visible part of the dialog, below the open menus */
+.chart-dialog-message-anchor {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    height: 0;
+}
+
 .chart-dialog-message {
+    position: absolute;
+    top: 0.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    box-sizing: border-box;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    width: max-content;
+    max-width: min(40rem, 100%);
+    padding: 0.6rem 0.5rem 0.6rem 1rem;
+    font-size: .9rem;
     color: var(--text-color);
+    background-color: var(--raised-surface-color);
+    border: 1px solid var(--separator-light-color);
+    border-left: 4px solid var(--link-color);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px var(--popup-shadow-color);
+}
+
+.chart-dialog-message[hidden] {
+    display: none;
+}
+
+.chart-dialog-message p {
+    margin: 0;
+    /* long addresses, e.g. of the data URL, wrap */
+    overflow-wrap: anywhere;
 }
 
 .chart-panel {
