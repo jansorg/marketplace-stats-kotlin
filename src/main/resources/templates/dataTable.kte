@@ -12,11 +12,15 @@
 !{val styledColumns = dev.ja.marketplace.CellStyles.styledColumns(table)}
 !{val cellsKey = "t" + Integer.toHexString(System.identityHashCode(table))}
 !{val cellStyles = dev.ja.marketplace.CellStyles.css(cellsKey, table, styledColumns)}
+<%-- the rows of large tables are split into tables, which the browser skips while they're off-screen, see TableChunks --%>
+!{val chunkRows = dev.ja.marketplace.TableChunks.rowsPerChunk(table, cellStyles != null)}
+!{val tableClasses = "small table-striped " + table.cssClass.orEmpty()}
+!{val chunkStart = if (chunkRows == null) "" else "<div class=\"table-chunk\"><table class=\"" + dev.ja.marketplace.TableChunks.chunkTableClasses(tableClasses) + "\" data-cells=\"" + cellsKey + "\"><tbody>"}
 <div class="table-card">
 @if(cellStyles != null)
 <style>$unsafe{cellStyles}</style>
 @endif
-<table class="small table-striped ${table.cssClass}" data-cells="${if (cellStyles != null) cellsKey else null}" data-collapsed-rows="${table.collapsedRowCount}" data-chart-title="${if (table.isChartable || table.columns.any { it.isShareOfTotal || it.rowHistoryPeriod != null }) table.title else null}"
+<table class="${tableClasses}" data-cells="${if (cellStyles != null) cellsKey else null}" data-row-chunks="${chunkRows}" data-collapsed-rows="${table.collapsedRowCount}" data-chart-title="${if (table.isChartable || table.columns.any { it.isShareOfTotal || it.rowHistoryPeriod != null }) table.title else null}"
        data-chart-period="${if (table.isChartable) table.chartPeriod.name.lowercase() else null}"
        data-chart-from="${table.chartDateRange?.start?.asIsoString}" data-chart-to="${table.chartDateRange?.end?.asIsoString}">
     @if(renderTableHeader || table.alwaysShowMainColumns)
@@ -33,7 +37,9 @@
             renderHeader = !renderTableHeader,
             renderFooter = !renderTableHeader,
             title = section.title ?: table.title,
-            styledColumns = styledColumns)
+            styledColumns = styledColumns,
+            chunkRows = chunkRows ?: 0,
+            chunkStart = chunkStart)
         </tbody>
     @endfor
     @if(renderTableHeader)
@@ -56,4 +62,7 @@
         @endif
     @endif
 </table>
+@if(chunkRows != null)
+</div>
+@endif
 </div>

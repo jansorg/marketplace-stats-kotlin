@@ -627,26 +627,42 @@ kbd {
 }
 
 /* the card defines the width and the spacing of its table */
-.table-card > table {
+.table-card > table, .table-chunk > table {
     width: 100%;
     margin: 0;
 }
 
+/* the rows of large tables are split into tables, which the browser doesn't render while they're off-screen, see
+   TableChunks. chunkedTables.js sets the widths of their columns, their width and their estimated height. */
+.table-chunk {
+    min-width: 100%;
+    content-visibility: auto;
+    contain-intrinsic-block-size: auto 15000px;
+}
+
+/* the cells of the longest texts of the columns of a split table, only their widths are used, see chunkedTables.js */
+.table-chunk-widths {
+    visibility: collapse;
+}
+
 /* the first column, usually the date, stays visible, when a wide table is scrolled horizontally */
-.table-card > table > * > tr > :first-child {
+.table-card > table > * > tr > :first-child, .table-chunk > table > * > tr > :first-child {
     position: sticky;
     left: 0;
     z-index: 1;
     background-color: var(--surface-color);
 }
 
-.table-card > .table-striped > tbody > tr:nth-child(even) > :first-child {
+.table-card > .table-striped > tbody > tr:nth-child(even) > :first-child,
+.table-chunk > .table-striped > tbody > tr:nth-child(even) > :first-child {
     background-color: var(--stripe-bgcolor);
 }
 
 /* the hovered row also covers the stripes of the first column */
 .table-card > table > tbody > tr:hover > :first-child,
-.table-card > .table-striped > tbody > tr:nth-child(even):hover > :first-child {
+.table-card > .table-striped > tbody > tr:nth-child(even):hover > :first-child,
+.table-chunk > table > tbody > tr:hover > :first-child,
+.table-chunk > .table-striped > tbody > tr:nth-child(even):hover > :first-child {
     background-color: var(--row-hover-bgcolor);
 }
 

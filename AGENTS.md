@@ -460,6 +460,15 @@ queries, and one which excludes all these tags. The results are in the order of 
   of the cells. The links in the cells have the short parameter `pId` instead of `pluginId`, the pages accept both. Numbers in texts, e.g. footers and tooltips, are
   formatted with `Formatters.formatInteger` and `Formatters.formatAmount` (the format of `Formatters.MonetaryAmount`,
   cached by the amount, the format of Moneta allocates much memory for each call).
+- The rows of tables with more than 1,000 rows (`TableChunks`, a single section, with the rules of `CellStyles`, not
+  chartable, without collapsed rows) are split into tables of 500 rows in `.table-chunk` elements of the card
+  (`dataTable.kte`, `dataTableSection.kte`). They have `content-visibility: auto`: the browser doesn't lay out and
+  paint them while they're off-screen. A single table of tens of thousands of rows is laid out again as a whole after
+  each part of the page and needs much memory in the browser. The first table has the header, the first rows and `data-row-chunks`, the last
+  table the footer. `chunkedTables.js` adds a collapsed row with the longest texts of the columns to the header, gives
+  the other tables the widths of the columns of the first table (`table-layout: fixed`, also after resizing) and their
+  estimated heights, and moves all rows into the first table while `sortable.min.js` sorts it (`sort-start`,
+  `sort-end`). Without JavaScript, each table has its own widths of the columns.
 - Table styling is partly set from Kotlin: `DataTable` subclasses in `marketplace-data` pass CSS class names (for example
   `cssClass = "small table-striped"`) and per-column `cssClass`/`cssStyle` values (`DataTable.kt`). These classes must exist in `main.css`.
 - Static resources are served by `staticAssets("/styles", "styles")`, `staticAssets("/js", "js")`,

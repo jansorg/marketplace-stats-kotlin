@@ -327,10 +327,23 @@ project(":") {
         outputDirectory = layout.buildDirectory.dir("generated/minifyCollapsibleTablesJavascript")
     }
 
+    // the script of the tables, whose rows are split into tables
+    val minifyChunkedTablesJavascript = tasks.register<ClosureBundle>("minifyChunkedTablesJavascript") {
+        description = "Minifies the JavaScript of the tables with split rows"
+        bundleName = "chunkedTables"
+        sourceDirectory = layout.projectDirectory.dir("src/main/resources/js")
+        sources.from(sourceDirectory.file("chunkedTables.js"))
+        entryPoint = "chunkedTables.js"
+        compilerClasspath.from(closureCompiler)
+        javaLauncher = javaToolchains.launcherFor(java.toolchain)
+        outputDirectory = layout.buildDirectory.dir("generated/minifyChunkedTablesJavascript")
+    }
+
     sourceSets.main {
         resources.srcDir(bundleJavascriptLibraries)
         resources.srcDir(bundleChartsJavascript)
         resources.srcDir(minifyCollapsibleTablesJavascript)
+        resources.srcDir(minifyChunkedTablesJavascript)
     }
 
     // the stylesheets are served minified, e.g. styles/main.min.css
@@ -349,7 +362,7 @@ project(":") {
 
     // the pages load the minified scripts and stylesheets instead of their sources
     tasks.processResources {
-        exclude("js/charts/**", "js/collapsibleTables.js")
+        exclude("js/charts/**", "js/collapsibleTables.js", "js/chunkedTables.js")
         exclude { it.relativePath.pathString.startsWith("styles/") && !it.name.endsWith(".min.css") }
     }
 

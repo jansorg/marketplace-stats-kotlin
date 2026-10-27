@@ -25,6 +25,7 @@
         <script src="${dev.ja.marketplace.StaticAssets.url("/js/uPlot.iife.min.js")}" defer></script>
         <script type="module" src="${dev.ja.marketplace.StaticAssets.url("/js/charts.min.js")}"></script>
         <script type="module" src="${dev.ja.marketplace.StaticAssets.url("/js/collapsibleTables.min.js")}"></script>
+        <script type="module" src="${dev.ja.marketplace.StaticAssets.url("/js/chunkedTables.min.js")}"></script>
     @endif
 </head>
 <body data-locale="${java.util.Locale.getDefault().toLanguageTag()}">

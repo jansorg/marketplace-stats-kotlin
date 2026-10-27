@@ -10,6 +10,9 @@
 @param renderFooter: Boolean
 @param title: String? = null
 @param styledColumns: Set<dev.ja.marketplace.data.DataTableColumn> = emptySet()
+<%-- the rows are split into tables of chunkRows rows, chunkStart starts the next table, see TableChunks --%>
+@param chunkRows: Int = 0
+@param chunkStart: String = ""
 
 @if(section != null)
     !{val header = section.header}
@@ -31,7 +34,15 @@
          The comments join the lines without adding whitespace to the output. --%>
     <%-- the attributes of the columns are the same for all their cells, see HtmlAttributes --%>
     !{val columnAttributes = columns.map { HtmlAttributes.column(it.columnSpan, if (it in styledColumns) null else it.cssClass) }}
-    @for(row in section.rows)
+    @for((rowIndex, row) in section.rows.withIndex())
+        @if(chunkRows > 0 && rowIndex > 0 && rowIndex % chunkRows == 0)
+            @if(rowIndex > chunkRows)
+                </tbody></table></div>
+            @else
+                </tbody></table>
+            @endif
+            $unsafe{chunkStart}
+        @endif
         !{val chartX = if (table.isChartable) ChartValues.xValue(table.chartPeriod, row.getValue(columns.first())) else null}
         !{val chartCategory = if (columns.any { it.isShareOfTotal || it.rowHistoryPeriod != null }) ChartValues.category(row.getValue(columns.first())) else null}
         <tr class="${row.cssClass}" data-chart-x="${chartX}" data-chart-category="${chartCategory}"><%--

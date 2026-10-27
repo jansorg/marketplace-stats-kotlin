@@ -13,6 +13,16 @@ td > a[href^="/customer/"], td > a[href^="/license/"], td > a[href^="/refnum/"] 
     display: none;
 }
 
+/* all rows of the split tables are printed, see TableChunks, with the widths of the paper instead of the screen */
+.table-chunk {
+    content-visibility: visible;
+    width: auto !important;
+}
+
+.table-chunk > table {
+    width: 100% !important;
+}
+
 /* the footer is printed with the date of the page, without the button to drop the caches */
 .site-footer .noprint {
     display: none;
