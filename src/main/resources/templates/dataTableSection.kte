@@ -29,6 +29,8 @@
 
     <%-- The cells have no whitespace between and in them, large tables would contain more whitespace than values.
          The comments join the lines without adding whitespace to the output. --%>
+    <%-- the attributes of the columns are the same for all their cells, see HtmlAttributes --%>
+    !{val columnAttributes = columns.map { HtmlAttributes.column(it.columnSpan, if (it in styledColumns) null else it.cssClass) }}
     @for(row in section.rows)
         !{val chartX = if (table.isChartable) ChartValues.xValue(table.chartPeriod, row.getValue(columns.first())) else null}
         !{val chartCategory = if (columns.any { it.isShareOfTotal || it.rowHistoryPeriod != null }) ChartValues.category(row.getValue(columns.first())) else null}
@@ -36,17 +38,16 @@
         --%>@for((columnIndex, column) in columns.withIndex())<%--
             --%>!{val chartValue = if (chartX != null && columnIndex > 0 && column.chartMetric == null) ChartValues.value(row.getValue(column)) else null}<%--
             the attributes are only written with a value, see HtmlAttributes
-            --%><td $unsafe{HtmlAttributes.of(
-                "colspan" to column.columnSpan,
-                "class" to (if (column in styledColumns) null else column.cssClass),
-                "title" to row.getTooltip(column),
-                "data-sort" to row.getSortValue(column),
-                "data-chart-col" to (if (chartValue != null) columnIndex else null),
-                "data-chart-value" to chartValue?.value?.toPlainString(),
-                "data-chart-unit" to chartValue?.unit,
-                "data-chart-incomplete" to (if (chartValue?.isIncomplete == true) "true" else null),
-                "data-chart-share" to (if (chartCategory != null && column.isShareOfTotal) ChartValues.value(row.getValue(column))?.value?.toPlainString() else null),
-                "data-chart-history" to (if (column.chartMetric == null) column.rowHistoryPeriod?.let { period -> row.getChartHistory(column)?.let { ChartValues.history(period, it) } } else null),
+            --%><td $unsafe{HtmlAttributes.cell(
+                column = columnAttributes[columnIndex],
+                title = row.getTooltip(column),
+                sort = row.getSortValue(column),
+                chartCol = if (chartValue != null) columnIndex else null,
+                chartValue = chartValue?.value?.toPlainString(),
+                chartUnit = chartValue?.unit,
+                chartIncomplete = chartValue?.isIncomplete == true,
+                chartShare = if (chartCategory != null && column.isShareOfTotal) ChartValues.value(row.getValue(column))?.value?.toPlainString() else null,
+                chartHistory = if (column.chartMetric == null) column.rowHistoryPeriod?.let { period -> row.getChartHistory(column)?.let { ChartValues.history(period, it) } } else null,
             )}><%--
                 --%>@template.render(row.getValue(column))</td><%--
         --%>@endfor</tr>
