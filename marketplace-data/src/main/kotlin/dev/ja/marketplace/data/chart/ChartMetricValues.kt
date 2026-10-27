@@ -40,7 +40,8 @@ import javax.money.MonetaryAmount
  * - The churn is the share of the paid licenses, which were active at the day before the window and aren't active at
  *   the day, of the annual or monthly licenses, or of the licenses of all periods for the combined churn.
  * - New customers and new trial users are the customers of the window, whose first paid license or first trial of
- *   the plugin is in it, see [newCustomerDays].
+ *   the plugin is in it, see [newCustomerDays]. New licenses are the paid licenses, whose first sale is in the
+ *   window, see [newLicenseDays].
  * - The conversion rate of the trials, which started in the window: the share of the trials, which were converted by a
  *   new paid license within [trialConversionDays] days.
  * - The movements of the MRR and the retention compare the MRR of the customers at the day with the MRR at the day
@@ -197,6 +198,10 @@ class ChartMetricValues private constructor(
     private val newTrialUsersPerDay: LongArray by lazy {
         windows.countsPerDay(trials.groupBy { it.customer.code }.values.map { customerTrials -> customerTrials.minOf { it.date } to 1L })
     }
+    /** The licenses of each plugin are counted separately, the IDs of licenses of different plugins could be the same. */
+    private val newLicensesPerDay: LongArray by lazy {
+        windows.countsPerDay(licensesOfPlugins.flatMap { licenses -> newLicenseDays(licenses).map { it to 1L } })
+    }
     /** The customers of each plugin are counted separately, like the licenses of the churn. */
     private val newCustomersPerDay: LongArray by lazy {
         windows.countsPerDay(licensesOfPlugins.flatMap { licenses -> newCustomerDays(licenses).map { it to 1L } })
@@ -225,6 +230,7 @@ class ChartMetricValues private constructor(
             ChartMetric.TrialConversion -> conversionRates(starts)
             ChartMetric.Licenses -> licenseCount(allLicenses.filter { it.validity != null })
             ChartMetric.PaidLicenses -> licenseCount(allLicenses.filter { it.validity != null && it.isPaidLicense })
+            ChartMetric.NewLicenses -> countSeries(windows.windowSums(newLicensesPerDay, starts))
             ChartMetric.Mrr -> recurringRevenue.first
             ChartMetric.Arr -> recurringRevenue.second
             ChartMetric.ChurnAnnual -> churn(LicensePeriod.Annual, window)
@@ -464,7 +470,7 @@ class ChartMetricValues private constructor(
         /** The metrics of the summary of all plugins. */
         private val allPluginsMetrics = setOf(
             ChartMetric.Sales, ChartMetric.Fees, ChartMetric.Invoice, ChartMetric.Downloads, ChartMetric.Mrr, ChartMetric.Arr,
-            ChartMetric.ChurnCombined, ChartMetric.NewCustomers,
+            ChartMetric.ChurnCombined, ChartMetric.NewCustomers, ChartMetric.NewLicenses,
         )
 
         /**
@@ -486,7 +492,8 @@ class ChartMetricValues private constructor(
 
         /**
          * @return The values of the summary of all paid plugins: sales, fees, invoices, downloads, MRR, ARR, the
-         *  combined churn rate and the new customers, the sum of the new customers of each plugin.
+         *  combined churn rate and the new customers and licenses, the sums of the new customers and licenses of each
+         *  plugin.
          * @param licensesOfPlugins The licenses of each plugin.
          */
         fun allPlugins(
@@ -536,22 +543,42 @@ class ChartMetricValues private constructor(
          * - Several licenses of a customer at the same day count once.
          */
         fun newCustomerDays(licenses: List<LicenseInfo>): List<YearMonthDay> {
+            val firstTransfer = HashMap<CustomerId, YearMonthDay>()
+            for (purchases in licenses.groupBy { it.id }.values) {
+                sortedPurchases(purchases)
+                    .zipWithNext()
+                    .filter { (previous, next) -> previous.sale.customer.code != next.sale.customer.code }
+                    .forEach { (_, next) -> firstTransfer.merge(next.sale.customer.code, next.sale.date, ::minOf) }
+            }
             val firstPaid = HashMap<CustomerId, YearMonthDay>()
             for (license in licenses) {
                 if (license.isPaidLicense) {
                     firstPaid.merge(license.sale.customer.code, license.sale.date, ::minOf)
                 }
             }
-            val firstTransfer = HashMap<CustomerId, YearMonthDay>()
-            for (purchases in licenses.groupBy { it.id }.values) {
-                purchases.sortedWith(compareBy({ it.sale.date }, { it.validity?.start }))
-                    .zipWithNext()
-                    .filter { (previous, next) -> previous.sale.customer.code != next.sale.customer.code }
-                    .forEach { (_, next) -> firstTransfer.merge(next.sale.customer.code, next.sale.date, ::minOf) }
-            }
             return firstPaid.mapNotNull { (customer, day) ->
                 day.takeUnless { firstTransfer[customer]?.let { it <= day } == true }
             }
+        }
+
+        /**
+         * @return The day of the first sale of each new paid license of a plugin, by the ID of the license:
+         * - A license is new at its first purchase (by sale date, the order of
+         *   [dev.ja.marketplace.data.transfers.LicenseTransfers]), if that purchase is paid. Renewals and other later purchases, e.g. a change of the period of the license,
+         *   don't count, also not a free license, which is paid later.
+         * - A license, which was transferred to another customer, is new once, at the purchase of the first
+         *   customer. The purchases of the new owner, which follow the purchase of another customer, aren't new.
+         * - Several licenses of a sale count each.
+         */
+        fun newLicenseDays(licenses: List<LicenseInfo>): List<YearMonthDay> {
+            return licenses.groupBy { it.id }.values.mapNotNull { purchases ->
+                sortedPurchases(purchases).first().takeIf { it.isPaidLicense }?.sale?.date
+            }
+        }
+
+        /** @return The purchases of a license in the order of [dev.ja.marketplace.data.transfers.LicenseTransfers]. */
+        private fun sortedPurchases(purchases: List<LicenseInfo>): List<LicenseInfo> {
+            return purchases.sortedWith(compareBy({ it.sale.date }, { it.validity?.start }))
         }
 
         /**
