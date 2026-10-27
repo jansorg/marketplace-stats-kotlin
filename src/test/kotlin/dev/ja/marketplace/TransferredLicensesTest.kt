@@ -88,6 +88,17 @@ class TransferredLicensesTest {
     }
 
     @Test
+    suspend fun footerContainsTheLicensesAfterTheRowLimit() {
+        // one of the three purchases is shown, the total and the count of the footer contain all of them
+        val table = render(LicenseTable(maxTableRows = 1, showFooter = true, nowDate = today))
+        assertEquals(1, table.rows().size)
+        val footer = table.sections.single().footer!!.rows.single()
+        val total = footer.getValue(table.columns.single { it.id == "sale-amount" }) as javax.money.MonetaryAmount
+        assertEquals(0, total.number.numberValue(java.math.BigDecimal::class.java).compareTo(java.math.BigDecimal(300)), total.toString())
+        assertEquals(listOf("1 active", "2 total"), footer.getValue(table.columns.single { it.id == "license-id" }))
+    }
+
+    @Test
     suspend fun customersCountTransferredLicenses() {
         val table = render(CustomerTable(nowDate = today))
         assertTrue(table.columns.any { it.id == "customer-licenses-transferred" })

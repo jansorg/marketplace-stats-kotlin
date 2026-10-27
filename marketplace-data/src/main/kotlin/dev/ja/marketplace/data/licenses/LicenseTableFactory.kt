@@ -14,6 +14,6 @@ import dev.ja.marketplace.data.MarketplaceDataTableFactory
  */
 class LicenseTableFactory(private val status: LicenseStatus? = null) : MarketplaceDataTableFactory {
     override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable {
-        return LicenseTable(maxTableRows, statusFilter = status, showOnlyLatestLicenseInfo = status != null)
+        return LicenseTable(maxTableRows, showFooter = true, statusFilter = status, showOnlyLatestLicenseInfo = status != null)
     }
 }

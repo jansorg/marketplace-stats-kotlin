@@ -128,16 +128,18 @@ class LicenseTable(
             .toList()
             // only display the latest renewal (or the first purchase if new), before the rows are limited
             .let { sales -> if (showOnlyLatestLicenseInfo) sales.distinctBy { it.first().id } else sales }
+            // the total of the footer contains all rows, also the ones after the limit of the shown rows
+            .onEach { purchases ->
+                for (purchase in purchases) {
+                    amountTracker.add(purchase.sale.date, purchase.amountUSD, purchase.amount)
+                }
+            }
             .takeNullable(maxTableRows)
             .map { purchases ->
                 val license = purchases.first()
                 val purchaseDate = license.sale.date
                 val showPurchaseDate = previousPurchaseDate != purchaseDate
                 previousPurchaseDate = purchaseDate
-
-                for (purchase in purchases) {
-                    amountTracker.add(purchase.sale.date, purchase.amountUSD, purchase.amount)
-                }
 
                 val validity = YearMonthDayRange(purchases.minOf(LicensePurchases::start), purchases.maxOf(LicensePurchases::end))
                 val discounts = purchases.flatMap { it.saleLineItem.discountDescriptions }.distinct()
