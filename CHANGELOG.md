@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.49.0
+
+- Pages:
+  - The new page Offers shows how the offers and the other discounts were used: the sales, customers and discount
+    amounts of each offer, with links to the licenses and customers with the discount.
+  - The footer selects the theme of the pages: Auto, Light or Dark.
+  - The lists of licenses have a footer with the total amount and the numbers of active and all licenses. The total
+    contains all licenses of the list, also if only some rows are shown.
+  - The pricing page shows plugins without continuity discount and tells when it was disabled.
+  - "Show all rows" keeps the page and its filters, also if the server is requested at another host than it's bound to.
+  - Numbers in footers and tooltips are formatted with the locale.
+  - The menu links of the licenses and the customers show 500 rows, "Show all rows" shows all.
+- Performance:
+  - Large lists, e.g. of all licenses, load much faster and need much less memory in the browser: the rows are split
+    into tables, which the browser skips while they're off-screen, and the HTML of the tables is much smaller.
+  - The pages are sent to the browser while they're rendered, the server allocates much less memory per page.
+- Charts:
+  - New metrics: new customers, new licenses and new trial users, and the discount amounts of each offer.
+  - The View option "Logarithmic y-axis" shows the line charts on a logarithmic scale.
+  - New series get a color, which is distinct from the colors of their chart, also with color vision deficiencies.
+  - The menus, tooltips and legends of line charts work with long labels.
+- MCP: the new tool `get_offer_usage` returns the tables of the page Offers. `create_chart` has the options `logScale`
+  and `theme` (light or dark), `get_pricing` tells if the continuity discount was disabled.
+- Marketplace client: `pluginFeatures` loads the features of a plugin, e.g. the supported file types. Downloads, which
+  were fetched before the downloads of yesterday were published, are cached for 30 minutes.
+
 ## 0.48.0
 
 - Charts:
