@@ -14,7 +14,7 @@
                 <a href="/licenses/churned?pluginId=${plugin.id}&rows=500">Churned</a>
             </div>
         </details>
-        <a href="/customers?pluginId=${plugin.id}">Customers</a>
+        <a href="/customers?pluginId=${plugin.id}&rows=500">Customers</a>
         <a href="/countries?pluginId=${plugin.id}">Countries</a>
         <a href="/trials?pluginId=${plugin.id}&rows=100">Trials</a>
         <a href="/trials/funnel?pluginId=${plugin.id}">Trials (Funnel)</a>
