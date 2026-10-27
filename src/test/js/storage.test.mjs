@@ -16,7 +16,7 @@ test("a stored setup is loaded", () => {
     const storage = memoryStorage();
     const setupStorage = createSetupStorage(storage);
     const setup = {
-        combineUnits: true, averagesOnly: true, maximized: false, preferredStyle: "bars", chartStyles: {"month/USD": "bars"}, chartLevels: {"metric/USD": {window: "year", detail: "day"}}, shownMarkers: ["ide"], shownEvents: ["price-announcement"], shownExtremes: ["max"], shownOverlays: ["average12", "previousYear"], showIncomplete: false, showValueTable: false, showComparisonLines: true, hideAxisValues: true,
+        combineUnits: true, maximized: false, preferredStyle: "bars", chartStyles: {"month/USD": "bars"}, chartLevels: {"metric/USD": {window: "year", detail: "day"}}, shownMarkers: ["ide"], shownEvents: ["price-announcement"], shownExtremes: ["max"], shownOverlays: ["average12", "previousYear"], showIncomplete: false, showValueTable: false, showComparisonLines: true, hideAxisValues: true,
         dateRange: {from: "2024-01-01", to: "2024-12-31"}, hiddenSeries: ["line/Overview/MRR", "line/Overview/MRR:average3"],
         entries: [
             {type: "metric", metric: "mrr", usesWindow: false, label: "MRR", unit: "USD", measure: "stock", color: "#2a78d6"},
@@ -29,7 +29,7 @@ test("a stored setup is loaded", () => {
     assert.deepEqual(setupStorage.load(), setup);
     // only the setup is stored, no values of the tables
     assert.deepEqual(Object.keys(JSON.parse(storage.values.get(setupStorageKey(null)))).sort(),
-        ["averagesOnly", "chartLevels", "chartStyles", "combineUnits", "dateRange", "entries", "hiddenSeries", "hideAxisValues", "maximized", "preferredStyle", "showComparisonLines", "showIncomplete", "showValueTable", "shownEvents", "shownExtremes", "shownMarkers", "shownOverlays", "version"]);
+        ["chartLevels", "chartStyles", "combineUnits", "dateRange", "entries", "hiddenSeries", "hideAxisValues", "maximized", "preferredStyle", "showComparisonLines", "showIncomplete", "showValueTable", "shownEvents", "shownExtremes", "shownMarkers", "shownOverlays", "version"]);
 });
 
 test("the dialog is maximized by default", () => {
@@ -71,11 +71,11 @@ test("invalid data is ignored", () => {
     assert.deepEqual(setup.entries, [{type: "line", table: "Overview", column: "MRR"}]);
 });
 
-test("the stored option of the minimum and maximum is shown as two options", () => {
+test("only the known kinds of extremes are shown", () => {
     const load = stored => createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 2, entries: [], ...stored})})).load();
-    assert.deepEqual(load({showExtremes: true}).shownExtremes, ["min", "max"]);
-    assert.deepEqual(load({showExtremes: false}).shownExtremes, []);
-    assert.deepEqual(load({shownExtremes: ["max", "other"]}).shownExtremes, ["max"]);
+    assert.deepEqual(load({}).shownExtremes, []);
+    assert.deepEqual(load({shownExtremes: "max"}).shownExtremes, []);
+    assert.deepEqual(load({shownExtremes: ["max", "other", "min"]}).shownExtremes, ["min", "max"]);
 });
 
 test("a setup of version 1 is ignored", () => {
@@ -105,6 +105,9 @@ test("a bookmarked view is the setup in the fragment of the address", () => {
     // non-ASCII names of tables and columns
     const named = {...emptySetup(), entries: [{type: "line", table: "Übersicht", column: "Umsatz €"}]};
     assert.deepEqual(decodeView(encodeView(named)), named);
+    // a long view, e.g. with many hidden lines, is encoded, too
+    const long = {...emptySetup(), hiddenSeries: Array.from({length: 20000}, (_, i) => `line/Overview/Column ${i}`)};
+    assert.deepEqual(decodeView(encodeView(long)), long);
 });
 
 test("invalid keys of hidden lines are ignored", () => {
@@ -120,6 +123,10 @@ test("an invalid date range shows all dates", () => {
     assert.equal(load("2025"), null);
     assert.equal(load({from: "2025-01-01"}), null);
     assert.equal(load({from: "2025-13-45", to: "2025-12-31"}), null);
+    // days, which don't exist, aren't moved to the next month
+    assert.equal(load({from: "2025-02-29", to: "2025-12-31"}), null);
+    assert.equal(load({from: "2025-01-01", to: "2025-04-31"}), null);
+    assert.deepEqual(load({from: "2024-02-29", to: "2024-03-31"}), {from: "2024-02-29", to: "2024-03-31"});
     // the end before the start
     assert.equal(load({from: "2025-12-31", to: "2025-01-01"}), null);
     assert.deepEqual(load({from: "2025-01-01", to: "2025-01-01", other: 1}), {from: "2025-01-01", to: "2025-01-01"});

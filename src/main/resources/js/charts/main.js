@@ -114,6 +114,28 @@ function compactSwitch(group) {
     return wrapper;
 }
 
+/**
+ * @param {string} path The path of an endpoint of the server, e.g. `/chart-data`.
+ * @return {URL} The address of the endpoint with the plugin of the page, without a plugin for the summary of all plugins.
+ */
+function pageEndpoint(path) {
+    const url = new URL(path, window.location.href);
+    const pluginId = new URLSearchParams(window.location.search).get("pluginId");
+    if (pluginId !== null) {
+        url.searchParams.set("pluginId", pluginId);
+    }
+    return url;
+}
+
+/** @return {Promise<any>} The JSON of the response, rejected if the response has an error status. */
+async function fetchJson(url) {
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error("HTTP status " + response.status);
+    }
+    return response.json();
+}
+
 /** @return {import("./storage.js").ChartEntry} The stored entry of a series of a metric. */
 function metricEntry(s) {
     return {type: "metric", metric: s.metric, ...(s.window ? {window: s.window} : {}), usesWindow: s.usesWindow, ...(s.average ? {average: s.average} : {}), label: s.label, unit: s.unit,
@@ -143,11 +165,14 @@ class ChartController {
         this.showComparisonLines = false;
         // if the y-axes have no values, e.g. to share an image of a trend without its numbers
         this.hideAxisValues = false;
-        // if lines with a moving average only show the average
         // the shown dates of the line charts, null for all dates, see storage.js
         this.dateRange = null;
         // the keys of the series and overlays, which were hidden by a click on the legend, see createLineChart
         this.hiddenSeries = new Set();
+        // the years of the menu "Range", see render
+        this.shownYears = [];
+        // if the charts are drawn in the next frame, see setDateRange
+        this.isRenderPending = false;
         // trends of the line charts, see OVERLAYS
         this.shownOverlays = [];
         this.hasLineCharts = false;
@@ -414,11 +439,6 @@ class ChartController {
         if (items.childElementCount > 0) {
             return;
         }
-        const url = new URL("/chart-metrics", window.location.href);
-        const pluginId = new URLSearchParams(window.location.search).get("pluginId");
-        if (pluginId !== null) {
-            url.searchParams.set("pluginId", pluginId);
-        }
         const windowLabel = document.createElement("label");
         windowLabel.className = "chart-add-window";
         const windowSelect = document.createElement("select");
@@ -428,13 +448,7 @@ class ChartController {
         windowSelect.addEventListener("change", () => this.addWindow = windowSelect.value);
         windowLabel.append("Window", windowSelect);
         items.append(windowLabel);
-        fetch(url)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error("HTTP status " + response.status);
-                }
-                return response.json();
-            })
+        fetchJson(pageEndpoint("/chart-metrics"))
             .then(metrics => {
                 // the metrics are grouped by their kind, e.g. the trials and the conversion of the trials
                 let group = null;
@@ -716,7 +730,6 @@ class ChartController {
             showValueTable: this.showValueTable,
             showComparisonLines: this.showComparisonLines,
             hideAxisValues: this.hideAxisValues,
-            averagesOnly: false,
             dateRange: this.dateRange,
             hiddenSeries: [...this.hiddenSeries],
             entries: [
@@ -873,7 +886,7 @@ class ChartController {
                 chartSeries = this.metricChartSeries(chartSeries, level);
                 // the values are still loading, or the metrics have no values
                 if (chartSeries.length === 0) {
-                    isLoading ||= Object.values(this.metricValues).some(entry => entry.pending);
+                    isLoading ||= this.isLoadingMetrics();
                     continue;
                 }
             }
@@ -884,7 +897,7 @@ class ChartController {
             }
             const detail = level?.detail ?? null;
             const chartStyle = this.chartStyles[key] ?? this.preferredStyle;
-            this.shownStyles[key] = this.chartStyles[key] ?? this.preferredStyle;
+            this.shownStyles[key] = chartStyle;
             const overlays = this.trends(chartSeries, detail);
             for (const series of chartSeries) {
                 OVERLAYS.filter(kind => overlayApplies(kind, series, detail, level?.window)).forEach(kind => applicableOverlays.add(kind));
@@ -981,7 +994,7 @@ class ChartController {
         }
         // while values are loading, the menu "Range" keeps the years of the shown values
         const years = rangeYears(shownSeries);
-        this.shownYears = isLoading ? [...new Set([...years, ...(this.shownYears ?? [])])].sort((a, b) => b - a) : years;
+        this.shownYears = isLoading ? [...new Set([...years, ...this.shownYears])].sort((a, b) => b - a) : years;
         dialog.setDateRange(this.shownYears, this.dateRange);
 
         for (const pie of this.pies) {
@@ -1093,21 +1106,11 @@ class ChartController {
             this.dialog.showMessage(LOADING_MESSAGE);
         }
 
-        const url = new URL("/chart-data", window.location.href);
-        const pluginId = new URLSearchParams(window.location.search).get("pluginId");
-        if (pluginId !== null) {
-            url.searchParams.set("pluginId", pluginId);
-        }
+        const url = pageEndpoint("/chart-data");
         url.searchParams.set("metrics", missing.join(","));
         url.searchParams.set("window", chartWindow);
         url.searchParams.set("detail", detail);
-        fetch(url)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error("HTTP status " + response.status);
-                }
-                return response.json();
-            })
+        fetchJson(url)
             .then(data => {
                 // the values of other metrics of the level are kept, they have the same dates
                 const series = data.dates.join() === entry.data?.dates.join() ? {...entry.data.series, ...data.series} : data.series;
@@ -1134,18 +1137,19 @@ class ChartController {
     /**
      * The series of metrics take the units of the loaded values, e.g. after the displayed currency changed. Series of
      * metrics without values on this page, e.g. the trials on the list of plugins, aren't shown, but they're kept for
-     * other pages.
+     * other pages. The values of moving averages have their own IDs, see metricDataId.
      */
     updateMetricSeries(data, requested) {
         let changed = false;
-        for (const series of this.series.filter(s => s.metric && requested.includes(s.metric))) {
-            const values = data.series[series.metric];
+        const requestedSeries = this.series.filter(s => s.metric && requested.includes(metricDataId(s)));
+        for (const series of requestedSeries) {
+            const values = data.series[metricDataId(series)];
             if (values && values.unit !== series.unit) {
                 series.unit = values.unit;
                 changed = true;
             }
         }
-        const withoutValues = this.series.filter(s => s.metric && requested.includes(s.metric) && !data.series[s.metric]);
+        const withoutValues = requestedSeries.filter(s => !data.series[metricDataId(s)]);
         if (withoutValues.length > 0) {
             this.series = this.series.filter(s => !withoutValues.includes(s));
             this.unresolvedEntries.push(...withoutValues.map(metricEntry));
@@ -1189,10 +1193,6 @@ class ChartController {
     }
 
     /**
-     * The toolbar of the first chart is shown in the row of the options of the dialog to save space,
-     * the toolbars of the other charts above them.
-     */
-    /**
      * @param {() => void} remove Removes the series or the pie of the chart.
      * @return {HTMLButtonElement} A button to remove the chart.
      */
@@ -1204,6 +1204,10 @@ class ChartController {
         });
     }
 
+    /**
+     * The toolbar of the first chart is shown in the row of the options of the dialog to save space,
+     * the toolbars of the other charts above them.
+     */
     toolbar(panel) {
         const toolbar = document.createElement("div");
         toolbar.className = "chart-toolbar";

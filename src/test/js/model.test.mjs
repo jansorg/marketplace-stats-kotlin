@@ -8,10 +8,10 @@ import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
     alignedRanges, chartExportUrl, exportLineId, niceStep, rangeTicks, seriesMenuSections, seriesStyle, SERIES_STYLES, WINDOWS, RANGE_PRESETS, rangeOfPreset,
-    averageShade, pinchedRange, rangeLabel, rangeMenuItems, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
+    pinchedRange, rangeLabel, rangeMenuItems, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, finestDetail, lineDetail, periodEnd, shownWindow, storedChartLevel, tableWindow, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, shownDateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
-    eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
+    chartKey, lineChartKey, slicePath, eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
 } from "../../main/resources/js/charts/model.js";
 
 function series(period, unit, points) {
@@ -442,17 +442,6 @@ test("pinching keeps the dates under the fingers", () => {
     assert.deepEqual(pinchedRange([0, 1000], [500, 500], [300, 700], 1000, limits), [0, 1000]);
 });
 
-test("several averages of a series have different shades of its color", () => {
-    assert.equal(averageShade("#2a78d6", 0, 1), "#2a78d6");
-    const shades = [0, 1, 2].map(index => averageShade("#2a78d6", index, 3));
-    assert.equal(new Set(shades).size, 3);
-    // the middle shade is the color of the series, the first is lighter and the last darker
-    assert.equal(shades[1], "#2a78d6");
-    const lightness = color => [1, 3, 5].reduce((sum, i) => sum + Number.parseInt(color.substring(i, i + 2), 16), 0);
-    assert.ok(lightness(shades[0]) > lightness(shades[1]) && lightness(shades[1]) > lightness(shades[2]));
-    assert.equal(averageShade("not a color", 0, 2), "not a color");
-});
-
 test("the cursor stays inside the chart at values on its edges", () => {
     // values at -3, 100 and 200 pixels in a chart of 150 pixels
     const positions = [-3, 100, 200];
@@ -608,4 +597,15 @@ test("the data URL describes the shown lines of a chart", () => {
 
     // a chart without shown lines has no data URL
     assert.equal(chartExportUrl("http://localhost/", {...chart, series: [sales], hiddenSeries: new Set([sales.key])}), null);
+});
+
+test("keys of charts identify the column of a table and the period and units of a line chart", () => {
+    assert.equal(chartKey("pie", "Top Countries", "% of Sales"), "pie/Top Countries/% of Sales");
+    assert.equal(lineChartKey({period: "metric", units: ["USD", "count"]}), "metric/USD+count");
+});
+
+test("the path of a pie slice starts at the center and draws the large arc of a slice of more than a half", () => {
+    const [quarter, threeQuarters] = pieArcs([25, 75]);
+    assert.equal(slicePath(quarter, 100, 50), "M100,100 L100,50 A50,50 0 0 1 150,100 Z");
+    assert.match(slicePath(threeQuarters, 100, 50), /^M100,100 L150,100 A50,50 0 1 1 /);
 });
