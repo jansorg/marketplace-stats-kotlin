@@ -27,6 +27,7 @@ import kotlin.math.roundToInt
  * @param hideAxisValues Hides the values of the y-axes and of the extremes, e.g. to share a chart without numbers.
  * @param logScale If the y-axes are logarithmic, like the option "Logarithmic y-axis" of the web charts. Values of 0 and
  *  below aren't drawn, the ticks of two y-axes aren't aligned.
+ * @param theme The colors of the image, independent of the theme of the web pages.
  */
 class ChartImage(
     val title: String,
@@ -39,7 +40,18 @@ class ChartImage(
     val extremes: Set<ChartExtreme> = emptySet(),
     val hideAxisValues: Boolean = false,
     val logScale: Boolean = false,
+    val theme: ChartTheme = ChartTheme.Light,
 ) {
+    /** @return The chart with the colors of the series of its [theme], e.g. the dark colors, see [ChartTheme.seriesColor]. */
+    internal fun withThemeColors(): ChartImage {
+        if (!theme.isDark) {
+            return this
+        }
+        val themed = series.map {
+            ChartImageSeries(it.label, it.unit, theme.seriesColor(it.color), it.points, it.style, it.kind, it.averageMonths, it.fractionDigits)
+        }
+        return ChartImage(title, subtitle, themed, markers, detail, start, end, extremes, hideAxisValues, logScale, theme)
+    }
     /** The units of the series, the first one has the left y-axis, the second one the right y-axis. */
     val units: List<String> = series.map(ChartImageSeries::unit).distinct()
 
@@ -106,11 +118,12 @@ enum class ChartExtreme(val id: String) {
  * The kinds of vertical lines with their colors and dashes, like `CHART_STYLE.markers` and the light theme of the
  * web interface.
  */
-enum class ChartMarkerKind(val id: String, val label: String, val color: ChartColor, val dash: List<Double>) {
-    Release("release", "Product version", ChartColor.parse("#7d7c77"), listOf(4.0, 4.0)),
-    Price("price", "Price changes", ChartColor.parse("#c27c0e"), listOf(2.0, 3.0)),
-    Ide("ide", "IntelliJ IDEA releases", ChartColor.parse("#6f74b8"), listOf(8.0, 3.0)),
-    Event("events", "Events", ChartColor.parse("#1f8a5b"), listOf(10.0, 3.0, 2.0, 3.0));
+/** The kinds of vertical lines, their colors are `markerColors` of `CHART_THEMES` of `lineChart.js`. */
+enum class ChartMarkerKind(val id: String, val label: String, val color: ChartColor, val dash: List<Double>, val darkColor: ChartColor) {
+    Release("release", "Product version", ChartColor.parse("#7d7c77"), listOf(4.0, 4.0), ChartColor.parse("#9a99a2")),
+    Price("price", "Price changes", ChartColor.parse("#c27c0e"), listOf(2.0, 3.0), ChartColor.parse("#e0a040")),
+    Ide("ide", "IntelliJ IDEA releases", ChartColor.parse("#6f74b8"), listOf(8.0, 3.0), ChartColor.parse("#9ea3ec")),
+    Event("events", "Events", ChartColor.parse("#1f8a5b"), listOf(10.0, 3.0, 2.0, 3.0), ChartColor.parse("#5cc795"));
 
     companion object {
         fun byId(id: String): ChartMarkerKind? = entries.firstOrNull { it.id.equals(id, ignoreCase = true) }
@@ -133,13 +146,17 @@ data class ChartColor(val rgb: Int, val alpha: Int = 255) {
 
     /**
      * Like `incompleteColor` of `model.js`: the color with less saturation and more lightness for incomplete values,
-     * or [IncompleteGrey], if that's too similar to the color.
+     * less lightness in the dark mode, or [IncompleteGrey] ([DarkIncompleteGrey]), if that's too similar to the color.
      */
-    fun incomplete(): ChartColor {
+    fun incomplete(dark: Boolean = false): ChartColor {
         val (hue, saturation, lightness) = hsl()
-        val result = fromHsl(hue, saturation * 0.8, lightness + (1 - lightness) * 0.3)
+        val result = fromHsl(hue, saturation * 0.8, if (dark) lightness * 0.62 else lightness + (1 - lightness) * 0.3)
         val distance = hypot(hypot((red - result.red).toDouble(), (green - result.green).toDouble()), (blue - result.blue).toDouble())
-        return if (distance < 70) IncompleteGrey else result
+        return when {
+            distance >= 70 -> result
+            dark -> DarkIncompleteGrey
+            else -> IncompleteGrey
+        }
     }
 
     private fun linearRgb(): DoubleArray = intArrayOf(red, green, blue).let { channels ->
@@ -178,6 +195,12 @@ data class ChartColor(val rgb: Int, val alpha: Int = 255) {
         val SeriesColors: List<ChartColor> = listOf("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948").map(::parse)
 
         val IncompleteGrey: ChartColor = parse("#a8a7a2")
+
+        /** The colors of [SeriesColors] in the dark mode, `DARK_SERIES_COLORS` of `model.js`. */
+        val DarkSeriesColors: List<ChartColor> = listOf("#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767").map(::parse)
+
+        /** `DARK_INCOMPLETE_GREY` of `model.js`. */
+        val DarkIncompleteGrey: ChartColor = parse("#5f5e66")
 
         /** `MIN_COLOR_DISTANCE` of `model.js`: the smallest distance of a new color to the colors of its chart. */
         const val MIN_DISTANCE: Double = 0.22
@@ -269,3 +292,35 @@ data class ChartColor(val rgb: Int, val alpha: Int = 255) {
 
 /** @return If the values are the same, apart from rounding errors. */
 internal fun nearlyEqual(a: Double, b: Double): Boolean = abs(a - b) <= 1e-9 * max(1.0, max(abs(a), abs(b)))
+
+/**
+ * The colors of a chart image, like `CHART_THEMES` of `lineChart.js`. The dark theme has the colors of the dark mode of
+ * the web charts on their surface, the text has the color of the text of the dark pages.
+ */
+enum class ChartTheme(
+    val id: String,
+    val isDark: Boolean,
+    val surface: ChartColor,
+    val text: ChartColor,
+    val axis: ChartColor,
+    val grid: ChartColor,
+) {
+    Light("light", false, ChartColor.Surface, ChartColor.Text, ChartColor.Axis, ChartColor.Grid),
+    Dark("dark", true, ChartColor.parse("#1b1b21"), ChartColor.parse("#e6e5eb"), ChartColor.parse("#b0afb8"), ChartColor.parse("#303038"));
+
+    /** @return The shown color of a color of [ChartColor.SeriesColors], like `displayColor` of `model.js`, other colors are unchanged. */
+    fun seriesColor(color: ChartColor): ChartColor {
+        val index = ChartColor.SeriesColors.indexOf(color)
+        return if (isDark && index >= 0) ChartColor.DarkSeriesColors[index] else color
+    }
+
+    fun incomplete(color: ChartColor): ChartColor = color.incomplete(isDark)
+
+    val incompleteGrey: ChartColor get() = if (isDark) ChartColor.DarkIncompleteGrey else ChartColor.IncompleteGrey
+
+    fun markerColor(kind: ChartMarkerKind): ChartColor = if (isDark) kind.darkColor else kind.color
+
+    companion object {
+        fun byId(id: String): ChartTheme? = entries.firstOrNull { it.id.equals(id, ignoreCase = true) }
+    }
+}

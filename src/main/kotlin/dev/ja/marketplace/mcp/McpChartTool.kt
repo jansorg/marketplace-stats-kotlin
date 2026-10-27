@@ -72,6 +72,8 @@ internal data class ChartRequest(
     val hideAxisValues: Boolean = false,
     /** If the y-axes are logarithmic, see [ChartImage.logScale]. */
     val logScale: Boolean = false,
+    /** The colors of the image, independent of the theme of the web pages, see [ChartImage.theme]. */
+    val theme: ChartTheme = ChartTheme.Light,
     val markers: Set<ChartMarkerKind> = emptySet(),
     val title: String? = null,
     val format: ChartFormat = ChartFormat.Png,
@@ -147,6 +149,9 @@ internal data class ChartRequest(
                 }?.toSet() ?: emptySet(),
                 hideAxisValues = arguments.booleanArgument("hideAxisValues") ?: false,
                 logScale = arguments.booleanArgument("logScale") ?: false,
+                theme = arguments.stringArgument("theme")?.trim()?.takeIf(String::isNotEmpty)?.let { id ->
+                    ChartTheme.byId(id) ?: throw IllegalArgumentException("theme must be one of ${ChartTheme.entries.joinToString { it.id }}, but was '$id'")
+                } ?: ChartTheme.Light,
                 markers = arguments.stringListArgument("markers")?.map { id ->
                     ChartMarkerKind.byId(id.trim())
                         ?: throw IllegalArgumentException("markers must contain ${ChartMarkerKind.entries.joinToString { it.id }}, but was '$id'")
@@ -348,6 +353,7 @@ class McpChartTool(private val provider: McpDataProvider) {
                     put("description", "Mark the lowest and highest complete value of each series")
                 })
                 put("hideAxisValues", booleanProperty("Hide the values of the y-axes and extremes, e.g. to share the chart"))
+                put("theme", enumProperty(ChartTheme.entries.map(ChartTheme::id), "The colors of the image: light (default) or dark"))
                 put("logScale", booleanProperty(
                     "Logarithmic y-axes, e.g. to compare lines of very different values. Values of 0 and below aren't drawn"
                 ))
@@ -553,6 +559,7 @@ class McpChartTool(private val provider: McpDataProvider) {
                 extremes = request.extremes,
                 hideAxisValues = request.hideAxisValues,
                 logScale = request.logScale,
+                theme = request.theme,
             )
             return ChartWithSeries(chart, JsonArray(seriesJson))
         }

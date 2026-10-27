@@ -9,6 +9,7 @@ import dev.ja.marketplace.chartImage.ChartColor
 import dev.ja.marketplace.chartImage.ChartExtreme
 import dev.ja.marketplace.chartImage.ChartMarkerKind
 import dev.ja.marketplace.chartImage.ChartStyle
+import dev.ja.marketplace.chartImage.ChartTheme
 import dev.ja.marketplace.data.chart.ChartDetail
 import dev.ja.marketplace.data.chart.ChartMetric
 import dev.ja.marketplace.data.chart.ChartWindow
@@ -70,6 +71,7 @@ class McpChartToolTest {
             put("extremes", buildJsonArray { add("min"); add("max") })
             put("hideAxisValues", true)
             put("logScale", true)
+            put("theme", "Dark")
             put("markers", "release,events")
             put("title", "Trials")
             put("format", "svg")
@@ -90,6 +92,7 @@ class McpChartToolTest {
         assertEquals(setOf(ChartExtreme.Min, ChartExtreme.Max), request.extremes)
         assertTrue(request.hideAxisValues)
         assertTrue(request.logScale)
+        assertEquals(ChartTheme.Dark, request.theme)
         assertEquals(setOf(ChartMarkerKind.Release, ChartMarkerKind.Event), request.markers)
         assertEquals("Trials", request.title)
         assertEquals(ChartFormat.Svg, request.format)
@@ -119,6 +122,7 @@ class McpChartToolTest {
         assertTrue("average must be one of 1, 3, 12" in error { put("series", series(metric("sales") { put("average", 6) })) })
         assertTrue("Unknown property" in error { put("series", series(metric("sales") { put("colour", "#000000") })) })
         assertTrue("color must be a color" in error { put("series", series(metric("sales") { put("color", "red") })) })
+        assertTrue("theme must be one of light, dark" in error { put("series", series(metric("sales"))); put("theme", "blue") })
         assertTrue("at most 8 series" in error { put("series", JsonArray(List(9) { metric("sales") })) })
         assertTrue("detail must be one of" in error { put("series", series(metric("sales"))); put("detail", "quarter") })
         assertTrue("range must be one of" in error { put("series", series(metric("sales"))); put("range", "last-year") })

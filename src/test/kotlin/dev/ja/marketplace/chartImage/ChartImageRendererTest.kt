@@ -107,7 +107,32 @@ class ChartImageRendererTest {
         assertEquals("#76a2d6", ChartColor.parse("#2a78d6").incomplete().hex)
         assertEquals("#e49b7e", ChartColor.parse("#eb6834").incomplete().hex)
         assertEquals("#18dc18", ChartColor.parse("#008300").incomplete().hex)
+        // the values of incompleteColor of model.js in the dark mode
+        assertEquals("#244b7a", ChartColor.parse("#2a78d6").incomplete(dark = true).hex)
+        assertEquals("#93401f", ChartColor.parse("#eb6834").incomplete(dark = true).hex)
+        assertEquals("#5f5e66", ChartColor.parse("#008300").incomplete(dark = true).hex)
         assertThrows<IllegalArgumentException> { ChartColor.parse("blue") }
+    }
+
+    @Test
+    fun darkTheme() {
+        val light = ChartImageRenderer.svg(chart(sales, trials), 800, 400)
+        val dark = ChartImageRenderer.svg(
+            ChartImage(
+                "Synthetic sales", "Test plugin", listOf(sales, trials), listOf(ChartMarker(LocalDate.of(2025, 6, 1), "2.0", ChartMarkerKind.Release)),
+                ChartDetail.Month, LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31), theme = ChartTheme.Dark,
+            ),
+            800, 400,
+        )
+        // the surface, the dark colors of the series and of the vertical lines, like the dark mode of the web charts
+        assertTrue("#1b1b21" in dark && "#1b1b21" !in light)
+        assertTrue("#3987e5" in dark && "#2a78d6" !in dark, "the dark color of the first series")
+        assertTrue("#d95926" in dark, "the dark color of the bars")
+        assertTrue("#9a99a2" in dark, "the dark color of the release")
+        assertTrue("#ffffff" in light && "#ffffff" !in dark)
+        assertEquals(ChartColor.parse("#3987e5"), ChartTheme.Dark.seriesColor(ChartColor.SeriesColors[0]))
+        assertEquals(ChartColor.parse("#123456"), ChartTheme.Dark.seriesColor(ChartColor.parse("#123456")), "other colors are unchanged")
+        assertEquals(ChartColor.SeriesColors[0], ChartTheme.Light.seriesColor(ChartColor.SeriesColors[0]))
     }
 
     @Test

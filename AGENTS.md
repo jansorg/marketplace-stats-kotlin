@@ -407,8 +407,9 @@ queries, and one which excludes all these tags. The results are in the order of 
   charting library, `ChartImageRenderer` draws a `ChartImage` with the shapes of `java.awt.geom` on a `ChartCanvas`,
   which writes SVG (`SvgChartCanvas`) or draws with Java2D into a `BufferedImage` for PNG (`Graphics2DChartCanvas`),
   so both formats share the code. It ports the rules of the web charts (`alignedRanges`, `incompleteColor`,
-  `lineDetail`, the colors and dashes of `CHART_STYLE`, the light theme), keep both in sync when the look of the web
-  charts changes. The texts are measured with the AWT font `SansSerif`, PNG needs fonts and fontconfig (the
+  `lineDetail`, the colors and dashes of `CHART_STYLE`, the light and the dark theme of `CHART_THEMES` as
+  `ChartTheme`), keep both in sync when the look of the web charts changes. `create_chart` has its own `theme`
+  (light by default), independent of the theme of the web pages. The texts are measured with the AWT font `SansSerif`, PNG needs fonts and fontconfig (the
   `eclipse-temurin` image has DejaVu), without fonts the widths are estimated. The server runs headless
   (`java.awt.headless`).
 - Tables opt in with `DataTable.isChartable` (line charts over the date in the first column) or columns with
