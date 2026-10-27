@@ -198,7 +198,8 @@ class McpRecordsJson(private val exchangeRates: ExchangeRates) {
 
     /**
      * @return The prices of a country by customer type: `annual` and `monthly` are arrays with the prices
-     *  of the 1st, 2nd and 3rd year of a subscription (continuity discount), `perpetual` is a single price.
+     *  of the 1st, 2nd and 3rd year of a subscription (continuity discount), only the 1st year without continuity
+     *  discount, `perpetual` is a single price.
      *  The prices including VAT are added as `annualTaxed`, `monthlyTaxed` and `perpetualTaxed`, if [includeTax] is `true`.
      */
     fun prices(pricing: PluginPriceInfo, includeTax: Boolean): JsonObject {

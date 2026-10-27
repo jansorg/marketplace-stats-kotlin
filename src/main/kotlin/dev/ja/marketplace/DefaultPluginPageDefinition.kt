@@ -32,6 +32,8 @@ class DefaultPluginPageDefinition(
     private val pageCssClasses: String? = null,
     private val pageTitle: String? = null,
     private val pageDescription: String? = null,
+    /** An addition to the [pageDescription], which depends on the plugin, e.g. a note about its prices. */
+    private val pageNote: (suspend (PluginData) -> String?)? = null,
     /**
      * If the calculated tables are used again while the data of the plugin is the same, see [PluginData.dataVersion].
      * Tables, which load data when they're calculated, e.g. the prices, must not be cached.
@@ -60,7 +62,7 @@ class DefaultPluginPageDefinition(
 
         mapOf(
             "pageTitle" to pageTitle,
-            "pageDescription" to pageDescription,
+            "pageDescription" to listOfNotNull(pageDescription, pageNote?.invoke(data)).joinToString("<br>").ifEmpty { null },
             "today" to YearMonthDay.now(),
             "plugin" to data.getPluginInfo(),
             "otherPlugins" to dataLoader.otherPaidPlugins,

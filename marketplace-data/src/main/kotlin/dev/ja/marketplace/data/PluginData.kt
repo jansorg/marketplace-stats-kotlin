@@ -83,6 +83,11 @@ data class PluginData(
         return marketplacePluginInfoDeferred?.await()?.offeredLicensePeriods
     }
 
+    /** @return The info of a paid or freemium plugin, e.g. its continuity discount, `null` if it's unknown. */
+    suspend fun getMarketplacePluginInfo(): MarketplacePluginInfo? {
+        return marketplacePluginInfoDeferred?.await()
+    }
+
     /**
      * The recurring revenue of each customer, calculated from all licenses.
      * It's calculated once and shared by the tables of a page, because the calculation is expensive.
