@@ -132,10 +132,16 @@ class LiveApiCoverageTest {
         check("plugins/{id}/developers", ListSerializer(JetBrainsAccountInfo.serializer())) { marketplace.get("$api/developers") }
         check("plugins/{id}/features", ListSerializer(PluginFeature.serializer())) { marketplace.get("$api/features") }
         check("plugins/{id}/channels", ListSerializer(String.serializer())) { marketplace.get("$api/channels") }
-        check("plugins/{id}/comments", ListSerializer(PluginReviewComment.serializer())) {
+        val comments = check("plugins/{id}/comments", ListSerializer(PluginReviewComment.serializer())) {
             marketplace.get("$api/comments") { parameter("size", 1000); parameter("page", 1) }
         }
-        check("comments/{id}/replies", ListSerializer(PluginReviewComment.serializer())) { marketplace.get("/api/comments/$plugin/replies") }
+        // the replies of a review comment, not of the plugin
+        val commentWithReplies = (comments as? JsonArray)
+            ?.firstOrNull { (it.jsonObject["repliesCount"]?.jsonPrimitive?.intOrNull ?: 0) > 0 }
+            ?.jsonObject?.get("id")?.jsonPrimitive?.longOrNull
+        if (commentWithReplies != null) {
+            check("comments/{id}/replies", ListSerializer(PluginReviewComment.serializer())) { marketplace.get("/api/comments/$commentWithReplies/replies") }
+        }
         for (timeFrame in PageAnalyticsTimeFrame.entries) {
             check("plugins/{id}/ga", PluginPageAnalytics.serializer()) { marketplace.get("$api/ga") { parameter("timeFrame", timeFrame.requestParameter) } }
         }

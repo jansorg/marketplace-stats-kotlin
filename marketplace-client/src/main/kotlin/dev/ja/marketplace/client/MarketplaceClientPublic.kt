@@ -45,9 +45,10 @@ interface MarketplaceClientPublic {
     suspend fun reviewCommentsSinglePage(plugin: PluginId, size: Int = 20, page: Int = 1): List<PluginReviewComment>
 
     /**
-     * @return Review comments about a plugin
+     * @param comment The ID of a review comment, e.g. of a comment of [reviewComments] with replies, see [PluginReviewComment.repliesCount].
+     * @return The replies to the review comment, the oldest first
      */
-    suspend fun reviewReplies(plugin: PluginId): List<PluginReviewComment>
+    suspend fun reviewReplies(comment: PluginReviewId): List<PluginReviewComment>
 
     /**
      * @return All available releases of the plugin, sorted by date in descending order.

@@ -492,8 +492,8 @@ open class KtorMarketplaceClient(
             }.body()
         }
 
-    override suspend fun reviewReplies(plugin: PluginId): List<PluginReviewComment> = withContext(dispatcher) {
-        httpClient.get("${apiPath}/comments/$plugin/replies").body()
+    override suspend fun reviewReplies(comment: PluginReviewId): List<PluginReviewComment> = withContext(dispatcher) {
+        httpClient.get("${apiPath}/comments/$comment/replies").body()
     }
 
     override suspend fun channels(plugin: PluginId): List<PluginChannel> = withContext(dispatcher) {
