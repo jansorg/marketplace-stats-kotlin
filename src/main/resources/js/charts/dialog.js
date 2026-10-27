@@ -18,6 +18,9 @@ const addMenuMaxHeight = () => window.matchMedia("(pointer: coarse)").matches ? 
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
+/** The time, after which a message of the dialog is hidden, in milliseconds. */
+const MESSAGE_DURATION = 10_000;
+
 /** Arrows pointing to the corners to maximize, and to the center to restore. */
 const ICON_PATHS = {
     maximize: "M3 8V3h5 M3 3l6 6 M17 8V3h-5 M17 3l-6 6 M3 12v5h5 M3 17l6-6 M17 12v5h-5 M17 17l-6-6",
@@ -220,14 +223,32 @@ export class ChartDialog {
         // after the events, before the view options
         viewMenu.before(rangeMenu);
 
-        this.message = document.createElement("p");
+        // the messages overlay the charts at the top of the visible part of the dialog, also when it's scrolled
+        const messageAnchor = document.createElement("div");
+        messageAnchor.className = "chart-dialog-message-anchor";
+        this.message = document.createElement("div");
         this.message.className = "chart-dialog-message";
+        this.message.setAttribute("role", "status");
         this.message.hidden = true;
+        this.messageText = document.createElement("p");
+        this.message.append(this.messageText, removeButton("Close the message", () => this.showMessage(null)));
+        messageAnchor.append(this.message);
+        this.messageTimer = null;
+        this.isMessagePersistent = false;
+        // the message stays, while the mouse is on it or it has the focus, e.g. to select its text
+        this.message.addEventListener("pointerenter", () => clearTimeout(this.messageTimer));
+        this.message.addEventListener("focusin", () => clearTimeout(this.messageTimer));
+        this.message.addEventListener("pointerleave", () => this.hideMessageLater());
+        this.message.addEventListener("focusout", event => {
+            if (!this.message.contains(event.relatedTarget)) {
+                this.hideMessageLater();
+            }
+        });
 
         this.panels = document.createElement("div");
         this.panels.className = "chart-panels";
 
-        this.element.append(header, hint, this.markerToggles, this.message, this.panels);
+        this.element.append(header, hint, this.markerToggles, messageAnchor, this.panels);
         this.setMaximized(false);
         // a click on the backdrop closes the dialog, a click outside of an open menu closes the menu.
         // The target of clicks on the backdrop and on the padding of the dialog is the dialog, only clicks outside of
@@ -320,9 +341,31 @@ export class ChartDialog {
         this.element.close();
     }
 
-    showMessage(text) {
-        this.message.textContent = text ?? "";
+    /**
+     * Shows a message above the charts, which is hidden after {@link MESSAGE_DURATION}, or hides the message.
+     *
+     * @param {string|null} text The message, null or empty to hide the message.
+     * @param {{persistent?: boolean}} [options] A persistent message stays until it's replaced or closed, e.g. while
+     *  values are loading or with an address, which the user copies.
+     */
+    showMessage(text, {persistent = false} = {}) {
+        clearTimeout(this.messageTimer);
+        this.messageText.textContent = text ?? "";
         this.message.hidden = !text;
+        this.isMessagePersistent = persistent;
+        this.hideMessageLater();
+    }
+
+    /** @return {string|null} The shown message, null without a message. */
+    get shownMessage() {
+        return this.message.hidden ? null : this.messageText.textContent;
+    }
+
+    hideMessageLater() {
+        clearTimeout(this.messageTimer);
+        if (!this.message.hidden && !this.isMessagePersistent) {
+            this.messageTimer = setTimeout(() => this.showMessage(null), MESSAGE_DURATION);
+        }
     }
 
     setMaximized(maximized) {

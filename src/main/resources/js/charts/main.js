@@ -826,8 +826,8 @@ class ChartController {
         if (request === null) {
             return;
         }
-        if (this.dialog?.isOpen && this.dialog.message.hidden) {
-            this.dialog.showMessage(LOADING_MESSAGE);
+        if (this.dialog?.isOpen && this.dialog.shownMessage === null) {
+            this.dialog.showMessage(LOADING_MESSAGE, {persistent: true});
         }
         request
             .then(({data, requested}) => {
@@ -872,7 +872,7 @@ class ChartController {
     }
 
     clearLoadingMessage() {
-        if (this.dialog?.message.textContent === LOADING_MESSAGE) {
+        if (this.dialog?.shownMessage === LOADING_MESSAGE) {
             this.dialog.showMessage(null);
         }
     }
@@ -907,7 +907,7 @@ class ChartController {
         return exportMenu(chartExport, {
             allExports: () => this.exports,
             bookmark: () => this.bookmark(),
-            showMessage: text => this.dialog.showMessage(text),
+            showMessage: (text, options) => this.dialog.showMessage(text, options),
         });
     }
 
