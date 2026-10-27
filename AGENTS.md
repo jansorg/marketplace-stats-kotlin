@@ -218,6 +218,11 @@ queries, and one which excludes all these tags. The results are in the order of 
   values of both axes. An axis without shown lines is hidden, the other axis then has the grid (`showUsedAxes`).
 - Incomplete values are drawn as dotted lines, hollow points and striped bars in a lighter color of their series
   (`incompleteColor` in `model.js`, darker in the dark mode).
+- A new series gets the first unused color of `SERIES_COLORS`, which is distinct from the colors of the other series
+  of its chart (`nextColor` and `colorDistance` in `model.js`, `ChartColor.next` of the chart images): the distance in
+  Oklab, also with simulated deuteranopia and protanopia, and a line over bars needs a different lightness, e.g. a
+  yellow line over blue bars instead of green. Without such a color, it gets the most distinct unused color. Stored
+  colors are kept.
 - Colors of the dark mode: `CHART_THEMES` in `lineChart.js` (axes, grid, surface, vertical lines) and
   `DARK_SERIES_COLORS` in `model.js`. The stored chart setup always uses the light series colors, `displayColor` maps
   them when the charts are drawn. Exported and printed images always use the light colors, a dark chart is drawn again

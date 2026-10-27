@@ -48,14 +48,78 @@ export function chartKey(type, table, column) {
 }
 
 /**
- * @return {string|undefined} The first color of the palette, which isn't used yet.
+ * The smallest distance of a new color to the colors of its chart, which is enough to tell them apart, see
+ * {@link colorDistance}. It accepts e.g. orange next to a blue line, but not green or orange lines over blue bars.
  */
-export function nextColor(usedColors, preferredColor = undefined) {
+export const MIN_COLOR_DISTANCE = 0.22;
+
+/**
+ * Picks the color of a new series: the first color of the palette, which isn't used yet and is distinct from the
+ * colors of the other series of its chart, otherwise the unused color, which is the most distinct from them.
+ *
+ * @param {string[]} usedColors The colors of all series.
+ * @param {string} [preferredColor] The stored color of the series, which is kept if it isn't used yet.
+ * @param {{color: string, style: "lines"|"bars"}[]} [neighbors] The other series of the chart of the new series.
+ * @param {"lines"|"bars"} [style] How the new series is drawn.
+ * @return {string|undefined} The color, undefined if all colors are used.
+ */
+export function nextColor(usedColors, preferredColor = undefined, neighbors = [], style = "lines") {
     const used = new Set(usedColors);
     if (preferredColor !== undefined && SERIES_COLORS.includes(preferredColor) && !used.has(preferredColor)) {
         return preferredColor;
     }
-    return SERIES_COLORS.find(color => !used.has(color));
+    const unused = SERIES_COLORS.filter(color => !used.has(color));
+    const scores = unused.map(color => Math.min(...neighbors.map(n => colorDistance(color, n.color, style !== n.style))));
+    const firstDistinct = unused.find((_, index) => scores[index] >= MIN_COLOR_DISTANCE);
+    // the first of equal scores is the earliest color of the palette
+    return firstDistinct ?? unused[scores.indexOf(Math.max(...scores))];
+}
+
+/** Simulations of the color vision deficiencies deuteranopia and protanopia in linear RGB (Machado et al. 2009). */
+const VISION_DEFICIENCIES = [
+    [[0.367322, 0.860646, -0.227968], [0.280085, 0.672501, 0.047413], [-0.011820, 0.042940, 0.968881]],
+    [[0.152286, 1.052583, -0.204868], [0.114503, 0.786281, 0.099216], [-0.003882, -0.048116, 1.051998]],
+];
+
+/**
+ * The distance of two colors in the Oklab color space, the smallest of normal vision and of the simulated color
+ * vision deficiencies. A thin line over a bar needs a difference of lightness, not only of hue, e.g. a green line is
+ * hard to see on a blue bar, so the distance of a line and a bar is at most twice the difference of their lightness.
+ *
+ * @param {string} first A color like `#2a78d6`.
+ * @param {string} second A color like `#2a78d6`.
+ * @param {boolean} lineOverBar If one color is a line and the other a bar.
+ * @return {number} The distance, about 0 to 0.5 for the colors of the palette.
+ */
+export function colorDistance(first, second, lineOverBar = false) {
+    const [a, b] = [first, second].map(linearRgb);
+    const distances = [a, b].map(oklab);
+    let distance = Math.hypot(...distances[0].map((value, i) => value - distances[1][i]));
+    for (const matrix of VISION_DEFICIENCIES) {
+        const [x, y] = [a, b].map(rgb => oklab(matrix.map(row => Math.min(1, Math.max(0, row[0] * rgb[0] + row[1] * rgb[1] + row[2] * rgb[2])))));
+        distance = Math.min(distance, Math.hypot(...x.map((value, i) => value - y[i])));
+    }
+    return lineOverBar ? Math.min(distance, 2 * Math.abs(distances[0][0] - distances[1][0])) : distance;
+}
+
+/** @return {number[]} The linear RGB values of a color like `#2a78d6`, from 0 to 1. */
+function linearRgb(color) {
+    return [1, 3, 5].map(i => {
+        const value = Number.parseInt(color.substring(i, i + 2), 16) / 255;
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+}
+
+/** @return {number[]} The lightness and the a and b values of the Oklab color space of linear RGB values. */
+function oklab([r, g, b]) {
+    const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+    const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+    const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+    return [
+        0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+        1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+        0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s,
+    ];
 }
 
 /**

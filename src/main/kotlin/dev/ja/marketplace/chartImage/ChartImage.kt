@@ -139,6 +139,13 @@ data class ChartColor(val rgb: Int, val alpha: Int = 255) {
         return if (distance < 70) IncompleteGrey else result
     }
 
+    private fun linearRgb(): DoubleArray = intArrayOf(red, green, blue).let { channels ->
+        DoubleArray(3) { i ->
+            val value = channels[i] / 255.0
+            if (value <= 0.04045) value / 12.92 else Math.pow((value + 0.055) / 1.055, 2.4)
+        }
+    }
+
     private val red: Int get() = rgb shr 16 and 0xff
     private val green: Int get() = rgb shr 8 and 0xff
     private val blue: Int get() = rgb and 0xff
@@ -168,6 +175,66 @@ data class ChartColor(val rgb: Int, val alpha: Int = 255) {
         val SeriesColors: List<ChartColor> = listOf("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948").map(::parse)
 
         val IncompleteGrey: ChartColor = parse("#a8a7a2")
+
+        /** `MIN_COLOR_DISTANCE` of `model.js`: the smallest distance of a new color to the colors of its chart. */
+        const val MIN_DISTANCE: Double = 0.22
+
+        /**
+         * Like `nextColor` of `model.js`: the first color of [SeriesColors], which isn't used yet and is distinct from
+         * the colors of the other series of the chart, otherwise the unused color, which is the most distinct from them.
+         *
+         * @param neighbors The colors and the styles of the other series of the chart.
+         * @return The color, `null` if all colors are used.
+         */
+        fun next(usedColors: Set<ChartColor>, neighbors: List<Pair<ChartColor, ChartStyle>>, style: ChartStyle): ChartColor? {
+            val unused = SeriesColors.filter { it !in usedColors }
+            val scores = unused.map { color ->
+                neighbors.minOfOrNull { (neighbor, neighborStyle) -> distance(color, neighbor, style != neighborStyle) } ?: Double.POSITIVE_INFINITY
+            }
+            val firstDistinct = unused.indices.firstOrNull { scores[it] >= MIN_DISTANCE }
+            // the first of equal scores is the earliest color of the palette
+            return unused.getOrNull(firstDistinct ?: scores.indices.maxByOrNull { scores[it] } ?: return null)
+        }
+
+        /**
+         * Like `colorDistance` of `model.js`: the distance in the Oklab color space, the smallest of normal vision and
+         * of the simulated color vision deficiencies. The distance of a line and a bar is at most twice the difference
+         * of their lightness.
+         */
+        fun distance(first: ChartColor, second: ChartColor, lineOverBar: Boolean = false): Double {
+            val a = first.linearRgb()
+            val b = second.linearRgb()
+            val labA = oklab(a)
+            val labB = oklab(b)
+            var distance = labDistance(labA, labB)
+            for (matrix in VisionDeficiencies) {
+                distance = min(distance, labDistance(oklab(simulate(matrix, a)), oklab(simulate(matrix, b))))
+            }
+            return if (lineOverBar) min(distance, 2 * abs(labA[0] - labB[0])) else distance
+        }
+
+        /** Deuteranopia and protanopia in linear RGB (Machado et al. 2009), `VISION_DEFICIENCIES` of `model.js`. */
+        private val VisionDeficiencies = listOf(
+            arrayOf(doubleArrayOf(0.367322, 0.860646, -0.227968), doubleArrayOf(0.280085, 0.672501, 0.047413), doubleArrayOf(-0.011820, 0.042940, 0.968881)),
+            arrayOf(doubleArrayOf(0.152286, 1.052583, -0.204868), doubleArrayOf(0.114503, 0.786281, 0.099216), doubleArrayOf(-0.003882, -0.048116, 1.051998)),
+        )
+
+        private fun simulate(matrix: Array<DoubleArray>, rgb: DoubleArray): DoubleArray =
+            DoubleArray(3) { row -> (matrix[row][0] * rgb[0] + matrix[row][1] * rgb[1] + matrix[row][2] * rgb[2]).coerceIn(0.0, 1.0) }
+
+        private fun labDistance(a: DoubleArray, b: DoubleArray): Double = hypot(hypot(a[0] - b[0], a[1] - b[1]), a[2] - b[2])
+
+        private fun oklab(rgb: DoubleArray): DoubleArray {
+            val (r, g, b) = rgb
+            val l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
+            val m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)
+            val s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
+            return doubleArrayOf(
+                0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+                1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+                0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s,
+            )
+        }
 
         /** The colors of the light theme of the web charts, `CHART_THEMES.light` of `lineChart.js`. */
         val Axis: ChartColor = parse("#52514e")
