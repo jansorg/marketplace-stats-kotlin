@@ -1492,6 +1492,20 @@ dl.detail-grid dd {
     font-weight: 400;
 }
 
+/* long labels of lines, e.g. of a discount, are shortened with an ellipsis, their tooltip is the whole label */
+.chart-panel .u-legend .u-label, .chart-series-label {
+    display: inline-block;
+    max-width: 24rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+}
+
+.chart-series-label {
+    min-width: 0;
+}
+
 .chart-panel .u-legend .u-value {
     font-weight: 700;
     font-variant-numeric: tabular-nums lining-nums;
@@ -2128,16 +2142,29 @@ dl.detail-grid dd {
     color: var(--negative-color);
 }
 
-.chart-line-tooltip {
-    max-width: none;
+/* An absolutely positioned box shrinks to the space next to its position, near the right edge of a chart the long
+   labels of lines, e.g. of a discount, would run out of the box and widen the dialog. The box has the width of its
+   content, at most a part of the chart, only the labels wrap, see enableTooltip in lineChart.js. */
+/* more specific than .chart-tooltip, which follows */
+.chart-tooltip.chart-line-tooltip {
+    width: max-content;
+    max-width: min(32rem, 90%);
+}
+
+.chart-line-tooltip > strong, .chart-line-tooltip .chart-tooltip-row strong {
     white-space: nowrap;
 }
 
 .chart-tooltip-row {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: 0.4rem;
     margin-top: 0.15rem;
+}
+
+.chart-tooltip-row .chart-tooltip-key {
+    flex: none;
+    align-self: center;
 }
 
 .chart-tooltip-row strong {

@@ -862,7 +862,10 @@ function renderComparisonTable(table, {plot, rows, seriesPoints, comparisons, ti
             }
             // the key, the label, the menu of the window and the button to remove the line are centered vertically
             const content = cell("span", "chart-comparison-series-content");
-            content.append(key, cell("span", null, series.label));
+            // a long label, e.g. of a discount, is shortened with an ellipsis, its tooltip is the whole label
+            const seriesLabel = cell("span", "chart-series-label", series.label);
+            seriesLabel.title = series.label;
+            content.append(key, seriesLabel);
             if (series.seriesMenu) {
                 content.append(series.seriesMenu());
             }
@@ -1378,6 +1381,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     // without the value table, the legend of uPlot has the menus of the lines
     if (!valueTable) {
         const legendLabels = [...plot.root.querySelectorAll(".u-legend .u-series .u-label")];
+        // a long label is shortened with an ellipsis, its tooltip is the whole label
+        legendLabels.forEach(label => label.title = label.textContent);
         chartSeries.forEach((s, index) => {
             const legendLabel = legendLabels.find(label => label.textContent === plot.series[index + 1].label);
             const elements = [seriesMenuOf(s)?.(), removeButtonOf(s)?.()].filter(Boolean);
