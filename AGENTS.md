@@ -454,7 +454,10 @@ queries, and one which excludes all these tags. The results are in the order of 
 - The cells of the tables are written with `HtmlAttributes.of` (`dataTableSection.kte`): only attributes with a value,
   without the spaces, which JTE keeps for omitted attributes. The lists can have tens of thousands of rows, e.g. the
   licenses: keep the markup of the cells small, e.g. the links of IDs have no class (`print.css` hides them by their
-  target), the symbol of expired licenses is part of the CSS. Numbers in texts, e.g. footers and tooltips, are
+  target), the symbol of expired licenses is part of the CSS. Tables with at least 50 rows have the classes of their
+  columns as rules of the table (`CellStyles`, a `<style>` and `data-cells` of the table, `:nth-child` of the cells),
+  the cells have no classes: new classes of cells need their declarations in `CellStyles`, unknown classes stay classes
+  of the cells. The links in the cells have the short parameter `pId` instead of `pluginId`, the pages accept both. Numbers in texts, e.g. footers and tooltips, are
   formatted with `Formatters.formatInteger` and `Formatters.MonetaryAmount`.
 - Table styling is partly set from Kotlin: `DataTable` subclasses in `marketplace-data` pass CSS class names (for example
   `cssClass = "small table-striped"`) and per-column `cssClass`/`cssStyle` values (`DataTable.kt`). These classes must exist in `main.css`.

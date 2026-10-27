@@ -19,13 +19,13 @@ data class LinkedOfferUsage(
     val pluginId: PluginId,
 ) {
     /**
-     * The address of the list, e.g. `/licenses?pluginId=1&offer=2&rows=500`. The lists can be long, e.g. of the
+     * The address of the list, e.g. `/licenses?pId=1&offer=2&rows=500`, with the short parameter of the plugin. The lists can be long, e.g. of the
      * continuity discounts, they show [OfferUsageList.DEFAULT_ROWS] rows and a button to show all rows.
      */
     val href: String
         get() {
             val (name, value) = key.queryParameter
-            return "${list.path}?pluginId=$pluginId&$name=${URLEncoder.encode(value, Charsets.UTF_8)}&rows=${OfferUsageList.DEFAULT_ROWS}"
+            return "${list.path}?pId=$pluginId&$name=${URLEncoder.encode(value, Charsets.UTF_8)}&rows=${OfferUsageList.DEFAULT_ROWS}"
         }
 }
 

@@ -9,6 +9,7 @@
 @param renderHeader: Boolean
 @param renderFooter: Boolean
 @param title: String? = null
+@param styledColumns: Set<dev.ja.marketplace.data.DataTableColumn> = emptySet()
 
 @if(section != null)
     !{val header = section.header}
@@ -37,7 +38,7 @@
             the attributes are only written with a value, see HtmlAttributes
             --%><td $unsafe{HtmlAttributes.of(
                 "colspan" to column.columnSpan,
-                "class" to column.cssClass,
+                "class" to (if (column in styledColumns) null else column.cssClass),
                 "title" to row.getTooltip(column),
                 "data-sort" to row.getSortValue(column),
                 "data-chart-col" to (if (chartValue != null) columnIndex else null),

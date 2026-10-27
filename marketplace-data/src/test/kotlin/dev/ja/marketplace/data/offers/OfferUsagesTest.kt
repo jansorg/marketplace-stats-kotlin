@@ -215,7 +215,7 @@ class OfferUsagesTest {
         assertEquals(key, OfferUsageKey.fromParameters(mapOf(key.queryParameter)::get))
         assertEquals(OfferUsageKey.Offer(1), OfferUsageKey.fromParameters(mapOf("offer" to "1")::get))
         assertNull(OfferUsageKey.fromParameters(mapOf("offer" to "x")::get))
-        assertEquals("/customers?pluginId=7&discount=40%25+continuity+discount&rows=500", LinkedOfferUsage(1.toBigInteger(), OfferUsageList.Customers, key, 7).href)
+        assertEquals("/customers?pId=7&discount=40%25+continuity+discount&rows=500", LinkedOfferUsage(1.toBigInteger(), OfferUsageList.Customers, key, 7).href)
     }
 
     private fun offer(id: Int, name: String, percent: Int?, start: YearMonthDay = YearMonthDay(2025, 1, 1), end: YearMonthDay? = null): PluginOffer {

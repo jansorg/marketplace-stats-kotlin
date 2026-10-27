@@ -397,7 +397,7 @@ class MarketplaceStatsServer(
                     ?.takeIf { isPageOfRequestedServer(it, call.request.host(), call.request.port()) }
 
                 val pluginId = call.request.queryParameters["pluginId"]?.toIntOrNull()
-                    ?: refererUrl?.parameters?.get("pluginId")?.toInt()
+                    ?: (refererUrl?.parameters?.get("pluginId") ?: refererUrl?.parameters?.get(PLUGIN_ID_SHORT_PARAMETER))?.toInt()
 
                 val dropCachedData = call.request.queryParameters["reload"]?.toBooleanStrictOrNull() == true
                 if (dropCachedData) {
@@ -865,7 +865,8 @@ class MarketplaceStatsServer(
     }
 
     private fun RoutingContext.getDataLoader(): PluginDataLoader? {
-        val pluginId = call.request.queryParameters["pluginId"]?.toInt()
+        // the links of the large tables have the short parameter pId, see render.kte
+        val pluginId = (call.request.queryParameters["pluginId"] ?: call.request.queryParameters[PLUGIN_ID_SHORT_PARAMETER])?.toInt()
             ?: return null
         val pluginSummary = allPlugins.firstOrNull { it.id == pluginId }
             ?: throw IllegalStateException("Unable to locate plugin data loader for $pluginId")
@@ -1121,3 +1122,9 @@ class MarketplaceStatsServer(
 internal fun isPageOfRequestedServer(referer: Url, requestHost: String, requestPort: Int): Boolean {
     return referer.host.equals(requestHost, ignoreCase = true) && referer.port == requestPort
 }
+
+/**
+ * The short name of the parameter `pluginId` of the links in the cells of the tables, e.g. of the 100,000 links of a
+ * list of licenses, see render.kte. The pages accept both names.
+ */
+const val PLUGIN_ID_SHORT_PARAMETER = "pId"
