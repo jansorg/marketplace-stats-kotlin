@@ -1149,13 +1149,18 @@ dl.detail-grid dd {
     margin-top: 2rem;
 }
 
+/* the maximized dialog fills the window, without a gap, border or rounded corners around it */
 .chart-dialog.maximized {
-    width: calc(100vw - 2rem);
+    width: 100vw;
     max-width: none;
-    height: calc(100vh - 2rem);
-    height: calc(100dvh - 2rem);
+    height: 100vh;
+    height: 100dvh;
     max-height: none;
-    box-sizing: border-box;
+    margin: 0;
+    /* little padding, the charts get the size of the window */
+    padding: 0.5rem 0.75rem;
+    border: none;
+    border-radius: 0;
 }
 
 /* the page doesn't scroll while the dialog is open, touch devices would scroll it with swipes on the dialog */

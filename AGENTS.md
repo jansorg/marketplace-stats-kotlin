@@ -271,7 +271,9 @@ queries, and one which excludes all these tags. The results are in the order of 
   plugin (`plugin`), a page only contains the events of its plugin, the summary of all plugins the events of the paid
   plugins. The menu "Events" of the dialog lists the custom events (selected one by one, stored as `shownEvents`), a
   separator and the kinds of lines of the page (stored as `shownMarkers`), see `eventMenuItems` in `model.js`.
-- On screens up to 600px wide, the chart dialog fills the window and hides its hint, the button to maximize it and the
+- The maximized chart dialog (the default) fills the window without a gap or border, its line charts share the
+  height of the window (`chartHeight`, corrected by `fitChartHeights` in `dialog.js`). It doesn't use the Fullscreen
+  API. On screens up to 600px wide, the chart dialog always fills the window and hides its hint, the button to maximize it and the
   lines of the dates one month and one year before and after the cursor. The button to close the dialog is
   the × of `removeButton` (`dialog.js`), which also removes a chart.
 - Only series of the same period (`DataTable.chartPeriod`: day, month or year) share a line chart and its date range,
