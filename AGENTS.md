@@ -341,7 +341,9 @@ queries, and one which excludes all these tags. The results are in the order of 
   - New customers (`new-customers`, `ChartMetricValues.newCustomerDays`): a customer counts once, at the day of the
     first paid license of the plugin. Free licenses and returning customers don't count, and a customer who got a
     license by a transfer (`LicenseTransfers`) at or before that day never counts. The summary of all plugins sums the
-    new customers of each plugin. `new-trial-users` counts the first trial of each customer (only for single plugins).
+    new customers of each plugin. `new-licenses` (`newLicenseDays`) counts a license at its first purchase, if it's
+    paid: renewals, period changes, free licenses paid later and the purchases after a transfer don't count.
+    `new-trial-users` counts the first trial of each customer (only for single plugins).
   Columns of chartable tables without a metric, e.g. the renewal rates and the cohorts, and the pie charts still show
   the values of their tables (`data-chart-value`, `data-chart-history`, `data-chart-share`).
 - Vertical lines in line charts: major releases of the plugin (`MajorReleases`, from the plugin's releases), changes of the

@@ -128,6 +128,12 @@ class ChartMetric private constructor(
             "licenses-paid", "Active paid licenses", ChartMeasure.Stock, ChartUnit.Count, group = "Licenses",
             description = "The paid licenses, which are valid at the date",
         )
+        /** The rules are those of [ChartMetricValues.newLicenseDays]. */
+        val NewLicenses = register(
+            "new-licenses", "New licenses", ChartMeasure.Flow, ChartUnit.Count, group = "Licenses",
+            description = "The paid licenses, which were bought for the first time. Renewals, free licenses and licenses, " +
+                    "which another customer took over, aren't counted.",
+        )
         val Mrr = register(
             "mrr", "MRR", ChartMeasure.Stock, ChartUnit.Amount, group = "Recurring revenue",
             description = "Monthly recurring revenue: the revenue of the valid subscriptions per month",

@@ -11,6 +11,7 @@ import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.client.model.PluginSaleItemType
 import dev.ja.marketplace.client.model.PluginTrial
+import dev.ja.marketplace.client.model.SubscriptionPluginSaleItem
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.customer
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.sale
 import dev.ja.marketplace.data.transfers.LicenseTransfers
@@ -117,6 +118,51 @@ class NewCustomersChartTest {
         val index = all.days.indexOf(YearMonthDay(2025, 1, 31))
         assertEquals(0, BigDecimal(4).compareTo(all.series(ChartMetric.NewCustomers, ChartWindow.CalendarMonth)!!.values[index]))
         assertEquals(null, all.series(ChartMetric.NewTrialUsers, ChartWindow.CalendarMonth))
+    }
+
+    @Test
+    fun newLicensesOfTheWindows() {
+        // license a and the two licenses of customer 2, not the free license e
+        assertEquals(3, value(ChartMetric.NewLicenses, YearMonthDay(2025, 1, 31), ChartWindow.CalendarMonth))
+        // license t of customer 6, not the renewal of license a or the free license v
+        assertEquals(1, value(ChartMetric.NewLicenses, YearMonthDay(2025, 2, 28), ChartWindow.CalendarMonth))
+        // license b, not the transfer of license t to customer 5
+        assertEquals(1, value(ChartMetric.NewLicenses, YearMonthDay(2025, 3, 31), ChartWindow.CalendarMonth))
+        // the own license of customer 5 and the license of the returning customer 4 are new
+        assertEquals(1, value(ChartMetric.NewLicenses, YearMonthDay(2025, 5, 31), ChartWindow.CalendarMonth))
+        assertEquals(1, value(ChartMetric.NewLicenses, YearMonthDay(2025, 6, 30), ChartWindow.CalendarMonth))
+        assertEquals(8, value(ChartMetric.NewLicenses, today, ChartWindow.CalendarYear))
+        assertEquals(1, ChartMetric.NewLicenses.fractionDigits)
+    }
+
+    @Test
+    fun newLicensesOfASaleAndChangesOfALicense() {
+        val twoLicenses = sale(customer(1), "m1", YearMonthDay(2025, 1, 10), 20).let { sale ->
+            val item = sale.lineItems.single() as SubscriptionPluginSaleItem
+            sale.copy(lineItems = listOf(item.copy(licenseIds = listOf("m1", "m2"))))
+        }
+        val sales = listOf(
+            twoLicenses,
+            // a change of the period of license m1
+            sale(customer(1), "m1", YearMonthDay(2025, 2, 10), 100, LicensePeriod.Annual, PluginSaleItemType.Renew),
+            // a free license, which is paid later, isn't a new paid license
+            sale(customer(2), "f", YearMonthDay(2025, 1, 12), 0),
+            sale(customer(2), "f", YearMonthDay(2025, 2, 12), 10, type = PluginSaleItemType.Renew),
+        )
+        val licenses = LicenseInfo.createFrom(sales)
+        assertEquals(listOf(YearMonthDay(2025, 1, 10), YearMonthDay(2025, 1, 10)), ChartMetricValues.newLicenseDays(licenses))
+    }
+
+    @Test
+    fun allPluginsCountTheLicensesOfEachPlugin() {
+        // the same license ID in another plugin is another license
+        val otherSales = listOf(
+            sale(customer(1), "a", YearMonthDay(2025, 1, 15), 20, LicensePeriod.Annual),
+            sale(customer(8), "y", YearMonthDay(2025, 1, 25), 20, LicensePeriod.Annual),
+        )
+        val all = ChartMetricValues.allPlugins(sales + otherSales, emptyList(), listOf(licenses, LicenseInfo.createFrom(otherSales)), exchangeRates, today)
+        val index = all.days.indexOf(YearMonthDay(2025, 1, 31))
+        assertEquals(0, BigDecimal(5).compareTo(all.series(ChartMetric.NewLicenses, ChartWindow.CalendarMonth)!!.values[index]))
     }
 
     private fun value(metric: ChartMetric, day: YearMonthDay, window: ChartWindow): Int {
