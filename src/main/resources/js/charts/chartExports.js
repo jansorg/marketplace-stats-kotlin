@@ -12,9 +12,10 @@ import {createLineChart, lineChartTheme} from "./lineChart.js";
 import {createMenu} from "./menu.js";
 
 /**
- * @typedef {{fileName: (extension: string) => string, image: () => HTMLCanvasElement|Promise<HTMLCanvasElement>,
- *  svg?: () => SVGSVGElement, dataUrl?: () => string|null}} ChartExport The exports of a shown chart: the image, the SVG
- *  of a pie chart and the address of the values of a chart of metrics.
+ * @typedef {{transparent?: boolean}} ImageOptions `transparent` creates an image without a background, e.g. for printing.
+ * @typedef {{fileName: (extension: string) => string, image: (options?: ImageOptions) => HTMLCanvasElement|Promise<HTMLCanvasElement>,
+ *  svg?: (options?: ImageOptions) => SVGSVGElement, dataUrl?: () => string|null}} ChartExport The exports of a shown
+ *  chart: the image, the SVG of a pie chart and the address of the values of a chart of metrics.
  */
 
 /**
@@ -90,12 +91,13 @@ async function copyImage(chartExport, showMessage) {
 }
 
 /**
- * Prints charts, pie charts as SVG and line charts as images.
+ * Prints charts, pie charts as SVG and line charts as images. They have no background, only the charts are printed.
  *
  * @param {ChartExport[]} chartExports
  */
 async function print(chartExports) {
-    const images = await Promise.all(chartExports.map(chartExport => chartExport.svg?.() ?? chartExport.image()));
+    const options = {transparent: true};
+    const images = await Promise.all(chartExports.map(chartExport => chartExport.svg?.(options) ?? chartExport.image(options)));
     await printImages(images);
 }
 
@@ -105,12 +107,13 @@ async function print(chartExports) {
  *
  * @param {uPlot} plot A chart of {@link createLineChart}.
  * @param {object} chartOptions The options, with which the chart was created.
- * @param {{title: string, fontFamily: string}} options The title and the font of the image.
+ * @param {{title: string, fontFamily: string, transparent?: boolean}} options The title and the font of the image,
+ *  see lineChartImage.
  * @return {Promise<HTMLCanvasElement>}
  */
-export async function lightLineChartImage(plot, chartOptions, {title, fontFamily}) {
+export async function lightLineChartImage(plot, chartOptions, options) {
     if (lineChartTheme(plot) === "light") {
-        return lineChartImage(plot, {title, fontFamily});
+        return lineChartImage(plot, options);
     }
     const container = document.createElement("div");
     container.style.cssText = "position: fixed; left: -10000px; top: 0;";
@@ -126,7 +129,7 @@ export async function lightLineChartImage(plot, chartOptions, {title, fontFamily
         });
         // uPlot draws asynchronously
         await new Promise(resolve => setTimeout(resolve));
-        return lineChartImage(lightPlot, {title, fontFamily});
+        return lineChartImage(lightPlot, options);
     } finally {
         lightPlot.destroy();
         container.remove();

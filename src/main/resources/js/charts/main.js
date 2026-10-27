@@ -664,7 +664,7 @@ class ChartController {
         const title = document.title;
         const chartExport = {
             fileName: extension => exportFileName([title, ...chartSeries.map(s => s.label)], extension),
-            image: () => lightLineChartImage(plot, chartOptions, {title, fontFamily: this.fontFamily}),
+            image: options => lightLineChartImage(plot, chartOptions, {...options, title, fontFamily: this.fontFamily}),
             // the values of the shown lines of metrics, the values of tables have no address
             ...(level !== null ? {dataUrl: () => chartExportUrl(window.location.href, {
                 series: chartSeries, detail, shownOverlays: this.shownOverlays, hiddenSeries: this.hiddenSeries,
@@ -741,7 +741,7 @@ class ChartController {
     /** Adds a pie chart with its toolbar to the dialog. */
     renderPieChart(pie, isRemovable) {
         const panel = this.dialog.addPanel("chart-panel chart-pie-panel");
-        const svg = () => pieChartSvg(pie, this.formatter, this.fontFamily);
+        const svg = options => pieChartSvg(pie, this.formatter, this.fontFamily, options);
         const chartExport = {
             fileName: extension => exportFileName([document.title, pie.label], extension),
             image: () => svgCanvas(svg()),
