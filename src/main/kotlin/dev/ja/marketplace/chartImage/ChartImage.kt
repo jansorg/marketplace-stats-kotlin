@@ -25,6 +25,8 @@ import kotlin.math.roundToInt
  * @param end The last shown date. Values outside of the dates aren't drawn and don't change the y-axes.
  * @param extremes Marks the lowest and highest complete value of each series of values.
  * @param hideAxisValues Hides the values of the y-axes and of the extremes, e.g. to share a chart without numbers.
+ * @param logScale If the y-axes are logarithmic, like the option "Logarithmic y-axis" of the web charts. Values of 0 and
+ *  below aren't drawn, the ticks of two y-axes aren't aligned.
  */
 class ChartImage(
     val title: String,
@@ -36,6 +38,7 @@ class ChartImage(
     val end: LocalDate,
     val extremes: Set<ChartExtreme> = emptySet(),
     val hideAxisValues: Boolean = false,
+    val logScale: Boolean = false,
 ) {
     /** The units of the series, the first one has the left y-axis, the second one the right y-axis. */
     val units: List<String> = series.map(ChartImageSeries::unit).distinct()

@@ -256,7 +256,7 @@ queries, and one which excludes all these tags. The results are in the order of 
   shows the y-axes on a logarithmic scale (uPlot `distr: 3`, the powers of ten around the values, `logRange` in
   `model.js`). Values of 0 and below have no position on it and aren't drawn (`logScaleValues`), the value table and
   the tooltip still show them, bars start at the bottom of the axis, the ticks of two y-axes aren't aligned. The chart
-  images of the server (`create_chart`) don't have this option. "Copy PNG" of the Export menu copies the image of
+  images of the server have it, too (`create_chart` with `logScale`, `ChartAxes.logRange`). "Copy PNG" of the Export menu copies the image of
   "Download PNG" into the clipboard (`copyCanvas`, only in a secure context like localhost).
 - The cursor of a line chart snaps to the closest value. With the option "Comparison lines" of the View menu
   (`showComparisonLines`, off by default), dashed and dotted lines mark the dates one year and one month before and
