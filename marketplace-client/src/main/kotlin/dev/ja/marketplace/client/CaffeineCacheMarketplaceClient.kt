@@ -81,6 +81,9 @@ class CaffeineCacheMarketplaceClient(
         PersistentPriceCache(it, persistentCacheScope, maxAge = cachingStrategy.maxAge(Category.Static))
     }
 
+    // the downloads of yesterday are published late, responses fetched before are cached briefly
+    private val downloadsCompleteness = DownloadsCompleteness()
+
     // the monthly, daily and per-product downloads are requested via downloads()
     private val persistentDownloads = persistentCache?.let {
         PersistentResponseCache(it, persistentCacheScope, maxAge = cachingStrategy.maxAge(Category.Daily))
@@ -171,7 +174,7 @@ class CaffeineCacheMarketplaceClient(
     private fun refreshOrder(key: String): Int {
         return when (key.substringBefore('.')) {
             "loadSalesInfo", "loadTrialsInfo", "downloads", "downloadsTotal", "groupedDownloads" -> 0
-            "licenseInfo", "downloadsMonthly", "downloadsDaily", "downloadsByProduct" -> 2
+            "licenseInfo" -> 2
             else -> 1
         }
     }
@@ -286,10 +289,11 @@ class CaffeineCacheMarketplaceClient(
     override suspend fun downloadsTotal(plugin: PluginId, vararg filters: DownloadFilter): Long {
         val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
         val key = "downloadsTotal.$plugin.$filterString"
+        val category: (Stored<Long>) -> Category = { downloadsCompleteness.category(plugin, it.fetchedMillis) }
         val loader: suspend (Boolean) -> Stored<Long> = { forceFetch ->
-            storedDownloads(plugin, key, Long.serializer(), forceFetch) { super.downloadsTotal(plugin, *filters) }
+            storedDownloads(plugin, key, Long.serializer(), forceFetch, category) { super.downloadsTotal(plugin, *filters) }
         }
-        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }) { loader(false) }
+        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }, categoryOf = category) { loader(false) }
     }
 
     override suspend fun downloads(
@@ -302,12 +306,18 @@ class CaffeineCacheMarketplaceClient(
     ): DownloadResponse {
         val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
         val key = "downloads.$plugin.$groupType.$countType.$startDate.$filterString" + (endDate?.let { ".$it" } ?: "")
+        val category: (Stored<DownloadResponse>) -> Category = { stored ->
+            if (groupType == DownloadRequestDimension.Day) {
+                downloadsCompleteness.recordDays(plugin, DownloadsCompleteness.days(stored.value.data.serie), stored.fetchedMillis)
+            }
+            downloadsCompleteness.category(plugin, stored.fetchedMillis, endDate)
+        }
         val loader: suspend (Boolean) -> Stored<DownloadResponse> = { forceFetch ->
-            storedDownloads(plugin, key, DownloadResponse.serializer(), forceFetch) {
+            storedDownloads(plugin, key, DownloadResponse.serializer(), forceFetch, category) {
                 super.downloads(plugin, groupType, countType, startDate, *filters, endDate = endDate)
             }
         }
-        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }) { loader(false) }
+        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }, categoryOf = category) { loader(false) }
     }
 
     override suspend fun groupedDownloads(
@@ -321,16 +331,24 @@ class CaffeineCacheMarketplaceClient(
     ): GroupedDownloadResponse {
         val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
         val key = "groupedDownloads.$plugin.$dimension.$groupType.$countType.$startDate.$filterString" + (endDate?.let { ".$it" } ?: "")
+        val category: (Stored<GroupedDownloadResponse>) -> Category = { stored ->
+            if (dimension == DownloadRequestDimension.Day) {
+                downloadsCompleteness.recordDays(plugin, DownloadsCompleteness.days(stored.value.groups.flatMap { it.serie }), stored.fetchedMillis)
+            }
+            downloadsCompleteness.category(plugin, stored.fetchedMillis, endDate)
+        }
         val loader: suspend (Boolean) -> Stored<GroupedDownloadResponse> = { forceFetch ->
-            storedDownloads(plugin, key, GroupedDownloadResponse.serializer(), forceFetch) {
+            storedDownloads(plugin, key, GroupedDownloadResponse.serializer(), forceFetch, category) {
                 super.groupedDownloads(plugin, dimension, groupType, countType, startDate, *filters, endDate = endDate)
             }
         }
-        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }) { loader(false) }
+        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }, categoryOf = category) { loader(false) }
     }
 
     /**
      * @param forceFetch If the downloads are fetched also if they're stored, e.g. by the automatic refresh.
+     * @param category The category of the stored downloads: downloads fetched before the downloads of yesterday were
+     *  published are fetched again after the age of [Category.Recent], see [DownloadsCompleteness].
      * @return The downloads of the persistent cache, which are fetched again after a day, or the loaded downloads without a persistent cache.
      */
     private suspend fun <T> storedDownloads(
@@ -338,11 +356,17 @@ class CaffeineCacheMarketplaceClient(
         key: String,
         serializer: KSerializer<T>,
         forceFetch: Boolean,
+        category: (Stored<T>) -> Category,
         loader: suspend () -> T,
     ): Stored<T> {
-        return when (val store = persistentDownloads) {
-            null -> Stored(loader(), System.currentTimeMillis())
-            else -> store.get(downloadsFileName(plugin), key, serializer, forceFetch, loader)
+        val store = persistentDownloads ?: return Stored(loader(), System.currentTimeMillis())
+        val stored = store.get(downloadsFileName(plugin), key, serializer, forceFetch, loader)
+        val age = (System.currentTimeMillis() - stored.fetchedMillis).milliseconds
+        return when {
+            !forceFetch && category(stored) == Category.Recent && age >= cachingStrategy.maxAge(Category.Recent) ->
+                store.get(downloadsFileName(plugin), key, serializer, true, loader)
+
+            else -> stored
         }
     }
 
@@ -360,9 +384,8 @@ class CaffeineCacheMarketplaceClient(
         startDate: YearMonthDay?,
         productCode: JetBrainsProductCode?
     ): List<MonthlyDownload> {
-        return loadCached("downloadsMonthly.$plugin.$countType.$startDate.$productCode", Category.Daily) {
-            super.downloadsMonthly(plugin, countType, startDate, productCode)
-        }
+        // derived from the cached downloads(), whose category depends on the published downloads
+        return super.downloadsMonthly(plugin, countType, startDate, productCode)
     }
 
     override suspend fun downloadsDaily(
@@ -371,15 +394,13 @@ class CaffeineCacheMarketplaceClient(
         startDate: YearMonthDay?,
         productCode: JetBrainsProductCode?
     ): List<DailyDownload> {
-        return loadCached("downloadsDaily.$plugin.$countType.$startDate.$productCode", Category.Daily) {
-            super.downloadsDaily(plugin, countType, startDate, productCode)
-        }
+        // derived from the cached downloads(), whose category depends on the published downloads
+        return super.downloadsDaily(plugin, countType, startDate, productCode)
     }
 
     override suspend fun downloadsByProduct(plugin: PluginId, countType: DownloadCountType): List<ProductDownload> {
-        return loadCached("downloadsByProduct.$plugin.$countType", Category.Daily) {
-            super.downloadsByProduct(plugin, countType)
-        }
+        // derived from the cached downloads()
+        return super.downloadsByProduct(plugin, countType)
     }
 
     override suspend fun compatibleProducts(plugin: PluginId): List<JetBrainsProductId> {
@@ -540,6 +561,8 @@ class CaffeineCacheMarketplaceClient(
         key: String,
         category: Category,
         refresh: suspend () -> Stored<T>,
+        /** The category of the loaded data, e.g. by its content, by default [category]. */
+        categoryOf: (Stored<T>) -> Category = { category },
         loader: suspend () -> Stored<T>,
     ): T {
         val expiry = cachingStrategy.expiry(category)
@@ -547,9 +570,10 @@ class CaffeineCacheMarketplaceClient(
         val cachedValue = cache.get(key) {
             try {
                 val stored = loader()
+                val storedCategory = categoryOf(stored)
                 val age = (System.currentTimeMillis() - stored.fetchedMillis).coerceAtLeast(0).milliseconds
                 // a short minimum, so that outdated stored data isn't read again by every request
-                CacheValue(category, (expiry - age).coerceAtLeast(1.minutes), stored.value, null, refreshValue, stored.fetchedMillis)
+                CacheValue(storedCategory, (cachingStrategy.expiry(storedCategory) - age).coerceAtLeast(1.minutes), stored.value, null, refreshValue, stored.fetchedMillis)
             } catch (e: ClientRequestException) {
                 // Only missing data is cached, briefly. Other errors, e.g. too many requests or a rejected API key,
                 // aren't cached, the next request tries again.
