@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.48.0
+
+- Charts:
+  - Each plugin and the summary of all plugins have their own chart setup. "Remove all charts" keeps the setups of
+    other plugins.
+  - Synchronized line charts show their tooltips together.
+  - Values of metrics are shown with the decimals of their metric.
+  - The metrics of the "+" menu and the items of the Export menu have tooltips.
+  - The messages of the chart dialog overlay the charts and hide after 10 seconds.
+  - The x-axis of a line chart covers the dates of the shown lines.
+  - The maximized chart dialog fills the whole window, also after returning to Safari on the iPad.
+  - Printed charts have no background.
+  - A tap opens the submenu of a metric in the "+" menu on touch screens.
+- Reports: the new column "Churn (all)" of the tables of the years shows the combined churn rate of the paid licenses of
+  all periods.
+- Pages: the symbol of expired licenses precedes their right-aligned end date.
+
 ## 0.47.0
 
 - Charts:
