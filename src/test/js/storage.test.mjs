@@ -16,7 +16,7 @@ test("a stored setup is loaded", () => {
     const storage = memoryStorage();
     const setupStorage = createSetupStorage(storage);
     const setup = {
-        combineUnits: true, maximized: false, preferredStyle: "bars", chartStyles: {"month/USD": "bars"}, chartLevels: {"metric/USD": {window: "year", detail: "day"}}, shownMarkers: ["ide"], shownEvents: ["price-announcement"], shownExtremes: ["max"], shownOverlays: ["average12", "previousYear"], showIncomplete: false, showValueTable: false, showComparisonLines: true, hideAxisValues: true,
+        combineUnits: true, maximized: false, preferredStyle: "bars", chartStyles: {"month/USD": "bars"}, chartLevels: {"metric/USD": {window: "year", detail: "day"}}, shownMarkers: ["ide"], shownEvents: ["price-announcement"], shownExtremes: ["max"], shownOverlays: ["average12", "previousYear"], showIncomplete: false, showValueTable: false, showComparisonLines: true, hideAxisValues: true, logScale: true,
         dateRange: {from: "2024-01-01", to: "2024-12-31"}, hiddenSeries: ["line/Overview/MRR", "line/Overview/MRR:average3"],
         entries: [
             {type: "metric", metric: "mrr", usesWindow: false, label: "MRR", unit: "USD", measure: "stock", color: "#2a78d6"},
@@ -29,7 +29,7 @@ test("a stored setup is loaded", () => {
     assert.deepEqual(setupStorage.load(), setup);
     // only the setup is stored, no values of the tables
     assert.deepEqual(Object.keys(JSON.parse(storage.values.get(setupStorageKey(null)))).sort(),
-        ["chartLevels", "chartStyles", "combineUnits", "dateRange", "entries", "hiddenSeries", "hideAxisValues", "maximized", "preferredStyle", "showComparisonLines", "showIncomplete", "showValueTable", "shownEvents", "shownExtremes", "shownMarkers", "shownOverlays", "version"]);
+        ["chartLevels", "chartStyles", "combineUnits", "dateRange", "entries", "hiddenSeries", "hideAxisValues", "logScale", "maximized", "preferredStyle", "showComparisonLines", "showIncomplete", "showValueTable", "shownEvents", "shownExtremes", "shownMarkers", "shownOverlays", "version"]);
 });
 
 test("the dialog is maximized by default", () => {
@@ -212,4 +212,12 @@ test("a bookmarked view is stored as the setup of the plugin of the page", () =>
     createSetupStorage(storage, "1").save(view);
     assert.deepEqual(createSetupStorage(storage, "1").load().entries, [salesEntry]);
     assert.deepEqual(createSetupStorage(storage, "2").load().entries, [trialsEntry]);
+});
+
+test("the y-axes are linear by default, also with a setup stored before the option existed", () => {
+    const load = stored => createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 2, entries: [], ...stored})})).load();
+    assert.equal(emptySetup().logScale, false);
+    assert.equal(load({}).logScale, false);
+    assert.equal(load({logScale: "yes"}).logScale, false);
+    assert.equal(load({logScale: true}).logScale, true);
 });

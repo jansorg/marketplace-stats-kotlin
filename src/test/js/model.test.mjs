@@ -11,7 +11,7 @@ import {
     pinchedRange, rangeLabel, rangeMenuItems, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, finestDetail, lineDetail, periodEnd, shownWindow, storedChartLevel, tableWindow, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, shownDateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
-    chartKey, colorDistance, lineChartKey, MIN_COLOR_DISTANCE, slicePath, eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
+    chartKey, colorDistance, lineChartKey, MIN_COLOR_DISTANCE, slicePath, eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear, logRange, logScaleValues,
 } from "../../main/resources/js/charts/model.js";
 
 function series(period, unit, points) {
@@ -637,4 +637,19 @@ test("the path of a pie slice starts at the center and draws the large arc of a 
     const [quarter, threeQuarters] = pieArcs([25, 75]);
     assert.equal(slicePath(quarter, 100, 50), "M100,100 L100,50 A50,50 0 0 1 150,100 Z");
     assert.match(slicePath(threeQuarters, 100, 50), /^M100,100 L150,100 A50,50 0 1 1 /);
+});
+
+test("values of 0 and below aren't drawn on a logarithmic axis", () => {
+    assert.deepEqual(logScaleValues([12, 0, -5, null, undefined, 0.5]), [12, null, null, null, undefined, 0.5]);
+});
+
+test("a logarithmic axis has the powers of ten around the values", () => {
+    assert.deepEqual(logRange(12, 830), [10, 1000]);
+    assert.deepEqual(logRange(100, 1000), [100, 1000]);
+    assert.deepEqual(logRange(0.5, 3), [0.1, 10]);
+    // a single value, a power of ten
+    assert.deepEqual(logRange(100, 100), [100, 1000]);
+    // without positive values
+    assert.deepEqual(logRange(null, null), [1, 10]);
+    assert.deepEqual(logRange(-3, 0), [1, 10]);
 });

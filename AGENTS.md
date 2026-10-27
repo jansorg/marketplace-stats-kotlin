@@ -252,7 +252,11 @@ queries, and one which excludes all these tags. The results are in the order of 
     printing. Printing adds the images to the page and `print.css` hides everything else (`body.print-charts`).
 - The key C shows and hides the chart dialog.
 - The View option "Hide axis values" (`hideAxisValues`, off by default) hides the values of the y-axes and of the
-  minimum and maximum, e.g. to share a chart without numbers. "Copy PNG" of the Export menu copies the image of
+  minimum and maximum, e.g. to share a chart without numbers. The View option "Logarithmic y-axis" (`logScale`, off by default)
+  shows the y-axes on a logarithmic scale (uPlot `distr: 3`, the powers of ten around the values, `logRange` in
+  `model.js`). Values of 0 and below have no position on it and aren't drawn (`logScaleValues`), the value table and
+  the tooltip still show them, bars start at the bottom of the axis, the ticks of two y-axes aren't aligned. The chart
+  images of the server (`create_chart`) don't have this option. "Copy PNG" of the Export menu copies the image of
   "Download PNG" into the clipboard (`copyCanvas`, only in a secure context like localhost).
 - The cursor of a line chart snaps to the closest value. With the option "Comparison lines" of the View menu
   (`showComparisonLines`, off by default), dashed and dotted lines mark the dates one year and one month before and
