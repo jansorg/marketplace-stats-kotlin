@@ -361,7 +361,8 @@ class McpChartTool(private val provider: McpDataProvider) {
                     put("type", "array")
                     put("items", enumProperty(ChartMarkerKind.entries.map { it.id }))
                     put("description", "Vertical lines: release (major plugin versions), price (changes of the base price), " +
-                            "ide (IntelliJ IDEA releases), events (custom events of the server). release and price need a pluginId")
+                            "continuity (the date, at which the plugin disabled the continuity discount), " +
+                            "ide (IntelliJ IDEA releases), events (custom events of the server). release, price and continuity need a pluginId")
                 })
                 put("title", stringProperty("Default: the titles of the metrics"))
                 put("format", enumProperty(ChartFormat.entries.map(ChartFormat::id), "Default: png"))
@@ -378,8 +379,8 @@ class McpChartTool(private val provider: McpDataProvider) {
         val today = LocalDate.now()
         val request = ChartRequest.parse(arguments, today)
         val plugin = arguments["pluginId"]?.takeUnless { it is JsonNull }?.let { provider.findPlugin(arguments) }
-        require(plugin != null || ChartMarkerKind.Release !in request.markers && ChartMarkerKind.Price !in request.markers) {
-            "The markers release and price need a pluginId"
+        require(plugin != null || request.markers.none { it in PLUGIN_MARKERS }) {
+            "The markers release, price and continuity need a pluginId"
         }
 
         val values = provider.chartValues(plugin)
@@ -438,6 +439,9 @@ class McpChartTool(private val provider: McpDataProvider) {
                     ChartMarkerKind.Price -> PriceChanges.find(provider.pluginData(plugin!!).getSales() ?: emptyList())
                         .map { ChartMarker(it.date.toLocalDate(), it.label, kind) }
 
+                    ChartMarkerKind.Continuity -> listOfNotNull(provider.pluginData(plugin!!).getMarketplacePluginInfo()?.continuityDiscountDisabledAt)
+                        .map { ChartMarker(it.toLocalDate(), "No continuity discount", kind) }
+
                     ChartMarkerKind.Ide -> IdeMajorReleases.find(provider.productReleases(JetBrainsProductCode.IntelliJIDEAUltimate, ProductReleaseType.Release))
                         .filter { it.date >= Marketplace.Birthday }
                         .map { ChartMarker(it.date.toLocalDate(), it.version, kind) }
@@ -456,6 +460,9 @@ class McpChartTool(private val provider: McpDataProvider) {
     }
 
     internal companion object {
+        /** The kinds of vertical lines, which only a single plugin has. */
+        private val PLUGIN_MARKERS = setOf(ChartMarkerKind.Release, ChartMarkerKind.Price, ChartMarkerKind.Continuity)
+
         /**
          * @param subject The plugin or the summary of all plugins, for the subtitle and the errors.
          * @throws IllegalArgumentException If a metric has no values, an average doesn't apply, or for more than two units.

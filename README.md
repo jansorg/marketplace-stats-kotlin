@@ -200,9 +200,9 @@ How it works:
 
 ## Custom Events in the Charts
 
-The line charts can show vertical lines for the releases of your plugin, its price changes and the releases of
-IntelliJ IDEA. Other events are not part of the data of the Marketplace, e.g. a blog post or a change of the trial
-period. You can add such events with a YAML file.
+The line charts can show vertical lines for the releases of your plugin, its price changes, the date at which it
+disabled the continuity discount and the releases of IntelliJ IDEA. Other events are not part of the data of the
+Marketplace, e.g. a blog post or a change of the trial period. You can add such events with a YAML file.
 
 ### File Format
 
@@ -379,7 +379,7 @@ claude mcp add --transport http marketplace-stats http://localhost:8080/mcp
   - The shown dates: `range` (`all`, `today`, `past-7-days`, `this-month` or a year like `2025`) or `startDate` and
     `endDate`.
   - The options of the View menu: `previousYear`, `showIncomplete`, `extremes` (`min`, `max`), `hideAxisValues`, and
-    the vertical lines of `markers` (`release`, `price`, `ide`, `events`).
+    the vertical lines of `markers` (`release`, `price`, `continuity`, `ide`, `events`).
   - `format` (`png` or `svg`), `width` and `height` (default 1000 × 500) and `scale` (the pixel density of the PNG).
 
   A chart shows at most two units on two y-axes, e.g. amounts and counts. The result has a JSON description of the

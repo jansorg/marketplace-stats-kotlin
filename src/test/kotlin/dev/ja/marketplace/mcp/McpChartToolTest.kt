@@ -10,6 +10,8 @@ import dev.ja.marketplace.chartImage.ChartExtreme
 import dev.ja.marketplace.chartImage.ChartMarkerKind
 import dev.ja.marketplace.chartImage.ChartStyle
 import dev.ja.marketplace.chartImage.ChartTheme
+import dev.ja.marketplace.client.YearMonthDay
+import dev.ja.marketplace.client.model.MarketplacePluginInfo
 import dev.ja.marketplace.data.chart.ChartDetail
 import dev.ja.marketplace.data.chart.ChartMetric
 import dev.ja.marketplace.data.chart.ChartWindow
@@ -233,5 +235,28 @@ class McpChartToolTest {
             tools.result("create_chart", buildJsonObject { put("series", series(metric("sales"))); put("markers", "price") })
         }
         assertTrue("need a pluginId" in markers.message!!)
+
+        val continuity = assertThrows<IllegalArgumentException> {
+            tools.result("create_chart", buildJsonObject { put("series", series(metric("sales"))); put("markers", "continuity") })
+        }
+        assertTrue("need a pluginId" in continuity.message!!)
+    }
+
+    @Test
+    suspend fun continuityDiscountMarker() {
+        val info = MarketplacePluginInfo("PCODE", "Plugin", emptyList(), hasContinuityDiscount = false, continuityDiscountDisabledAt = YearMonthDay(2025, 3, 1))
+        val tools = MarketplaceMcpTools(McpTestData.providerWithPricing(info, withRenewalPrices = false))
+        val json = tools.result("create_chart", arguments {
+            put("series", series(metric("sales")))
+            put("markers", "continuity")
+            put("format", "svg")
+        }).json
+        val marker = json["markers"]!!.jsonArray.single().jsonObject
+        assertEquals("2025-03-01", marker["date"]!!.jsonPrimitive.content)
+        assertEquals("continuity", marker["kind"]!!.jsonPrimitive.content)
+        assertEquals("No continuity discount", marker["label"]!!.jsonPrimitive.content)
+
+        // plugins with the continuity discount have no line
+        assertNull(this.tools.result("create_chart", arguments { put("series", series(metric("sales"))); put("markers", "continuity") }).json["markers"])
     }
 }

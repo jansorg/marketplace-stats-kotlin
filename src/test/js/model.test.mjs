@@ -11,7 +11,7 @@ import {
     pinchedRange, rangeLabel, rangeMenuItems, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, finestDetail, lineDetail, periodEnd, shownWindow, storedChartLevel, tableWindow, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, shownDateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
-    chartKey, colorDistance, lineChartKey, MIN_COLOR_DISTANCE, slicePath, eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear, logRange, logScaleValues,
+    chartKey, colorDistance, lineChartKey, MIN_COLOR_DISTANCE, slicePath, eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, MARKER_KINDS, MARKER_LABELS, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear, logRange, logScaleValues,
 } from "../../main/resources/js/charts/model.js";
 
 function series(period, unit, points) {
@@ -218,6 +218,11 @@ test("the menu of the events lists the custom events, a separator and the kinds 
     assert.deepEqual(eventMenuItems([], ["price"]), [{type: "marker", kind: "price"}]);
     assert.deepEqual(eventMenuItems(events.slice(0, 1), []), [{type: "event", event: events[0]}]);
     assert.deepEqual(eventMenuItems([], []), []);
+});
+
+test("the date, at which the continuity discount was disabled, is a kind of vertical lines with a label", () => {
+    assert.ok(MARKER_KINDS.includes("continuity"));
+    assert.equal(MARKER_LABELS.continuity, "Continuity discount");
 });
 
 test("legend entries move to the next row if they don't fit", () => {

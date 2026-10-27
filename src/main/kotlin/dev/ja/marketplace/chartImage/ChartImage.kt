@@ -122,6 +122,7 @@ enum class ChartExtreme(val id: String) {
 enum class ChartMarkerKind(val id: String, val label: String, val color: ChartColor, val dash: List<Double>, val darkColor: ChartColor) {
     Release("release", "Product version", ChartColor.parse("#7d7c77"), listOf(4.0, 4.0), ChartColor.parse("#9a99a2")),
     Price("price", "Price changes", ChartColor.parse("#c27c0e"), listOf(2.0, 3.0), ChartColor.parse("#e0a040")),
+    Continuity("continuity", "Continuity discount", ChartColor.parse("#b03a73"), listOf(6.0, 2.0, 2.0, 2.0), ChartColor.parse("#e88ab8")),
     Ide("ide", "IntelliJ IDEA releases", ChartColor.parse("#6f74b8"), listOf(8.0, 3.0), ChartColor.parse("#9ea3ec")),
     Event("events", "Events", ChartColor.parse("#1f8a5b"), listOf(10.0, 3.0, 2.0, 3.0), ChartColor.parse("#5cc795"));
 

@@ -20,6 +20,7 @@
 @param majorReleases: List<dev.ja.marketplace.data.releases.MajorRelease>
 @param ideReleases: List<dev.ja.marketplace.data.releases.MajorRelease>
 @param priceChanges: List<dev.ja.marketplace.data.prices.PriceChange>
+@param continuityDiscountDisabledAt: dev.ja.marketplace.client.YearMonthDay? = null
 @param otherPlugins: List<dev.ja.marketplace.client.model.PluginInfoSummary> = emptyList()
 @param customEvents: List<dev.ja.marketplace.CustomEvent> = emptyList()
 
@@ -67,6 +68,11 @@
         @for(change in priceChanges)
             <li data-date="${change.date.asIsoString}">${change.label}</li>
         @endfor
+    </ul>
+@endif
+@if(continuityDiscountDisabledAt != null)
+    <ul id="chart-continuity-discount" hidden>
+        <li data-date="${continuityDiscountDisabledAt.asIsoString}">No continuity discount</li>
     </ul>
 @endif
 @if(ideReleases.isNotEmpty())
