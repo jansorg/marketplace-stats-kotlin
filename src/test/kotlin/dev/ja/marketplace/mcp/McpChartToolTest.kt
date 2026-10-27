@@ -157,7 +157,8 @@ class McpChartToolTest {
         assertEquals("USD", chartSeries[0]["unit"]!!.jsonPrimitive.content)
         assertEquals("calendar-month", chartSeries[0]["window"]!!.jsonPrimitive.content)
         assertEquals("bars", chartSeries[1]["style"]!!.jsonPrimitive.content)
-        assertEquals("#eb6834", chartSeries[1]["color"]!!.jsonPrimitive.content)
+        // bars next to a blue line have a different lightness
+        assertEquals("#eda100", chartSeries[1]["color"]!!.jsonPrimitive.content)
         // the major releases of the plugin and the custom event
         val markers = json["markers"]!!.jsonArray.map { it.jsonObject["label"]!!.jsonPrimitive.content }
         assertTrue("2.0" in markers || "2.0.0" in markers, markers.toString())

@@ -108,6 +108,18 @@ class ChartImageRendererTest {
     }
 
     @Test
+    fun nextColorLikeTheWebCharts() {
+        val (blue, orange, green, yellow) = ChartColor.SeriesColors
+        // the values of nextColor and colorDistance of model.js
+        assertEquals(orange, ChartColor.next(setOf(blue), listOf(blue to ChartStyle.Lines), ChartStyle.Lines))
+        assertEquals(yellow, ChartColor.next(setOf(blue), listOf(blue to ChartStyle.Bars), ChartStyle.Lines))
+        assertEquals(green, ChartColor.next(setOf(blue, orange), emptyList(), ChartStyle.Lines))
+        assertNull(ChartColor.next(ChartColor.SeriesColors.toSet(), emptyList(), ChartStyle.Lines))
+        assertEquals(0.0, ChartColor.distance(blue, blue))
+        assertTrue(ChartColor.distance(blue, green, lineOverBar = true) < ChartColor.MIN_DISTANCE)
+    }
+
+    @Test
     fun alignedRangesLikeTheWebCharts() {
         // the values of alignedRanges of model.js
         assertEquals(

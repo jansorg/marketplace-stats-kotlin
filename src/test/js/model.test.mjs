@@ -11,7 +11,7 @@ import {
     pinchedRange, rangeLabel, rangeMenuItems, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, finestDetail, lineDetail, periodEnd, shownWindow, storedChartLevel, tableWindow, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, shownDateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
-    chartKey, lineChartKey, slicePath, eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
+    chartKey, colorDistance, lineChartKey, MIN_COLOR_DISTANCE, slicePath, eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
 } from "../../main/resources/js/charts/model.js";
 
 function series(period, unit, points) {
@@ -26,6 +26,35 @@ test("colors are assigned in the order of the palette", () => {
     assert.equal(nextColor([SERIES_COLORS[3]], SERIES_COLORS[3]), SERIES_COLORS[0]);
     assert.equal(nextColor([], "#123456"), SERIES_COLORS[0]);
     assert.equal(nextColor(SERIES_COLORS), undefined);
+});
+
+test("a new color is distinct from the colors of its chart", () => {
+    const [blue, orange, green, yellow] = SERIES_COLORS;
+    // orange is distinct from a blue line
+    assert.equal(nextColor([blue], undefined, [{color: blue, style: "lines"}], "lines"), orange);
+    // a line over blue bars needs a different lightness, green or orange lines are hard to see
+    assert.equal(nextColor([blue], undefined, [{color: blue, style: "bars"}], "lines"), yellow);
+    assert.equal(nextColor([yellow], undefined, [{color: yellow, style: "lines"}], "bars"), blue);
+    // the colors of other charts are only excluded
+    assert.equal(nextColor([blue, orange], undefined, [], "lines"), green);
+    // without a distinct color, the most distinct one
+    const color = nextColor([blue, orange], undefined, [{color: blue, style: "lines"}, {color: orange, style: "lines"}], "lines");
+    const distance = c => Math.min(colorDistance(c, blue), colorDistance(c, orange));
+    for (const other of SERIES_COLORS.filter(c => c !== blue && c !== orange)) {
+        assert.ok(distance(color) >= distance(other), other);
+    }
+    // a stored color is kept
+    assert.equal(nextColor([blue], green, [{color: blue, style: "bars"}], "lines"), green);
+    assert.equal(nextColor(SERIES_COLORS, undefined, [{color: blue, style: "bars"}]), undefined);
+});
+
+test("the distance of colors", () => {
+    assert.equal(colorDistance("#2a78d6", "#2a78d6"), 0);
+    assert.ok(colorDistance("#2a78d6", "#eb6834") >= MIN_COLOR_DISTANCE);
+    assert.ok(colorDistance("#2a78d6", "#eb6834", true) < MIN_COLOR_DISTANCE);
+    assert.ok(colorDistance("#2a78d6", "#1baf7a", true) < MIN_COLOR_DISTANCE);
+    // blue and violet are too similar
+    assert.ok(colorDistance("#2a78d6", "#6250d6") < 0.1);
 });
 
 test("the same metric of different tables is one series in the chart of its unit", () => {

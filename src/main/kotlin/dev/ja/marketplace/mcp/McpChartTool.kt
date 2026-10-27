@@ -445,6 +445,8 @@ class McpChartTool(private val provider: McpDataProvider) {
          */
         fun createChartImage(request: ChartRequest, values: ChartMetricValues, subject: String, markers: List<ChartMarker>): ChartWithSeries {
             val usedColors = request.series.mapNotNull(ChartSeriesRequest::color).toMutableSet()
+            // the colors of the previous series, all series are in one chart
+            val neighbors = mutableListOf<Pair<ChartColor, ChartStyle>>()
             val seriesJson = mutableListOf<JsonObject>()
             val series = request.series.flatMapIndexed { index, item ->
                 val metric = item.metric
@@ -473,9 +475,10 @@ class McpChartTool(private val provider: McpDataProvider) {
 
                 val label = (if (metric.usesWindow) "${metric.title}, ${ChartRequest.windowLabels.getValue(window).lowercase()}" else metric.title) +
                         (item.average?.let { ", $it-month average" } ?: "")
-                val color = item.color ?: (ChartColor.SeriesColors.firstOrNull { it !in usedColors } ?: ChartColor.SeriesColors[index % ChartColor.SeriesColors.size])
-                usedColors += color
                 val style = if (item.average != null) ChartStyle.Lines else item.style ?: request.style
+                val color = item.color ?: ChartColor.next(usedColors, neighbors, style) ?: ChartColor.SeriesColors[index % ChartColor.SeriesColors.size]
+                usedColors += color
+                neighbors += color to style
                 val kind = if (item.average != null) ChartSeriesKind.Average else ChartSeriesKind.Values
                 val valueSeries = ChartImageSeries(label, data.unit, color, points, style, kind, item.average, data.fractionDigits)
 

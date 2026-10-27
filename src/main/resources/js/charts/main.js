@@ -23,9 +23,9 @@ import {createFormatter} from "./format.js";
 import {createLineChart} from "./lineChart.js";
 import {metricDataId, metricEntry, metricSeries, MetricValueCache} from "./metricValues.js";
 import {
-    canCombineUnits, chartExportUrl, chartLevel, chartLevelKeys, dateRange, detailGranularity, detailPeriod, exportFileName, finestDetail, groupCharts,
+    canCombineUnits, chartExportUrl, chartLevel, chartLevelKeys, dateRange, detailGranularity, detailPeriod, exportFileName, finestDetail, groupCharts, groupUnits,
     lineChartKey, lineDetail, MARKER_KINDS, MAX_PIES, MAX_SERIES, METRIC_PERIOD, metricLabel, metricPoints, nextColor, overlayApplies, OVERLAYS,
-    pieSlices, previousYear, rangeLabel, rangeOfPreset, rangeOfTimestamps, rangeTimestamps, rangeYears, shownWindow, storedChartLevel,
+    pieSlices, previousYear, rangeLabel, rangeOfPreset, rangeOfTimestamps, rangeTimestamps, rangeYears, seriesStyle, shownWindow, storedChartLevel,
     visibleMarkers, withoutIncomplete,
 } from "./model.js";
 import {enableShortcut, makeColumnClickable, makeHintsClickable, makeLogoClickable} from "./pageControls.js";
@@ -175,7 +175,7 @@ class ChartController {
         const rejection = this.rejectSeries(series);
         if (rejection === null) {
             this.setTableDateRange(table);
-            this.series.push({...series, color: nextColor(this.series.map(s => s.color))});
+            this.series.push({...series, color: this.colorOf(series)});
             this.save();
         }
         this.openDialog(rejection);
@@ -196,7 +196,7 @@ class ChartController {
             if (rejection !== null) {
                 break;
             }
-            this.series.push({...series, color: nextColor(this.series.map(s => s.color))});
+            this.series.push({...series, color: this.colorOf(series)});
         }
         this.save();
         this.openDialog(rejection);
@@ -237,7 +237,7 @@ class ChartController {
             if (level !== null && !this.series.some(s => s.period === METRIC_PERIOD && s.unit === series.unit)) {
                 this.setTableLevel(series.unit, level);
             }
-            this.series.push(metricSeries(series, nextColor(this.series.map(s => s.color))));
+            this.series.push(metricSeries(series, this.colorOf(metricSeries(series))));
         }
         this.save();
         this.openDialog(rejection);
@@ -250,8 +250,9 @@ class ChartController {
      *  A metric of /chart-metrics.
      */
     addMetric(metric, window, average = null) {
-        const series = metricSeries({metric: metric.id, window, usesWindow: metric.usesWindow, average, label: metric.title,
-            unit: metric.unit, measure: metric.measure}, nextColor(this.series.map(s => s.color)));
+        const uncolored = metricSeries({metric: metric.id, window, usesWindow: metric.usesWindow, average, label: metric.title,
+            unit: metric.unit, measure: metric.measure});
+        const series = {...uncolored, color: this.colorOf(uncolored)};
         const rejection = this.rejectSeries(series);
         if (rejection === null) {
             this.series.push(series);
@@ -359,7 +360,8 @@ class ChartController {
             if (entry.type === "metric") {
                 // a series of version 2 without a window has the window of its chart
                 const window = entry.window ?? storedChartLevel({period: METRIC_PERIOD, units: [entry.unit]}, this.chartLevels).window;
-                const series = metricSeries({...entry, window}, nextColor(this.series.map(s => s.color), entry.color));
+                const uncolored = metricSeries({...entry, window});
+                const series = {...uncolored, color: this.colorOf(uncolored, entry.color)};
                 // line charts need uPlot
                 if (!this.lineChartsAvailable) {
                     this.unresolvedEntries.push(entry);
@@ -386,7 +388,8 @@ class ChartController {
                 }
                 if (this.rejectSeries(series) === null) {
                     // a series keeps its color across pages and sessions
-                    this.series.push({...series, color: nextColor(this.series.map(s => s.color), entry.color), ...(entry.style ? {style: entry.style} : {})});
+                    const styled = {...series, ...(entry.style ? {style: entry.style} : {})};
+                    this.series.push({...styled, color: this.colorOf(styled, entry.color)});
                 }
             }
         }
@@ -593,6 +596,21 @@ class ChartController {
             }
         }
         requests.forEach(({window, detail, ids}) => this.loadMetrics(window, detail, ids));
+    }
+
+    /**
+     * @param {object} series A new series without a color.
+     * @param {string} [preferredColor] The stored color of the series.
+     * @return {string|undefined} The color of the new series, which is distinct from the colors of its chart, see
+     *  {@link nextColor}.
+     */
+    colorOf(series, preferredColor = undefined) {
+        const periodSeries = this.series.filter(s => s.period === series.period);
+        const units = groupUnits([...new Set([...periodSeries.map(s => s.unit), series.unit])], this.combineUnits)
+            .find(units => units.includes(series.unit));
+        const chartStyle = this.chartStyles[lineChartKey({period: series.period, units})] ?? this.preferredStyle;
+        const neighbors = periodSeries.filter(s => units.includes(s.unit)).map(s => ({color: s.color, style: seriesStyle(s, chartStyle)}));
+        return nextColor(this.series.map(s => s.color), preferredColor, neighbors, seriesStyle(series, chartStyle));
     }
 
     /** @return {object[]} The series of a line chart of {@link groupCharts}. */
