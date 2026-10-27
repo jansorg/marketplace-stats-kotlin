@@ -1682,6 +1682,25 @@ dl.detail-grid dd {
     display: flex;
 }
 
+/* a tap of a touch screen opens the submenu below the item, within the scrolled list of the menu */
+.chart-add-metric.chart-add-inline > button {
+    background-color: var(--button-bgcolor);
+}
+
+.chart-add-metric.chart-add-inline > button::after {
+    transform: rotate(90deg);
+}
+
+.chart-add-metric.chart-add-inline .chart-add-submenu {
+    position: static;
+    display: flex;
+    min-width: 0;
+    padding: 0 0 0.25rem 1rem;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
 /* the window of the added metric */
 .chart-add-window {
     display: flex;

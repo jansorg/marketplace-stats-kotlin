@@ -24,7 +24,7 @@ import {chartColumns, metricKey, readLineSeries, readMarkers, readMetricLevel, r
 import {ChartDialog, removeButton} from "./dialog.js";
 import {createLineChart, lineChartTheme} from "./lineChart.js";
 import {renderPie} from "./pieChart.js";
-import {createMenu} from "./menu.js";
+import {clickOpensSubmenu, createMenu} from "./menu.js";
 import {canCopyImages, copyCanvas, downloadCanvas, downloadSvg, lineChartImage, pieChartSvg, printImages, svgCanvas} from "./exportImage.js";
 
 const STYLE_LABELS = {lines: "Lines", bars: "Bars"};
@@ -457,7 +457,7 @@ class ChartController {
 
     /**
      * @return {HTMLElement} An item of the menu "Add": a click adds the values of the metric, hovering it shows a
-     *  submenu with the values and the moving averages.
+     *  submenu with the values and the moving averages. A tap of a touch screen shows the submenu below the item.
      */
     addMenuItem(metric, selectedWindow, close) {
         const item = document.createElement("div");
@@ -473,12 +473,15 @@ class ChartController {
         button.textContent = metric.title;
         // values at a date, e.g. the MRR, don't use the window
         button.title = metric.usesWindow ? "Sums or rates of the selected window" : "Values at each date";
-        // a mouse shows the submenu on hover and a click adds the values, a tap of a touch screen shows the submenu
-        let pointerType = "mouse";
-        button.addEventListener("pointerdown", event => pointerType = event.pointerType);
-        button.addEventListener("click", event => {
-            if (event.detail > 0 && pointerType !== "mouse") {
-                show();
+        // A mouse shows the submenu on hover and a click adds the values. A tap of a touch screen or a pen shows and hides
+        // the submenu below the item, within the list of the menu: without hover, e.g. on an iPad, the submenu beside
+        // the item wasn't usable. The pointer of the last pointerdown, e.g. before the click or the focus of the item.
+        let pointerType = null;
+        item.addEventListener("pointerdown", event => pointerType = event.pointerType);
+        item.addEventListener("keydown", () => pointerType = null);
+        button.addEventListener("click", () => {
+            if (clickOpensSubmenu(pointerType)) {
+                toggleInline();
             } else {
                 add(null);
             }
@@ -498,8 +501,20 @@ class ChartController {
         }
         // the submenu is placed beside the item in the window, to the left like the menu, the list of the menu scrolls.
         // On a narrow screen without space beside the item, the submenu is placed below it.
+        const closeOthers = () => item.parentElement?.querySelectorAll(".chart-add-open, .chart-add-inline")
+            .forEach(open => open !== item && open.classList.remove("chart-add-open", "chart-add-inline"));
+        const toggleInline = () => {
+            closeOthers();
+            item.classList.remove("chart-add-open");
+            if (item.classList.toggle("chart-add-inline")) {
+                submenu.scrollIntoView({block: "nearest"});
+            }
+        };
         const show = () => {
-            item.parentElement?.querySelectorAll(".chart-add-open").forEach(open => open !== item && open.classList.remove("chart-add-open"));
+            closeOthers();
+            if (item.classList.contains("chart-add-inline")) {
+                return;
+            }
             item.classList.add("chart-add-open");
             const bounds = item.getBoundingClientRect();
             const {width, height} = submenu.getBoundingClientRect();
@@ -511,7 +526,8 @@ class ChartController {
             submenu.style.top = Math.max(0, Math.min(top, window.innerHeight - height)) + "px";
         };
         item.addEventListener("pointerenter", event => event.pointerType === "mouse" && show());
-        item.addEventListener("focusin", show);
+        // the focus of a tap, e.g. in Chromium, doesn't show the submenu beside the item
+        item.addEventListener("focusin", () => !clickOpensSubmenu(pointerType) && show());
         item.addEventListener("pointerleave", event => event.pointerType === "mouse" && item.classList.remove("chart-add-open"));
         item.addEventListener("focusout", event => {
             if (!item.contains(event.relatedTarget)) {

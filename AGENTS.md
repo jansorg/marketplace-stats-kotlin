@@ -254,7 +254,9 @@ queries, and one which excludes all these tags. The results are in the order of 
     of the dates (`windowApplies` in `model.js`), e.g. a day at the level Year, is disabled, a change of the level
     replaces it with the calendar window of the level.
   - Moving averages: `<metric>@avg<months>` (1, 3 or 12), `ChartMetricValues.average`, are lines of their own
-    (`average` of the series), which the submenu of a metric in the "+" menu adds, a click on the metric adds its values. The View menu only has the
+    (`average` of the series), which the submenu of a metric in the "+" menu adds, a click on the metric adds its values. A mouse opens the submenu
+    on hover beside the metric. Touch screens and pens have no hover: a tap on the metric opens and closes the submenu
+    below it, within the list (`clickOpensSubmenu` in `menu.js`, class `chart-add-inline`). The View menu only has the
     trend "Previous year". Lines of averages have no points, next to lines of values they're dashed (`averageDashOf`). The × of a line in the legend removes it. The windows, which end at the
     date and before each previous window, fill the months: sums are divided by the number of windows (e.g. the average
     month), rates are pooled from their numerators and denominators (`DailyRatio`, e.g. churned and previously active
