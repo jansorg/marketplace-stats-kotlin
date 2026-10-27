@@ -1,24 +1,33 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 package dev.ja.marketplace.services
 
-import kotlinx.serialization.SerialName
+import dev.ja.marketplace.client.TolerantEnumSerializer
 import kotlinx.serialization.Serializable
 
-@Serializable
+/**
+ * The type of a release of a JetBrains product. Types, which the client doesn't know, are [Unknown].
+ * [Unknown] can't be requested.
+ */
+@Serializable(ProductReleaseTypeSerializer::class)
 enum class ProductReleaseType(val jsonId: String) {
-    @SerialName("release")
     Release("release"),
-
-    @SerialName("rc")
     ReleaseCandidate("rc"),
-
-    @SerialName("eap")
     EAP("eap"),
-
-    @SerialName("preview")
     Preview("preview"),
+
+    /** A type, which the JetBrains services added later. */
+    Unknown("unknown");
+
+    companion object {
+        /** The types, which can be requested. */
+        val requestable: List<ProductReleaseType> = entries - Unknown
+    }
 }
+
+object ProductReleaseTypeSerializer : TolerantEnumSerializer<ProductReleaseType>(
+    "ProductReleaseType", ProductReleaseType.entries, ProductReleaseType.Unknown, ProductReleaseType::jsonId,
+)

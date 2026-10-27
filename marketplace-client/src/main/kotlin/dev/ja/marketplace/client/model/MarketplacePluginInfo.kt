@@ -65,7 +65,7 @@ data class MarketplacePluginInfo(
                     }
                 }
 
-                null -> {}
+                LicensingType.Unknown, null -> {}
             }
             return periods.takeIf { it.isNotEmpty() }
         }
