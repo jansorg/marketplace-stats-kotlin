@@ -83,6 +83,9 @@ class ChartMetric private constructor(
         val ChurnAnnual = register("churn-annual", "Churn rate of annual licenses", ChartMeasure.Ratio, ChartUnit.Percentage, group = "Churn")
         val ChurnMonthly = register("churn-monthly", "Churn rate of monthly licenses", ChartMeasure.Ratio, ChartUnit.Percentage, group = "Churn")
 
+        /** The churn of the paid licenses of all periods in the window, see [dev.ja.marketplace.churn.isCountedByChurn]. */
+        val ChurnCombined = register("churn-combined", "Churn rate of all licenses", ChartMeasure.Ratio, ChartUnit.Percentage, group = "Churn")
+
         // the movements of the MRR between the start and the end of the window
         val MrrNew = register("mrr-new", "New MRR", ChartMeasure.Flow, ChartUnit.Amount, group = "MRR movements")
         val MrrExpansion = register("mrr-expansion", "Expansion MRR", ChartMeasure.Flow, ChartUnit.Amount, group = "MRR movements")

@@ -5,6 +5,11 @@
 
 package dev.ja.marketplace.data.yearSummary
 
+import dev.ja.marketplace.churn.COMBINED_CHURN_TOOLTIP
+import dev.ja.marketplace.churn.ChurnProcessor
+import dev.ja.marketplace.churn.ChurnValidities
+import dev.ja.marketplace.churn.isCountedByChurn
+import dev.ja.marketplace.churn.licenseChurnProcessor
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.MonthlyDownload
 import dev.ja.marketplace.client.model.PluginSale
@@ -14,7 +19,9 @@ import dev.ja.marketplace.data.trackers.*
 import java.util.*
 
 class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide") {
+    private var pluginId: PluginId? = null
     private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
+    private lateinit var churnValidities: ChurnValidities
 
     /** The first day with data of the plugin, the sums of the first year only cover a part of it. */
     private var pluginStart: YearMonthDay? = null
@@ -29,6 +36,10 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
     private val columnSalesFees = DataTableColumn("fees", "Fees", "num", chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Fees.id)
     private val columnSalesPaid = DataTableColumn("paid", "Invoice", "num", chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Invoice.id)
     private val columnARR = DataTableColumn("arr", "ARR", "num", chartMeasure = ChartMeasure.Stock, chartMetric = ChartMetric.Arr.id)
+    private val columnChurn = DataTableColumn(
+        "churn-combined-paid", "Churn (all)", "num num-percentage", tooltip = COMBINED_CHURN_TOOLTIP,
+        chartMeasure = ChartMeasure.Ratio, chartMetric = ChartMetric.ChurnCombined.id,
+    )
     private val columnDownloads = DataTableColumn(
         "downloads", "↓", "num col-symbol", chartTitle = "Downloads", tooltip = "Downloads",
         chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Downloads.id,
@@ -43,12 +54,16 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
     private class YearSummary(
         val sales: PaymentAmountTracker,
         val annualRevenue: AnnualRecurringRevenueTracker,
+        /** The churn of the paid licenses of all periods within the year, until today in the current year. */
+        val churn: ChurnProcessor<LicenseInfo>,
     )
 
     override suspend fun init(data: PluginData) {
         super.init(data)
 
+        this.pluginId = data.pluginId
         this.maxTrialDays = data.getPluginInfo().maxTrialDays
+        this.churnValidities = ChurnValidities(data.getLicenses() ?: emptyList())
         this.pluginStart = data.getFirstActivityDate()
         this.downloads = data.getDownloadsMonthly()
         this.totalSales = PaymentAmountTracker(YearMonthDayRange.MAX, data.exchangeRates)
@@ -56,10 +71,13 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
         val now = YearMonthDay.now()
         for (year in Marketplace.Birthday.year..now.year) {
             val yearRange = YearMonthDayRange.ofYear(year)
+            val untilToday = yearRange.copy(end = minOf(yearRange.end, now))
             this.data[year] = YearSummary(
                 PaymentAmountTracker(yearRange, data.exchangeRates),
                 // the recurring revenue of the current year at today
-                AnnualRecurringRevenueTracker(yearRange.copy(end = minOf(yearRange.end, now)), data.exchangeRates)
+                AnnualRecurringRevenueTracker(untilToday, data.exchangeRates),
+                // the churn of the current year until today, licenses expiring later in the year may still be renewed
+                licenseChurnProcessor(untilToday),
             )
         }
 
@@ -76,6 +94,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
             columnSalesFees,
             columnSalesPaid,
             columnARR,
+            columnChurn,
             columnDownloads,
             columnTrials.takeIf { maxTrialDays > 0 },
             columnTrialsConverted.takeIf { maxTrialDays > 0 },
@@ -93,8 +112,13 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
 
     override suspend fun process(licenseInfo: LicenseInfo) {
         // every year needs all licenses, the ARR of a year uses the licenses valid at its end
+        val validity = churnValidities.validity(licenseInfo)
+        val isCountedByChurn = licenseInfo.isCountedByChurn(null)
         data.values.forEach { yearData ->
             yearData.annualRevenue.processLicenseSale(licenseInfo)
+            if (validity != null) {
+                yearData.churn.processValue(licenseInfo, validity, isCountedByChurn)
+            }
         }
     }
 
@@ -116,6 +140,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                 // the sums of the current year and of the first year of the plugin, if it started within the year
                 val isPartialYear = isPartialPeriod(yearDateRange.start, pluginStart)
                 val incompleteSums = year == now.year || isPartialYear
+                val churn = yearData.churn.getResult(null)
                 SimpleDateTableRow(
                     values = mapOf(
                         columnYear to year,
@@ -123,6 +148,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                         columnSalesFees to incompleteIf(yearData.sales.feesAmount, incompleteSums),
                         columnSalesPaid to incompleteIf(yearData.sales.paidAmount, incompleteSums),
                         columnARR to arrValue,
+                        columnChurn to churn.getRenderedChurnRate(pluginId!!, isIncomplete = incompleteSums),
                         columnDownloads to incompleteIf(downloads
                             .filter { it.firstOfMonth.year == year }
                             .sumOf(MonthlyDownload::downloads)
@@ -133,6 +159,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
                     tooltips = mapOf(
                         columnYear to pluginStart?.let(::partialPeriodTooltip).takeIf { isPartialYear },
                         columnARR to IncompleteRecurringRevenueTooltip.takeIf { year == now.year },
+                        columnChurn to churn.getChurnRateTooltip(isIncomplete = year == now.year),
                         columnTrialsConverted to conversionTooltip(trialResultAnyDuration, trialResultTrialDuration, maxTrialDays)
                     ),
                     cssClass = when {

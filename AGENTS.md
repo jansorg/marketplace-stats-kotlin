@@ -264,6 +264,15 @@ queries, and one which excludes all these tags. The results are in the order of 
     average of a window, which isn't shorter than the months, is its value.
   - New metrics are registered in `ChartMetric` and calculated in `ChartMetricValues.calculate`, new windows only need
     `ChartWindow.start` and `currentPeriodStart`.
+  - Churn (`churn-annual`, `churn-monthly`, the columns of the overview, `churn-combined`, the column "Churn (all)" of
+    the tables of the years of a plugin and of all plugins): the paid licenses, which
+    were active at the day before the window and aren't active at its end (`LicenseChurnProcessor`, `ChurnValidities`
+    with the grace period of renewals). `isCountedByChurn` selects the licenses, the combined churn (`period` `null`)
+    counts the paid licenses of all periods, it's the logo churn of the window: annual licenses only churn in the
+    window of their renewal, so the value of a month is a monthly rate and the value of a year an annual rate. A
+    license, which continues as a free license or with another period, isn't churned. The link `/churn-rate/all/...`
+    lists the churned licenses of the combined churn. The summary of all plugins pools the licenses of each plugin
+    (`ChurnResult.plus`, the IDs of licenses of different plugins could be the same), its rate has no link.
   Columns of chartable tables without a metric, e.g. the renewal rates and the cohorts, and the pie charts still show
   the values of their tables (`data-chart-value`, `data-chart-history`, `data-chart-share`).
 - Vertical lines in line charts: major releases of the plugin (`MajorReleases`, from the plugin's releases), changes of the

@@ -19,5 +19,6 @@ interface ChurnProcessor<T> {
         isAcceptedValue: Boolean,
     )
 
-    fun getResult(period: LicensePeriod): ChurnResult<T>
+    /** @param period The license period of the accepted values, `null` for the combined churn of all periods. */
+    fun getResult(period: LicensePeriod?): ChurnResult<T>
 }

@@ -7,10 +7,12 @@ package dev.ja.marketplace
 
 import dev.ja.marketplace.churn.ChurnValidities
 import dev.ja.marketplace.churn.LicenseChurnProcessor
+import dev.ja.marketplace.churn.isCountedByChurn
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.*
 import dev.ja.marketplace.data.PluginData
 import dev.ja.marketplace.data.DataTable
+import dev.ja.marketplace.data.LinkedChurnRate
 import dev.ja.marketplace.data.MarketplaceDataTableFactory
 import dev.ja.marketplace.data.RenderedDataTable
 import dev.ja.marketplace.data.chargeOverview.ChargeOverviewTableFactory
@@ -582,9 +584,11 @@ class MarketplaceStatsServer(
             get("/churn-rate/{licensePeriod}/{lastActiveMarker}/{activeMarker}") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
+                // null for the combined churn of all periods
                 val period = when (val periodName = call.parameters["licensePeriod"]) {
                     "annual" -> LicensePeriod.Annual
                     "monthly" -> LicensePeriod.Monthly
+                    LinkedChurnRate.ALL_PERIODS_LINK_SEGMENT -> null
                     else -> throw IllegalStateException("Unknown license period: $periodName")
                 }
                 val lastActiveMarker = YearMonthDay.parse(call.parameters["lastActiveMarker"]!!)
@@ -985,7 +989,7 @@ class MarketplaceStatsServer(
 
     private suspend fun RoutingContext.renderLicenseChurnRatePage(
         loader: PluginDataLoader,
-        period: LicensePeriod,
+        period: LicensePeriod?,
         lastActiveMarker: YearMonthDay,
         activeMarker: YearMonthDay,
         serverConfiguration: ServerConfiguration
@@ -1000,7 +1004,7 @@ class MarketplaceStatsServer(
             churnProcessor.processValue(
                 it,
                 churnValidities.validity(it)!!,
-                it.sale.licensePeriod == period && it.isPaidLicense,
+                it.isCountedByChurn(period),
             )
         }
 
@@ -1022,7 +1026,7 @@ class MarketplaceStatsServer(
             }),
             pageTitle = buildString {
                 append("Churned Licenses: ")
-                append("${lastActiveMarker.add(0, 0, 1).asIsoString} — ${activeMarker.asIsoString}, $period subscriptions")
+                append("${lastActiveMarker.add(0, 0, 1).asIsoString} — ${activeMarker.asIsoString}, ${period ?: "all"} subscriptions")
             },
             pageCssClasses = "wide"
         )
