@@ -14,12 +14,35 @@ import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.text.NumberFormat
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import javax.money.MonetaryAmount
 import javax.money.format.AmountFormatQueryBuilder
 import javax.money.format.MonetaryAmountFormat
 import javax.money.format.MonetaryFormats
 
 object Formatters {
     val MonetaryAmount: MonetaryAmountFormat = createMoneyFormatter(Locale.getDefault())
+
+    /**
+     * The formatted amounts by amount, see [formatAmount]. The same amounts occur many times, e.g. the prices of the
+     * 35,000 licenses of a list, the format of Moneta allocates much memory for each call.
+     */
+    private val formattedAmounts = ConcurrentHashMap<MonetaryAmount, String>()
+
+    /**
+     * @return The amount with the format of [MonetaryAmount], e.g. `1,234.50 USD`. The results are cached by the
+     *  amount, at most [MAX_CACHED_AMOUNTS] of them, the other amounts are formatted on each call.
+     */
+    fun formatAmount(amount: MonetaryAmount): String {
+        formattedAmounts[amount]?.let { return it }
+        val formatted = MonetaryAmount.format(amount)
+        if (formattedAmounts.size < MAX_CACHED_AMOUNTS) {
+            formattedAmounts.putIfAbsent(amount, formatted)
+        }
+        return formatted
+    }
+
+    private const val MAX_CACHED_AMOUNTS = 100_000
 
     private val numberLocale = Locale.getDefault(Locale.Category.FORMAT)
 

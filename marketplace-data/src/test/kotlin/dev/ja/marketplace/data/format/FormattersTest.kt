@@ -6,14 +6,35 @@
 package dev.ja.marketplace.data.format
 
 import dev.ja.marketplace.client.currency.MarketplaceCurrencies
+import org.javamoney.moneta.FastMoney
 import org.javamoney.moneta.Money
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.util.*
 
 class FormattersTest {
+    @Test
+    fun cachedAmountsLikeTheFormat() {
+        val amounts = listOf(
+            Money.of(1234.567890, MarketplaceCurrencies.USD),
+            FastMoney.of(-2.22, "EUR"),
+            FastMoney.of(0, MarketplaceCurrencies.USD),
+            FastMoney.of(BigDecimal("1000000.12345"), "EUR"),
+            Money.of(BigDecimal("2.20"), MarketplaceCurrencies.USD),
+            Money.of(BigDecimal("2.2"), MarketplaceCurrencies.USD),
+        )
+        for (amount in amounts) {
+            // the cached result is the result of the format, also on the next call
+            assertEquals(Formatters.MonetaryAmount.format(amount), Formatters.formatAmount(amount))
+            assertSame(Formatters.formatAmount(amount), Formatters.formatAmount(amount))
+        }
+        // an equal amount of another object has the same result
+        assertSame(Formatters.formatAmount(FastMoney.of(5, MarketplaceCurrencies.USD)), Formatters.formatAmount(FastMoney.of(5, MarketplaceCurrencies.USD)))
+    }
+
     @Test
     fun englishLocale() {
         val format = Formatters.createMoneyFormatter(Locale.ENGLISH)

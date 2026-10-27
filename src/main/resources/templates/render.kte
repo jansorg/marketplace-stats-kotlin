@@ -22,7 +22,7 @@
     --%>@for(i in ForSupport.of(value))@template.render(i.get())@if(!i.isLast)<br>@endif@endfor<%--
 --%>@elseif(value is Iterable<*>)<%--
     --%>@for(i in ForSupport.of(value))@template.render(i.get())@if(!i.isLast)<br>@endif@endfor<%--
---%>@elseif(value is MonetaryAmount)${Formatters.MonetaryAmount.format(value)}<%--
+--%>@elseif(value is MonetaryAmount)${Formatters.formatAmount(value)}<%--
 --%>@elseif(value is PercentageValue)@if(value === PercentageValue.ZERO)—@else${Formatters.formatPercentage(value.value)}@endif<%--
 --%>@elseif(value is BigInteger)${Formatters.formatInteger(value)}<%--
 --%>@elseif(value is BigDecimal)${Formatters.formatDecimal(value)}<%--

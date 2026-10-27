@@ -63,7 +63,7 @@ class RealizedLifetimeValueTable : RecurringRevenueTable(
                 val column = yearColumns[index]
                 val average = revenue.toAmount(year.averageAmount)
                 values[column] = if (year.isIncomplete) IncompleteValue(average) else average
-                val total = Formatters.MonetaryAmount.format(revenue.toAmount(year.totalAmount))
+                val total = Formatters.formatAmount(revenue.toAmount(year.totalAmount))
                 tooltips[column] = when (year.customers) {
                     cohort.customers -> "$total paid in total"
                     else -> "$total paid by ${Formatters.formatInteger(year.customers)} of ${Formatters.formatInteger(cohort.customers)} customers, " +

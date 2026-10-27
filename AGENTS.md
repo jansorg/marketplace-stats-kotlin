@@ -458,7 +458,8 @@ queries, and one which excludes all these tags. The results are in the order of 
   columns as rules of the table (`CellStyles`, a `<style>` and `data-cells` of the table, `:nth-child` of the cells),
   the cells have no classes: new classes of cells need their declarations in `CellStyles`, unknown classes stay classes
   of the cells. The links in the cells have the short parameter `pId` instead of `pluginId`, the pages accept both. Numbers in texts, e.g. footers and tooltips, are
-  formatted with `Formatters.formatInteger` and `Formatters.MonetaryAmount`.
+  formatted with `Formatters.formatInteger` and `Formatters.formatAmount` (the format of `Formatters.MonetaryAmount`,
+  cached by the amount, the format of Moneta allocates much memory for each call).
 - Table styling is partly set from Kotlin: `DataTable` subclasses in `marketplace-data` pass CSS class names (for example
   `cssClass = "small table-striped"`) and per-column `cssClass`/`cssStyle` values (`DataTable.kt`). These classes must exist in `main.css`.
 - Static resources are served by `staticAssets("/styles", "styles")`, `staticAssets("/js", "js")`,
