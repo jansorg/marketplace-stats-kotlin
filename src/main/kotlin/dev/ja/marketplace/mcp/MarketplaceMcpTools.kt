@@ -1078,8 +1078,8 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
     private fun releaseTypeArgument(arguments: JsonObject): ProductReleaseType {
         val value = arguments.stringArgument("type")?.trim()?.lowercase()?.takeIf(String::isNotEmpty)
             ?: return ProductReleaseType.Release
-        return ProductReleaseType.entries.firstOrNull { it.jsonId == value }
-            ?: throw IllegalArgumentException("type must be one of ${ProductReleaseType.entries.joinToString { it.jsonId }}, but was '$value'")
+        return ProductReleaseType.requestable.firstOrNull { it.jsonId == value }
+            ?: throw IllegalArgumentException("type must be one of ${ProductReleaseType.requestable.joinToString { it.jsonId }}, but was '$value'")
     }
 
     internal companion object {
@@ -1107,7 +1107,7 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
 
         val productCodeProperty = stringProperty("Product code, e.g. IIU (IntelliJ IDEA), PS, PCP, see list_jetbrains_products. Default: IIU")
 
-        val releaseTypeProperty = enumProperty(ProductReleaseType.entries.map { it.jsonId }, "Default: release")
+        val releaseTypeProperty = enumProperty(ProductReleaseType.requestable.map { it.jsonId }, "Default: release")
 
         fun productProperties(withType: Boolean) = buildJsonObject {
             put("productCode", productCodeProperty)
