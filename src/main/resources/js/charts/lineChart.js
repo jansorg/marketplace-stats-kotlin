@@ -540,8 +540,8 @@ function drawBars(plot, chartSeries, isBar, interval, theme) {
 }
 
 /**
- * Shows a tooltip with the date and the values of all series at the cursor. Only the chart, which is hovered or
- * touched, shows the tooltip, the cursors of the other charts move without a tooltip.
+ * Shows a tooltip with the date and the values of all series at the cursor. The charts with synchronized cursors, e.g.
+ * of the same detail level, show their tooltips together, at the values of their own dates.
  */
 function enableTooltip(plot, chartSeries, describe) {
     const tooltip = document.createElement("div");
@@ -549,18 +549,10 @@ function enableTooltip(plot, chartSeries, describe) {
     tooltip.hidden = true;
     plot.over.append(tooltip);
 
-    let isActive = false;
-    plot.over.addEventListener("pointerenter", () => isActive = true);
-    plot.over.addEventListener("pointerleave", event => {
-        if (event.pointerType !== "touch") {
-            isActive = false;
-            tooltip.hidden = true;
-        }
-    });
-
     return () => {
         const index = plot.cursor.idx;
-        if (!isActive || index === null || index === undefined) {
+        // the cursor is outside of the chart, e.g. after the mouse left the synchronized charts
+        if (plot.cursor.left === undefined || plot.cursor.left < 0 || index === null || index === undefined) {
             tooltip.hidden = true;
             return;
         }
