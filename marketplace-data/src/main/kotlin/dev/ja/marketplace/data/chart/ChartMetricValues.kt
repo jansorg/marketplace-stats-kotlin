@@ -39,6 +39,8 @@ import javax.money.MonetaryAmount
  *   [dev.ja.marketplace.data.trackers.RecurringRevenueTracker].
  * - The churn is the share of the paid licenses, which were active at the day before the window and aren't active at
  *   the day, of the annual or monthly licenses, or of the licenses of all periods for the combined churn.
+ * - New customers and new trial users are the customers of the window, whose first paid license or first trial of
+ *   the plugin is in it, see [newCustomerDays].
  * - The conversion rate of the trials, which started in the window: the share of the trials, which were converted by a
  *   new paid license within [trialConversionDays] days.
  * - The movements of the MRR and the retention compare the MRR of the customers at the day with the MRR at the day
@@ -191,6 +193,14 @@ class ChartMetricValues private constructor(
     private val salesAndFees: Pair<Array<MonetaryAmount>, Array<MonetaryAmount>> by lazy { windows.salesAndFeesPerDay(sales, exchangeRates) }
     private val downloadsPerDay: LongArray by lazy { windows.countsPerDay(downloads.map { it.day to it.downloads }) }
     private val trialsPerDay: LongArray by lazy { windows.countsPerDay(trials.map { it.date to 1L }) }
+    /** The first trial of each customer. */
+    private val newTrialUsersPerDay: LongArray by lazy {
+        windows.countsPerDay(trials.groupBy { it.customer.code }.values.map { customerTrials -> customerTrials.minOf { it.date } to 1L })
+    }
+    /** The customers of each plugin are counted separately, like the licenses of the churn. */
+    private val newCustomersPerDay: LongArray by lazy {
+        windows.countsPerDay(licensesOfPlugins.flatMap { licenses -> newCustomerDays(licenses).map { it to 1L } })
+    }
     private val allLicenses: List<LicenseInfo> by lazy { licensesOfPlugins.flatten() }
     /** The validities of the licenses of each plugin, the IDs of the licenses of different plugins could be the same. */
     private val churnValidities: List<ChurnValidities> by lazy { licensesOfPlugins.map(::ChurnValidities) }
@@ -210,6 +220,8 @@ class ChartMetricValues private constructor(
 
             ChartMetric.Downloads -> countSeries(windows.windowSums(downloadsPerDay, starts))
             ChartMetric.Trials -> countSeries(windows.windowSums(trialsPerDay, starts))
+            ChartMetric.NewTrialUsers -> countSeries(windows.windowSums(newTrialUsersPerDay, starts))
+            ChartMetric.NewCustomers -> countSeries(windows.windowSums(newCustomersPerDay, starts))
             ChartMetric.TrialConversion -> conversionRates(starts)
             ChartMetric.Licenses -> licenseCount(allLicenses.filter { it.validity != null })
             ChartMetric.PaidLicenses -> licenseCount(allLicenses.filter { it.validity != null && it.isPaidLicense })
@@ -452,7 +464,7 @@ class ChartMetricValues private constructor(
         /** The metrics of the summary of all plugins. */
         private val allPluginsMetrics = setOf(
             ChartMetric.Sales, ChartMetric.Fees, ChartMetric.Invoice, ChartMetric.Downloads, ChartMetric.Mrr, ChartMetric.Arr,
-            ChartMetric.ChurnCombined,
+            ChartMetric.ChurnCombined, ChartMetric.NewCustomers,
         )
 
         /**
@@ -473,8 +485,8 @@ class ChartMetricValues private constructor(
         }
 
         /**
-         * @return The values of the summary of all paid plugins: sales, fees, invoices, downloads, MRR, ARR and
-         *  the combined churn rate.
+         * @return The values of the summary of all paid plugins: sales, fees, invoices, downloads, MRR, ARR, the
+         *  combined churn rate and the new customers, the sum of the new customers of each plugin.
          * @param licensesOfPlugins The licenses of each plugin.
          */
         fun allPlugins(
@@ -511,6 +523,35 @@ class ChartMetricValues private constructor(
             }
             val windows = DailyWindows(first, today)
             return ChartMetricValues(windows, sales, licensesOfPlugins, trials, downloads, revenue, exchangeRates, maxTrialDays, metrics, firstDate)
+        }
+
+        /**
+         * @return The day of the first paid license of each new customer of a plugin, by the ID of the customer:
+         * - Only paid licenses count, a customer with only free licenses isn't a customer yet.
+         * - A customer is new once, a customer who returns after the licenses ended isn't new again.
+         * - A customer, who received a license from another customer (a license, which another customer bought
+         *   before, see [dev.ja.marketplace.data.transfers.LicenseTransfers]) before or at the day of the first paid
+         *   license, isn't new, also not by a later purchase of an own license. The relationship started with the
+         *   transfer, e.g. an organization, which took over the license of an employee.
+         * - Several licenses of a customer at the same day count once.
+         */
+        fun newCustomerDays(licenses: List<LicenseInfo>): List<YearMonthDay> {
+            val firstPaid = HashMap<CustomerId, YearMonthDay>()
+            for (license in licenses) {
+                if (license.isPaidLicense) {
+                    firstPaid.merge(license.sale.customer.code, license.sale.date, ::minOf)
+                }
+            }
+            val firstTransfer = HashMap<CustomerId, YearMonthDay>()
+            for (purchases in licenses.groupBy { it.id }.values) {
+                purchases.sortedWith(compareBy({ it.sale.date }, { it.validity?.start }))
+                    .zipWithNext()
+                    .filter { (previous, next) -> previous.sale.customer.code != next.sale.customer.code }
+                    .forEach { (_, next) -> firstTransfer.merge(next.sale.customer.code, next.sale.date, ::minOf) }
+            }
+            return firstPaid.mapNotNull { (customer, day) ->
+                day.takeUnless { firstTransfer[customer]?.let { it <= day } == true }
+            }
         }
 
         /**

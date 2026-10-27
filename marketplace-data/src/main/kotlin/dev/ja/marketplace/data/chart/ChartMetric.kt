@@ -105,6 +105,10 @@ class ChartMetric private constructor(
             "trials", "New trials", ChartMeasure.Flow, ChartUnit.Count, group = "Trials",
             description = "The started trials of the plugin",
         )
+        val NewTrialUsers = register(
+            "new-trial-users", "New trial users", ChartMeasure.Flow, ChartUnit.Count, group = "Trials",
+            description = "The customers, who started their first trial of the plugin. Further trials of a customer aren't counted.",
+        )
         val TrialConversion = register(
             "trials-converted", "Trial conversion rate", ChartMeasure.Ratio, ChartUnit.Percentage, group = "Trials",
             description = "The share of the trials started in the window, which were converted by a paid new license within the " +
@@ -204,6 +208,12 @@ class ChartMetric private constructor(
         val PayingCustomers = register(
             "paying-customers", "Paying customers", ChartMeasure.Stock, ChartUnit.Count, group = "Customers",
             description = "The customers with recurring revenue at the date",
+        )
+        /** The rules are those of [ChartMetricValues.newCustomerDays]. */
+        val NewCustomers = register(
+            "new-customers", "New customers", ChartMeasure.Flow, ChartUnit.Count, group = "Customers",
+            description = "The customers, who bought their first paid license of the plugin. Returning customers, free " +
+                    "licenses and customers, whose first license was transferred to them by another customer, aren't counted.",
         )
         val AverageRevenue = register(
             "arpa", "ARPA", ChartMeasure.Stock, ChartUnit.Amount, group = "Customers",
