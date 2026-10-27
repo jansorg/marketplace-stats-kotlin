@@ -34,6 +34,8 @@ import {browserStorage, createSetupStorage, decodeView, emptySetup, encodeView} 
 import {chartColumns, metricKey, readLineSeries, readMarkers, readMetricLevel, readMetricSeries, readPieRows, readRowHistorySeries, readTableDateRange} from "./tableData.js";
 
 const LOADING_MESSAGE = "Loading the values…";
+/** The values of metrics of the open chart dialog are loaded again after this time, e.g. to show new sales. */
+const REFRESH_INTERVAL = 5 * 60 * 1000;
 
 class ChartController {
     /**
@@ -92,6 +94,8 @@ class ChartController {
         this.addWindow = "follow";
         // the loaded values of metrics by window and detail level, see loadMetrics
         this.metricValues = new MetricValueCache(fetchMetricValues);
+        // the time of the latest load of the values of metrics, see refreshMetricValues
+        this.refreshedAt = Date.now();
         this.shownStyles = {};
         this.dialog = null;
     }
@@ -119,6 +123,33 @@ class ChartController {
         document.addEventListener("marketplace-themechange", () => {
             if (this.dialog?.isOpen) {
                 this.render();
+            }
+        });
+        // the open charts show new values of metrics, also after a hidden tab is shown again
+        setInterval(() => this.refreshMetricValues(), 60 * 1000);
+        document.addEventListener("visibilitychange", () => this.refreshMetricValues());
+    }
+
+    /**
+     * Loads the values of metrics again, if the chart dialog is open and visible and the values are older than
+     * {@link REFRESH_INTERVAL}. The charts are only drawn again, if the values changed, e.g. an open menu stays open
+     * otherwise. The values of the tables are the ones of the page.
+     */
+    refreshMetricValues() {
+        if (!this.dialog?.isOpen || document.hidden || Date.now() - this.refreshedAt < REFRESH_INTERVAL) {
+            return;
+        }
+        this.refreshedAt = Date.now();
+        this.metricValues.refresh().then(({changed, responses}) => {
+            responses.forEach(({data, requested}) => this.updateMetricSeries(data, requested));
+            if (!this.dialog?.isOpen) {
+                return;
+            }
+            if (changed) {
+                this.render();
+            } else {
+                // values, which were requested while the values were loaded again
+                this.requestMetricValues(groupCharts(this.series, this.combineUnits));
             }
         });
     }
@@ -543,6 +574,8 @@ class ChartController {
         dialog.showMessage(message);
         dialog.open();
         this.render();
+        // the values of metrics, which were loaded before the dialog was closed, may be old
+        this.refreshMetricValues();
     }
 
     render() {

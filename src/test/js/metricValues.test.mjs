@@ -91,3 +91,55 @@ test("series of metrics and their stored entries", () => {
     assert.deepEqual(metricEntry(sales), {type: "metric", metric: "sales", window: "year", usesWindow: true, average: 3, label: "Sales", unit: "USD", measure: "flow", color: "#2a78d6"});
     assert.deepEqual(metricSeries(metricEntry(sales), sales.color).key, sales.key);
 });
+
+test("refresh loads the loaded values of all levels again", async () => {
+    let value = 1;
+    const {values, requests} = cache(ids => ({dates: ["2026-01-31"], series: Object.fromEntries(ids.map(id => [id, {values: [value], unit: "USD"}]))}));
+    await values.load("day", "day", ["sales", "mrr"]);
+    await values.load("calendar-year", "year", ["sales"]);
+    requests.length = 0;
+
+    // the same values
+    assert.equal((await values.refresh()).changed, false);
+    assert.deepEqual(requests, [{window: "day", detail: "day", ids: ["sales", "mrr"]}, {window: "calendar-year", detail: "year", ids: ["sales"]}]);
+
+    value = 2;
+    const {changed, responses} = await values.refresh();
+    assert.equal(changed, true);
+    assert.deepEqual(responses.map(r => r.requested), [["sales", "mrr"], ["sales"]]);
+    assert.deepEqual(values.data("day", "day").series.sales.values, [2]);
+});
+
+test("refresh detects new dates and keeps the values of failed requests", async () => {
+    let dates = ["2026-01-31"];
+    let fail = false;
+    const values = new MetricValueCache(async (window, detail, ids) => {
+        if (fail) {
+            throw new Error("offline");
+        }
+        return response(dates, ids);
+    });
+    await values.load("day", "day", ["sales"]);
+    dates = ["2026-01-31", "2026-02-01"];
+    assert.equal((await values.refresh()).changed, true);
+    assert.deepEqual(values.data("day", "day").dates, dates);
+
+    fail = true;
+    const originalError = console.error;
+    console.error = () => {};
+    try {
+        assert.deepEqual(await values.refresh(), {changed: false, responses: []});
+    } finally {
+        console.error = originalError;
+    }
+    assert.deepEqual(values.data("day", "day").dates, dates);
+    assert.equal(values.isLoading, false);
+});
+
+test("refresh skips levels without values", async () => {
+    const {values, requests} = cache(() => response(["2026-01-31"], []));
+    await values.load("day", "day", ["trials"]);
+    requests.length = 0;
+    assert.deepEqual(await values.refresh(), {changed: false, responses: []});
+    assert.equal(requests.length, 0);
+});

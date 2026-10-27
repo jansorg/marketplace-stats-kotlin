@@ -348,6 +348,10 @@ queries, and one which excludes all these tags. The results are in the order of 
     new customers of each plugin. `new-licenses` (`newLicenseDays`) counts a license at its first purchase, if it's
     paid: renewals, period changes, free licenses paid later and the purchases after a transfer don't count.
     `new-trial-users` counts the first trial of each customer (only for single plugins).
+  - Refresh: while the chart dialog is open and the page is visible, the loaded values of metrics are loaded again
+    after 5 minutes (`refreshMetricValues` in `main.js`, `MetricValueCache.refresh`), also when the dialog is opened
+    or the tab is shown again later. The charts are only drawn again if the values or dates changed, so that open
+    menus stay open. New values need new data of the server, see `CachingStrategy` and `--auto-refresh`.
   Columns of chartable tables without a metric, e.g. the renewal rates and the cohorts, and the pie charts still show
   the values of their tables (`data-chart-value`, `data-chart-history`, `data-chart-share`).
 - Vertical lines in line charts: major releases of the plugin (`MajorReleases`, from the plugin's releases), changes of the

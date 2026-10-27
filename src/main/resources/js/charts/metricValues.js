@@ -60,7 +60,7 @@ export class MetricValueCache {
      */
     constructor(fetchValues) {
         this.fetchValues = fetchValues;
-        /** @type {Object<string, {data: MetricData|null, pending: boolean, failed: Set<string>}>} */
+        /** @type {Object<string, {window: string, detail: string, data: MetricData|null, pending: boolean, failed: Set<string>}>} */
         this.entries = {};
     }
 
@@ -85,7 +85,7 @@ export class MetricValueCache {
      *  again, when the current request is done.
      */
     load(window, detail, ids) {
-        const entry = this.entries[window + "/" + detail] ??= {data: null, pending: false, failed: new Set()};
+        const entry = this.entries[window + "/" + detail] ??= {window, detail, data: null, pending: false, failed: new Set()};
         const requested = [...new Set(ids)].filter(id => !entry.failed.has(id) && !(entry.data?.series[id] || entry.data?.missing.has(id)));
         if (requested.length === 0 || entry.pending) {
             return null;
@@ -104,5 +104,35 @@ export class MetricValueCache {
                 throw error;
             })
             .finally(() => entry.pending = false);
+    }
+
+    /**
+     * Loads the loaded values of all levels again, e.g. to show new sales. The loaded values are kept until the new
+     * values are loaded, a level whose values are loading and a level whose request fails keep their values.
+     *
+     * @return {Promise<{changed: boolean, responses: {data: object, requested: string[]}[]}>} If any values or dates
+     *  changed, and the responses with the requested IDs.
+     */
+    async refresh() {
+        const entries = Object.values(this.entries).filter(entry => !entry.pending && entry.data && Object.keys(entry.data.series).length > 0);
+        const results = await Promise.all(entries.map(async entry => {
+            const previous = entry.data;
+            const requested = Object.keys(previous.series);
+            entry.pending = true;
+            try {
+                const data = await this.fetchValues(entry.window, entry.detail, requested);
+                const missing = new Set([...previous.missing, ...requested.filter(id => !data.series[id])]);
+                entry.data = {dates: data.dates, series: data.series, missing};
+                const changed = data.dates.join() !== previous.dates.join()
+                    || requested.some(id => JSON.stringify(data.series[id]) !== JSON.stringify(previous.series[id]));
+                return {changed, response: {data, requested}};
+            } catch (error) {
+                console.error("Loading the values of metrics again failed", error);
+                return {changed: false, response: null};
+            } finally {
+                entry.pending = false;
+            }
+        }));
+        return {changed: results.some(result => result.changed), responses: results.map(result => result.response).filter(Boolean)};
     }
 }
