@@ -9,7 +9,7 @@
 
 import {formatDate, SECONDS_PER_DAY, unitTitle} from "./format.js";
 import {createMenu} from "./menu.js";
-import {alignSeries, availableComparisons, barLayout, cursorPosition, periodEnd, displayColor, extremeIndices, incompleteColor, pinchedRange, layoutLabels, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange, alignedRanges, niceStep, rangeTicks, seriesMenuSections, seriesStyle, shownDateRange} from "./model.js";
+import {alignSeries, availableComparisons, barLayout, cursorPosition, periodEnd, displayColor, extremeIndices, incompleteColor, pinchedRange, layoutLabels, logRange, logScaleValues, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange, alignedRanges, niceStep, rangeTicks, seriesMenuSections, seriesStyle, shownDateRange} from "./model.js";
 
 /**
  * The colors of the charts in the light and the dark mode. The surface is the background of the charts in the chart
@@ -515,7 +515,8 @@ function drawBars(plot, chartSeries, isBar, interval, theme) {
     context.clip();
     visible.forEach(({series, index}, position) => {
         const scale = plot.series[index + 1].scale;
-        const baseY = plot.valToPos(0, scale, true);
+        // a logarithmic axis has no 0, the bars start at its bottom
+        const baseY = plot.scales[scale].distr === 3 ? plot.bbox.top + plot.bbox.height : plot.valToPos(0, scale, true);
         plot.data[index + 1].forEach((value, i) => {
             if (value === null || value === undefined) {
                 return;
@@ -1019,8 +1020,9 @@ function yAxis(unit, scale, side, style) {
         // only the left axis has a grid, two grids would be confusing
         grid: {show: side === 3, stroke: theme.gridColor, width: 1},
         ticks: {show: !style.hideAxisValues, stroke: theme.gridColor, width: 1},
-        // the values can be hidden, e.g. to share a chart of the trend without its numbers
-        values: (plot, splits) => splits.map(value => style.hideAxisValues ? "" : style.formatter.compact(value)),
+        // the values can be hidden, e.g. to share a chart of the trend without its numbers. A logarithmic axis has ticks
+        // without values (null), e.g. between 100 and 1000 only some ticks have a label
+        values: (plot, splits) => splits.map(value => style.hideAxisValues || value === null ? "" : style.formatter.compact(value)),
     };
 }
 
@@ -1047,6 +1049,8 @@ function yAxis(unit, scale, side, style) {
  *  of a line and its style, which is selected in the legend, `null` for the style of the chart. Without it, the legend
  *  has no menus of the lines.
  * @param {boolean} [options.hideAxisValues] If the y-axes have no values, e.g. to share the chart without numbers.
+ * @param {boolean} [options.logScale] If the y-axes are logarithmic, e.g. to compare lines of very different values.
+ *  Values of 0 and below aren't drawn, the ticks of two y-axes aren't aligned.
  * @param {boolean} [options.comparisonLines] If vertical lines mark the dates one month and one year before and after
  *  the cursor.
  * @param {{kind: string, base: string, label: string, points: Map<number, number>}[]} [options.overlays] Additional
@@ -1066,7 +1070,7 @@ function yAxis(unit, scale, side, style) {
  * @param {"light"|"dark"} [options.theme] The colors of the chart, by default the color scheme of the browser.
  * @return {uPlot}
  */
-export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, comparisonLines = false, hideAxisValues = false, detail = null, onSeriesWindowChange = null, onSeriesStyleChange = null, onSeriesRemove = null, overlays = [], visibleRange = null, onZoom = null, hiddenSeries = new Set(), onSeriesVisibilityChange = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
+export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, comparisonLines = false, hideAxisValues = false, logScale = false, detail = null, onSeriesWindowChange = null, onSeriesStyleChange = null, onSeriesRemove = null, overlays = [], visibleRange = null, onZoom = null, hiddenSeries = new Set(), onSeriesVisibilityChange = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
     const theme = CHART_THEMES[themeName];
     const style = {formatter, fonts: fonts(fontFamily), theme, hideAxisValues};
     const scaleKeys = ["y", "y2"];
@@ -1142,9 +1146,11 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     // the ranges and the steps of the ticks of two y-axes, see alignedRange, and the preferred number of steps
     const alignedTicks = {};
     const tickCount = Math.max(2, Math.round((height - 80) / 60));
+    // a logarithmic axis (distr 3) has the powers of ten around the drawn values, see logScaleValues
+    const logScaleOf = () => ({distr: 3, log: 10, range: (plot, min, max) => logRange(min, max)});
     const scales = {
         x: {time: true, range: () => pinchPreview ?? xRange},
-        y: {range: (plot, min, max) => uPlot.rangeNum(...zeroBasedRange(min, max), 0.1, true)},
+        y: logScale ? logScaleOf() : {range: (plot, min, max) => uPlot.rangeNum(...zeroBasedRange(min, max), 0.1, true)},
     };
     const axes = [
         {
@@ -1159,7 +1165,11 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         },
         yAxis(units[0], "y", 3, style),
     ];
-    if (units.length > 1) {
+    if (units.length > 1 && logScale) {
+        // logarithmic axes have their own ticks
+        scales.y2 = logScaleOf();
+        axes.push(yAxis(units[1], "y2", 1, style));
+    } else if (units.length > 1) {
         // the ticks of both axes are at the same heights, so that the grid lines are at values of both axes
         scales.y.range = plot => alignedRange(plot, "y");
         scales.y2 = {range: plot => alignedRange(plot, "y2")};
@@ -1375,7 +1385,9 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
 
     let updateTooltip = null;
     let updateComparisons = null;
-    const plot = new uPlot(options, [timestamps, ...values, ...overlayValues], container);
+    // the drawn values, values of 0 and below have no position on a logarithmic axis
+    const drawnValues = logScale ? [...values, ...overlayValues].map(logScaleValues) : [...values, ...overlayValues];
+    const plot = new uPlot(options, [timestamps, ...drawnValues], container);
     // the lines, which were hidden before, e.g. of another level, don't show their axis
     showUsedAxes(plot);
     // without the value table, the legend of uPlot has the menus of the lines

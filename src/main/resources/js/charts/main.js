@@ -58,6 +58,8 @@ class ChartController {
         this.showComparisonLines = false;
         // if the y-axes have no values, e.g. to share an image of a trend without its numbers
         this.hideAxisValues = false;
+        // the y-axes are logarithmic, see createLineChart
+        this.logScale = false;
         // the shown dates of the line charts, null for all dates, see storage.js
         this.dateRange = null;
         // the keys of the series and overlays, which were hidden by a click on the legend, see createLineChart
@@ -357,6 +359,7 @@ class ChartController {
         this.showValueTable = setup.showValueTable;
         this.showComparisonLines = setup.showComparisonLines;
         this.hideAxisValues = setup.hideAxisValues;
+        this.logScale = setup.logScale;
         // the moving averages are lines of the menu "Add", only the previous year is a trend of the lines
         this.shownOverlays = this.shownOverlays.filter(kind => kind === "previousYear");
         // a range, which ends today, e.g. the past 7 days, has the dates of today
@@ -457,6 +460,7 @@ class ChartController {
             showValueTable: this.showValueTable,
             showComparisonLines: this.showComparisonLines,
             hideAxisValues: this.hideAxisValues,
+            logScale: this.logScale,
             dateRange: this.dateRange,
             hiddenSeries: [...this.hiddenSeries],
             entries: [
@@ -496,6 +500,7 @@ class ChartController {
                 }),
                 onValueTableVisibilityChange: visible => this.setOption("showValueTable", visible),
                 onHideAxisValuesChange: hidden => this.setOption("hideAxisValues", hidden),
+                onLogScaleChange: logarithmic => this.setOption("logScale", logarithmic),
                 onComparisonLinesVisibilityChange: visible => this.setOption("showComparisonLines", visible),
                 onIncompleteVisibilityChange: visible => this.setOption("showIncomplete", visible),
             }, MARKER_KINDS.filter(kind => this.markers.some(marker => marker.kind === kind)), this.hasLineCharts,
@@ -555,6 +560,7 @@ class ChartController {
         dialog.setShowValueTable(this.showValueTable);
         dialog.setShowComparisonLines(this.showComparisonLines);
         dialog.setHideAxisValues(this.hideAxisValues);
+        dialog.setLogScale(this.logScale);
         dialog.setShownOverlays(this.shownOverlays);
 
         const charts = groupCharts(this.series, this.combineUnits);
@@ -691,6 +697,7 @@ class ChartController {
             valueTable: this.showValueTable,
             comparisonLines: this.showComparisonLines,
             hideAxisValues: this.hideAxisValues,
+            logScale: this.logScale,
             detail,
             visibleRange: context.visibleRange,
             hiddenSeries: this.hiddenSeries,

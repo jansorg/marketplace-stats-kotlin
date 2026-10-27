@@ -93,6 +93,7 @@ export class ChartDialog {
      * @param {(items: HTMLElement, close: () => void) => void} [callbacks.onAddMenuOpen] Fills the menu to add a metric.
      * @param {(visible: boolean) => void} callbacks.onComparisonLinesVisibilityChange
      * @param {(hidden: boolean) => void} callbacks.onHideAxisValuesChange
+     * @param {(logarithmic: boolean) => void} callbacks.onLogScaleChange
      * @param {(kind: string, visible: boolean) => void} callbacks.onOverlayVisibilityChange
      * @param {(range: {from: string, to: string}|null) => void} callbacks.onDateRangeChange
      * @param {string[]} markerKinds The kinds of vertical lines, which are available on this page.
@@ -100,7 +101,7 @@ export class ChartDialog {
      *  selects the shown events in a menu.
      * @param {boolean} hasLineCharts If the page has columns, which can be shown in line charts.
      */
-    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange, onEventVisibilityChange, onExtremeVisibilityChange, onIncompleteVisibilityChange, onValueTableVisibilityChange, onComparisonLinesVisibilityChange, onHideAxisValuesChange, onOverlayVisibilityChange, onDateRangeChange, onAddMenuOpen}, markerKinds, hasLineCharts, customEvents = []) {
+    constructor({onRemoveAll, onCombineUnitsChange, onMaximizedChange, onResize, onMarkerVisibilityChange, onEventVisibilityChange, onExtremeVisibilityChange, onIncompleteVisibilityChange, onValueTableVisibilityChange, onComparisonLinesVisibilityChange, onHideAxisValuesChange, onLogScaleChange, onOverlayVisibilityChange, onDateRangeChange, onAddMenuOpen}, markerKinds, hasLineCharts, customEvents = []) {
         this.element = document.createElement("dialog");
         this.element.className = "chart-dialog noprint";
         this.element.setAttribute("aria-labelledby", "chart-dialog-title");
@@ -202,6 +203,9 @@ export class ChartDialog {
             onValueTableVisibilityChange);
         this.hideAxisValuesCheckbox = this.addToggle(viewOptions, "Hide axis values",
             "Hide the values of the y-axes, e.g. to share an image of a trend without its numbers", onHideAxisValuesChange);
+        this.logScaleCheckbox = this.addToggle(viewOptions, "Logarithmic y-axis",
+            "Show the values on a logarithmic y-axis, e.g. to compare lines of very different values. Values of 0 and below aren't drawn",
+            onLogScaleChange);
         this.comparisonLinesCheckbox = this.addToggle(viewOptions, "Comparison lines",
             "Mark the dates one month and one year before and after the cursor with vertical lines",
             onComparisonLinesVisibilityChange);
@@ -487,6 +491,10 @@ export class ChartDialog {
 
     setHideAxisValues(hidden) {
         this.hideAxisValuesCheckbox.checked = hidden;
+    }
+
+    setLogScale(logarithmic) {
+        this.logScaleCheckbox.checked = logarithmic;
     }
 
     setShowComparisonLines(visible) {

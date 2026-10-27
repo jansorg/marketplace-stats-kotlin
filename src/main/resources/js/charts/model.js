@@ -503,6 +503,30 @@ export function layoutLabels(labels, totalWidth, gap) {
 export const CHART_STYLES = ["lines", "bars"];
 
 /**
+ * @param {(number|null|undefined)[]} values The values of a series.
+ * @return {(number|null|undefined)[]} The values on a logarithmic y-axis: values of 0 and below have no position on it,
+ *  they aren't drawn. The value table and the tooltip still show them.
+ */
+export function logScaleValues(values) {
+    return values.map(value => value === null || value === undefined || value > 0 ? value : null);
+}
+
+/**
+ * @param {number|null} min The lowest drawn value, see {@link logScaleValues}.
+ * @param {number|null} max The highest drawn value.
+ * @return {[number, number]} The range of a logarithmic y-axis: the powers of ten around the values, e.g. 10 to 1000
+ *  for values from 12 to 830, 1 to 10 without values.
+ */
+export function logRange(min, max) {
+    if (!(max > 0)) {
+        return [1, 10];
+    }
+    const low = 10 ** Math.floor(Math.log10(min > 0 ? min : max));
+    const high = 10 ** Math.ceil(Math.log10(max));
+    return [low, high > low ? high : low * 10];
+}
+
+/**
  * Calculates the bars of a group of bars at one date.
  *
  * @param {number} seriesCount Number of bars in the group.
