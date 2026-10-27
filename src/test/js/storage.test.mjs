@@ -33,29 +33,29 @@ test("a stored setup is loaded", () => {
 });
 
 test("the dialog is maximized by default", () => {
-    const load = stored => createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 1, entries: [], ...stored})})).load();
+    const load = stored => createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 1, entries: [], ...stored})})).load();
     assert.equal(emptySetup().maximized, true);
     assert.equal(load({}).maximized, true);
     assert.equal(load({maximized: false}).maximized, false);
 });
 
 test("the second y-axis is used by default", () => {
-    const load = stored => createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 2, entries: [], ...stored})})).load();
+    const load = stored => createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 2, entries: [], ...stored})})).load();
     assert.equal(emptySetup().combineUnits, true);
     assert.equal(load({}).combineUnits, true);
     assert.equal(load({combineUnits: false}).combineUnits, false);
 });
 
 test("the comparison lines are hidden by default", () => {
-    const load = stored => createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 2, entries: [], ...stored})})).load();
+    const load = stored => createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 2, entries: [], ...stored})})).load();
     assert.equal(emptySetup().showComparisonLines, false);
     assert.equal(load({}).showComparisonLines, false);
     assert.equal(load({showComparisonLines: true}).showComparisonLines, true);
 });
 
 test("invalid data is ignored", () => {
-    assert.deepEqual(createSetupStorage(memoryStorage({[STORAGE_KEY]: "{invalid"})).load(), emptySetup());
-    assert.deepEqual(createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 99, entries: []})})).load(), emptySetup());
+    assert.deepEqual(createSetupStorage(memoryStorage({[setupStorageKey(null)]: "{invalid"})).load(), emptySetup());
+    assert.deepEqual(createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 99, entries: []})})).load(), emptySetup());
 
     const stored = {
         version: 2, preferredStyle: "pie", chartStyles: {"a": "bars", "b": "dots"}, shownMarkers: ["ide", "unknown", 1],
@@ -63,7 +63,7 @@ test("invalid data is ignored", () => {
         entries: [{type: "line", table: "Overview", column: "MRR"}, {type: "unknown", table: "X", column: "Y"}, {type: "pie", table: 1, column: "Y"},
             {type: "metric", metric: "mrr", label: "MRR"}, {type: "metric", metric: "trials", window: "hour", label: "Trials", unit: "count"}],
     };
-    const setup = createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify(stored)})).load();
+    const setup = createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify(stored)})).load();
     assert.equal(setup.preferredStyle, "lines");
     assert.deepEqual(setup.chartStyles, {"a": "bars"});
     assert.deepEqual(setup.chartLevels, {"a": {window: "year", detail: "week"}});
@@ -72,7 +72,7 @@ test("invalid data is ignored", () => {
 });
 
 test("the stored option of the minimum and maximum is shown as two options", () => {
-    const load = stored => createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 1, entries: [], ...stored})})).load();
+    const load = stored => createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 1, entries: [], ...stored})})).load();
     assert.deepEqual(load({showExtremes: true}).shownExtremes, ["min", "max"]);
     assert.deepEqual(load({showExtremes: false}).shownExtremes, []);
     assert.deepEqual(load({shownExtremes: ["max", "other"]}).shownExtremes, ["max"]);
@@ -80,7 +80,7 @@ test("the stored option of the minimum and maximum is shown as two options", () 
 
 test("a setup of version 1 is read without the levels of the charts", () => {
     const stored = {version: 1, granularities: {"month/USD": "day"}, entries: [{type: "line", table: "Overview", column: "MRR", color: "#2a78d6"}]};
-    const setup = createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify(stored)})).load();
+    const setup = createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify(stored)})).load();
     assert.deepEqual(setup.chartLevels, {});
     assert.equal(setup.granularities, undefined);
     // the series of the table is shown as a metric, if the column has a metric, see ChartController.restore
@@ -109,14 +109,14 @@ test("a bookmarked view is the setup in the fragment of the address", () => {
 });
 
 test("invalid keys of hidden lines are ignored", () => {
-    const load = hiddenSeries => createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 1, entries: [], hiddenSeries})})).load().hiddenSeries;
+    const load = hiddenSeries => createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 1, entries: [], hiddenSeries})})).load().hiddenSeries;
     assert.deepEqual(load(undefined), []);
     assert.deepEqual(load("line/Overview/MRR"), []);
     assert.deepEqual(load(["line/Overview/MRR", 3, null]), ["line/Overview/MRR"]);
 });
 
 test("an invalid date range shows all dates", () => {
-    const load = dateRange => createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 1, entries: [], dateRange})})).load().dateRange;
+    const load = dateRange => createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 1, entries: [], dateRange})})).load().dateRange;
     assert.equal(load(undefined), null);
     assert.equal(load("2025"), null);
     assert.equal(load({from: "2025-01-01"}), null);
@@ -138,7 +138,7 @@ test("a series of a row of a table is stored with the name of the row", () => {
     const setup = {...emptySetup(), entries: [{type: "line", table: "Customer Type", column: "% of Sales", row: "Individual", color: "#2a78d6"}]};
     storage.save(setup);
     assert.deepEqual(storage.load(), setup);
-    assert.deepEqual(createSetupStorage(memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 1, entries: [{type: "line", table: "T", column: "C", row: 1}]})})).load().entries, []);
+    assert.deepEqual(createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 1, entries: [{type: "line", table: "T", column: "C", row: 1}]})})).load().entries, []);
 });
 
 test("a line is stored with its style, lines with an invalid style are ignored", () => {
@@ -193,20 +193,10 @@ test("the setup of a plugin doesn't change the setups of other plugins", () => {
     assert.deepEqual(createSetupStorage(storage, "2").load().entries, [trialsEntry]);
 });
 
-test("the setup, which was shared by all plugins, is the initial setup of plugins without their own setup", () => {
+test("the setup, which was shared by all plugins before, is ignored", () => {
     const storage = memoryStorage({[STORAGE_KEY]: JSON.stringify({version: 2, ...emptySetup(), entries: [salesEntry]})});
-    const first = createSetupStorage(storage, "1");
-    assert.deepEqual(first.load().entries, [salesEntry]);
-    assert.deepEqual(createSetupStorage(storage, null).load().entries, [salesEntry]);
-
-    first.save({...emptySetup(), entries: [trialsEntry]});
-    assert.deepEqual(first.load().entries, [trialsEntry]);
-    // removing all charts of a plugin doesn't restore the shared setup
-    first.save(emptySetup());
-    assert.deepEqual(first.load(), emptySetup());
-    // the shared setup isn't changed
-    assert.deepEqual(JSON.parse(storage.values.get(STORAGE_KEY)).entries, [salesEntry]);
-    assert.deepEqual(createSetupStorage(storage, "2").load().entries, [salesEntry]);
+    assert.deepEqual(createSetupStorage(storage, "1").load(), emptySetup());
+    assert.deepEqual(createSetupStorage(storage, null).load(), emptySetup());
 });
 
 test("a bookmarked view is stored as the setup of the plugin of the page", () => {
