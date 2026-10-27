@@ -21,11 +21,9 @@ export function setupStorageKey(pluginId) {
 }
 /**
  * Version 2 stores the series of metrics with the ID of the metric instead of the table and the column, and the window
- * and the detail level of each chart of metrics. A setup of version 1 is still read: its series of tables are shown
- * as metrics, if their columns have a metric, its levels of the charts are dropped.
+ * and the detail level of each chart of metrics. Setups of other versions are ignored.
  */
 const VERSION = 2;
-const READ_VERSIONS = [1, VERSION];
 
 /**
  * @typedef {{type: "line"|"pie", table: string, column: string, row?: string, color?: string, style?: "lines"|"bars"}
@@ -127,7 +125,7 @@ function isValidEntry(entry) {
  * @return {ChartSetup|null} The setup with the valid values, or null if it isn't a setup of this version.
  */
 function parseSetup(setup) {
-    if (setup === null || typeof setup !== "object" || !READ_VERSIONS.includes(setup.version) || !Array.isArray(setup.entries)) {
+    if (setup === null || typeof setup !== "object" || setup.version !== VERSION || !Array.isArray(setup.entries)) {
         return null;
     }
     return {
@@ -136,8 +134,7 @@ function parseSetup(setup) {
         maximized: setup.maximized !== false,
         preferredStyle: STYLES.includes(setup.preferredStyle) ? setup.preferredStyle : "lines",
         chartStyles: validValues(setup.chartStyles, STYLES),
-        // the levels of version 1 were the levels of the tables, they don't apply to the charts of metrics
-        chartLevels: setup.version === VERSION ? validLevels(setup.chartLevels) : {},
+        chartLevels: validLevels(setup.chartLevels),
         shownMarkers: Array.isArray(setup.shownMarkers) ? setup.shownMarkers.filter(kind => MARKER_KINDS.includes(kind)) : [],
         // the IDs of the shown custom events, also of events of other pages
         shownEvents: Array.isArray(setup.shownEvents) ? setup.shownEvents.filter(id => typeof id === "string") : [],

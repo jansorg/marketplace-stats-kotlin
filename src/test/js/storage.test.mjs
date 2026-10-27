@@ -33,7 +33,7 @@ test("a stored setup is loaded", () => {
 });
 
 test("the dialog is maximized by default", () => {
-    const load = stored => createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 1, entries: [], ...stored})})).load();
+    const load = stored => createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 2, entries: [], ...stored})})).load();
     assert.equal(emptySetup().maximized, true);
     assert.equal(load({}).maximized, true);
     assert.equal(load({maximized: false}).maximized, false);
@@ -72,19 +72,18 @@ test("invalid data is ignored", () => {
 });
 
 test("the stored option of the minimum and maximum is shown as two options", () => {
-    const load = stored => createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 1, entries: [], ...stored})})).load();
+    const load = stored => createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 2, entries: [], ...stored})})).load();
     assert.deepEqual(load({showExtremes: true}).shownExtremes, ["min", "max"]);
     assert.deepEqual(load({showExtremes: false}).shownExtremes, []);
     assert.deepEqual(load({shownExtremes: ["max", "other"]}).shownExtremes, ["max"]);
 });
 
-test("a setup of version 1 is read without the levels of the charts", () => {
-    const stored = {version: 1, granularities: {"month/USD": "day"}, entries: [{type: "line", table: "Overview", column: "MRR", color: "#2a78d6"}]};
-    const setup = createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify(stored)})).load();
-    assert.deepEqual(setup.chartLevels, {});
-    assert.equal(setup.granularities, undefined);
-    // the series of the table is shown as a metric, if the column has a metric, see ChartController.restore
-    assert.deepEqual(setup.entries, stored.entries);
+test("a setup of version 1 is ignored", () => {
+    const stored = {version: 1, entries: [{type: "line", table: "Overview", column: "MRR", color: "#2a78d6"}]};
+    assert.deepEqual(createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify(stored)})).load(), emptySetup());
+    // a bookmarked view of version 1
+    const base64 = btoa(JSON.stringify(stored)).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+    assert.equal(decodeView("#charts=" + base64), null);
 });
 
 test("an unavailable storage doesn't fail", () => {
@@ -109,14 +108,14 @@ test("a bookmarked view is the setup in the fragment of the address", () => {
 });
 
 test("invalid keys of hidden lines are ignored", () => {
-    const load = hiddenSeries => createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 1, entries: [], hiddenSeries})})).load().hiddenSeries;
+    const load = hiddenSeries => createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 2, entries: [], hiddenSeries})})).load().hiddenSeries;
     assert.deepEqual(load(undefined), []);
     assert.deepEqual(load("line/Overview/MRR"), []);
     assert.deepEqual(load(["line/Overview/MRR", 3, null]), ["line/Overview/MRR"]);
 });
 
 test("an invalid date range shows all dates", () => {
-    const load = dateRange => createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 1, entries: [], dateRange})})).load().dateRange;
+    const load = dateRange => createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 2, entries: [], dateRange})})).load().dateRange;
     assert.equal(load(undefined), null);
     assert.equal(load("2025"), null);
     assert.equal(load({from: "2025-01-01"}), null);
@@ -138,7 +137,7 @@ test("a series of a row of a table is stored with the name of the row", () => {
     const setup = {...emptySetup(), entries: [{type: "line", table: "Customer Type", column: "% of Sales", row: "Individual", color: "#2a78d6"}]};
     storage.save(setup);
     assert.deepEqual(storage.load(), setup);
-    assert.deepEqual(createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 1, entries: [{type: "line", table: "T", column: "C", row: 1}]})})).load().entries, []);
+    assert.deepEqual(createSetupStorage(memoryStorage({[setupStorageKey(null)]: JSON.stringify({version: 2, entries: [{type: "line", table: "T", column: "C", row: 1}]})})).load().entries, []);
 });
 
 test("a line is stored with its style, lines with an invalid style are ignored", () => {

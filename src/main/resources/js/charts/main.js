@@ -630,20 +630,13 @@ class ChartController {
                 }
                 continue;
             }
-            // a series of a table of version 1 of the setup is a metric, if the column has a metric
-            const column = columns.find(c => (c.type === entry.type || (entry.type === "line" && c.type === "metric"))
-                && c.table === entry.table && c.column === entry.column);
+            const column = columns.find(c => c.type === entry.type && c.table === entry.table && c.column === entry.column);
             if (column === undefined) {
                 this.unresolvedEntries.push(entry);
             } else if (entry.type === "pie") {
                 const pie = this.readPie(column.element, column.columnIndex);
                 if (this.rejectPie(pie) === null) {
                     this.pies.push(pie);
-                }
-            } else if (column.type === "metric") {
-                const series = readMetricSeries(column.element, column.columnIndex).find(s => s.row === entry.row);
-                if (series !== undefined && this.rejectSeries(series) === null) {
-                    this.series.push(metricSeries({...series, style: entry.style}, nextColor(this.series.map(s => s.color), entry.color)));
                 }
             } else {
                 const series = column.isRowHistory
