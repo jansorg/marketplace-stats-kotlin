@@ -227,7 +227,7 @@ project(":") {
         }
     }
 
-    val javascriptLibraries by configurations.creating {
+    val javascriptLibraries = configurations.create("javascriptLibraries") {
         isCanBeConsumed = false
         isTransitive = false
     }
@@ -275,7 +275,8 @@ project(":") {
         ),
     )
 
-    val bundleJavascriptLibraries by tasks.registering(Sync::class) {
+    val bundleJavascriptLibraries = tasks.register<Sync>("bundleJavascriptLibraries") {
+        description = "Extracts the files of the npm packages, e.g. uPlot and the font Lato, which the pages load"
         for ((libraryName, files) in javascriptLibraryFiles) {
             from(library(libraryName)) {
                 include(files.keys)
@@ -293,7 +294,7 @@ project(":") {
 
     // The Closure Compiler bundles the ES modules of the charts into one minified file, it runs on the JVM,
     // the build doesn't need Node.js
-    val closureCompiler by configurations.creating {
+    val closureCompiler = configurations.create("closureCompiler") {
         isCanBeConsumed = false
     }
 
@@ -303,7 +304,7 @@ project(":") {
     }
 
     // the modules of the charts, main.js and its imports
-    val bundleChartsJavascript by tasks.registering(ClosureBundle::class) {
+    val bundleChartsJavascript = tasks.register<ClosureBundle>("bundleChartsJavascript") {
         description = "Bundles and minifies the JavaScript modules of the charts"
         bundleName = "charts"
         sourceDirectory = layout.projectDirectory.dir("src/main/resources/js/charts")
@@ -315,7 +316,7 @@ project(":") {
     }
 
     // the script of the tables with collapsed rows
-    val minifyCollapsibleTablesJavascript by tasks.registering(ClosureBundle::class) {
+    val minifyCollapsibleTablesJavascript = tasks.register<ClosureBundle>("minifyCollapsibleTablesJavascript") {
         description = "Minifies the JavaScript of the collapsible tables"
         bundleName = "collapsibleTables"
         sourceDirectory = layout.projectDirectory.dir("src/main/resources/js")
@@ -333,7 +334,7 @@ project(":") {
     }
 
     // the stylesheets are served minified, e.g. styles/main.min.css
-    val minifyStylesheets by tasks.registering(MinifyCss::class) {
+    val minifyStylesheets = tasks.register<MinifyCss>("minifyStylesheets") {
         description = "Minifies the stylesheets"
         source.from(fileTree("src/main/resources/styles") { include("*.css") })
         // the styles of the sortable tables and of uPlot, after the own styles like the links of the pages before
@@ -353,16 +354,15 @@ project(":") {
     }
 
     // Tests of the JavaScript modules of the charts, with the test runner of Node.js. Skipped if Node.js isn't installed.
-    val isNodeAvailable = try {
+    // the execution fails if the command isn't found
+    val isNodeAvailable = runCatching {
         providers.exec {
             commandLine("node", "--version")
             isIgnoreExitValue = true
         }.result.get().exitValue == 0
-    } catch (e: Exception) {
-        false
-    }
+    }.getOrDefault(false)
 
-    val testJavascript by tasks.registering(Exec::class) {
+    val testJavascript = tasks.register<Exec>("testJavascript") {
         description = "Runs the tests of the JavaScript modules with Node.js"
         group = "verification"
         onlyIf("Node.js is available") { isNodeAvailable }
