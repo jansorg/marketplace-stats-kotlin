@@ -775,7 +775,7 @@ class ChartController {
             }
             const label = metricLabel({label: values.title, usesWindow: values.usesWindow}, window)
                 + (s.average ? `, ${s.average}-month average` : "");
-            return [{...s, ...points, label, unit: values.unit, measure: values.measure, usesWindow: values.usesWindow,
+            return [{...s, ...points, label, unit: values.unit, measure: values.measure, usesWindow: values.usesWindow, fractionDigits: values.fractionDigits,
                 window, selectedWindow: s.window ?? level.window, detail, period: detailPeriod(detail)}];
         });
     }

@@ -477,7 +477,7 @@ class McpChartTool(private val provider: McpDataProvider) {
                 usedColors += color
                 val style = if (item.average != null) ChartStyle.Lines else item.style ?: request.style
                 val kind = if (item.average != null) ChartSeriesKind.Average else ChartSeriesKind.Values
-                val valueSeries = ChartImageSeries(label, data.unit, color, points, style, kind, item.average)
+                val valueSeries = ChartImageSeries(label, data.unit, color, points, style, kind, item.average, data.fractionDigits)
 
                 seriesJson += buildJsonObject {
                     put("metric", metric.id)
@@ -503,7 +503,7 @@ class McpChartTool(private val provider: McpDataProvider) {
                     request.previousYear && item.average == null && detail != ChartDetail.Year && points.isNotEmpty() -> {
                         val last = points.last().date
                         val shifted = points.map { it.copy(date = it.date.plusYears(1), isPartial = false) }.filter { it.date <= last }
-                        ChartImageSeries("$label, previous year", data.unit, color, shifted, ChartStyle.Lines, ChartSeriesKind.PreviousYear)
+                        ChartImageSeries("$label, previous year", data.unit, color, shifted, ChartStyle.Lines, ChartSeriesKind.PreviousYear, fractionDigits = data.fractionDigits)
                     }
 
                     else -> null

@@ -143,6 +143,7 @@ class ChartData {
                     values = indices.map { dailySeries.values[it] },
                     incompleteFrom = indices.indexOfFirst { it >= dailySeries.incompleteFrom }.takeIf { it >= 0 } ?: indices.size,
                     partialUntil = indices.count { it < dailySeries.partialUntil },
+                    fractionDigits = metric.fractionDigits,
                 )
             }
             return ChartDataResponse(indices.map { days[it].asIsoString }, series.toMap())
@@ -168,6 +169,8 @@ class ChartDataResponse(val dates: List<String>, val series: Map<String, ChartSe
  * @param incompleteFrom The index of the first value, which may still change.
  * @param partialUntil The index of the first value, which covers its whole window, e.g. after the first year of a
  *  plugin, which started in February.
+ * @param fractionDigits The maximum number of decimals of the shown values, see [ChartMetric.fractionDigits]. The
+ *  values aren't rounded.
  */
 @Serializable
 class ChartSeriesData(
@@ -179,6 +182,7 @@ class ChartSeriesData(
     val values: List<@Serializable(JsonDecimalSerializer::class) BigDecimal?>,
     val incompleteFrom: Int,
     val partialUntil: Int,
+    val fractionDigits: Int,
 )
 
 /** A metric of `/chart-metrics`, which the charts can show, see [ChartMetric]. */

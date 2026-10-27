@@ -74,6 +74,7 @@ enum class ChartSeriesKind {
 
 /**
  * @param averageMonths The months of a moving average, for its dashes.
+ * @param fractionDigits The maximum number of decimals of the labels of the values, see `ChartMetric.fractionDigits`.
  */
 class ChartImageSeries(
     val label: String,
@@ -83,6 +84,7 @@ class ChartImageSeries(
     val style: ChartStyle = ChartStyle.Lines,
     val kind: ChartSeriesKind = ChartSeriesKind.Values,
     val averageMonths: Int? = null,
+    val fractionDigits: Int = 2,
 ) {
     /** Moving averages and the previous year are always lines. */
     val isBar: Boolean get() = style == ChartStyle.Bars && kind == ChartSeriesKind.Values

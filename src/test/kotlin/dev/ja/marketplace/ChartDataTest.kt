@@ -58,6 +58,16 @@ class ChartDataTest {
     }
 
     @Test
+    suspend fun numberOfDecimalsOfTheShownValues() {
+        val series = json(listOf("sales", "trials", "licenses-paid@avg3"), ChartWindow.Month, ChartDetail.Month)["series"]!!.jsonObject
+        fun fractionDigits(id: String) = series[id]!!.jsonObject["fractionDigits"]!!.jsonPrimitive.int
+        assertEquals(2, fractionDigits("sales"))
+        // the averages of counts of a window keep a decimal, the averages of counts at a date are whole numbers
+        assertEquals(1, fractionDigits("trials"))
+        assertEquals(0, fractionDigits("licenses-paid@avg3"))
+    }
+
+    @Test
     suspend fun valuesAreNumbersWithTheirScale() {
         val values = ChartData().values(McpTestData.pluginData())
         val json = ChartData.json.encodeToString(ChartDataResponse.serializer(), ChartData.chartData(values, listOf("sales", "trials"), ChartWindow.Year, ChartDetail.Year))

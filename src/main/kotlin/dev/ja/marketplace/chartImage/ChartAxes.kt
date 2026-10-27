@@ -106,11 +106,14 @@ object ChartAxes {
         return decimal(scaled, 1) + suffix
     }
 
-    /** @return The value with its unit, e.g. `12.5 %`, `1,234.56 EUR` or `17`. */
-    fun value(value: Double, unit: String): String = when (unit) {
-        "%" -> decimal(value, 2) + " %"
-        "count", "ratio" -> decimal(value, 2)
-        else -> decimal(value, 2) + " " + unit
+    /**
+     * @param fractionDigits The maximum number of decimals, see `ChartMetric.fractionDigits`.
+     * @return The value with its unit, e.g. `12.5 %`, `1,234.56 EUR` or `17`.
+     */
+    fun value(value: Double, unit: String, fractionDigits: Int = 2): String = when (unit) {
+        "%" -> decimal(value, fractionDigits) + " %"
+        "count", "ratio" -> decimal(value, fractionDigits)
+        else -> decimal(value, fractionDigits) + " " + unit
     }
 
     private fun decimal(value: Double, maxFractionDigits: Int): String {

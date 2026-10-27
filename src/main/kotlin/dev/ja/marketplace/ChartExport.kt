@@ -321,6 +321,7 @@ object ChartExport {
                     previousYear = line.previousYear.takeIf { it },
                     incompleteDates = column.incomplete.sorted().map { table.dates[it].asIsoString },
                     partialDates = column.partial.sorted().map { table.dates[it].asIsoString },
+                    fractionDigits = line.metric.fractionDigits,
                 )
             },
             omitted = table.omitted.takeIf { it.isNotEmpty() },
@@ -371,6 +372,8 @@ class ChartExportColumn(
     val previousYear: Boolean?,
     val incompleteDates: List<String>,
     val partialDates: List<String>,
+    /** The maximum number of decimals to show the values, see [ChartMetric.fractionDigits], the values aren't rounded. */
+    val fractionDigits: Int,
 )
 
 /** A row of `/chart-export?format=json`, written as array: `["2026-01-31", 12.50, null]`. */

@@ -34,6 +34,21 @@ test("values in tables have a fixed number of decimals", () => {
     assert.equal(formatter.fixedValue(null, "USD"), NO_VALUE);
 });
 
+test("values of metrics have the number of decimals of their metric", () => {
+    const formatter = createFormatter("en-US");
+    // e.g. the average of the active paid licenses
+    assert.equal(formatter.value(1234.5, "count", 0), "1,235");
+    assert.equal(formatter.fixedValue(1234.5, "count", 0), "1,235");
+    // e.g. the average of the trials per day
+    assert.equal(formatter.value(0.44, "count", 1), "0.4");
+    assert.equal(formatter.fixedValue(3, "count", 1), "3");
+    assert.equal(formatter.fixedValue(12.5, "%", 1), "12.5 %");
+    assert.equal(formatter.fixedValue(0.5, "ratio", 0), "1");
+    // without a number, e.g. of the columns of tables, values have up to two decimals
+    assert.equal(formatter.value(1234.567, "count", undefined), "1,234.57");
+    assert.equal(formatter.fixedValue(5.5, "%", undefined), "5.50 %");
+});
+
 test("changes have a sign and one decimal", () => {
     const formatter = createFormatter("en-US");
     assert.equal(formatter.change({value: 12, unit: "%"}), "+12.0 %");

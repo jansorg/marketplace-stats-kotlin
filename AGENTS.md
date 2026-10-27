@@ -269,6 +269,10 @@ queries, and one which excludes all these tags. The results are in the order of 
     average of a window, which isn't shorter than the months, is its value.
   - New metrics are registered in `ChartMetric` and calculated in `ChartMetricValues.calculate`, new windows only need
     `ChartWindow.start` and `currentPeriodStart`.
+  - Decimals: `ChartMetric.fractionDigits` is the maximum number of decimals of the shown values of a metric, e.g. of
+    its moving averages. By default counts at a date (e.g. the active licenses) have none, counts of a window (e.g. the
+    trials) one, the other metrics two. `/chart-data`, the JSON of `/chart-export` and the MCP chart images pass it on,
+    the values themselves and the CSV of `/chart-export` aren't rounded.
   - Churn (`churn-annual`, `churn-monthly`, the columns of the overview, `churn-combined`, the column "Churn (all)" of
     the tables of the years of a plugin and of all plugins): the paid licenses, which
     were active at the day before the window and aren't active at its end (`LicenseChurnProcessor`, `ChurnValidities`
