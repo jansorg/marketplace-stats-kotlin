@@ -147,6 +147,10 @@ queries, and one which excludes all these tags. The results are in the order of 
   Data is grouped by how often it changes: `Recent` (30 minutes, e.g. recent sales and trials, offers, reviews),
   `Daily` (e.g. downloads, ratings, releases, products of JetBrains) and `Static` (7 days, e.g. prices, sales older than
   45 days, the weekly complete fetch of the history). Use these categories for new cached requests.
+- The Marketplace publishes the downloads of a day late, during the next day, until then they're 0. Downloads, which
+  were fetched before a response grouped by day contained the downloads of yesterday, are `Recent`, in memory and on
+  disk (`DownloadsCompleteness`). `downloadsMonthly`, `downloadsDaily` and `downloadsByProduct` aren't cached
+  themselves, they use the cached `downloads()`.
 - With `--auto-refresh[=<minutes>]`/`MARKETPLACE_AUTO_REFRESH` (off by default, 30 minutes), `PluginAutoRefresh` refreshes
   the plugins, which were requested in the last 24 hours (`MarketplaceStatsServer.getDataLoader`, the summary of all
   plugins), via `CaffeineCacheMarketplaceClient.refreshPlugin`. Requests then use the cached data for two more
@@ -163,7 +167,7 @@ queries, and one which excludes all these tags. The results are in the order of 
   data older than 30 minutes, complete fetch weekly),
   plugin prices by country (`PersistentPriceCache`), the ECB exchange rates (`EcbExchangeRateData`), downloads
   (`PersistentResponseCache`, responses of `downloads`, `downloadsTotal` and `groupedDownloads` as JSON, fetched again after
-  a day) and the products and releases of JetBrains (`CachingJetBrainsServiceClient`, in `jetbrains/`, shared by all
+  a day, see `DownloadsCompleteness`) and the products and releases of JetBrains (`CachingJetBrainsServiceClient`, in `jetbrains/`, shared by all
   accounts, fetched again after a day).
   The data of an account is stored in `accounts/account-<hash of API host and key>/`.
 - The stored classes (`CachedSalesModel.kt`, `CachedEcbRates`) are separate from the API model. After incompatible
