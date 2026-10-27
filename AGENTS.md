@@ -302,6 +302,8 @@ queries, and one which excludes all these tags. The results are in the order of 
   in and out (`enablePinchZoom`, `pinchedRange` in `model.js`). The range is part of the stored
   setup (`dateRange`, ISO dates). Only the x-axis is limited (`visibleRange`), all values are still used, e.g. by the
   value table and the averages. The y-axis, the minimum and maximum and the latest values use the shown dates.
+  With all dates, the x-axis covers the dates of the shown lines (`shownRange` in `lineChart.js`, `shownDateRange`
+  in `model.js`): hiding a line, whose values start earlier, e.g. next to a 12-month average, shortens the axis.
 - Series and averages, which were hidden by a click on the legend or the value table, stay hidden when the charts are
   drawn again, e.g. after changing the level (`hiddenSeries` of the setup, keys `<series>` and `<series>:<kind>`).
 - The chart setup (columns, colors, options) is stored in the browser's local storage (version 2, other versions are

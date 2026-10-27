@@ -10,7 +10,7 @@ import {
     alignedRanges, chartExportUrl, exportLineId, niceStep, rangeTicks, seriesMenuSections, seriesStyle, SERIES_STYLES, WINDOWS, RANGE_PRESETS, rangeOfPreset,
     averageShade, pinchedRange, rangeLabel, rangeMenuItems, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, finestDetail, lineDetail, periodEnd, shownWindow, storedChartLevel, tableWindow, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
-    seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
+    seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, shownDateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear,
 } from "../../main/resources/js/charts/model.js";
 
@@ -94,6 +94,19 @@ test("only series of the same period share a chart and its date range", () => {
     // a second y-axis only combines units of the same period
     assert.equal(canCombineUnits([yearly, daily]), false);
     assert.equal(canCombineUnits([monthly, series("month", "%", [[100, 1]])]), true);
+});
+
+test("the dates of the shown lines", () => {
+    // the values of a line and its 12-month average, which starts later
+    const timestamps = [100, 200, 300, 400];
+    const values = [[1, 2, 3, null], [null, null, 2, 3]];
+    assert.deepEqual(shownDateRange(timestamps, values, [true, true]), [100, 400]);
+    // hiding the line with the earlier values shortens the range
+    assert.deepEqual(shownDateRange(timestamps, values, [false, true]), [300, 400]);
+    assert.deepEqual(shownDateRange(timestamps, values, [true, false]), [100, 300]);
+    assert.equal(shownDateRange(timestamps, values, [false, false]), null);
+    // a single date needs a range to be shown
+    assert.deepEqual(shownDateRange(timestamps, [[null, 5, null, null]], [true]), [200 - 86400, 200 + 86400]);
 });
 
 test("date ranges and aligned series", () => {
