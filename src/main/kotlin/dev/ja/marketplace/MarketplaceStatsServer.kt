@@ -391,9 +391,10 @@ class MarketplaceStatsServer(
             }
 
             post("/refresh") {
+                // the page, which sent the request, e.g. a list of licenses, whose rows are shown, keeps its parameters
                 val refererUrl = call.request.header("Referer")
                     .asNullableUrl()
-                    ?.takeIf { it.host == host && it.port == port }
+                    ?.takeIf { isPageOfRequestedServer(it, call.request.host(), call.request.port()) }
 
                 val pluginId = call.request.queryParameters["pluginId"]?.toIntOrNull()
                     ?: refererUrl?.parameters?.get("pluginId")?.toInt()
@@ -1111,4 +1112,12 @@ class MarketplaceStatsServer(
 
         call.respond(JteContent("main.kte", pageData.createTemplateParameters(loader, call.request, serverConfiguration)))
     }
+}
+
+/**
+ * @return If the [referer] is a page of this server: its host and port are the ones of the request, e.g. `localhost:8081`,
+ *  not the address the server is bound to, e.g. `0.0.0.0`.
+ */
+internal fun isPageOfRequestedServer(referer: Url, requestHost: String, requestPort: Int): Boolean {
+    return referer.host.equals(requestHost, ignoreCase = true) && referer.port == requestPort
 }

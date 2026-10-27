@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.data.licenses
 
+import dev.ja.marketplace.data.format.Formatters
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.PluginReleaseDate
 import dev.ja.marketplace.data.*
@@ -204,8 +205,8 @@ class LicenseTable(
                     values = mapOf(
                         columnAmount to amountTracker.totalAmount,
                         columnLicenseId to (if (licenseCount == 0) NoValue else listOfNotNull(
-                            "$activeLicenseCount active".takeIf { supportedChurnStyling && statusFilter != LicenseStatus.Churned },
-                            "$licenseCount total"
+                            "${Formatters.formatInteger(activeLicenseCount)} active".takeIf { supportedChurnStyling && statusFilter != LicenseStatus.Churned },
+                            "${Formatters.formatInteger(licenseCount)} total"
                         ))
                     ),
                 )

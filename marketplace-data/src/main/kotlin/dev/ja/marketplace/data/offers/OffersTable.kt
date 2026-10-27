@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.data.offers
 
+import dev.ja.marketplace.data.format.Formatters
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.client.PluginId
@@ -324,7 +325,7 @@ class OffersTable(
         return when (count) {
             0 -> null
             1 -> "1 license with a discount of 100 % or an unknown percent isn't included"
-            else -> "$count licenses with a discount of 100 % or an unknown percent aren't included"
+            else -> "${Formatters.formatInteger(count)} licenses with a discount of 100 % or an unknown percent aren't included"
         }
     }
 

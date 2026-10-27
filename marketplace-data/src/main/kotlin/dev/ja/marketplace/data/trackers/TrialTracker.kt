@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.data.trackers
 
+import dev.ja.marketplace.data.format.Formatters
 import dev.ja.marketplace.client.CustomerId
 import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.YearMonthDay
@@ -48,12 +49,13 @@ data class TrialTrackerInfo(
         }
 
     fun getTooltipConverted(maxConversionDays: Int? = null): String {
+        val trials = "${Formatters.formatInteger(convertedTrialsCount)} trials of ${Formatters.formatInteger(totalTrials)}"
         val converted = when {
-            maxConversionDays == null -> "$convertedTrialsCount trials of $totalTrials converted ($convertedTrialsPercentage)"
-            else -> "$convertedTrialsCount trials of $totalTrials converted within $maxConversionDays days ($convertedTrialsPercentage)"
+            maxConversionDays == null -> "$trials converted ($convertedTrialsPercentage)"
+            else -> "$trials converted within $maxConversionDays days ($convertedTrialsPercentage)"
         }
         return when {
-            pendingTrials > 0 -> "$converted, $pendingTrials trials can still convert"
+            pendingTrials > 0 -> "$converted, ${Formatters.formatInteger(pendingTrials)} trials can still convert"
             else -> converted
         }
     }

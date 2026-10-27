@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.data.customers
 
+import dev.ja.marketplace.data.format.Formatters
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.CustomerInfo
 import dev.ja.marketplace.data.*
@@ -181,7 +182,7 @@ class CustomerTable(
 
         val footer = SimpleRowGroup(
             SimpleDateTableRow(
-                columnName to "${displayedCustomers.size} customers",
+                columnName to "${Formatters.formatInteger(displayedCustomers.size)} customers",
                 // a license of several customers, e.g. after a transfer, is counted once
                 columnTotalLicenses to displayedCustomers.flatMapTo(HashSet()) { it.totalLicenses }.size.toBigInteger(),
                 columnActiveLicenses to displayedCustomers.flatMapTo(HashSet()) { it.activeLicenses }.size.toBigInteger(),

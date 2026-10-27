@@ -48,6 +48,14 @@ object Formatters {
         return integerFormat.get().format(value)
     }
 
+    /** @return The number with the grouping of the locale, e.g. for texts like `4,155 customers`. */
+    fun formatInteger(value: Long): String {
+        return integerFormat.get().format(value)
+    }
+
+    /** @see formatInteger */
+    fun formatInteger(value: Int): String = formatInteger(value.toLong())
+
     /** Same output as `String.format("%,.2f %%", value)`, with a thin space before the percent sign. */
     fun formatPercentage(value: BigDecimal): String {
         return formatDecimal(value) + "\u2009%"

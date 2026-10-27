@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.data.subscriptions
 
+import dev.ja.marketplace.data.format.Formatters
 import dev.ja.marketplace.data.ChartPeriod
 import dev.ja.marketplace.data.DataTableColumn
 import dev.ja.marketplace.data.DataTableSection
@@ -60,7 +61,7 @@ class CohortRetentionTable : RecurringRevenueTable("Cohorts", "customer-cohorts"
                 val column = anniversaryColumns[index]
                 val retention = anniversary.customerRetention
                 values[column] = retention?.let { if (anniversary.isIncomplete) IncompleteValue(it) else it }
-                tooltips[column] = "${anniversary.retainedCustomers} of ${anniversary.customers} customers, " +
+                tooltips[column] = "${Formatters.formatInteger(anniversary.retainedCustomers)} of ${Formatters.formatInteger(anniversary.customers)} customers, " +
                         "MRR: ${anniversary.revenueRetention ?: NoValue} of the initial MRR"
             }
             SimpleDateTableRow(values, tooltips)

@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.data.topCountries
 
+import dev.ja.marketplace.data.format.Formatters
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.model.PluginSale
@@ -53,7 +54,7 @@ class TopCountriesTable(
     private fun CountryChurn.Result.sortValue(): Long = churnRate?.value?.movePointRight(2)?.toLong() ?: -1L
 
     private fun CountryChurn.Result.tooltip(): String? {
-        return if (previouslyActive == 0) null else "$churned of $previouslyActive licenses churned"
+        return if (previouslyActive == 0) null else "${Formatters.formatInteger(churned)} of ${Formatters.formatInteger(previouslyActive)} licenses churned"
     }
 
     private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
@@ -197,7 +198,7 @@ class TopCountriesTable(
                 footer = when {
                     maxItems != null -> SimpleTableSection(
                         SimpleDateTableRow(
-                            columnCountry to "${countries.size} countries",
+                            columnCountry to "${Formatters.formatInteger(countries.size)} countries",
                             columnSales to totalSalesAmount,
                         )
                     )
@@ -206,7 +207,7 @@ class TopCountriesTable(
                         SimpleDateTableRow(
                             values = mapOf(
                                 columnCountry to listOf(
-                                    "${countries.size} countries",
+                                    "${Formatters.formatInteger(countries.size)} countries",
                                     "$countriesWithSales with sales",
                                     "$countriesWithTrials with trials",
                                 ),

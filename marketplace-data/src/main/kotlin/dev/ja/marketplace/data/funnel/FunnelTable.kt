@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.data.funnel
 
+import dev.ja.marketplace.data.format.Formatters
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.*
@@ -68,7 +69,7 @@ class FunnelTable(
 
         val footer = SimpleRowGroup(
             SimpleDateTableRow(
-                customerColumn to "${trialResult.convertedTrialsCount} converted trials"
+                customerColumn to "${Formatters.formatInteger(trialResult.convertedTrialsCount)} converted trials"
             )
         )
 

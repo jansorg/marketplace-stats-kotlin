@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.data.topTrialCountries
 
+import dev.ja.marketplace.data.format.Formatters
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.model.PluginSale
@@ -124,7 +125,7 @@ class TopTrialCountriesTable(
                 footer = SimpleTableSection(
                     SimpleDateTableRow(
                         values = mapOf(
-                            columnCountry to "${countryToTrialCount.size} countries",
+                            columnCountry to "${Formatters.formatInteger(countryToTrialCount.size)} countries",
                             columnTrialCount to countryToTrialCount.values.sum().toBigInteger(),
                             columnTrialConversionRate to trialsTrialDuration.convertedTrialsPercentage,
                         ),

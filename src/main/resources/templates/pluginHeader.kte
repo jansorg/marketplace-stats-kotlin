@@ -50,5 +50,5 @@
 <div class="subtitle plugin-stats">
     <span>@template.render(today)</span>
     <span>↓ @template.render(plugin.downloads.toBigInteger()) downloads</span>
-    <span title="${rating.votesCount} ratings">★ @template.render(rating.calculatedRatingValue)</span>
+    <span title="${dev.ja.marketplace.data.format.Formatters.formatInteger(rating.votesCount)} ratings">★ @template.render(rating.calculatedRatingValue)</span>
 </div>

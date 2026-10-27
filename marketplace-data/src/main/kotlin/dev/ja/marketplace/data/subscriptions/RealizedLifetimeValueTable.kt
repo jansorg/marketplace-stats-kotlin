@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.data.subscriptions
 
+import dev.ja.marketplace.data.format.Formatters
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.data.ChartPeriod
 import dev.ja.marketplace.data.DataTableColumn
@@ -62,10 +63,10 @@ class RealizedLifetimeValueTable : RecurringRevenueTable(
                 val column = yearColumns[index]
                 val average = revenue.toAmount(year.averageAmount)
                 values[column] = if (year.isIncomplete) IncompleteValue(average) else average
-                val total = revenue.toAmount(year.totalAmount)
+                val total = Formatters.MonetaryAmount.format(revenue.toAmount(year.totalAmount))
                 tooltips[column] = when (year.customers) {
                     cohort.customers -> "$total paid in total"
-                    else -> "$total paid by ${year.customers} of ${cohort.customers} customers, " +
+                    else -> "$total paid by ${Formatters.formatInteger(year.customers)} of ${Formatters.formatInteger(cohort.customers)} customers, " +
                             "whose first ${year.years} ${if (year.years == 1) "year" else "years"} ended"
                 }
             }
