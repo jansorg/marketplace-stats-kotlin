@@ -8,6 +8,17 @@
  */
 
 /**
+ * Touch screens and pens have no hover: a tap on an item with a submenu opens the submenu, instead of running the
+ * action of the item, e.g. on an iPad. A mouse and the keyboard (no pointer) run the action.
+ *
+ * @param {string|null} pointerType The `pointerType` of the `pointerdown` before the click, `null` without one.
+ * @return {boolean} If the click on an item with a submenu opens the submenu.
+ */
+export function clickOpensSubmenu(pointerType) {
+    return pointerType === "touch" || pointerType === "pen";
+}
+
+/**
  * A mouse opens the menu on hover. A click on the summary keeps it open until the next click, on the summary or
  * outside of the menu. Touch devices and keyboards open it with a tap or Enter on the summary.
  */
