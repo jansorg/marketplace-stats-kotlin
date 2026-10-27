@@ -5,6 +5,8 @@
 
 package dev.ja.marketplace.data.format
 
+import com.github.benmanes.caffeine.cache.Cache
+import com.github.benmanes.caffeine.cache.Caffeine
 import org.javamoney.moneta.format.AmountFormatParams
 import org.javamoney.moneta.format.CurrencyStyle
 import java.math.BigDecimal
@@ -14,7 +16,6 @@ import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.text.NumberFormat
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 import javax.money.MonetaryAmount
 import javax.money.format.AmountFormatQueryBuilder
 import javax.money.format.MonetaryAmountFormat
@@ -25,24 +26,25 @@ object Formatters {
 
     /**
      * The formatted amounts by amount, see [formatAmount]. The same amounts occur many times, e.g. the prices of the
-     * 35,000 licenses of a list, the format of Moneta allocates much memory for each call.
+     * 35,000 licenses of a list, the format of Moneta allocates much memory for each call. Amounts converted with the
+     * exchange rate of each day are mostly unique, the cache keeps the frequent amounts (W-TinyLFU of Caffeine).
      */
-    private val formattedAmounts = ConcurrentHashMap<MonetaryAmount, String>()
+    private val formattedAmounts: Cache<MonetaryAmount, String> = Caffeine.newBuilder()
+        .maximumSize(MAX_CACHED_AMOUNTS)
+        .build()
 
     /**
      * @return The amount with the format of [MonetaryAmount], e.g. `1,234.50 USD`. The results are cached by the
-     *  amount, at most [MAX_CACHED_AMOUNTS] of them, the other amounts are formatted on each call.
+     *  amount, the [MAX_CACHED_AMOUNTS] most frequent ones.
      */
     fun formatAmount(amount: MonetaryAmount): String {
-        formattedAmounts[amount]?.let { return it }
+        formattedAmounts.getIfPresent(amount)?.let { return it }
         val formatted = MonetaryAmount.format(amount)
-        if (formattedAmounts.size < MAX_CACHED_AMOUNTS) {
-            formattedAmounts.putIfAbsent(amount, formatted)
-        }
+        formattedAmounts.put(amount, formatted)
         return formatted
     }
 
-    private const val MAX_CACHED_AMOUNTS = 100_000
+    private const val MAX_CACHED_AMOUNTS = 20_000L
 
     private val numberLocale = Locale.getDefault(Locale.Category.FORMAT)
 
