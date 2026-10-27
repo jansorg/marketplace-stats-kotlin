@@ -297,8 +297,7 @@ queries, and one which excludes all these tags. The results are in the order of 
   series of metrics are restored on all its pages, the other series and the pie charts on its pages with the same
   tables. Values are never stored. "Remove all charts" (the trash icon) resets the whole setup of the plugin
   (`emptySetup`), e.g. the styles, the levels and the range, the setups of other plugins are unchanged. The setup of
-  `marketplace-stats.charts`, which all plugins shared before, is only read: it's the initial setup of a plugin
-  without its own setup. After "Remove all charts", a plugin has its own empty setup.
+  `marketplace-stats.charts`, which all plugins shared before, is ignored.
 - "Bookmark this view" of the Export menu writes the setup into the fragment of the address (`#charts=<base64url JSON>`,
   `encodeView`/`decodeView` in `storage.js`) and copies the address. Opening it replaces the stored setup of the
   plugin of the page with the view, opens the dialog and removes the fragment. Changing the charts also removes it.

@@ -8,10 +8,7 @@
  * Only the selected columns and the options are stored, never the values of the tables.
  */
 
-/**
- * The key of the setup, which was shared by all plugins. Each plugin and the summary of all plugins now have their own
- * setup (see {@link setupStorageKey}). This setup is only read: it's the initial setup of a plugin without its own setup.
- */
+/** The prefix of the keys of the setups in the local storage, see {@link setupStorageKey}. */
 export const STORAGE_KEY = "marketplace-stats.charts";
 
 /**
@@ -199,13 +196,10 @@ export function decodeView(fragment) {
 export function createSetupStorage(storage, pluginId = null) {
     const key = setupStorageKey(pluginId);
     return {
-        /**
-         * @return {ChartSetup} The stored setup of the plugin. Without one, the setup, which was shared by all plugins
-         *  before each plugin had its own setup, or else an empty setup. An invalid setup is an empty setup.
-         */
+        /** @return {ChartSetup} The stored setup of the plugin, an empty setup if there's none or it's invalid. */
         load() {
             try {
-                const stored = storage?.getItem(key) ?? storage?.getItem(STORAGE_KEY) ?? null;
+                const stored = storage?.getItem(key) ?? null;
                 return parseSetup(JSON.parse(stored ?? "null")) ?? emptySetup();
             } catch (e) {
                 // invalid data or a storage, which can't be accessed
