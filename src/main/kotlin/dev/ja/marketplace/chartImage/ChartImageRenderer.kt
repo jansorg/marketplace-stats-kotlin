@@ -124,14 +124,17 @@ object ChartImageRenderer {
         fun barBase(unit: String): Double = if (ranges.getValue(unit).log) bottom else y(0.0, unit)
     }
 
-    internal fun draw(chart: ChartImage, canvas: ChartCanvas, width: Double, height: Double) {
-        canvas.fill(Rectangle2D.Double(0.0, 0.0, width, height), ChartColor.Surface)
+    internal fun draw(image: ChartImage, canvas: ChartCanvas, width: Double, height: Double) {
+        // the series have the colors of the theme
+        val chart = image.withThemeColors()
+        val theme = chart.theme
+        canvas.fill(Rectangle2D.Double(0.0, 0.0, width, height), theme.surface)
 
         var top = PADDING
-        canvas.text(chart.title, PADDING, top + TITLE_SIZE, TITLE_SIZE, ChartColor.Text, bold = true)
+        canvas.text(chart.title, PADDING, top + TITLE_SIZE, TITLE_SIZE, theme.text, bold = true)
         top += TITLE_SIZE + 8
         if (!chart.subtitle.isNullOrBlank()) {
-            canvas.text(chart.subtitle, PADDING, top + TEXT_SIZE, TEXT_SIZE, ChartColor.Axis)
+            canvas.text(chart.subtitle, PADDING, top + TEXT_SIZE, TEXT_SIZE, theme.axis)
             top += TEXT_SIZE + 8
         }
 
@@ -179,7 +182,7 @@ object ChartImageRenderer {
         val plot = Plot(plotLeft, plotTop, plotRight, plotBottom, if (start == end) start - 0.5 else start, if (start == end) end + 0.5 else end, ranges)
 
         drawAxes(chart, canvas, plot, tickLabels, width)
-        drawMarkers(canvas, plot, markers, width)
+        drawMarkers(canvas, plot, markers, width, theme)
 
         canvas.clip(plot.bounds) {
             drawBars(chart, canvas, plot, visible)
@@ -191,13 +194,13 @@ object ChartImageRenderer {
                         canvas.stroke(linePath(plot, series.unit, visible[index]), series.color.withAlpha(PREVIOUS_YEAR_ALPHA), OVERLAY_WIDTH)
                     }
 
-                    series.kind == ChartSeriesKind.Values -> drawLine(canvas, plot, series, visible[index], null)
+                    series.kind == ChartSeriesKind.Values -> drawLine(canvas, plot, series, visible[index], null, theme)
                 }
             }
             // the moving averages are above the values, e.g. above bars
             chart.series.forEachIndexed { index, series ->
                 if (series.kind == ChartSeriesKind.Average) {
-                    drawLine(canvas, plot, series, visible[index], if (hasValues) averageDashes[series.averageMonths] else null)
+                    drawLine(canvas, plot, series, visible[index], if (hasValues) averageDashes[series.averageMonths] else null, theme)
                 }
             }
         }
@@ -207,7 +210,7 @@ object ChartImageRenderer {
         canvas.clip(Rectangle2D.Double(plot.left - margin, plot.top - margin, plot.width + 2 * margin, plot.height + 2 * margin)) {
             chart.series.forEachIndexed { index, series ->
                 if (series.kind == ChartSeriesKind.Values && !series.isBar && visible[index].size <= MAX_POINTS_SHOWN) {
-                    drawPoints(canvas, plot, series, visible[index])
+                    drawPoints(canvas, plot, series, visible[index], theme)
                 }
             }
         }
@@ -215,7 +218,7 @@ object ChartImageRenderer {
         if (chart.extremes.isNotEmpty()) {
             drawExtremes(chart, canvas, plot, visible)
         }
-        drawLegend(canvas, legendRows, legendTop)
+        drawLegend(canvas, legendRows, legendTop, theme)
     }
 
     private fun drawAxes(chart: ChartImage, canvas: ChartCanvas, plot: Plot, tickLabels: Map<String, List<String>>, width: Double) {
@@ -225,25 +228,25 @@ object ChartImageRenderer {
             range.ticks.forEachIndexed { index, tick ->
                 val y = plot.y(tick, unit)
                 if (axis == 0) {
-                    canvas.stroke(Line2D.Double(plot.left, y, plot.right, y), ChartColor.Grid, 1.0)
+                    canvas.stroke(Line2D.Double(plot.left, y, plot.right, y), chart.theme.grid, 1.0)
                 }
                 val label = tickLabels.getValue(unit)[index]
                 if (label.isNotEmpty()) {
                     when (axis) {
-                        0 -> canvas.text(label, plot.left - 6, y + 4, TEXT_SIZE, ChartColor.Axis, TextAnchor.End)
-                        else -> canvas.text(label, plot.right + 6, y + 4, TEXT_SIZE, ChartColor.Axis)
+                        0 -> canvas.text(label, plot.left - 6, y + 4, TEXT_SIZE, chart.theme.axis, TextAnchor.End)
+                        else -> canvas.text(label, plot.right + 6, y + 4, TEXT_SIZE, chart.theme.axis)
                     }
                 }
             }
             val title = ChartAxes.unitTitle(unit)
             val centerY = (plot.top + plot.bottom) / 2
             when (axis) {
-                0 -> canvas.text(title, PADDING + TEXT_SIZE, centerY, TEXT_SIZE, ChartColor.Axis, TextAnchor.Middle, rotated = true)
-                else -> canvas.text(title, width - PADDING, centerY, TEXT_SIZE, ChartColor.Axis, TextAnchor.Middle, rotated = true)
+                0 -> canvas.text(title, PADDING + TEXT_SIZE, centerY, TEXT_SIZE, chart.theme.axis, TextAnchor.Middle, rotated = true)
+                else -> canvas.text(title, width - PADDING, centerY, TEXT_SIZE, chart.theme.axis, TextAnchor.Middle, rotated = true)
             }
         }
         if (chart.units.isEmpty()) {
-            canvas.stroke(Line2D.Double(plot.left, plot.bottom, plot.right, plot.bottom), ChartColor.Grid, 1.0)
+            canvas.stroke(Line2D.Double(plot.left, plot.bottom, plot.right, plot.bottom), chart.theme.grid, 1.0)
         }
 
         val lastValue = chart.series.filter { it.kind == ChartSeriesKind.Values }.flatMap(ChartImageSeries::points).maxOfOrNull(ChartPoint::date)
@@ -252,26 +255,26 @@ object ChartImageRenderer {
         var lastLabelEnd = Double.NEGATIVE_INFINITY
         for (tick in ticks) {
             val x = plot.x(tick.date)
-            canvas.stroke(Line2D.Double(x, plot.top, x, plot.bottom), ChartColor.Grid, 1.0)
+            canvas.stroke(Line2D.Double(x, plot.top, x, plot.bottom), chart.theme.grid, 1.0)
             val labelWidth = ChartFonts.width(tick.label, TEXT_SIZE)
             val center = x.coerceIn(labelWidth / 2 + 2, width - labelWidth / 2 - 2)
             if (center - labelWidth / 2 > lastLabelEnd + 8) {
-                canvas.text(tick.label, center, plot.bottom + 6 + TEXT_SIZE, TEXT_SIZE, ChartColor.Axis, TextAnchor.Middle)
+                canvas.text(tick.label, center, plot.bottom + 6 + TEXT_SIZE, TEXT_SIZE, chart.theme.axis, TextAnchor.Middle)
                 lastLabelEnd = center + labelWidth / 2
             }
         }
     }
 
-    private fun drawMarkers(canvas: ChartCanvas, plot: Plot, markers: List<ChartMarker>, width: Double) {
+    private fun drawMarkers(canvas: ChartCanvas, plot: Plot, markers: List<ChartMarker>, width: Double, theme: ChartTheme) {
         var lastLabelEnd = Double.NEGATIVE_INFINITY
         for (marker in markers) {
             val x = plot.x(marker.date)
-            canvas.stroke(Line2D.Double(x, plot.top, x, plot.bottom), marker.kind.color, MARKER_WIDTH, marker.kind.dash)
+            canvas.stroke(Line2D.Double(x, plot.top, x, plot.bottom), theme.markerColor(marker.kind), MARKER_WIDTH, marker.kind.dash)
             // labels, which would overlap the previous label, are left out
             val labelWidth = ChartFonts.width(marker.label, MARKER_LABEL_SIZE)
             val center = x.coerceIn(labelWidth / 2, width - labelWidth / 2)
             if (center - labelWidth / 2 > lastLabelEnd + 6) {
-                canvas.text(marker.label, center, plot.top - 4, MARKER_LABEL_SIZE, ChartColor.Axis, TextAnchor.Middle)
+                canvas.text(marker.label, center, plot.top - 4, MARKER_LABEL_SIZE, theme.axis, TextAnchor.Middle)
                 lastLabelEnd = center + labelWidth / 2
             }
         }
@@ -298,7 +301,7 @@ object ChartImageRenderer {
      * Draws the line of the complete values and the dotted line to the incomplete values, which starts at the last
      * complete value.
      */
-    private fun drawLine(canvas: ChartCanvas, plot: Plot, series: ChartImageSeries, points: List<ChartPoint>, dash: List<Double>?) {
+    private fun drawLine(canvas: ChartCanvas, plot: Plot, series: ChartImageSeries, points: List<ChartPoint>, dash: List<Double>?, theme: ChartTheme) {
         val firstIncomplete = points.indexOfFirst(ChartPoint::isIncomplete).takeIf { it >= 0 } ?: points.size
         val complete = points.subList(0, firstIncomplete)
         if (complete.size > 1) {
@@ -306,17 +309,17 @@ object ChartImageRenderer {
         }
         val incomplete = points.subList(max(0, firstIncomplete - 1), points.size)
         if (firstIncomplete < points.size && incomplete.size > 1) {
-            canvas.stroke(linePath(plot, series.unit, incomplete), series.color.incomplete(), LINE_WIDTH, dottedDash, roundCap = true)
+            canvas.stroke(linePath(plot, series.unit, incomplete), theme.incomplete(series.color), LINE_WIDTH, dottedDash, roundCap = true)
         }
     }
 
-    private fun drawPoints(canvas: ChartCanvas, plot: Plot, series: ChartImageSeries, points: List<ChartPoint>) {
+    private fun drawPoints(canvas: ChartCanvas, plot: Plot, series: ChartImageSeries, points: List<ChartPoint>, theme: ChartTheme) {
         for (point in points.filter { plot.isDrawn(it.value, series.unit) }) {
             val x = plot.x(point.date)
             val y = plot.y(point.value, series.unit)
-            canvas.fill(circle(x, y, POINT_RADIUS + POINT_RING), ChartColor.Surface)
+            canvas.fill(circle(x, y, POINT_RADIUS + POINT_RING), theme.surface)
             when {
-                point.isIncomplete -> canvas.stroke(circle(x, y, POINT_RADIUS - 0.5), series.color.incomplete(), 1.5)
+                point.isIncomplete -> canvas.stroke(circle(x, y, POINT_RADIUS - 0.5), theme.incomplete(series.color), 1.5)
                 point.isPartial -> canvas.stroke(circle(x, y, POINT_RADIUS - 0.5), series.color, 1.5)
                 else -> canvas.fill(circle(x, y, POINT_RADIUS), series.color)
             }
@@ -352,7 +355,7 @@ object ChartImageRenderer {
                 val shape = barShape(x, barWidth, base, end)
                 when {
                     point.isIncomplete -> {
-                        val color = series.color.incomplete()
+                        val color = chart.theme.incomplete(series.color)
                         canvas.clip(shape.bounds2D) {
                             var stripe = -abs(end - base)
                             while (stripe < barWidth) {
@@ -419,7 +422,7 @@ object ChartImageRenderer {
                     val above = extreme == ChartExtreme.Max || series.isBar
                     val baseline = (if (above) y - 10 else y + 10 + size).coerceIn(plot.top + size + 2, plot.bottom - 4)
                     // a background keeps the label readable on lines, bars and the grid
-                    canvas.fill(RoundRectangle2D.Double(center - labelWidth / 2 - 3, baseline - size - 1, labelWidth + 6, size + 5, 4.0, 4.0), ChartColor.Surface.withAlpha(217))
+                    canvas.fill(RoundRectangle2D.Double(center - labelWidth / 2 - 3, baseline - size - 1, labelWidth + 6, size + 5, 4.0, 4.0), chart.theme.surface.withAlpha(217))
                     canvas.text(label, center, baseline, size, series.color, TextAnchor.Middle, bold = true)
                 }
             }
@@ -447,10 +450,10 @@ object ChartImageRenderer {
                 incompleteBars -> LegendShape.Stripes
                 else -> LegendShape.Dotted
             }
-            entries += LegendEntry("Incomplete values", ChartColor.IncompleteGrey, shape)
+            entries += LegendEntry("Incomplete values", chart.theme.incompleteGrey, shape)
         }
         markers.map(ChartMarker::kind).distinct().sorted().forEach { kind ->
-            entries += LegendEntry(kind.label, kind.color, LegendShape.Marker, kind.dash)
+            entries += LegendEntry(kind.label, chart.theme.markerColor(kind), LegendShape.Marker, kind.dash)
         }
         return entries
     }
@@ -471,13 +474,13 @@ object ChartImageRenderer {
         return rows
     }
 
-    private fun drawLegend(canvas: ChartCanvas, rows: List<List<LegendEntry>>, top: Double) {
+    private fun drawLegend(canvas: ChartCanvas, rows: List<List<LegendEntry>>, top: Double, theme: ChartTheme) {
         rows.forEachIndexed { rowIndex, row ->
             val centerY = top + rowIndex * ROW_HEIGHT + ROW_HEIGHT / 2
             var x = PADDING
             for (entry in row) {
                 drawSwatch(canvas, entry, x, centerY)
-                canvas.text(entry.label, x + entry.swatchWidth + SWATCH_GAP, centerY + 4, TEXT_SIZE, ChartColor.Text)
+                canvas.text(entry.label, x + entry.swatchWidth + SWATCH_GAP, centerY + 4, TEXT_SIZE, theme.text)
                 x += entry.width + ENTRY_GAP
             }
         }
