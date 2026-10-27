@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.50.0
+
+- Charts:
+  - The open chart dialog loads the values of the metrics again every 5 minutes while the page is visible, also when
+    the dialog is opened or the tab is shown again later. The charts are only drawn again if the values changed.
+  - A vertical line marks the date, at which a plugin disabled the continuity discount ("Continuity discount" of the
+    menu "Events").
+- MCP: `create_chart` has the marker `continuity`.
+- Marketplace client:
+  - `userVendors` loads the vendors of a user, e.g. organizations and the personal vendor.
+  - `reviewReplies` loads the replies of a review comment, it passed the ID of the plugin before and loaded the
+    replies of an unrelated comment.
+  - New values of the licensing type of a plugin, of the programs of the Marketplace and of the types of the releases
+    of JetBrains products don't fail the requests anymore, they're decoded as `Unknown`.
+
 ## 0.49.0
 
 - Pages:
