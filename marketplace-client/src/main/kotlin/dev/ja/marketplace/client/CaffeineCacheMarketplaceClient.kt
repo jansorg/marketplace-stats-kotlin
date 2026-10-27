@@ -496,9 +496,9 @@ class CaffeineCacheMarketplaceClient(
         }
     }
 
-    override suspend fun reviewReplies(plugin: PluginId): List<PluginReviewComment> {
-        return loadCached("reviewReplies.$plugin", Category.Recent) {
-            super.reviewReplies(plugin)
+    override suspend fun reviewReplies(comment: PluginReviewId): List<PluginReviewComment> {
+        return loadCached("reviewReplies.$comment", Category.Recent) {
+            super.reviewReplies(comment)
         }
     }
 
