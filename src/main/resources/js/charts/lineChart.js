@@ -33,8 +33,15 @@ export const CHART_THEMES = {
     },
 };
 
-/** @return {"light"|"dark"} The theme of new charts, the color scheme of the browser. */
+/**
+ * @return {"light"|"dark"} The theme of new charts, the theme of the page (data-theme of <html>, see themeScript.kte),
+ *  without it the color scheme of the browser.
+ */
 export function preferredChartTheme() {
+    const theme = document.documentElement.dataset.theme;
+    if (theme === "light" || theme === "dark") {
+        return theme;
+    }
     return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 

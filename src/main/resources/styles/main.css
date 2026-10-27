@@ -12,7 +12,7 @@
  */
 /* printed pages always use the light colors, see the dark mode below */
 :root {
-    color-scheme: light dark;
+    color-scheme: light;
 
     --page-bgcolor: #f5f5f2;
     --surface-color: #fdfdfc;
@@ -62,8 +62,11 @@
     }
 }
 
-@media screen and (prefers-color-scheme: dark) {
-    :root {
+/* The dark mode: the theme of the footer (themeScript.kte, data-theme of <html>), "Auto" follows the color scheme
+   of the browser. Without JavaScript, the pages are light. */
+@media screen {
+    :root[data-theme="dark"] {
+        color-scheme: dark;
         --page-bgcolor: #121217;
         --surface-color: #1b1b21;
         --raised-surface-color: #24242b;
@@ -149,8 +152,8 @@ html {
     }
 }
 
-@media screen and (prefers-color-scheme: dark) {
-    html {
+@media screen {
+    html[data-theme="dark"] {
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
     }
@@ -351,6 +354,22 @@ button {
 
 .site-footer-button:hover {
     text-decoration: underline;
+}
+
+/* the theme of the pages, see themeScript.kte */
+.site-footer-theme {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+}
+
+.site-footer-theme select {
+    font: inherit;
+    color: var(--text-color);
+    background-color: var(--surface-color);
+    border: 1px solid var(--separator-light-color);
+    border-radius: 4px;
+    padding: 0 0.2em;
 }
 
 /* the icon shows that the button is an action, not a link */
