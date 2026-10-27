@@ -127,7 +127,7 @@ queries, and one which excludes all these tags. The results are in the order of 
   loaded lazily on the first request for a plugin and then cached in memory, so the first page load for a plugin is slow.
   For testing, prefer a plugin with few sales, because plugins with a long sales history take much longer to load.
 - Useful routes: `/` (plugin list with the summary of all paid plugins, `--no-all-plugins-summary` disables it, or report with `?pluginId=<id>`), `/licenses`, `/customers`, `/trials`, `/countries`,
-  `/pricing`, `/downloads/monthly`, `/chart-data` (JSON), `/chart-export` (CSV or JSON of the lines of a chart, see "Charts"), all with `?pluginId=<id>`. `POST /refresh?pluginId=<id>&reload=true` drops cached data.
+  `/pricing`, `/offers` (see "Offers"), `/downloads/monthly`, `/chart-data` (JSON), `/chart-export` (CSV or JSON of the lines of a chart, see "Charts"), all with `?pluginId=<id>`. `POST /refresh?pluginId=<id>&reload=true` drops cached data.
   See the routing in `MarketplaceStatsServer.kt`.
 - The MCP server is served at `/mcp` (Streamable HTTP, `src/main/kotlin/dev/ja/marketplace/mcp/`, see README.md).
   Tools return JSON (`McpToolDefinition.call`), tools with images also a `McpToolResult` with `McpContent`
@@ -181,6 +181,47 @@ queries, and one which excludes all these tags. The results are in the order of 
   background updates of the stored history), the values are compared by identity and then by content.
 - Data, which a table loads while it's calculated, isn't part of the version. Such pages pass `cacheTables = false`,
   e.g. the pricing page, whose table loads the prices. New data of `PluginData` must be added to `dataVersion()`.
+
+## Offers
+
+- The page `/offers` (`OffersTable`, `marketplace-data/.../data/offers/`) has two tables: "Marketplace" (the discounts
+  of the Marketplace without dates: the continuity discounts of renewals, `OfferUsages.continuityDiscounts`, and the
+  specials, `OfferUsages.marketplaceSpecials`: the student, graduation, startup, developer recognition, educational,
+  non-profit, open source and subscription volume discounts, `OfferDiscounts.isMarketplaceSpecial`, by the name of the
+  offer or the description of the discount, offers of the plugin with such a name stay offers; the names of the
+  specials contain their percents) and "Offers" with the sections "Active" (offers, which haven't ended and have an
+  active coupon, and the other offers and discounts, which were used in the last 90 days,
+  `OffersTable.RECENT_USE_DAYS`) and "Inactive" (the other offers of the plugin, also if they were used recently, e.g.
+  an offer with an end date in the past, and the other offers and discounts, which weren't used recently). The
+  sections share the widths of the columns, like the years of the overview, the table isn't sortable, because the
+  header rows of the sections would be sorted. With a single section, the table has the title of the section. The rows
+  are sorted by their latest use. The tables load the offers and their coupons with the client while they're
+  calculated, so the page passes `cacheTables = false`. Empty tables are left out (`hideEmptyTables`).
+- The sales don't contain the ID of an offer. A discount described as `"<name>" offer` belongs to the offer with this
+  name (`OfferDiscounts.offerName`, `OfferUsages`), offers with the same name are told apart by their dates and
+  license periods. It's a heuristic: a renamed offer doesn't match its earlier sales. Offer discounts without an offer
+  of the plugin (e.g. offers of JetBrains like student discounts or deleted offers) and discounts without an offer are
+  other offers and discounts. Reseller discounts are ignored, they're internal discounts of the Marketplace and don't
+  reduce the amount paid to the developer.
+- The discount amount (column "Discount Amount", `OfferUsage.lost`) is derived from the paid amount of each license
+  and the percent of its discount in the sale (`paid * p / (100 - p)`, `OfferDiscounts.lostAmount`), not from the
+  percent of the offer, which may have changed for offers with the same name, and summed with `MonetaryAmountTracker`:
+  the price before this discount, after the other discounts, minus the paid amount. Free licenses (100 %) and
+  discounts without a percent have no lost amount, the API has no undiscounted amount.
+- The chart metrics `discount.<name of the discount as Base64 URL-safe without padding>` (`ChartMetric.discount`,
+  group "Discounts" of the "+" menu) are the discount amounts of the offers and discounts by their name in the sales:
+  the name of the offer, or the description of a discount without an offer (`OfferDiscounts.discountName`), calculated
+  like the column "Discount Amount". Each plugin has the metrics of the discounts of its sales with a discount amount,
+  they aren't part of `ChartMetric.all`, the summary of all plugins doesn't have them. The names of the rows with a
+  discount amount have a button, which adds the line of the discount to the charts, a click on the name, which is
+  marked like the labels of the columns with charts, too (`ChartMetricName`, rendered by `render.kte`,
+  `makeRowChartButtons` in `pageControls.js`, `showRowMetric` in `main.js`, with the window "Follow the level"),
+  instead of a chart of each row of a column. The MCP tool `get_offer_usage` returns the tables of the page and these
+  metrics (`chartMetrics`), `create_chart` accepts them.
+- The numbers of sales and customers link to `/licenses` and `/customers` with the filter `offer=<id>`,
+  `otherOffer=<name>` or `discount=<description>` (`LinkedOfferUsage`, `OfferUsageKey`), which list the licenses and
+  customers with the discount. The links limit the rows (`rows=500`, `OfferUsageList.DEFAULT_ROWS`), "Show all rows…"
+  (`POST /refresh`) keeps the filter.
 
 ## Charts
 

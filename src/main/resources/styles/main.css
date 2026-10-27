@@ -949,7 +949,7 @@ tr.disabled a:hover {
 }
 
 .desc {
-    font-size: .8rem;
+    font-size: .9rem;
     max-width: 75ch;
     text-wrap: pretty;
 }
@@ -966,6 +966,40 @@ tr.disabled a:hover {
 
 .num, .month, .date {
     font-variant-numeric: tabular-nums lining-nums;
+    white-space: nowrap;
+}
+
+/* the button next to the name of a row, which shows a metric of the row in a chart, see ChartMetricName.
+   A small icon, not like the other buttons of the tables. */
+.table-card .chart-row-button {
+    margin-left: 0.4em;
+    padding: 0 0.15em;
+    border: none;
+    border-radius: 0;
+    background: none;
+    color: var(--link-color);
+    cursor: pointer;
+    vertical-align: -0.1em;
+    line-height: 1;
+}
+
+.table-card .chart-row-button svg {
+    width: 1em;
+    height: 1em;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.table-card .chart-row-button:hover, .table-card .chart-row-button:focus-visible {
+    background: none;
+    color: var(--link-color-active);
+}
+
+/* short texts, which must not wrap, e.g. the discounts of the offers */
+.nowrap {
     white-space: nowrap;
 }
 

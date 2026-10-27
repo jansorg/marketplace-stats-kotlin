@@ -98,7 +98,8 @@ class ChartData {
             // the shares of unknown customer types are no row of the table
             return values.metrics
                 .filterNot { it.id.endsWith(".${CustomerType.Unknown}") }
-                .sortedBy { ChartMetric.all.indexOf(it) }
+                // the discounts of the offers follow the other metrics
+                .sortedBy { ChartMetric.all.indexOf(it).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }
                 .map { metric ->
                     ChartMetricData(
                         metric.id, metric.title, metric.unit.id(values.currency), metric.measure.name.lowercase(), metric.usesWindow,

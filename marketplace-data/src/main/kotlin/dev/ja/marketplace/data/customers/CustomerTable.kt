@@ -12,6 +12,7 @@ import dev.ja.marketplace.data.licenses.LicensePurchases
 import dev.ja.marketplace.data.licenses.LicenseStatus
 import dev.ja.marketplace.data.trackers.MonetaryAmountTracker
 import dev.ja.marketplace.util.sortValue
+import dev.ja.marketplace.util.takeNullable
 import it.unimi.dsi.fastutil.ints.Int2ObjectLinkedOpenHashMap
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 
@@ -36,6 +37,10 @@ data class CustomerTableRowData(
  */
 class CustomerTable(
     private val nowDate: YearMonthDay = YearMonthDay.now(),
+    /** The maximum number of shown rows, all rows if it's `null`. The footer contains all customers. */
+    private val maxTableRows: Int? = null,
+    /** Only the customers, which match the filter, e.g. the customers of an offer, `null` for all customers. */
+    private val customerFilter: ((CustomerId) -> Boolean)? = null,
 ) : SimpleDataTable("Customers", cssClass = "table-column-wide sortable"), MarketplaceDataSink {
     private val columnValidSince = DataTableColumn("customer-since", "Since")
     // the rows are sorted by the end of the latest license, the sortable table shows its arrow
@@ -84,6 +89,9 @@ class CustomerTable(
             columnCountry,
             columnId
         )
+
+    override val isLimitedRendering: Boolean
+        get() = maxTableRows != null
 
     override suspend fun init(data: PluginData) {
         super.init(data)
@@ -135,10 +143,12 @@ class CustomerTable(
         var prevValidUntil: YearMonthDay? = null
         // customers with only perpetual licenses have no end, they're shown last
         val displayedCustomers = customerMap.values
+            .filter { customerFilter?.invoke(it.customer.code) ?: true }
             .sortedByDescending { it.totalSales.getTotalAmount().sortValue() }
             .sortedByDescending { it.latestLicenseEnd ?: YearMonthDay.MIN }
 
         val rows = displayedCustomers
+            .takeNullable(maxTableRows)
             .map { customerData ->
                 val customer = customerData.customer
                 val validSince = customerData.earliestLicenseStart!!
@@ -175,9 +185,15 @@ class CustomerTable(
                 // a license of several customers, e.g. after a transfer, is counted once
                 columnTotalLicenses to displayedCustomers.flatMapTo(HashSet()) { it.totalLicenses }.size.toBigInteger(),
                 columnActiveLicenses to displayedCustomers.flatMapTo(HashSet()) { it.activeLicenses }.size.toBigInteger(),
-                columnChurnedLicenses to allPurchases.licenseIds.count { allPurchases.status(it, nowDate) == LicenseStatus.Churned }.toBigInteger(),
+                columnChurnedLicenses to when (customerFilter) {
+                    null -> allPurchases.licenseIds.count { allPurchases.status(it, nowDate) == LicenseStatus.Churned }
+                    else -> displayedCustomers.flatMapTo(HashSet()) { it.subscriptionLicenses }.count { allPurchases.status(it, nowDate) == LicenseStatus.Churned }
+                }.toBigInteger(),
                 columnTransferredLicenses to displayedCustomers.sumOf { transferredLicenses(it) }.toBigInteger(),
-                columnSales to totalSales.getTotalAmount(),
+                columnSales to when (customerFilter) {
+                    null -> totalSales.getTotalAmount()
+                    else -> MonetaryAmountTracker(exchangeRates).also { sum -> displayedCustomers.forEach { sum.add(it.totalSales) } }.getTotalAmount()
+                },
             )
         )
 

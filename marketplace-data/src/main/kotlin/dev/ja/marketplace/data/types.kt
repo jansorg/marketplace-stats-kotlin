@@ -157,6 +157,18 @@ data class LinkedChurnRate(
     }
 }
 
+/**
+ * The name of a row with a button, which shows a metric of the row in a chart, e.g. the discount of an offer, instead
+ * of a chart of each row of a column.
+ *
+ * @param metric The ID of the metric, see [dev.ja.marketplace.data.chart.ChartMetric].
+ * @param title The title of the metric in the charts.
+ * @param unit The unit of the values, e.g. the currency code of amounts.
+ */
+data class ChartMetricName(val name: String, val metric: String, val title: String, val unit: String) {
+    override fun toString(): String = name
+}
+
 const val NoValue: String = "—"
 
 /** @return The country or [NoValue] for a customer without a country. */

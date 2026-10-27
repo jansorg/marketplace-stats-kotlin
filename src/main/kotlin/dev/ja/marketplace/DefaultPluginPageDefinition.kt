@@ -37,6 +37,8 @@ class DefaultPluginPageDefinition(
      * Tables, which load data when they're calculated, e.g. the prices, must not be cached.
      */
     private val cacheTables: Boolean = true,
+    /** If tables without rows are left out. If all tables are empty, the first one is shown. */
+    private val hideEmptyTables: Boolean = false,
 ) : PluginPageDefinition {
     /** The calculated tables by the plugin and the maximum number of rows. */
     private val tableCache = VersionedCache<Pair<PluginId, Int?>, List<RenderedDataTable>>()
@@ -99,6 +101,12 @@ class DefaultPluginPageDefinition(
             }
             .map(DataTable::renderTable)
             .toList()
+            .let { tables ->
+                when {
+                    hideEmptyTables -> tables.filterNot(RenderedDataTable::isEmpty).ifEmpty { tables.take(1) }
+                    else -> tables
+                }
+            }
     }
 
     private suspend fun loadMajorReleases(dataLoader: PluginDataLoader): List<MajorRelease> {

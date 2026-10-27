@@ -99,3 +99,31 @@ export function makeColumnClickable({header, type}, table, show) {
     });
     onActivationKey(target, show);
 }
+
+/**
+ * The buttons next to the names of rows show a metric of the row in a chart, e.g. the discount of an offer, see
+ * ChartMetricName. They're hidden without the charts. A click on the name shows the chart, too, the name is marked
+ * like the labels of the columns with charts.
+ *
+ * @param {(metric: {id: string, title: string, unit: string}) => void} show Shows the metric in a chart.
+ * @return {boolean} If the page has such buttons.
+ */
+export function makeRowChartButtons(show) {
+    const buttons = [...document.querySelectorAll("button[data-chart-row-metric]")];
+    for (const button of buttons) {
+        button.hidden = false;
+        const {chartRowMetric: id, chartRowTitle: title, chartRowUnit: unit} = button.dataset;
+        const showMetric = () => show({id, title, unit});
+        button.addEventListener("click", showMetric);
+        const name = button.previousElementSibling;
+        if (name?.classList.contains("chart-row-name")) {
+            name.classList.add("chartable");
+            name.tabIndex = 0;
+            name.setAttribute("role", "button");
+            name.title = button.title;
+            name.addEventListener("click", showMetric);
+            onActivationKey(name, showMetric);
+        }
+    }
+    return buttons.length > 0;
+}

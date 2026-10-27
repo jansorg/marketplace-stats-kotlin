@@ -1,6 +1,7 @@
 @import gg.jte.support.ForSupport
 @import java.math.BigDecimal
 @import java.math.BigInteger
+@import dev.ja.marketplace.data.ChartMetricName
 @import dev.ja.marketplace.data.ExpiredLicenseEnd
 @import dev.ja.marketplace.data.IncompleteValue
 @import dev.ja.marketplace.data.LinkedChurnRate
@@ -12,6 +13,7 @@
 @import dev.ja.marketplace.data.TransferredLicenseEnd
 @import dev.ja.marketplace.data.format.Formatters
 @import dev.ja.marketplace.data.licenses.FallbackVersion
+@import dev.ja.marketplace.data.offers.LinkedOfferUsage
 @import javax.money.MonetaryAmount
 
 @param value: Any?
@@ -35,4 +37,9 @@
 --%>@elseif(value is LinkedLicense)<a class="noprint" href="/license/${value.id}?pluginId=${value.pluginId}">${value.id}</a><%--
 --%>@elseif(value is LinkedRefNum)<a class="noprint" href="/refnum/${value.refNum}?pluginId=${value.pluginId}">${value.refNum}</a><%--
 --%>@elseif(value is LinkedChurnRate)<a href="/churn-rate/${value.periodLinkSegment}/${value.previousPeriodMarkerDate.toString()}/${value.currentPeriodMarkerDate.toString()}?pluginId=${value.pluginId}">@template.render(value.churnRate)</a><%--
+--%>@elseif(value is LinkedOfferUsage)<a href="${value.href}">${Formatters.formatInteger(value.count)}</a><%--
+--%>@elseif(value is ChartMetricName)<span class="chart-row-name">${value.name}</span><%--
+    the button is shown by the charts, see makeRowChartButtons in pageControls.js
+    --%><button type="button" class="chart-row-button noprint" hidden data-chart-row-metric="${value.metric}" data-chart-row-title="${value.title}" data-chart-row-unit="${value.unit}" title="Show ${value.title} in a chart" aria-label="Show ${value.title} in a chart"><%--
+    --%><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 13.5h12 M2.5 11l3.5-4 3 2.5 4.5-6"/></svg></button><%--
 --%>@else${value?.toString()}@endif

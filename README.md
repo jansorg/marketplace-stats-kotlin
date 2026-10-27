@@ -6,7 +6,7 @@ It is a web application: you start it on your computer or server and open the re
 
 Features:
 
-- Reports of sales, licenses, customers, trials, countries, subscriptions, resellers and prices
+- Reports of sales, licenses, customers, trials, countries, subscriptions, resellers, prices, and the usage of offers and discounts
 - Charts of the metrics of the tables, e.g. the sales of the last 12 months per day, with moving averages, vertical lines for releases and your own events
 - A summary of all your paid plugins
 - An optional cache on disk, so that restarts are fast
@@ -315,6 +315,7 @@ claude mcp add --transport http marketplace-stats http://localhost:8080/mcp
 | `get_pricing`                      | Current prices by country, customer type and license period, countries with the same prices are grouped |
 | `get_price_changes`                | Changes of the annual base price, derived from the sales                                                |
 | `list_offers`                      | Special offers with discount or free months and the number of their coupons, without the codes          |
+| `get_offer_usage`                  | Usage of offers and discounts (page Offers), metrics of the discount amounts of the offers              |
 | `get_exchange_rates`               | ECB exchange rates of a date, and the currencies supported by the `currency` argument                   |
 
 #### Downloads, reviews and visitors

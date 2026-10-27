@@ -462,6 +462,44 @@ class MarketplaceMcpRecordToolsTest {
     }
 
     @Test
+    suspend fun usageOfOffersAndDiscounts() {
+        fun sale(ref: String, date: YearMonthDay, amountUSD: Int, discount: PluginSaleItemDiscount): PluginSale {
+            val amount = FastMoney.of(amountUSD, MarketplaceCurrencies.USD)
+            val lineItem = SubscriptionPluginSaleItem(
+                PluginSaleItemType.New, listOf("license-$ref"), amount, amount, listOf(discount), date.rangeTo(date.add(1, 0, -1)),
+            )
+            val customer = CustomerInfo(ref.hashCode(), "Canada", CustomerType.Individual)
+            return PluginSale(ref, date, amount, amount, LicensePeriod.Annual, customer, null, listOf(lineItem))
+        }
+        val sales = listOf(
+            sale("O-1", YearMonthDay(2025, 3, 10), 50, PluginSaleItemDiscount("\"Launch offer\" offer", 50.0)),
+            sale("O-2", YearMonthDay(2025, 4, 10), 60, PluginSaleItemDiscount("40% continuity discount", 40.0)),
+            sale("O-3", YearMonthDay(2025, 5, 10), 0, PluginSaleItemDiscount("\"Student discount\" offer", 100.0)),
+        )
+        val result = MarketplaceMcpTools(McpTestData.providerWithSales(sales)).call("get_offer_usage", arguments())
+        assertEquals(McpTestData.PLUGIN_ID, result["pluginId"]!!.jsonPrimitive.int)
+        val tables = result["tables"]!!.jsonArray.map { it.jsonObject }
+        assertEquals(
+            listOf("Marketplace", "Offers"),
+            tables.map { it["table"]!!.jsonPrimitive.content },
+        )
+        // the plugin and the range are only part of the result, not of the tables
+        assertTrue(tables.none { "pluginId" in it })
+        assertTrue(result.toString().contains("Launch offer"))
+        assertFalse(result.toString().contains("CODE-"), "the coupon codes must not be returned")
+
+        // the discount amounts are metrics of create_chart, the free offer has none
+        val metrics = result["chartMetrics"]!!.jsonArray.map { it.jsonObject }
+        assertEquals(listOf("40% continuity discount", "Launch offer"), metrics.map { it["discount"]!!.jsonPrimitive.content })
+        val metric = metrics[1]["metric"]!!.jsonPrimitive.content
+        val chart = MarketplaceMcpTools(McpTestData.providerWithSales(sales)).call("create_chart", arguments {
+            put("series", buildJsonArray { add(buildJsonObject { put("metric", metric) }) })
+            put("format", "svg")
+        })
+        assertEquals(metric, chart["series"]!!.jsonArray.single().jsonObject["metric"]!!.jsonPrimitive.content)
+    }
+
+    @Test
     suspend fun customersWithTransferredLicensesAreNotChurned() {
         // the tool uses today, the license of the previous owner ended half a year ago and was renewed by the new owner
         val today = YearMonthDay.now()

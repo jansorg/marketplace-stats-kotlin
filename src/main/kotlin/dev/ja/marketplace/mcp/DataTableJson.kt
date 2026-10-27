@@ -9,6 +9,7 @@ import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.data.*
 import dev.ja.marketplace.data.licenses.FallbackVersion
+import dev.ja.marketplace.data.offers.LinkedOfferUsage
 import kotlinx.serialization.json.*
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -225,6 +226,8 @@ object DataTableJson {
             is LinkedCustomerName -> JsonPrimitive(value.name)
             is LinkedLicense -> JsonPrimitive(value.id)
             is LinkedRefNum -> JsonPrimitive(value.refNum)
+            is ChartMetricName -> JsonPrimitive(value.name)
+            is LinkedOfferUsage -> JsonPrimitive(value.count)
             is Iterable<*> -> JsonArray(value.map(::cellValue))
             is Enum<*> -> JsonPrimitive(value.toolName)
             else -> JsonPrimitive(value.toString())

@@ -20,6 +20,7 @@ import dev.ja.marketplace.data.chart.ChartDetail
 import dev.ja.marketplace.data.chart.ChartMetricValues
 import dev.ja.marketplace.data.chart.ChartWindow
 import dev.ja.marketplace.data.customerType.CustomerTypeFactory
+import dev.ja.marketplace.data.customers.CustomerTable
 import dev.ja.marketplace.data.customers.CustomerTableFactory
 import dev.ja.marketplace.data.daySummary.DaySummaryFactory
 import dev.ja.marketplace.data.downloads.MonthlyDownloadsFactory
@@ -30,6 +31,11 @@ import dev.ja.marketplace.data.licenses.LicenseStatus
 import dev.ja.marketplace.data.licenses.LicenseTableFactory
 import dev.ja.marketplace.data.lineItems.LineItemLicensesTable
 import dev.ja.marketplace.data.lineItems.SaleLineItemSummary
+import dev.ja.marketplace.data.offers.OfferUsageKey
+import dev.ja.marketplace.data.offers.OfferUsageList
+import dev.ja.marketplace.data.offers.OfferUsages
+import dev.ja.marketplace.data.offers.OffersTableFactory
+import dev.ja.marketplace.data.offers.OffersTableKind
 import dev.ja.marketplace.data.overview.OverviewTableFactory
 import dev.ja.marketplace.data.privingOverview.PricingOverviewTableFactory
 import dev.ja.marketplace.data.resellers.ResellerTableFactory
@@ -237,6 +243,21 @@ class MarketplaceStatsServer(
         cacheTables = false,
     )
 
+    private val offersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+        client,
+        listOf(
+            OffersTableFactory(OffersTableKind.Marketplace),
+            OffersTableFactory(OffersTableKind.Offers),
+        ),
+        pageCssClasses = "wide",
+        pageTitle = "Offers and Discounts",
+        pageDescription = "How the offers and other discounts were used. Sales are matched to offers by name, " +
+                "the discount amount is calculated from the percent of the discount of each sale.",
+        hideEmptyTables = true,
+        // the offers are loaded when the tables are calculated, they aren't part of the version of the data
+        cacheTables = false,
+    )
+
     private val chargesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
         client,
         listOf(ChargeOverviewTableFactory()),
@@ -380,7 +401,10 @@ class MarketplaceStatsServer(
                     dropCachedData()
                 }
 
-                val whitelistedParamsNames = setOf("rows")
+                // the filters of the lists of the licenses and customers of an offer, see LinkedOfferUsage
+                val whitelistedParamsNames = setOf(
+                    "rows", OfferUsageKey.OFFER_PARAMETER, OfferUsageKey.OTHER_OFFER_PARAMETER, OfferUsageKey.DISCOUNT_PARAMETER,
+                )
                 val whitelistedRequestParams = call.request.queryParameters.filter(keepEmpty = true) { name, value ->
                     name in whitelistedParamsNames && value.isNotBlank()
                 }
@@ -474,6 +498,12 @@ class MarketplaceStatsServer(
             get("/licenses") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
+                // the licenses with an offer or a discount, see LinkedOfferUsage
+                val offerUsage = OfferUsageKey.fromParameters(call.request.queryParameters::get)
+                if (offerUsage != null) {
+                    renderOfferUsagePage(loader, OfferUsageList.Licenses, offerUsage, serverConfiguration)
+                    return@get
+                }
                 call.respond(JteContent("main.kte", licensePageData.createTemplateParameters(loader, call.request, serverConfiguration)))
             }
             get("/licenses/active") {
@@ -499,6 +529,12 @@ class MarketplaceStatsServer(
             get("/customers") {
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
+                // the customers with an offer or a discount, see LinkedOfferUsage
+                val offerUsage = OfferUsageKey.fromParameters(call.request.queryParameters::get)
+                if (offerUsage != null) {
+                    renderOfferUsagePage(loader, OfferUsageList.Customers, offerUsage, serverConfiguration)
+                    return@get
+                }
                 call.respond(
                     JteContent(
                         "main.kte", allCustomersPageData.createTemplateParameters(
@@ -610,6 +646,11 @@ class MarketplaceStatsServer(
                 val loader = getDataLoader()
                     ?: throw IllegalStateException("Unable to find plugin")
                 call.respond(JteContent("main.kte", pricingPageData.createTemplateParameters(loader, call.request, serverConfiguration)))
+            }
+            get("/offers") {
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", offersPageData.createTemplateParameters(loader, call.request, serverConfiguration)))
             }
             get("/charges") {
                 val loader = getDataLoader()
@@ -985,6 +1026,41 @@ class MarketplaceStatsServer(
                 )
             )
         )
+    }
+
+    /** Renders the licenses or the customers, which used an offer or a discount, see [OfferUsages]. */
+    private suspend fun RoutingContext.renderOfferUsagePage(
+        loader: PluginDataLoader,
+        list: OfferUsageList,
+        key: OfferUsageKey,
+        serverConfiguration: ServerConfiguration,
+    ) {
+        val data = loader.load()
+        val offers = if (data.pluginSummary.isPaidOrFreemium) client.offers(data.pluginId) else emptyList()
+        val usages = OfferUsages(offers, data.exchangeRates)
+        data.getLicenses()?.forEach(usages::add)
+        val usage = usages.usage(key)
+
+        val name = when (key) {
+            is OfferUsageKey.Offer -> offers.firstOrNull { it.id == key.id }?.name ?: "Offer ${key.id}"
+            is OfferUsageKey.OtherOffer -> key.name
+            is OfferUsageKey.OtherDiscount -> key.description
+        }
+        val factory = object : MarketplaceDataTableFactory {
+            override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable = when (list) {
+                OfferUsageList.Licenses -> LicenseTable(maxTableRows, showFooter = true, supportedChurnStyling = false) { usage?.contains(it) == true }
+                OfferUsageList.Customers -> CustomerTable(maxTableRows = maxTableRows, customerFilter = { usage?.hasCustomer(it) == true })
+            }
+        }
+        val pageData = DefaultPluginPageDefinition(
+            client,
+            listOf(factory),
+            pageTitle = "${if (list == OfferUsageList.Licenses) "Licenses" else "Customers"}: $name",
+            pageCssClasses = "wide",
+            // the offers are loaded for each request
+            cacheTables = false,
+        )
+        call.respond(JteContent("main.kte", pageData.createTemplateParameters(loader, call.request, serverConfiguration)))
     }
 
     private suspend fun RoutingContext.renderLicenseChurnRatePage(

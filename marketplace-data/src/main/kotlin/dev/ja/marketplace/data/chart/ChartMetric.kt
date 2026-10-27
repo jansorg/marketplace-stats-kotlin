@@ -7,6 +7,8 @@ package dev.ja.marketplace.data.chart
 
 import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.data.ChartMeasure
+import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 /** The unit of the values of a [ChartMetric]. */
 enum class ChartUnit {
@@ -53,6 +55,8 @@ class ChartMetric private constructor(
     val group: String,
     val description: String,
     val fractionDigits: Int,
+    /** The name of the discount of a metric of [discount], `null` for the other metrics. */
+    val discountName: String? = null,
 ) {
     override fun toString(): String = id
 
@@ -234,9 +238,47 @@ class ChartMetric private constructor(
         /** @return The share of the sales of the [type] of customers. */
         fun customerTypeShare(type: CustomerType): ChartMetric = customerTypeShares.getValue(type)
 
-        /** All metrics. */
+        /**
+         * The prefix of the discount amounts of the offers and discounts, the name of the discount follows as Base64
+         * (URL-safe, without padding), e.g. `discount.U3VtbWVy`, because the IDs of the charts must not contain e.g. `,`
+         * or `@`. See [discount].
+         */
+        const val DISCOUNT = "discount"
+
+        private val discounts = ConcurrentHashMap<String, ChartMetric>()
+
+        /**
+         * @return The amount given away by a discount, by the name of the offer or the description of a discount
+         *  without an offer, see `OfferDiscounts.discountName`. Offers with the same name are one metric. These metrics
+         *  aren't part of [all], each plugin has the metrics of the discounts of its sales.
+         */
+        fun discount(discountName: String): ChartMetric {
+            val name = discountName.trim()
+            val encoded = Base64.getUrlEncoder().withoutPadding().encodeToString(name.toByteArray(Charsets.UTF_8))
+            return discounts.computeIfAbsent("$DISCOUNT.$encoded") { id ->
+                ChartMetric(
+                    id, "Discount: $name", ChartMeasure.Flow, ChartUnit.Amount, usesWindow = true, group = "Discounts",
+                    description = "The amount given away by the discount \"$name\" in the sales of the window, " +
+                            "calculated from the paid amount and the percent of the discount of each sale",
+                    fractionDigits = defaultFractionDigits(ChartUnit.Amount, ChartMeasure.Flow),
+                    discountName = name,
+                )
+            }
+        }
+
+        /** All metrics, without the metrics of the discounts, see [discount]. */
         val all: Collection<ChartMetric> get() = registered.values
 
-        fun byId(id: String): ChartMetric? = registered[id]
+        fun byId(id: String): ChartMetric? {
+            registered[id]?.let { return it }
+            val encoded = id.removePrefix("$DISCOUNT.").takeIf { it != id && it.isNotEmpty() } ?: return null
+            val name = try {
+                String(Base64.getUrlDecoder().decode(encoded), Charsets.UTF_8)
+            } catch (_: IllegalArgumentException) {
+                return null
+            }
+            // the ID of a name is unique, other encodings of the same name are invalid
+            return discount(name).takeIf { it.id == id }
+        }
     }
 }
