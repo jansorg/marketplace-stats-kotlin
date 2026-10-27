@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.data.subscriptions
 
+import dev.ja.marketplace.data.format.Formatters
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.model.LicensePeriod
@@ -105,6 +106,6 @@ class RenewalRateTable(private val licensePeriod: LicensePeriod) : SimpleDataTab
 
             else -> ""
         }
-        return "$renewed of $due subscriptions renewed$pending"
+        return "${Formatters.formatInteger(renewed)} of ${Formatters.formatInteger(due)} subscriptions renewed$pending"
     }
 }

@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.data.overview
 
+import dev.ja.marketplace.data.format.Formatters
 import dev.ja.marketplace.churn.ChurnProcessor
 import dev.ja.marketplace.churn.ChurnValidities
 import dev.ja.marketplace.churn.LicenseChurnProcessor
@@ -330,11 +331,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                     val trialsMonthByLength = trialTracker.getResultWithinConversionPeriod(monthDateRange, maxTrialDays)
                     val downloadCount = monthData.downloads
 
-                    val paidLicensesTooltip =
-                        """
-                        $annualLicensesPaying annual
-                        $monthlyLicensesPaying monthly
-                        """.trimIndent()
+                    val paidLicensesTooltip = "${Formatters.formatInteger(annualLicensesPaying)} annual\n${Formatters.formatInteger(monthlyLicensesPaying)} monthly"
 
                     SimpleDateTableRow(
                         values = mapOf(
@@ -353,9 +350,9 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                             columnTrialsConverted to incompleteIf(trialsMonthByLength.displayedConversionRate, incompleteSums),
                         ),
                         tooltips = mapOf(
-                            columnActiveLicenses to "$annualLicensesPaying annual (paying)" +
-                                    "\n$annualLicensesFree annual (free)" +
-                                    "\n$monthlyLicensesPaying monthly (paying)",
+                            columnActiveLicenses to "${Formatters.formatInteger(annualLicensesPaying)} annual (paying)" +
+                                    "\n${Formatters.formatInteger(annualLicensesFree)} annual (free)" +
+                                    "\n${Formatters.formatInteger(monthlyLicensesPaying)} monthly (paying)",
                             columnActiveLicensesPaying to paidLicensesTooltip,
                             columnYearMonth to pluginStart?.let(::partialPeriodTooltip).takeIf { isPartialMonth },
                             columnMonthlyRecurringRevenue to IncompleteRecurringRevenueTooltip.takeIf { isCurrentMonth },

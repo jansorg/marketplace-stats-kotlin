@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.churn
 
+import dev.ja.marketplace.data.format.Formatters
 import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.YearMonthDay
@@ -75,7 +76,7 @@ data class ChurnResult<T>(
     }
 
     fun getChurnRateTooltip(isIncomplete: Boolean = false): String {
-        val tooltip = "$churnedItemCount of $previousActiveItemCount churned"
+        val tooltip = "${Formatters.formatInteger(churnedItemCount)} of ${Formatters.formatInteger(previousActiveItemCount)} churned"
         return when {
             isIncomplete -> "$tooltip until ${currentPeriodMarkerDate.asIsoString}\nIncomplete: licenses expiring later in this period may still be renewed"
             else -> tooltip
