@@ -170,6 +170,8 @@ class ChartExportTest {
         assertEquals(listOf("2024-12-31"), sales["partialDates"]!!.jsonArray.map { it.jsonPrimitive.content })
         assertEquals(listOf(YearMonthDay.now().asIsoString), sales["incompleteDates"]!!.jsonArray.map { it.jsonPrimitive.content })
         assertEquals(3, trials["averageMonths"]!!.jsonPrimitive.int)
+        // the decimals to show the values, the values aren't rounded
+        assertEquals(listOf(2, 1, 2), listOf(sales, trials, mrr).map { it["fractionDigits"]!!.jsonPrimitive.int })
         // the calendar months of a chart of years have their monthly dates
         assertEquals("month", trials["detail"]!!.jsonPrimitive.content)
         // values at a date have no window

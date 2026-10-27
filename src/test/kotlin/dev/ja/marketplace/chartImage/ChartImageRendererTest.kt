@@ -125,6 +125,9 @@ class ChartImageRendererTest {
         assertEquals("0.25", ChartAxes.compact(0.25))
         assertEquals("1,234.5 EUR", ChartAxes.value(1234.5, "EUR"))
         assertEquals("12.5 %", ChartAxes.value(12.5, "%"))
+        // the decimals of the metric, e.g. the average of the active paid licenses
+        assertEquals("1,235", ChartAxes.value(1234.5, "count", 0))
+        assertEquals("0.4", ChartAxes.value(0.44, "count", 1))
         assertEquals("Amount (USD)", ChartAxes.unitTitle("USD"))
     }
 

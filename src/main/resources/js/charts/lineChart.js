@@ -436,7 +436,7 @@ function drawExtremes(plot, chartSeries, {kinds, isBar, interval, formatter, fon
     const placedLabels = [];
 
     // partial values, e.g. of the first year of a plugin, aren't the minimum or the maximum
-    const lines = chartSeries.map((series, index) => ({plotIndex: index + 1, color: series.color, unit: series.unit,
+    const lines = chartSeries.map((series, index) => ({plotIndex: index + 1, color: series.color, unit: series.unit, fractionDigits: series.fractionDigits,
         incomplete: new Set([...series.incomplete, ...(series.partial ?? [])]), isBar: isBar(series), barIndex: index}));
 
     lines.forEach(series => {
@@ -457,7 +457,7 @@ function drawExtremes(plot, chartSeries, {kinds, isBar, interval, formatter, fon
             const x = plot.valToPos(timestamps[i], "x", true) + (series.isBar ? offsets[barPosition] + width / 2 : 0);
             const y = plot.valToPos(values[i], plotSeries.scale, true);
             // only the value, the position at the highest or lowest point shows the kind
-            const labelLines = [formatter.value(values[i], series.unit)];
+            const labelLines = [formatter.value(values[i], series.unit, series.fractionDigits)];
 
             if (!series.isBar) {
                 context.beginPath();
@@ -888,7 +888,7 @@ function renderComparisonTable(table, {plot, rows, seriesPoints, comparisons, ti
             const point = found[i];
             const isIncomplete = point !== null && series.incomplete.has(point.timestamp);
             const valueCell = cell("td", column.isCursor ? "chart-comparison-cursor" : null);
-            valueCell.append(cell("span", "chart-comparison-value" + (isIncomplete ? " incomplete" : ""), formatter.fixedValue(point?.value, series.unit)));
+            valueCell.append(cell("span", "chart-comparison-value" + (isIncomplete ? " incomplete" : ""), formatter.fixedValue(point?.value, series.unit, series.fractionDigits)));
             if (isIncomplete) {
                 valueCell.title = "Incomplete value, which may still change";
             }
@@ -1110,12 +1110,12 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                 const value = values[seriesIndex][index];
                 const incomplete = value !== null && s.incomplete.has(timestamps[index]);
                 const partial = value !== null && !incomplete && Boolean(s.partial?.has(timestamps[index]));
-                return {color: s.color, label: s.label + (incomplete ? " (incomplete)" : partial ? " (partial period)" : ""), value: formatter.value(value, s.unit)};
+                return {color: s.color, label: s.label + (incomplete ? " (incomplete)" : partial ? " (partial period)" : ""), value: formatter.value(value, s.unit, s.fractionDigits)};
             })
             .concat(chartOverlays
                 .map((overlay, i) => ({overlay, value: overlayValues[i][index], isShown: plot.series[overlayIndex(i)].show}))
                 .filter(({value, isShown}) => isShown && value !== null && value !== undefined)
-                .map(({overlay, value}) => ({color: overlayColor(overlay), label: overlay.label, value: formatter.value(value, overlay.base.unit)}))),
+                .map(({overlay, value}) => ({color: overlayColor(overlay), label: overlay.label, value: formatter.value(value, overlay.base.unit, overlay.base.fractionDigits)}))),
     });
 
     // the range of yearly values covers the years until today
@@ -1327,7 +1327,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     function valueTableRows() {
         return chartSeries.flatMap((s, seriesIndex) => {
             const label = s.isRightAxis ? s.label + " (right axis)" : s.label;
-            const seriesRow = [{label, color: s.color, unit: s.unit, incomplete: s.incomplete, values: values[seriesIndex], plotIndex: seriesIndex + 1,
+            const seriesRow = [{label, color: s.color, unit: s.unit, fractionDigits: s.fractionDigits, incomplete: s.incomplete, values: values[seriesIndex], plotIndex: seriesIndex + 1,
                 seriesMenu: seriesMenuOf(s), removeButton: removeButtonOf(s), dash: isBar(s) ? null : averageDash(s)}];
             return seriesRow.concat(chartOverlays
                 .map((overlay, overlayIndex) => ({overlay, overlayIndex}))
@@ -1336,6 +1336,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                     label: s.isRightAxis ? overlay.label + " (right axis)" : overlay.label,
                     color: overlayColor(overlay),
                     unit: s.unit,
+                    fractionDigits: s.fractionDigits,
                     incomplete: new Set(),
                     values: overlayValues[overlayIndex],
                     plotIndex: chartSeries.length + overlayIndex + 1,

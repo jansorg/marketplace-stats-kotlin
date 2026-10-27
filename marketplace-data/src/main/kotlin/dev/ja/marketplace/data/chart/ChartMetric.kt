@@ -41,6 +41,8 @@ enum class ChartUnit {
  * @param usesWindow If the values depend on the [ChartWindow], e.g. sums and rates. Values at each day like the MRR don't.
  * @param group The kind of the metric, e.g. "Trials", the menu to add metrics groups them.
  * @param description What the metric measures, e.g. the tooltip of the metric in the menu to add metrics.
+ * @param fractionDigits The maximum number of decimals of the shown values, e.g. of the moving averages. The values of
+ *  `/chart-data` and of the exports aren't rounded, only the charts round them.
  */
 class ChartMetric private constructor(
     val id: String,
@@ -50,6 +52,7 @@ class ChartMetric private constructor(
     val usesWindow: Boolean,
     val group: String,
     val description: String,
+    val fractionDigits: Int,
 ) {
     override fun toString(): String = id
 
@@ -64,10 +67,21 @@ class ChartMetric private constructor(
             usesWindow: Boolean = measure != ChartMeasure.Stock,
             group: String,
             description: String,
+            fractionDigits: Int = defaultFractionDigits(unit, measure),
         ): ChartMetric {
-            val metric = ChartMetric(id, title, measure, unit, usesWindow, group, description)
+            val metric = ChartMetric(id, title, measure, unit, usesWindow, group, description, fractionDigits)
             check(registered.put(id, metric) == null) { "Duplicate chart metric $id" }
             return metric
+        }
+
+        /**
+         * Counts at a date, e.g. of the active licenses, are whole numbers, also their averages, e.g. "1,235 paid
+         * licenses". The averages of counts of a window keep a decimal, e.g. 3.5 trials per month or 0.4 per day.
+         */
+        private fun defaultFractionDigits(unit: ChartUnit, measure: ChartMeasure): Int = when {
+            unit == ChartUnit.Count && measure == ChartMeasure.Stock -> 0
+            unit == ChartUnit.Count -> 1
+            else -> 2
         }
 
         // the sales, downloads and trials

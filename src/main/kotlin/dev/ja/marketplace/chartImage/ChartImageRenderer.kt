@@ -387,7 +387,7 @@ object ChartImageRenderer {
                     canvas.stroke(circle(x, y, POINT_RADIUS + 2.5), series.color, 2.0)
                 }
                 if (!chart.hideAxisValues) {
-                    val label = ChartAxes.value(point.value, series.unit)
+                    val label = ChartAxes.value(point.value, series.unit, series.fractionDigits)
                     val size = TEXT_SIZE + 1
                     val labelWidth = ChartFonts.width(label, size, bold = true)
                     val center = x.coerceIn(plot.left + labelWidth / 2 + 3, plot.right - labelWidth / 2 - 3)
