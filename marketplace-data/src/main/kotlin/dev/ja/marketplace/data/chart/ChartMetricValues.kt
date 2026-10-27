@@ -14,6 +14,7 @@ import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.client.model.PluginTrial
 import dev.ja.marketplace.data.PercentageValue
+import dev.ja.marketplace.data.offers.OfferDiscounts
 import dev.ja.marketplace.data.subscriptions.CustomerRecurringRevenue
 import dev.ja.marketplace.data.subscriptions.SubscriptionDailyValues
 import dev.ja.marketplace.data.trackers.RecurringRevenueSales
@@ -219,11 +220,38 @@ class ChartMetricValues private constructor(
             ChartMetric.ChurnMonthly -> churn(LicensePeriod.Monthly, window)
             ChartMetric.ChurnCombined -> churn(null, window)
             in customerTypeShares -> customerTypeShare(customerTypeShares.getValue(metric), starts)
+            in discountMetrics -> amountSeries(windows.windowSums(discountsPerDay(metric.discountName!!), starts), windows.incompleteSums)
             // the movements of the MRR, the retention and the average revenue of the customers
             // the movements of the MRR of the window, or the values at each day
             else -> return SubscriptionDailyValues.create(days, allLicenses, revenue ?: return emptyMap(), today, window.takeIf { metric.usesWindow })
         }
         return mapOf(metric to series)
+    }
+
+    /** The metrics of the discounts in the sales, see [ChartMetric.discount]. */
+    private val discountMetrics: Set<ChartMetric> get() = metrics.filterTo(HashSet()) { it.discountName != null }
+
+    /**
+     * @return The amounts given away by the discount at each day, calculated from the paid amount and the percent of
+     *  the discount of each license like the table of the offers, see [OfferDiscounts.lostAmount].
+     */
+    private fun discountsPerDay(discountName: String): Array<MonetaryAmount> {
+        val amounts = Array(dayCount) { zero }
+        for (license in allLicenses) {
+            val index = windows.index(license.sale.date)
+            if (index !in 0 until dayCount) {
+                continue
+            }
+            for (discount in license.saleLineItem.discountDescriptions) {
+                if (OfferDiscounts.discountName(discount) != discountName) {
+                    continue
+                }
+                val lostUSD = OfferDiscounts.lostAmount(license.amountUSD, discount.percent) ?: continue
+                val lost = OfferDiscounts.lostAmount(license.amount, discount.percent) ?: continue
+                amounts[index] += exchangeRates.targetAmount(license.sale.date, lostUSD, lost)
+            }
+        }
+        return amounts
     }
 
     private fun amountSeries(values: List<MonetaryAmount>, incompleteFrom: Int): DailySeries {
@@ -456,6 +484,20 @@ class ChartMetricValues private constructor(
         )
 
         /**
+         * @return The metrics of the discount amounts of the offers and discounts, which the licenses used, sorted by
+         *  their name. Discounts without a discount amount, e.g. free offers, have no metric, see [ChartMetric.discount].
+         */
+        fun discountMetrics(licenses: List<LicenseInfo>): List<ChartMetric> {
+            return licenses.asSequence()
+                .flatMap { license -> license.saleLineItem.discountDescriptions.filter { OfferDiscounts.lostAmount(license.amountUSD, it.percent) != null } }
+                .mapNotNull(OfferDiscounts::discountName)
+                .distinct()
+                .sorted()
+                .map(ChartMetric::discount)
+                .toList()
+        }
+
+        /**
          * @return The values of a plugin, all metrics.
          */
         fun create(
@@ -468,7 +510,7 @@ class ChartMetricValues private constructor(
             maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT,
             revenue: CustomerRecurringRevenue? = null,
         ): ChartMetricValues {
-            val metrics = ChartMetric.all.toSet()
+            val metrics = ChartMetric.all.toSet() + discountMetrics(licenses)
             return create(sales, listOf(licenses), trials, downloads, revenue, exchangeRates, today, maxTrialDays, metrics)
         }
 

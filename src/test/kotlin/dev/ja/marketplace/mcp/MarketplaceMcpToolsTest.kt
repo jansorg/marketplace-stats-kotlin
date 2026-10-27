@@ -41,6 +41,7 @@ class MarketplaceMcpToolsTest {
                 "get_price_changes",
                 "list_plugin_releases",
                 "list_offers",
+                "get_offer_usage",
                 "list_jetbrains_product_releases",
                 "get_jetbrains_product_release",
                 "list_jetbrains_products",

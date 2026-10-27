@@ -18,6 +18,9 @@ import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.PluginData
 import dev.ja.marketplace.data.chart.ChartMetricValues
 import dev.ja.marketplace.data.daySummary.DaySummaryTable
+import dev.ja.marketplace.data.offers.OfferSource
+import dev.ja.marketplace.data.offers.OffersTable
+import dev.ja.marketplace.data.offers.OffersTableKind
 import dev.ja.marketplace.data.overview.OverviewTable
 import dev.ja.marketplace.data.subscriptions.AverageRevenuePerCustomerTable
 import dev.ja.marketplace.data.subscriptions.CohortRetentionTable
@@ -449,6 +452,22 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
             listOf("pluginId"),
         ) { arguments -> listOffers(arguments) },
         McpToolDefinition(
+            "get_offer_usage",
+            "Usage of offers and discounts",
+            "The tables of the page Offers: Marketplace (the continuity discounts and the specials of the Marketplace, e.g. " +
+                    "student, startup, educational or volume discounts, the names contain the percents), active and inactive offers. Per offer or discount: licenses, sales, " +
+                    "customers, paid amount, the discount amount (the amount before the discount minus the paid amount, " +
+                    "from the percent of each sale, free licenses have none) and the first and last use. Sales are matched " +
+                    "to offers by the name in the discount, reseller discounts are ignored. With a range, only the licenses " +
+                    "sold in the range are used. chartMetrics has the metrics of the discount amounts of the offers and discounts for " +
+                    "create_chart. Table results.",
+            buildJsonObject {
+                pluginTableProperties.forEach { (key, value) -> put(key, value) }
+                put("currency", currencyProperty)
+            },
+            listOf("pluginId"),
+        ) { arguments -> getOfferUsage(arguments) },
+        McpToolDefinition(
             "list_jetbrains_product_releases",
             "Releases of JetBrains products",
             "Versions of a JetBrains product with release date and build number, newest first. " +
@@ -849,6 +868,34 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
             put("majorReleases", JsonArray(majorReleases.map(McpReleasesJson::majorRelease)))
             put("releaseCount", releasesInRange.size)
             put("releases", JsonArray(releasesInRange.map(McpReleasesJson::pluginRelease)))
+        }
+    }
+
+    private suspend fun getOfferUsage(arguments: JsonObject): JsonObject {
+        val plugin = provider.findPlugin(arguments)
+        require(plugin.isPaidOrFreemium) { "Plugin ${plugin.id} has no special offers, it's not a paid or freemium plugin" }
+        val source = object : OfferSource {
+            override suspend fun offers(pluginId: PluginId): List<PluginOffer> = provider.offers(plugin)
+
+            override suspend fun offerCoupons(pluginId: PluginId, offer: PluginOfferId): List<PluginOfferCoupon> {
+                return provider.offerCoupons(plugin, offer)
+            }
+        }
+        // the licenses of the range are used, like the table of the countries
+        val tables = OffersTableKind.entries.map { kind ->
+            callTableTool(TableTool("get_offer_usage", kind.title, "", DateRangeFilter.InputData) { _, _, _ -> OffersTable(kind, source) }, arguments)
+        }
+        val sharedKeys = listOf("pluginId", "pluginName", "startDate", "endDate", "currency", "latestSaleDate", "latestTrialDate")
+        val licenses = provider.pluginData(plugin).getLicenses() ?: emptyList()
+        return buildJsonObject {
+            sharedKeys.forEach { key -> tables.first()[key]?.let { put(key, it) } }
+            put("tables", JsonArray(tables.map { table -> JsonObject(table.filterKeys { it !in sharedKeys }) }))
+            put("chartMetrics", JsonArray(ChartMetricValues.discountMetrics(licenses).map { metric ->
+                buildJsonObject {
+                    put("metric", metric.id)
+                    put("discount", metric.discountName)
+                }
+            }))
         }
     }
 

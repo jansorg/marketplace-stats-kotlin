@@ -11,6 +11,6 @@ import dev.ja.marketplace.data.MarketplaceDataTableFactory
 
 class CustomerTableFactory : MarketplaceDataTableFactory {
     override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable {
-        return CustomerTable()
+        return CustomerTable(maxTableRows = maxTableRows)
     }
 }

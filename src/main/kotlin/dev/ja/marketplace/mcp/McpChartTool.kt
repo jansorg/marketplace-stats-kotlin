@@ -184,7 +184,8 @@ internal data class ChartRequest(
                 ?: throw IllegalArgumentException("$name.metric is required, metrics: ${metricIds.joinToString()}")
             // the IDs of the moving averages of /chart-data are accepted, e.g. sales@avg3
             val metricId = metricValue.substringBefore(ChartData.AVERAGE_SEPARATOR)
-            val metric = ChartMetric.byId(metricId)?.takeIf { it.id in metricIds }
+            // the discount amounts of the discounts are metrics of each plugin, see chartMetrics of get_offer_usage
+            val metric = ChartMetric.byId(metricId)?.takeIf { it.id in metricIds || it.discountName != null }
                 ?: ChartMetric.all.firstOrNull { it.id.equals(metricId, ignoreCase = true) && it.id in metricIds }
                 ?: throw IllegalArgumentException("Unknown metric '$metricValue' of $name, metrics: ${metricIds.joinToString()}")
             val averageOfId = when {
@@ -313,7 +314,11 @@ class McpChartTool(private val provider: McpDataProvider) {
                     put("items", buildJsonObject {
                         put("type", "object")
                         put("properties", buildJsonObject {
-                            put("metric", enumProperty(ChartRequest.metricIds, "The metric"))
+                            // not an enum: the discount amounts are metrics of each plugin
+                            put("metric", stringProperty(
+                                "The metric, one of ${ChartRequest.metricIds.joinToString()}, or the discount amount of an offer or discount " +
+                                        "(${ChartMetric.DISCOUNT}.<id>, see chartMetrics of get_offer_usage)"
+                            ))
                             put("window", enumProperty(ChartRequest.windowIds, "Window of sums and rates. Default: the window of the chart"))
                             put("average", buildJsonObject {
                                 put("type", "integer")

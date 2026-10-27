@@ -101,7 +101,8 @@ interface DataTableSection : DataRowGroup {
 }
 
 abstract class SimpleDataTable(
-    override val title: String,
+    /** The title, a table may change it when its sections are created, e.g. to the title of its only section. */
+    override open val title: String,
     override val id: String? = null,
     override val cssClass: String? = null,
     override val header: DataRowGroup? = null,

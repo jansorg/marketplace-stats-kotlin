@@ -28,7 +28,7 @@ import {
     pieSlices, previousYear, rangeLabel, rangeOfPreset, rangeOfTimestamps, rangeTimestamps, rangeYears, seriesStyle, shownWindow, storedChartLevel,
     visibleMarkers, withoutIncomplete,
 } from "./model.js";
-import {enableShortcut, makeColumnClickable, makeHintsClickable, makeLogoClickable} from "./pageControls.js";
+import {enableShortcut, makeColumnClickable, makeHintsClickable, makeLogoClickable, makeRowChartButtons} from "./pageControls.js";
 import {renderPie} from "./pieChart.js";
 import {browserStorage, createSetupStorage, decodeView, emptySetup, encodeView} from "./storage.js";
 import {chartColumns, metricKey, readLineSeries, readMarkers, readMetricLevel, readMetricSeries, readPieRows, readRowHistorySeries, readTableDateRange} from "./tableData.js";
@@ -104,7 +104,8 @@ class ChartController {
         const isBookmarkedView = this.restore(columns);
         makeLogoClickable(() => this.openDialog(null));
         makeHintsClickable(() => this.openDialog(null));
-        if (columns.length > 0) {
+        const hasRowCharts = this.lineChartsAvailable && makeRowChartButtons(metric => this.showRowMetric(metric));
+        if (columns.length > 0 || hasRowCharts) {
             enableShortcut(() => this.dialog?.isOpen ? this.dialog.close() : this.openDialog(null));
         }
         // a bookmarked view replaces the stored setup and is shown
@@ -241,6 +242,23 @@ class ChartController {
         }
         this.save();
         this.openDialog(rejection);
+    }
+
+    /**
+     * Shows the metric of a row of a table, e.g. the discount of an offer, in the chart of its unit, with the window of
+     * the level of the chart. A metric, which is already shown, is only shown.
+     *
+     * @param {{id: string, title: string, unit: string}} metric The metric of the button of the row.
+     */
+    showRowMetric(metric) {
+        const uncolored = metricSeries({metric: metric.id, window: "follow", usesWindow: true, label: metric.title,
+            unit: metric.unit, measure: "flow"});
+        const rejection = this.rejectSeries(uncolored);
+        if (rejection === null) {
+            this.series.push({...uncolored, color: this.colorOf(uncolored)});
+            this.save();
+        }
+        this.openDialog(rejection || null);
     }
 
     /**
