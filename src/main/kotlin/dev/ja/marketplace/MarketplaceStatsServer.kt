@@ -355,7 +355,8 @@ class MarketplaceStatsServer(
             gzip()
             deflate()
         }
-        install(Jte) {
+        // the pages are written to the response while they're rendered, see StreamingJte
+        install(StreamingJte) {
             templateEngine = TemplateEngine.createPrecompiled(ContentType.Html).also {
                 it.prepareForRendering("main.kte")
                 it.prepareForRendering("plugins.kte")
