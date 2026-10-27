@@ -140,13 +140,22 @@ data class LinkedChurnRate(
     val rate: PercentageValue,
     val previousPeriodMarkerDate: YearMonthDay,
     val currentPeriodMarkerDate: YearMonthDay,
-    val period: LicensePeriod,
+    /** The license period, `null` for the combined churn of all periods. */
+    val period: LicensePeriod?,
     val pluginId: PluginId,
     /** Number of licenses or customers, which were active in the previous period and churned. */
     val churnedCount: Int = 0,
     /** Number of licenses or customers, which were active in the previous period. */
     val previousActiveCount: Int = 0,
-)
+) {
+    /** The segment of the license period in the link to the churned licenses, `all` for the combined churn. */
+    val periodLinkSegment: String
+        get() = period?.linkSegmentName ?: ALL_PERIODS_LINK_SEGMENT
+
+    companion object {
+        const val ALL_PERIODS_LINK_SEGMENT = "all"
+    }
+}
 
 const val NoValue: String = "—"
 

@@ -21,12 +21,32 @@ data class ChurnResult<T>(
     val churnedItemCount: Int,
     val previousPeriodMarkerDate: YearMonthDay,
     val currentPeriodMarkerDate: YearMonthDay,
-    val period: LicensePeriod,
+    /** The license period, `null` for the combined churn of all periods. */
+    val period: LicensePeriod?,
 ) {
     /**
+     * @return The churn of the items of both results, e.g. of the licenses of several plugins, whose IDs are unrelated.
+     *  The results must be of the same period and dates.
+     */
+    operator fun plus(other: ChurnResult<T>): ChurnResult<T> {
+        require(period == other.period && previousPeriodMarkerDate == other.previousPeriodMarkerDate && currentPeriodMarkerDate == other.currentPeriodMarkerDate) {
+            "The churn results have different periods or dates"
+        }
+        val previousActive = previousActiveItemCount + other.previousActiveItemCount
+        val churned = churnedItemCount + other.churnedItemCount
+        return copy(
+            churnRate = if (previousActive == 0) 0.0 else churned.toDouble() / previousActive.toDouble(),
+            previousActiveItemCount = previousActive,
+            activeItemCount = activeItemCount + other.activeItemCount,
+            churnedItemCount = churned,
+        )
+    }
+
+    /**
+     * @param pluginId The plugin of the link to the churned licenses, `null` for a rate without link, e.g. of all plugins.
      * @param isIncomplete If the churn rate of a period, which hasn't ended yet, is shown.
      */
-    fun getRenderedChurnRate(pluginId: PluginId, isIncomplete: Boolean = false): Any {
+    fun getRenderedChurnRate(pluginId: PluginId?, isIncomplete: Boolean = false): Any {
         if (previousActiveItemCount == 0 || churnRate.isNaN()) {
             return "—"
         }
@@ -38,7 +58,7 @@ data class ChurnResult<T>(
             else -> rate
         }
 
-        val linkedChurnRate = LinkedChurnRate(
+        val linkedChurnRate = if (pluginId == null) percentage else LinkedChurnRate(
             percentage,
             rate,
             previousPeriodMarkerDate,

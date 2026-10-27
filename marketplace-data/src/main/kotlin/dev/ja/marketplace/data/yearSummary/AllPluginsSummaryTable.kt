@@ -5,6 +5,11 @@
 
 package dev.ja.marketplace.data.yearSummary
 
+import dev.ja.marketplace.churn.COMBINED_CHURN_TOOLTIP
+import dev.ja.marketplace.churn.ChurnResult
+import dev.ja.marketplace.churn.ChurnValidities
+import dev.ja.marketplace.churn.isCountedByChurn
+import dev.ja.marketplace.churn.licenseChurnProcessor
 import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
@@ -27,6 +32,8 @@ import java.util.*
  * [YearlySummaryTable]. The data of the plugins is added with [add], it doesn't use the data of a single plugin.
  *
  * MRR and ARR are the sums of the MRR and ARR of the plugins at the end of each year, with the rules of the overview.
+ * The churn rate is the combined churn of the paid licenses of all plugins, the licenses of each plugin are counted
+ * like in the table of the years of the plugin.
  */
 class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : SimpleDataTable("Years", "all-plugins", "table-column-wide table-fixed-columns") {
     private val columnYear = DataTableColumn("year", null)
@@ -41,6 +48,10 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
         "arr", "ARR", "num", tooltip = "Annual recurring revenue at the end of the year",
         chartMeasure = ChartMeasure.Stock, chartMetric = ChartMetric.Arr.id,
     )
+    private val columnChurn = DataTableColumn(
+        "churn-combined-paid", "Churn (all)", "num num-percentage", tooltip = COMBINED_CHURN_TOOLTIP,
+        chartMeasure = ChartMeasure.Ratio, chartMetric = ChartMetric.ChurnCombined.id,
+    )
     private val columnDownloads = DataTableColumn(
         "downloads", "↓", "num col-symbol", chartTitle = "Downloads", tooltip = "Downloads",
         chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Downloads.id,
@@ -51,6 +62,7 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
     private val downloadsByYear = TreeMap<Int, BigInteger>(Comparator.reverseOrder())
     private val mrrByYear = HashMap<Int, MonetaryAmountTracker>()
     private val arrByYear = HashMap<Int, MonetaryAmountTracker>()
+    private val churnByYear = HashMap<Int, ChurnResult<LicenseInfo>>()
 
     override val isChartable: Boolean = true
     override val chartPeriod: ChartPeriod = ChartPeriod.Year
@@ -59,7 +71,7 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
     override val collapsedRowCount: Int = 3
 
     override val columns: List<DataTableColumn> = listOf(
-        columnYear, columnSalesTotal, columnSalesFees, columnSalesPaid, columnMrr, columnArr, columnDownloads,
+        columnYear, columnSalesTotal, columnSalesFees, columnSalesPaid, columnMrr, columnArr, columnChurn, columnDownloads,
     )
 
     /** The first day with data of the plugins, the sums of the first year only cover a part of it. */
@@ -90,6 +102,7 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
         // the trackers of each plugin, the IDs of the licenses of different plugins could be the same
         val firstYear = licenses.mapNotNull { it.validity?.start?.year }.minOrNull() ?: return
         val subscriptions = licenses.filter(RecurringRevenueSales::isRecurring)
+        val churnValidities = ChurnValidities(licenses)
         val today = YearMonthDay.now()
         for (year in firstYear..today.year) {
             // the recurring revenue of the current year at today
@@ -102,6 +115,14 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
             }
             mrrByYear.getOrPut(year) { MonetaryAmountTracker(displayExchangeRates) }.add(mrr.getResult().amounts)
             arrByYear.getOrPut(year) { MonetaryAmountTracker(displayExchangeRates) }.add(arr.getResult().amounts)
+
+            // the churn of the current year until today, licenses expiring later in the year may still be renewed
+            val churn = licenseChurnProcessor(yearRange)
+            for (license in licenses) {
+                val validity = churnValidities.validity(license) ?: continue
+                churn.processValue(license, validity, license.isCountedByChurn(null))
+            }
+            churnByYear.merge(year, churn.getResult(null), ChurnResult<LicenseInfo>::plus)
         }
     }
 
@@ -135,12 +156,14 @@ class AllPluginsSummaryTable(private val displayExchangeRates: ExchangeRates) : 
                     // it's the value of today, it changes until the end of the year
                     columnMrr to recurringRevenue(mrrByYear[year], year == now.year),
                     columnArr to recurringRevenue(arrByYear[year], year == now.year),
+                    columnChurn to (churnByYear[year]?.getRenderedChurnRate(null, isIncomplete = incompleteSums) ?: NoValue),
                     // the downloads of a day are reported on the next day at the earliest
                     columnDownloads to incompleteIf(downloadsByYear[year] ?: BigInteger.ZERO, incompleteSums),
                 ),
                 tooltips = mapOf(
                     columnMrr to IncompleteRecurringRevenueTooltip.takeIf { year == now.year },
                     columnArr to IncompleteRecurringRevenueTooltip.takeIf { year == now.year },
+                    columnChurn to churnByYear[year]?.takeIf { it.previousActiveItemCount > 0 }?.getChurnRateTooltip(isIncomplete = year == now.year),
                     columnDownloads to IncompleteDownloadsTooltip.takeIf { year == now.year },
                     columnYear to start?.let(::partialPeriodTooltip).takeIf { isPartialYear },
                 ),

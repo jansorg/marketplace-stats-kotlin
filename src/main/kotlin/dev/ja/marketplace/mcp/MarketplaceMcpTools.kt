@@ -211,7 +211,8 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
         TableTool(
             "get_yearly_summary",
             "Yearly summary",
-            "Per year: sales, fees, paid amounts, ARR, downloads, trials and trial conversion. Values are always for whole years.",
+            "Per year: sales, fees, paid amounts, ARR, the combined churn of all paid licenses, downloads, trials and trial conversion. " +
+                    "Values are always for whole years.",
             DateRangeFilter.Rows,
         ) { _, _, _ -> YearlySummaryTable() },
         TableTool(

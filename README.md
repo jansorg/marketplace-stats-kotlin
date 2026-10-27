@@ -283,7 +283,7 @@ claude mcp add --transport http marketplace-stats http://localhost:8080/mcp
 
 | Tool                               | Data                                                                                                    |
 |------------------------------------|---------------------------------------------------------------------------------------------------------|
-| `get_yearly_summary`               | Sales, fees, ARR, downloads and trials per year                                                         |
+| `get_yearly_summary`               | Sales, fees, ARR, combined churn, downloads and trials per year                                         |
 | `get_monthly_overview`             | Sales, licenses, MRR, ARR, churn, downloads and trials per month                                        |
 | `get_daily_summary`                | Sales, downloads and trials per day                                                                     |
 | `get_sales_and_trials_breakdown`   | Sales by license period and customer type, trials by country                                            |

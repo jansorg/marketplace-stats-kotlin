@@ -51,7 +51,7 @@ abstract class MarketplaceChurnProcessor<T>(
         }
     }
 
-    override fun getResult(period: LicensePeriod): ChurnResult<T> {
+    override fun getResult(period: LicensePeriod?): ChurnResult<T> {
         val activeAtStart = previousPeriodItemCount()
 
         // For example, users which were licensed end of last month, but no longer are licensed end of this month.

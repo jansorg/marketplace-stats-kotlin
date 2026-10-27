@@ -7,6 +7,7 @@ package dev.ja.marketplace.data.chart
 
 import dev.ja.marketplace.churn.ChurnValidities
 import dev.ja.marketplace.churn.LicenseChurnProcessor
+import dev.ja.marketplace.churn.isCountedByChurn
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.model.DailyDownload
@@ -141,15 +142,15 @@ class ChartMetricValuesTest {
         val values = ChartMetricValues.create(churnSales, licenses, emptyList(), emptyList(), exchangeRates, today)
         val validities = ChurnValidities(licenses)
         // the churn of the table, like OverviewTable: the licenses active at the previous day and not active at the day
-        fun expected(previous: YearMonthDay, day: YearMonthDay, period: LicensePeriod): BigDecimal? {
+        fun expected(previous: YearMonthDay, day: YearMonthDay, period: LicensePeriod?): BigDecimal? {
             val processor = LicenseChurnProcessor(previous, day)
             licenses.forEach { license ->
-                validities.validity(license)?.let { processor.processValue(license, it, license.isPaidLicense && license.sale.licensePeriod == period) }
+                validities.validity(license)?.let { processor.processValue(license, it, license.isCountedByChurn(period)) }
             }
             val result = processor.getResult(period)
             return if (result.previousActiveItemCount == 0) null else BigDecimal(result.churnRate * 100).setScale(2, RoundingMode.HALF_UP)
         }
-        fun assertChurn(metric: ChartMetric, window: ChartWindow, period: LicensePeriod, previous: YearMonthDay, day: YearMonthDay) {
+        fun assertChurn(metric: ChartMetric, window: ChartWindow, period: LicensePeriod?, previous: YearMonthDay, day: YearMonthDay) {
             val actual = values.series(metric, window)!!.values[values.days.indexOf(day)]
             assertEquals(expected(previous, day, period), actual, "$metric $window $day")
         }
@@ -158,7 +159,7 @@ class ChartMetricValuesTest {
         var churnedMonths = 0
         while (YearMonthDay.lastOfMonth(month.year, month.month) <= today) {
             val end = YearMonthDay.lastOfMonth(month.year, month.month)
-            for ((column, period) in listOf(ChartMetric.ChurnAnnual to LicensePeriod.Annual, ChartMetric.ChurnMonthly to LicensePeriod.Monthly)) {
+            for ((column, period) in listOf(ChartMetric.ChurnAnnual to LicensePeriod.Annual, ChartMetric.ChurnMonthly to LicensePeriod.Monthly, ChartMetric.ChurnCombined to null)) {
                 assertChurn(column, ChartWindow.Month, period, month.add(0, 0, -1), end)
                 // within a month, the churn of the month before the day
                 assertChurn(column, ChartWindow.Month, period, month.add(0, 0, 14).add(0, -1, 0), month.add(0, 0, 14))
@@ -174,8 +175,61 @@ class ChartMetricValuesTest {
         assertChurn(ChartMetric.ChurnAnnual, ChartWindow.Year, LicensePeriod.Annual, YearMonthDay(2023, 12, 31), YearMonthDay(2024, 12, 31))
         assertChurn(ChartMetric.ChurnMonthly, ChartWindow.Year, LicensePeriod.Monthly, YearMonthDay(2023, 12, 31), YearMonthDay(2024, 12, 31))
         assertChurn(ChartMetric.ChurnMonthly, ChartWindow.Year, LicensePeriod.Monthly, today.add(-1, 0, 0), today)
+        assertChurn(ChartMetric.ChurnCombined, ChartWindow.Year, null, YearMonthDay(2023, 12, 31), YearMonthDay(2024, 12, 31))
+        assertChurn(ChartMetric.ChurnCombined, ChartWindow.CalendarYear, null, YearMonthDay(2024, 12, 31), today)
         assertEquals(values.days.indexOf(YearMonthDay(2025, 1, 1)), values.series(ChartMetric.ChurnAnnual, ChartWindow.Year)!!.incompleteFrom)
         assertEquals(values.days.indexOf(YearMonthDay(2025, 9, 1)), values.series(ChartMetric.ChurnMonthly, ChartWindow.Month)!!.incompleteFrom)
+    }
+
+    @Test
+    fun combinedChurnOfAnnualAndMonthlyLicenses() {
+        val annual = (1..12).flatMap { month ->
+            val customer = customer(month)
+            val first = sale(customer, "annual-$month", YearMonthDay(2023, month, 1), 100, LicensePeriod.Annual)
+            when (month) {
+                // not renewed, expires at the end of February 2024
+                3 -> listOf(first)
+                else -> listOf(first, sale(customer, "annual-$month", YearMonthDay(2024, month, 1), 100, LicensePeriod.Annual, PluginSaleItemType.Renew))
+            }
+        }
+        val monthly = (1..4).flatMap { index ->
+            val customer = customer(100 + index)
+            val months = when (index) {
+                // not renewed after February 2024
+                1 -> 1..2
+                // switched to an annual license in March 2024
+                2 -> 1..2
+                else -> 1..12
+            }
+            months.map { month ->
+                sale(customer, "monthly-$index", YearMonthDay(2024, month, 1), 10, LicensePeriod.Monthly, if (month == 1) PluginSaleItemType.New else PluginSaleItemType.Renew)
+            } + listOfNotNull(
+                sale(customer, "monthly-$index", YearMonthDay(2024, 3, 1), 100, LicensePeriod.Annual, PluginSaleItemType.Renew).takeIf { index == 2 }
+            )
+        }
+        // free licenses aren't counted
+        val free = listOf(sale(customer(200), "free", YearMonthDay(2023, 6, 1), 0, LicensePeriod.Annual))
+        val churnSales = (annual + monthly + free).sortedBy { it.date }
+        val values = ChartMetricValues.create(churnSales, licenses(*churnSales.toTypedArray()), emptyList(), emptyList(), exchangeRates, today)
+
+        fun rate(metric: ChartMetric, window: ChartWindow, day: YearMonthDay): BigDecimal? {
+            return values.series(metric, window)!!.values[values.days.indexOf(day)]
+        }
+
+        // March 2024: 12 annual and 4 monthly licenses at the end of February, 1 annual and 1 monthly license churned,
+        // the license switched from monthly to annual isn't churned
+        val march = YearMonthDay(2024, 3, 31)
+        assertEquals(BigDecimal("8.33"), rate(ChartMetric.ChurnAnnual, ChartWindow.CalendarMonth, march))
+        assertEquals(BigDecimal("25.00"), rate(ChartMetric.ChurnMonthly, ChartWindow.CalendarMonth, march))
+        assertEquals(BigDecimal("12.50"), rate(ChartMetric.ChurnCombined, ChartWindow.CalendarMonth, march))
+        // April 2024: 11 annual and 3 licenses, which were monthly, no churn
+        assertEquals(BigDecimal("0.00"), rate(ChartMetric.ChurnCombined, ChartWindow.CalendarMonth, YearMonthDay(2024, 4, 30)))
+        // 2024: only the 12 annual licenses were active at the end of 2023, 1 churned
+        assertEquals(BigDecimal("8.33"), rate(ChartMetric.ChurnCombined, ChartWindow.CalendarYear, YearMonthDay(2024, 12, 31)))
+        // 2025 until today: 11 annual licenses, the license, which switched to annual, and 2 monthly licenses
+        // were active at the end of 2024. Only the 3 annual licenses renewed in October, November and December are
+        // still active.
+        assertEquals(BigDecimal("78.57"), rate(ChartMetric.ChurnCombined, ChartWindow.CalendarYear, today))
     }
 
     @Test

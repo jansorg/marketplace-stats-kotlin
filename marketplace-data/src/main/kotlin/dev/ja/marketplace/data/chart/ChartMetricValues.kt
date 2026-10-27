@@ -6,6 +6,7 @@
 package dev.ja.marketplace.data.chart
 
 import dev.ja.marketplace.churn.ChurnValidities
+import dev.ja.marketplace.churn.isCountedByChurn
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.client.model.DailyDownload
@@ -37,7 +38,7 @@ import javax.money.MonetaryAmount
  *   They use the rules of [dev.ja.marketplace.data.trackers.LicenseTracker] and
  *   [dev.ja.marketplace.data.trackers.RecurringRevenueTracker].
  * - The churn is the share of the paid licenses, which were active at the day before the window and aren't active at
- *   the day.
+ *   the day, of the annual or monthly licenses, or of the licenses of all periods for the combined churn.
  * - The conversion rate of the trials, which started in the window: the share of the trials, which were converted by a
  *   new paid license within [trialConversionDays] days.
  * - The movements of the MRR and the retention compare the MRR of the customers at the day with the MRR at the day
@@ -191,7 +192,8 @@ class ChartMetricValues private constructor(
     private val downloadsPerDay: LongArray by lazy { windows.countsPerDay(downloads.map { it.day to it.downloads }) }
     private val trialsPerDay: LongArray by lazy { windows.countsPerDay(trials.map { it.date to 1L }) }
     private val allLicenses: List<LicenseInfo> by lazy { licensesOfPlugins.flatten() }
-    private val churnValidities: ChurnValidities by lazy { ChurnValidities(allLicenses) }
+    /** The validities of the licenses of each plugin, the IDs of the licenses of different plugins could be the same. */
+    private val churnValidities: List<ChurnValidities> by lazy { licensesOfPlugins.map(::ChurnValidities) }
     private val trialConversions: Pair<Set<PluginTrial>, YearMonthDay?> by lazy { trialConversions(trials, sales, maxTrialDays, today) }
     private val recurringRevenue: Pair<DailySeries, DailySeries> by lazy { recurringRevenue() }
 
@@ -215,6 +217,7 @@ class ChartMetricValues private constructor(
             ChartMetric.Arr -> recurringRevenue.second
             ChartMetric.ChurnAnnual -> churn(LicensePeriod.Annual, window)
             ChartMetric.ChurnMonthly -> churn(LicensePeriod.Monthly, window)
+            ChartMetric.ChurnCombined -> churn(null, window)
             in customerTypeShares -> customerTypeShare(customerTypeShares.getValue(metric), starts)
             // the movements of the MRR, the retention and the average revenue of the customers
             // the movements of the MRR of the window, or the values at each day
@@ -277,17 +280,23 @@ class ChartMetricValues private constructor(
      * share of the paid licenses of the [period], which were active at the day before the window, and which aren't
      * active at the day, e.g. not renewed within the grace period. `null` without licenses at the previous day.
      * The rates of the current period of the window are incomplete, licenses expiring later may still be renewed.
+     *
+     * @param period The period of the licenses, `null` for the combined churn of the licenses of all periods.
      */
-    private fun churn(period: LicensePeriod, window: ChartWindow): DailySeries {
+    private fun churn(period: LicensePeriod?, window: ChartWindow): DailySeries {
         val previousDays = windows.days.map { window.start(it).add(0, 0, -1) }
         val previousChanges = IntArray(dayCount + 1)
         val churnedChanges = IntArray(dayCount + 1)
-        for (sales in allLicenses.groupBy { it.id }.values) {
-            val accepted = mergeRanges(sales.filter { it.isPaidLicense && it.sale.licensePeriod == period }.mapNotNull(churnValidities::validity))
+        // the licenses of each plugin, the IDs of the licenses of different plugins could be the same
+        val licensesById = licensesOfPlugins.zip(churnValidities).flatMap { (licenses, validities) ->
+            licenses.groupBy { it.id }.values.map { it to validities }
+        }
+        for ((sales, validities) in licensesById) {
+            val accepted = mergeRanges(sales.filter { it.isCountedByChurn(period) }.mapNotNull(validities::validity))
             if (accepted.isEmpty()) {
                 continue
             }
-            val active = mergeRanges(sales.mapNotNull(churnValidities::validity))
+            val active = mergeRanges(sales.mapNotNull(validities::validity))
             for ((start, end) in accepted) {
                 // the days, whose previous day is within the range, the previous days are ordered
                 val from = lowerBound(previousDays, start)
@@ -443,6 +452,7 @@ class ChartMetricValues private constructor(
         /** The metrics of the summary of all plugins. */
         private val allPluginsMetrics = setOf(
             ChartMetric.Sales, ChartMetric.Fees, ChartMetric.Invoice, ChartMetric.Downloads, ChartMetric.Mrr, ChartMetric.Arr,
+            ChartMetric.ChurnCombined,
         )
 
         /**
@@ -463,7 +473,8 @@ class ChartMetricValues private constructor(
         }
 
         /**
-         * @return The values of the summary of all paid plugins: sales, fees, invoices, downloads, MRR and ARR.
+         * @return The values of the summary of all paid plugins: sales, fees, invoices, downloads, MRR, ARR and
+         *  the combined churn rate.
          * @param licensesOfPlugins The licenses of each plugin.
          */
         fun allPlugins(
