@@ -17,8 +17,11 @@ import javax.xml.parsers.DocumentBuilderFactory
 class ChartImageRendererTest {
     private val months = (1..12).map { LocalDate.of(2025, it, 1).withDayOfMonth(LocalDate.of(2025, it, 1).lengthOfMonth()) }
 
-    private fun chart(vararg series: ChartImageSeries, markers: List<ChartMarker> = emptyList(), extremes: Set<ChartExtreme> = emptySet()): ChartImage {
-        return ChartImage("Synthetic sales", "Test plugin", series.toList(), markers, ChartDetail.Month, LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31), extremes)
+    private fun chart(vararg series: ChartImageSeries, markers: List<ChartMarker> = emptyList(), extremes: Set<ChartExtreme> = emptySet(), logScale: Boolean = false): ChartImage {
+        return ChartImage(
+            "Synthetic sales", "Test plugin", series.toList(), markers, ChartDetail.Month, LocalDate.of(2025, 1, 1), LocalDate.of(2025, 12, 31), extremes,
+            logScale = logScale,
+        )
     }
 
     private val sales = ChartImageSeries(
@@ -117,6 +120,36 @@ class ChartImageRendererTest {
         assertNull(ChartColor.next(ChartColor.SeriesColors.toSet(), emptyList(), ChartStyle.Lines))
         assertEquals(0.0, ChartColor.distance(blue, blue))
         assertTrue(ChartColor.distance(blue, green, lineOverBar = true) < ChartColor.MIN_DISTANCE)
+    }
+
+    @Test
+    fun logRangeLikeTheWebCharts() {
+        // the values of logRange of model.js
+        assertEquals(AxisRange(10.0, 1000.0, 0.0, log = true), ChartAxes.logRange(12.0, 830.0))
+        assertEquals(AxisRange(100.0, 1000.0, 0.0, log = true), ChartAxes.logRange(100.0, 100.0))
+        assertEquals(AxisRange(0.1, 10.0, 0.0, log = true), ChartAxes.logRange(0.5, 3.0))
+        assertEquals(AxisRange(1.0, 10.0, 0.0, log = true), ChartAxes.logRange(null, null))
+
+        assertEquals(listOf(10.0, 20.0, 30.0, 50.0, 70.0, 100.0, 200.0, 300.0, 500.0, 700.0, 1000.0), ChartAxes.logRange(12.0, 830.0).ticks)
+        assertEquals(listOf(1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0), ChartAxes.logRange(1.0, 1000.0).ticks)
+        // a wide range only has the powers of ten
+        assertEquals(listOf(1.0, 10.0, 100.0, 1000.0, 1e4, 1e5, 1e6), ChartAxes.logRange(1.0, 1e6).ticks)
+    }
+
+    @Test
+    fun logScale() {
+        // the trials of every 4th month are 0, they have no position on the logarithmic axis
+        val svg = ChartImageRenderer.svg(chart(sales, trials, average, extremes = setOf(ChartExtreme.Min, ChartExtreme.Max), logScale = true), 800, 400)
+        val document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(ByteArrayInputStream(svg.toByteArray()))
+        assertEquals("svg", document.documentElement.tagName)
+        assertFalse("NaN" in svg || "Infinity" in svg, "values of 0 have no position")
+        // the ticks of the amounts from 100 to 1,000 and of the trials from 1 to 10
+        for (label in listOf(">100<", ">200<", ">500<", ">1K<", ">1<", ">5<", ">10<")) {
+            assertTrue(label in svg, label)
+        }
+        // the minimum of the trials is the lowest positive value
+        assertTrue(">1<" in svg)
+        ImageIO.read(ByteArrayInputStream(ChartImageRenderer.png(chart(sales, trials, logScale = true), 600, 300)))
     }
 
     @Test

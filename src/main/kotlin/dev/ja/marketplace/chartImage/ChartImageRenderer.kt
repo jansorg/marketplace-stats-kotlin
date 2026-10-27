@@ -15,6 +15,7 @@ import java.io.ByteArrayOutputStream
 import java.time.LocalDate
 import javax.imageio.ImageIO
 import kotlin.math.abs
+import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -110,8 +111,17 @@ object ChartImageRenderer {
 
         fun y(value: Double, unit: String): Double {
             val range = ranges.getValue(unit)
+            if (range.log) {
+                return bottom - (log10(value) - log10(range.min)) / (log10(range.max) - log10(range.min)) * height
+            }
             return bottom - (value - range.min) / (range.max - range.min) * height
         }
+
+        /** @return If the value has a position on the axis of the unit: a logarithmic axis has no 0 and no negative values. */
+        fun isDrawn(value: Double, unit: String): Boolean = !ranges.getValue(unit).log || value > 0
+
+        /** @return The position of the start of a bar: 0, or the bottom of a logarithmic axis. */
+        fun barBase(unit: String): Double = if (ranges.getValue(unit).log) bottom else y(0.0, unit)
     }
 
     internal fun draw(chart: ChartImage, canvas: ChartCanvas, width: Double, height: Double) {
@@ -140,7 +150,15 @@ object ChartImageRenderer {
             (values.minOrNull() ?: 0.0) to (values.maxOrNull()?.takeIf { it != 0.0 || (values.minOrNull() ?: 0.0) != 0.0 } ?: 1.0)
         }
         val tickCount = max(2, ((plotBottom - plotTop) / 60).roundToInt())
-        val ranges = chart.units.zip(ChartAxes.alignedRanges(extents.ifEmpty { listOf(0.0 to 1.0) }, tickCount)).toMap()
+        val ranges = when {
+            // logarithmic axes have their own ranges and ticks around the positive values
+            chart.logScale -> chart.units.associateWith { unit ->
+                val values = chart.series.indices.filter { chart.series[it].unit == unit }.flatMap { index -> visible[index].map(ChartPoint::value) }.filter { it > 0 }
+                ChartAxes.logRange(values.minOrNull(), values.maxOrNull())
+            }
+
+            else -> chart.units.zip(ChartAxes.alignedRanges(extents.ifEmpty { listOf(0.0 to 1.0) }, tickCount)).toMap()
+        }
         val tickLabels = chart.units.associateWith { unit ->
             ranges.getValue(unit).ticks.map { if (chart.hideAxisValues) "" else ChartAxes.compact(it) }
         }
@@ -259,12 +277,19 @@ object ChartImageRenderer {
         }
     }
 
+    /** @return The line through the points, a value without a position, e.g. 0 on a logarithmic axis, is a gap. */
     private fun linePath(plot: Plot, unit: String, points: List<ChartPoint>): Path2D {
         val path = Path2D.Double()
-        points.forEachIndexed { index, point ->
+        var isConnected = false
+        for (point in points) {
+            if (!plot.isDrawn(point.value, unit)) {
+                isConnected = false
+                continue
+            }
             val x = plot.x(point.date)
             val y = plot.y(point.value, unit)
-            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            if (isConnected) path.lineTo(x, y) else path.moveTo(x, y)
+            isConnected = true
         }
         return path
     }
@@ -286,7 +311,7 @@ object ChartImageRenderer {
     }
 
     private fun drawPoints(canvas: ChartCanvas, plot: Plot, series: ChartImageSeries, points: List<ChartPoint>) {
-        for (point in points) {
+        for (point in points.filter { plot.isDrawn(it.value, series.unit) }) {
             val x = plot.x(point.date)
             val y = plot.y(point.value, series.unit)
             canvas.fill(circle(x, y, POINT_RADIUS + POINT_RING), ChartColor.Surface)
@@ -317,9 +342,9 @@ object ChartImageRenderer {
         barIndices.forEachIndexed { position, index ->
             val series = chart.series[index]
             val offset = -totalWidth / 2 + position * (barWidth + BAR_GAP)
-            for (point in visible[index]) {
+            for (point in visible[index].filter { plot.isDrawn(it.value, series.unit) }) {
                 val x = plot.x(point.date) + offset
-                val base = plot.y(0.0, series.unit)
+                val base = plot.barBase(series.unit)
                 val end = plot.y(point.value, series.unit)
                 if (abs(end - base) < 0.5) {
                     continue
@@ -372,7 +397,7 @@ object ChartImageRenderer {
             if (series.kind != ChartSeriesKind.Values) {
                 return@forEachIndexed
             }
-            val complete = visible[index].filterNot(ChartPoint::isIncomplete)
+            val complete = visible[index].filter { !it.isIncomplete && plot.isDrawn(it.value, series.unit) }
             val min = complete.minByOrNull(ChartPoint::value) ?: return@forEachIndexed
             val max = complete.maxBy(ChartPoint::value)
             if (nearlyEqual(min.value, max.value)) {

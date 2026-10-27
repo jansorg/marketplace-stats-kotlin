@@ -16,20 +16,45 @@ import java.time.format.TextStyle
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.pow
 import kotlin.math.roundToLong
 
-/** The range and the step of the ticks of a y-axis. */
-data class AxisRange(val min: Double, val max: Double, val step: Double) {
+/**
+ * The range and the step of the ticks of a y-axis.
+ *
+ * @param log If the axis is logarithmic (base 10), see [ChartAxes.logRange]. Its ticks are multiples of the powers of
+ *  ten, [step] isn't used.
+ */
+data class AxisRange(val min: Double, val max: Double, val step: Double, val log: Boolean = false) {
     /** The ticks without rounding errors of the floating point numbers. */
     val ticks: List<Double>
         get() {
+            if (log) {
+                return logTicks()
+            }
             val count = ((max - min) / step).roundToLong().toInt()
             return List(count + 1) { BigDecimal(min + it * step).round(java.math.MathContext(12)).toDouble() }
         }
+
+    /**
+     * @return 1, 2, 3, 5 and 7 times the powers of ten of a range of up to two powers of ten, like the labels of the
+     *  logarithmic axes of the web charts, fewer ticks of larger ranges.
+     */
+    private fun logTicks(): List<Double> {
+        val first = floor(log10(min)).toInt()
+        val last = ceil(log10(max)).toInt()
+        val factors = when {
+            last - first <= 2 -> listOf(1, 2, 3, 5, 7)
+            last - first <= 4 -> listOf(1, 2, 5)
+            else -> listOf(1)
+        }
+        return (first..last).flatMap { exponent -> factors.map { BigDecimal(it).scaleByPowerOfTen(exponent).toDouble() } }
+            .filter { it >= min * (1 - 1e-9) && it <= max * (1 + 1e-9) }
+    }
 }
 
 /** A tick of the date axis with its label. */
@@ -40,6 +65,22 @@ data class DateTick(val date: LocalDate, val label: String)
  */
 object ChartAxes {
     private val factors = listOf(1.0, 2.0, 2.5, 5.0, 10.0)
+
+    /**
+     * The range of a logarithmic y-axis, like `logRange` of `model.js`: the powers of ten around the values, e.g. 10 to
+     * 1000 for values from 12 to 830, 1 to 10 without positive values.
+     *
+     * @param min The lowest positive value, `null` without positive values.
+     * @param max The highest positive value.
+     */
+    fun logRange(min: Double?, max: Double?): AxisRange {
+        if (max == null || !(max > 0)) {
+            return AxisRange(1.0, 10.0, 0.0, log = true)
+        }
+        val low = 10.0.pow(floor(log10(if (min != null && min > 0) min else max)))
+        val high = 10.0.pow(ceil(log10(max)))
+        return AxisRange(low, if (high > low) high else low * 10, 0.0, log = true)
+    }
 
     /** @return The smallest step of 1, 2, 2.5 or 5 times a power of ten, with at most [count] steps over the span. */
     fun niceStep(span: Double, count: Int): Double {

@@ -70,6 +70,8 @@ internal data class ChartRequest(
     val showIncomplete: Boolean = true,
     val extremes: Set<ChartExtreme> = emptySet(),
     val hideAxisValues: Boolean = false,
+    /** If the y-axes are logarithmic, see [ChartImage.logScale]. */
+    val logScale: Boolean = false,
     val markers: Set<ChartMarkerKind> = emptySet(),
     val title: String? = null,
     val format: ChartFormat = ChartFormat.Png,
@@ -144,6 +146,7 @@ internal data class ChartRequest(
                         ?: throw IllegalArgumentException("extremes must contain ${ChartExtreme.entries.joinToString { it.id }}, but was '$id'")
                 }?.toSet() ?: emptySet(),
                 hideAxisValues = arguments.booleanArgument("hideAxisValues") ?: false,
+                logScale = arguments.booleanArgument("logScale") ?: false,
                 markers = arguments.stringListArgument("markers")?.map { id ->
                     ChartMarkerKind.byId(id.trim())
                         ?: throw IllegalArgumentException("markers must contain ${ChartMarkerKind.entries.joinToString { it.id }}, but was '$id'")
@@ -345,6 +348,9 @@ class McpChartTool(private val provider: McpDataProvider) {
                     put("description", "Mark the lowest and highest complete value of each series")
                 })
                 put("hideAxisValues", booleanProperty("Hide the values of the y-axes and extremes, e.g. to share the chart"))
+                put("logScale", booleanProperty(
+                    "Logarithmic y-axes, e.g. to compare lines of very different values. Values of 0 and below aren't drawn"
+                ))
                 put("markers", buildJsonObject {
                     put("type", "array")
                     put("items", enumProperty(ChartMarkerKind.entries.map { it.id }))
@@ -546,6 +552,7 @@ class McpChartTool(private val provider: McpDataProvider) {
                 end = end,
                 extremes = request.extremes,
                 hideAxisValues = request.hideAxisValues,
+                logScale = request.logScale,
             )
             return ChartWithSeries(chart, JsonArray(seriesJson))
         }
