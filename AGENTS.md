@@ -192,7 +192,11 @@ queries, and one which excludes all these tags. The results are in the order of 
   - `format.js`, `model.js`, `storage.js`: pure functions, tested with Node.js in `src/test/js/*.test.mjs`
     (`node --test src/test/js/`, or `./gradlew testJavascript`, which is part of `check` and skipped without Node.js)
   - `tableData.js`: reads the `data-chart-*` attributes of the tables
-  - `lineChart.js`, `pieChart.js`, `dialog.js`, `menu.js` (dropdown menus): rendering, `main.js`: state of the charts
+  - `metricValues.js`: the series of metrics and the cache of the values of `/chart-data` (`MetricValueCache`), tested
+    like the pure functions, `endpoints.js`: the requests to the server
+  - `lineChart.js`, `pieChart.js`, `dialog.js`, `menu.js` (dropdown menus), `addMenu.js` (the "+" menu),
+    `chartControls.js` (the switches of the level and the style), `chartExports.js` (the Export menu),
+    `pageControls.js` (column headers, logo and the key C): rendering, `main.js`: state of the charts
   - `exportImage.js`: images of the charts with title and legend, for downloads (PNG, pie charts also SVG) and
     printing. Printing adds the images to the page and `print.css` hides everything else (`body.print-charts`).
 - The key C shows and hides the chart dialog.
@@ -319,7 +323,7 @@ queries, and one which excludes all these tags. The results are in the order of 
   plugin of the page with the view, opens the dialog and removes the fragment. Changing the charts also removes it.
 - "Copy data URL" of the Export menu of a chart of metrics copies the address of `/chart-export` (`ChartExport.kt`),
   which returns the values of the shown lines, e.g. for an AI agent (`chartExportUrl` and `exportLineId` in
-  `model.js`, `copyDataUrl` in `main.js`; without access to the clipboard the message shows the address). One address
+  `model.js`, `copyDataUrl` in `chartExports.js`; without access to the clipboard the message shows the address). One address
   describes the chart: `lines=<metric>[@avg<months>][@previous-year][:<window>],...` (the shown windows, hidden lines
   and trends are left out, the previous year is a line of its own), `detail`, `from`/`to` of the range,
   `incomplete=false` if incomplete values are hidden. The server derives the finer dates of short windows like the

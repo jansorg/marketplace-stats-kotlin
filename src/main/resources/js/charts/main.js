@@ -13,134 +13,27 @@
  * pie charts on all pages with the same tables.
  */
 
+import {fillAddMenu} from "./addMenu.js";
+import {compactSwitch, detailSwitch, styleSwitch} from "./chartControls.js";
+import {exportMenu, lightLineChartImage} from "./chartExports.js";
+import {ChartDialog, removeButton} from "./dialog.js";
+import {fetchMetricValues} from "./endpoints.js";
+import {pieChartSvg, svgCanvas} from "./exportImage.js";
 import {createFormatter} from "./format.js";
+import {createLineChart} from "./lineChart.js";
+import {metricDataId, metricEntry, metricSeries, MetricValueCache} from "./metricValues.js";
 import {
-    canCombineUnits, chartLevel, chartLevelKeys, CHART_STYLES, dateRange, DETAILS, detailGranularity, detailPeriod, rangeLabel, rangeOfPreset, rangeOfTimestamps, rangeTimestamps, rangeYears, exportFileName, groupCharts, lineChartKey, MARKER_KINDS, MAX_PIES, MAX_SERIES,
-    METRIC_PERIOD, metricLabel, metricPoints, nextColor, pieSlices, shownWindow, storedChartLevel, WINDOW_LABELS, WINDOWS, finestDetail, lineDetail,
-    visibleMarkers, withoutIncomplete, OVERLAYS, overlayApplies, previousYear, chartExportUrl,
+    canCombineUnits, chartExportUrl, chartLevel, chartLevelKeys, dateRange, detailGranularity, detailPeriod, exportFileName, finestDetail, groupCharts,
+    lineChartKey, lineDetail, MARKER_KINDS, MAX_PIES, MAX_SERIES, METRIC_PERIOD, metricLabel, metricPoints, nextColor, overlayApplies, OVERLAYS,
+    pieSlices, previousYear, rangeLabel, rangeOfPreset, rangeOfTimestamps, rangeTimestamps, rangeYears, shownWindow, storedChartLevel,
+    visibleMarkers, withoutIncomplete,
 } from "./model.js";
+import {enableShortcut, makeColumnClickable, makeHintsClickable, makeLogoClickable} from "./pageControls.js";
+import {renderPie} from "./pieChart.js";
 import {browserStorage, createSetupStorage, decodeView, emptySetup, encodeView} from "./storage.js";
 import {chartColumns, metricKey, readLineSeries, readMarkers, readMetricLevel, readMetricSeries, readPieRows, readRowHistorySeries, readTableDateRange} from "./tableData.js";
-import {ChartDialog, removeButton} from "./dialog.js";
-import {createLineChart, lineChartTheme} from "./lineChart.js";
-import {renderPie} from "./pieChart.js";
-import {clickOpensSubmenu, createMenu} from "./menu.js";
-import {canCopyImages, copyCanvas, downloadCanvas, downloadSvg, lineChartImage, pieChartSvg, printImages, svgCanvas} from "./exportImage.js";
 
-const STYLE_LABELS = {lines: "Lines", bars: "Bars"};
 const LOADING_MESSAGE = "Loading the values…";
-
-/** The values of a metric in the menu "Add": the values and their moving averages over 1, 3 and 12 months. */
-const ADD_MENU_VALUES = [
-    [null, "Values", "The values of the selected window"],
-    [1, "1-month moving average", "The average of the month before each date"],
-    [3, "3-month moving average", "The average of the 3 months before each date"],
-    [12, "12-month moving average", "The average of the 12 months before each date, without seasonal changes"],
-];
-const DETAIL_LABELS = {year: "Year", month: "Month", week: "Week", day: "Day"};
-const DETAIL_HINT = "The dates of the values: the end of each year, of each month or of each week, or each day, and today.";
-
-/**
- * @return {HTMLElement} A new element with the content of the element, which is added to the element.
- */
-function wrapContent(element) {
-    const wrapper = document.createElement("span");
-    wrapper.append(...element.childNodes);
-    element.append(wrapper);
-    return wrapper;
-}
-
-function isTextInput(element) {
-    return element instanceof HTMLElement
-        && (element.isContentEditable || element.matches("textarea, select, input:not([type=checkbox], [type=radio], [type=button])"));
-}
-
-/**
- * @param {{metric: string, window?: string|null, usesWindow?: boolean, label: string, unit: string,
- *  measure?: string|null, row?: string}} series A series of a metric column, of the menu to add metrics or of the
- *  stored setup. Sums and rates have a window, e.g. the trials of each month and of each day are two series.
- * @return {object} The series of the metric, its values are loaded when it's shown, see ChartController.metricChartSeries.
- */
-function metricSeries({metric, window, usesWindow, average, label, unit, measure, row, style}, color) {
-    const hasWindow = usesWindow ?? measure !== "stock";
-    const seriesWindow = hasWindow ? window ?? null : null;
-    return {
-        key: metricKey(metric, seriesWindow, average), metric, window: seriesWindow, usesWindow: hasWindow,
-        ...(average ? {average} : {}), label, unit, measure: measure ?? null, ...(row ? {row} : {}),
-        period: METRIC_PERIOD, points: new Map(), incomplete: new Set(), color, ...(style ? {style} : {}),
-    };
-}
-
-/**
- * @return {string} The ID of the values of a series of a metric in /chart-data: the metric or its moving average, e.g.
- *  `sales@avg3`.
- */
-function metricDataId(series) {
-    return series.average ? `${series.metric}@avg${series.average}` : series.metric;
-}
-
-/**
- * On small screens, a group of buttons, of which one is selected, e.g. the levels Year, Month, Week and Day, is a
- * dropdown menu with the selected button as its label, which opens on hover or with a tap. See main.css.
- *
- * @param {HTMLElement} group The buttons with `aria-pressed`.
- * @return {HTMLElement} The buttons and the menu, CSS shows one of them.
- */
-function compactSwitch(group) {
-    const buttons = [...group.querySelectorAll("button")];
-    const selected = buttons.find(button => button.getAttribute("aria-pressed") === "true");
-    const {menu, items} = createMenu(selected?.textContent ?? "");
-    menu.classList.add("chart-compact-switch");
-    menu.title = group.title;
-    menu.querySelector("summary").setAttribute("aria-label", (group.getAttribute("aria-label") ?? "") + ": " + (selected?.textContent ?? ""));
-    for (const button of buttons) {
-        const item = document.createElement("button");
-        item.type = "button";
-        item.textContent = button.textContent;
-        item.setAttribute("role", "menuitemradio");
-        item.setAttribute("aria-checked", String(button === selected));
-        item.disabled = button.disabled;
-        item.title = button.title;
-        item.addEventListener("click", () => {
-            menu.open = false;
-            button.click();
-        });
-        items.append(item);
-    }
-    const wrapper = document.createElement("div");
-    wrapper.className = "chart-switch";
-    group.classList.add("chart-full-switch");
-    wrapper.append(group, menu);
-    return wrapper;
-}
-
-/**
- * @param {string} path The path of an endpoint of the server, e.g. `/chart-data`.
- * @return {URL} The address of the endpoint with the plugin of the page, without a plugin for the summary of all plugins.
- */
-function pageEndpoint(path) {
-    const url = new URL(path, window.location.href);
-    const pluginId = new URLSearchParams(window.location.search).get("pluginId");
-    if (pluginId !== null) {
-        url.searchParams.set("pluginId", pluginId);
-    }
-    return url;
-}
-
-/** @return {Promise<any>} The JSON of the response, rejected if the response has an error status. */
-async function fetchJson(url) {
-    const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error("HTTP status " + response.status);
-    }
-    return response.json();
-}
-
-/** @return {import("./storage.js").ChartEntry} The stored entry of a series of a metric. */
-function metricEntry(s) {
-    return {type: "metric", metric: s.metric, ...(s.window ? {window: s.window} : {}), usesWindow: s.usesWindow, ...(s.average ? {average: s.average} : {}), label: s.label, unit: s.unit,
-        ...(s.measure ? {measure: s.measure} : {}), ...(s.row ? {row: s.row} : {}), color: s.color, ...(s.style ? {style: s.style} : {})};
-}
 
 class ChartController {
     /**
@@ -196,7 +89,7 @@ class ChartController {
         // the window of metrics, which are added with the menu "Add"
         this.addWindow = "follow";
         // the loaded values of metrics by window and detail level, see loadMetrics
-        this.metricValues = {};
+        this.metricValues = new MetricValueCache(fetchMetricValues);
         this.shownStyles = {};
         this.dialog = null;
     }
@@ -204,15 +97,15 @@ class ChartController {
     start() {
         const columns = [...document.querySelectorAll("table[data-chart-title]")].flatMap(table => {
             const tableColumns = chartColumns(table).filter(column => column.type === "pie" || this.lineChartsAvailable);
-            tableColumns.forEach(column => this.makeClickable(column, table));
+            tableColumns.forEach(column => makeColumnClickable(column, table, () => this.showColumn(column, table)));
             this.hasLineCharts ||= tableColumns.some(column => column.type !== "pie");
             return tableColumns.map(column => ({...column, element: table}));
         });
         const isBookmarkedView = this.restore(columns);
-        this.makeLogoClickable();
-        this.makeHintsClickable();
+        makeLogoClickable(() => this.openDialog(null));
+        makeHintsClickable(() => this.openDialog(null));
         if (columns.length > 0) {
-            this.enableShortcut();
+            enableShortcut(() => this.dialog?.isOpen ? this.dialog.close() : this.openDialog(null));
         }
         // a bookmarked view replaces the stored setup and is shown
         if (isBookmarkedView) {
@@ -227,80 +120,17 @@ class ChartController {
         });
     }
 
-    /**
-     * The key C shows and hides the charts, unless a text field has the focus.
-     */
-    enableShortcut() {
-        document.addEventListener("keydown", event => {
-            if (event.key.toLowerCase() !== "c" || event.ctrlKey || event.metaKey || event.altKey || event.repeat || isTextInput(event.target)) {
-                return;
-            }
-            event.preventDefault();
-            if (this.dialog?.isOpen) {
-                this.dialog.close();
-            } else {
-                this.openDialog(null);
-            }
-        });
-    }
-
-    /**
-     * A click on a hint of the shortcut, e.g. "Press C to show the charts", opens the charts.
-     */
-    makeHintsClickable() {
-        for (const hint of document.querySelectorAll("[data-show-charts]")) {
-            hint.addEventListener("click", () => this.openDialog(null));
+    /** Shows a column of a table in a chart, see chartColumns. */
+    showColumn({type, columnIndex, isRowHistory}, table) {
+        if (type === "pie") {
+            this.addPie(table, columnIndex);
+        } else if (type === "metric") {
+            this.addMetricSeries(table, columnIndex);
+        } else if (isRowHistory) {
+            this.addRowHistorySeries(table, columnIndex);
+        } else {
+            this.addSeries(table, columnIndex);
         }
-    }
-
-    /**
-     * A click on the logo of the plugin opens the charts.
-     */
-    makeLogoClickable() {
-        const logo = document.querySelector("img.plugin-icon");
-        if (logo === null) {
-            return;
-        }
-        logo.classList.add("chart-opener");
-        logo.tabIndex = 0;
-        logo.setAttribute("role", "button");
-        logo.title = "Show charts (C)";
-        logo.setAttribute("aria-keyshortcuts", "C");
-        logo.addEventListener("click", () => this.openDialog(null));
-        logo.addEventListener("keydown", event => {
-            if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                this.openDialog(null);
-            }
-        });
-    }
-
-    makeClickable(column, table) {
-        const {header, type, columnIndex, isRowHistory} = column;
-        const show = () => type === "pie" ? this.addPie(table, columnIndex)
-            : type === "metric" ? this.addMetricSeries(table, columnIndex)
-                : isRowHistory ? this.addRowHistorySeries(table, columnIndex) : this.addSeries(table, columnIndex);
-        // a click on the header of a sortable table sorts it, only a click on the label of the header opens the chart
-        const isSortable = table.classList.contains("sortable") && !header.classList.contains("no-sort");
-        const target = isSortable ? wrapContent(header) : header;
-        target.classList.add("chartable");
-        target.tabIndex = 0;
-        target.setAttribute("role", "button");
-        const hint = type === "pie" ? "Click to show in a pie chart" : "Click to show in a chart";
-        target.title = (header.title ? header.title + "\n" : "") + (isSortable ? "Click the label to show in a chart, click the arrow to sort" : hint);
-        target.addEventListener("click", event => {
-            // the sortable tables handle all clicks on the document
-            if (isSortable) {
-                event.stopPropagation();
-            }
-            show();
-        });
-        target.addEventListener("keydown", event => {
-            if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                show();
-            }
-        });
     }
 
     /**
@@ -429,130 +259,6 @@ class ChartController {
         }
         this.dialog.showMessage(rejection || null);
         this.render();
-    }
-
-    /**
-     * Fills the menu to add a metric: a selection of the window of sums and rates, and the metrics of the page, which
-     * are loaded from /chart-metrics when the menu is opened first.
-     */
-    fillAddMenu(items, close) {
-        if (items.childElementCount > 0) {
-            return;
-        }
-        const windowLabel = document.createElement("label");
-        windowLabel.className = "chart-add-window";
-        const windowSelect = document.createElement("select");
-        for (const window of WINDOWS) {
-            windowSelect.append(new Option(WINDOW_LABELS[window], window, false, window === this.addWindow));
-        }
-        windowSelect.addEventListener("change", () => this.addWindow = windowSelect.value);
-        windowLabel.append("Window", windowSelect);
-        items.append(windowLabel);
-        fetchJson(pageEndpoint("/chart-metrics"))
-            .then(metrics => {
-                // the metrics are grouped by their kind, e.g. the trials and the conversion of the trials
-                let group = null;
-                for (const metric of metrics) {
-                    if (metric.group !== group) {
-                        group = metric.group;
-                        const heading = document.createElement("span");
-                        heading.className = "chart-menu-heading";
-                        heading.textContent = group;
-                        items.append(heading);
-                    }
-                    items.append(this.addMenuItem(metric, () => windowSelect.value, close));
-                }
-            })
-            .catch(error => {
-                console.error("Loading the metrics failed", error);
-                items.replaceChildren();
-                close();
-                this.dialog.showMessage("The metrics couldn't be loaded.");
-            });
-    }
-
-    /**
-     * @return {HTMLElement} An item of the menu "Add": a click adds the values of the metric, hovering it shows a
-     *  submenu with the values and the moving averages. A tap of a touch screen shows the submenu below the item.
-     */
-    addMenuItem(metric, selectedWindow, close) {
-        const item = document.createElement("div");
-        item.className = "chart-add-metric";
-        const add = average => {
-            close();
-            this.addMetric(metric, selectedWindow(), average);
-        };
-        const button = document.createElement("button");
-        button.type = "button";
-        button.setAttribute("role", "menuitem");
-        button.setAttribute("aria-haspopup", "menu");
-        button.textContent = metric.title;
-        // values at a date, e.g. the MRR, don't use the window
-        const windowHint = metric.usesWindow ? "Sums or rates of the selected window" : "Values at each date";
-        button.title = metric.description ? `${metric.description}\n${windowHint}` : windowHint;
-        // A mouse shows the submenu on hover and a click adds the values. A tap of a touch screen or a pen shows and hides
-        // the submenu below the item, within the list of the menu: without hover, e.g. on an iPad, the submenu beside
-        // the item wasn't usable. The pointer of the last pointerdown, e.g. before the click or the focus of the item.
-        let pointerType = null;
-        item.addEventListener("pointerdown", event => pointerType = event.pointerType);
-        item.addEventListener("keydown", () => pointerType = null);
-        button.addEventListener("click", () => {
-            if (clickOpensSubmenu(pointerType)) {
-                toggleInline();
-            } else {
-                add(null);
-            }
-        });
-
-        const submenu = document.createElement("div");
-        submenu.className = "chart-add-submenu";
-        submenu.setAttribute("role", "menu");
-        for (const [average, text, title] of ADD_MENU_VALUES) {
-            const subButton = document.createElement("button");
-            subButton.type = "button";
-            subButton.setAttribute("role", "menuitem");
-            subButton.textContent = text;
-            subButton.title = title;
-            subButton.addEventListener("click", () => add(average));
-            submenu.append(subButton);
-        }
-        // the submenu is placed beside the item in the window, to the left like the menu, the list of the menu scrolls.
-        // On a narrow screen without space beside the item, the submenu is placed below it.
-        const closeOthers = () => item.parentElement?.querySelectorAll(".chart-add-open, .chart-add-inline")
-            .forEach(open => open !== item && open.classList.remove("chart-add-open", "chart-add-inline"));
-        const toggleInline = () => {
-            closeOthers();
-            item.classList.remove("chart-add-open");
-            if (item.classList.toggle("chart-add-inline")) {
-                submenu.scrollIntoView({block: "nearest"});
-            }
-        };
-        const show = () => {
-            closeOthers();
-            if (item.classList.contains("chart-add-inline")) {
-                return;
-            }
-            item.classList.add("chart-add-open");
-            const bounds = item.getBoundingClientRect();
-            const {width, height} = submenu.getBoundingClientRect();
-            const fitsRight = bounds.right + width <= window.innerWidth;
-            const fitsLeft = bounds.left - width >= 0;
-            const left = fitsLeft ? bounds.left - width : fitsRight ? bounds.right : Math.min(bounds.left, window.innerWidth - width);
-            const top = fitsLeft || fitsRight ? bounds.top : bounds.bottom;
-            submenu.style.left = Math.max(0, left) + "px";
-            submenu.style.top = Math.max(0, Math.min(top, window.innerHeight - height)) + "px";
-        };
-        item.addEventListener("pointerenter", event => event.pointerType === "mouse" && show());
-        // the focus of a tap, e.g. in Chromium, doesn't show the submenu beside the item
-        item.addEventListener("focusin", () => !clickOpensSubmenu(pointerType) && show());
-        item.addEventListener("pointerleave", event => event.pointerType === "mouse" && item.classList.remove("chart-add-open"));
-        item.addEventListener("focusout", event => {
-            if (!item.contains(event.relatedTarget)) {
-                item.classList.remove("chart-add-open");
-            }
-        });
-        item.append(button, submenu);
-        return item;
     }
 
     /** Changes the window of a series of a metric, e.g. to show the trials of each day instead of each month. */
@@ -746,67 +452,47 @@ class ChartController {
         if (this.dialog === null) {
             this.dialog = new ChartDialog({
                 onRemoveAll: () => this.removeAll(),
-                onCombineUnitsChange: combine => {
-                    this.combineUnits = combine;
-                    this.save();
-                    this.render();
-                },
-                onMaximizedChange: maximized => {
-                    this.maximized = maximized;
-                    this.save();
-                    this.render();
-                },
+                onCombineUnitsChange: combine => this.setOption("combineUnits", combine),
+                onMaximizedChange: maximized => this.setOption("maximized", maximized),
                 onResize: () => this.resize(),
-                onMarkerVisibilityChange: (kind, visible) => {
-                    this.shownMarkers = visible ? [...new Set([...this.shownMarkers, kind])] : this.shownMarkers.filter(k => k !== kind);
-                    this.save();
-                    this.render();
-                },
-                onEventVisibilityChange: (id, visible) => {
-                    this.shownEvents = visible ? [...new Set([...this.shownEvents, id])] : this.shownEvents.filter(e => e !== id);
-                    this.save();
-                    this.render();
-                },
-                onExtremeVisibilityChange: (kind, visible) => {
-                    this.shownExtremes = visible ? [...new Set([...this.shownExtremes, kind])] : this.shownExtremes.filter(k => k !== kind);
-                    this.save();
-                    this.render();
-                },
+                onMarkerVisibilityChange: (kind, visible) => this.toggleListOption("shownMarkers", kind, visible),
+                onEventVisibilityChange: (id, visible) => this.toggleListOption("shownEvents", id, visible),
+                onExtremeVisibilityChange: (kind, visible) => this.toggleListOption("shownExtremes", kind, visible),
                 onOverlayVisibilityChange: (kind, visible) => {
-                    this.shownOverlays = visible ? [...new Set([...this.shownOverlays, kind])] : this.shownOverlays.filter(k => k !== kind);
-                    this.save();
-                    this.render();
+                    this.toggleListOption("shownOverlays", kind, visible);
                     // an option without effect is explained, the values of the averages may still load
-                    if (visible && !this.isLoadingMetrics() && !this.dialog.isOverlayApplicable(kind)) {
+                    if (visible && !this.metricValues.isLoading && !this.dialog.isOverlayApplicable(kind)) {
                         this.dialog.showMessage(this.dialog.overlayHint(kind));
                     }
                 },
                 onDateRangeChange: range => this.setDateRange(range),
-                onAddMenuOpen: (items, close) => this.fillAddMenu(items, close),
-                onValueTableVisibilityChange: visible => {
-                    this.showValueTable = visible;
-                    this.save();
-                    this.render();
-                },
-                onHideAxisValuesChange: hidden => {
-                    this.hideAxisValues = hidden;
-                    this.save();
-                    this.render();
-                },
-                onComparisonLinesVisibilityChange: visible => {
-                    this.showComparisonLines = visible;
-                    this.save();
-                    this.render();
-                },
-                onIncompleteVisibilityChange: visible => {
-                    this.showIncomplete = visible;
-                    this.save();
-                    this.render();
-                },
+                onAddMenuOpen: (items, close) => fillAddMenu(items, {
+                    selectedWindow: this.addWindow,
+                    onWindowChange: window => this.addWindow = window,
+                    onAdd: (metric, window, average) => this.addMetric(metric, window, average),
+                    onError: () => this.dialog.showMessage("The metrics couldn't be loaded."),
+                    close,
+                }),
+                onValueTableVisibilityChange: visible => this.setOption("showValueTable", visible),
+                onHideAxisValuesChange: hidden => this.setOption("hideAxisValues", hidden),
+                onComparisonLinesVisibilityChange: visible => this.setOption("showComparisonLines", visible),
+                onIncompleteVisibilityChange: visible => this.setOption("showIncomplete", visible),
             }, MARKER_KINDS.filter(kind => this.markers.some(marker => marker.kind === kind)), this.hasLineCharts,
             this.markers.filter(marker => marker.kind === "custom"));
         }
         return this.dialog;
+    }
+
+    /** Sets an option of the charts, e.g. `showIncomplete`, stores it and draws the charts again. */
+    setOption(name, value) {
+        this[name] = value;
+        this.save();
+        this.render();
+    }
+
+    /** Adds a value to an option with a list of values, e.g. `shownMarkers`, or removes it, see {@link setOption}. */
+    toggleListOption(name, value, isAdded) {
+        this.setOption(name, isAdded ? [...new Set([...this[name], value])] : this[name].filter(v => v !== value));
     }
 
     /** @param {{from: string, to: string}|null} range The shown dates of the line charts, null for all dates. */
@@ -849,97 +535,180 @@ class ChartController {
         dialog.setShowComparisonLines(this.showComparisonLines);
         dialog.setHideAxisValues(this.hideAxisValues);
         dialog.setShownOverlays(this.shownOverlays);
-        const markers = visibleMarkers(this.markers, this.shownMarkers, this.shownEvents);
 
         const charts = groupCharts(this.series, this.combineUnits);
-        // one request for each level with the missing values of all charts of metrics
-        const requests = new Map();
-        for (const chart of charts.filter(c => c.period === METRIC_PERIOD)) {
-            const level = chartLevel(chart, this.chartLevels);
-            for (const s of this.series.filter(s => s.period === chart.period && chart.units.includes(s.unit))) {
-                const window = this.seriesWindow(s, level);
-                const detail = this.seriesDetail(s, window, level);
-                const key = window + "/" + detail;
-                const ids = [metricDataId(s)];
-                requests.set(key, {window, detail, ids: [...(requests.get(key)?.ids ?? []), ...ids]});
-            }
-        }
-        requests.forEach(({window, detail, ids}) => this.loadMetrics(window, detail, ids));
-        // with several charts, each chart can be removed
-        const isRemovable = charts.length + this.pies.length > 1;
-        const visibleRange = rangeTimestamps(this.dateRange);
-        const height = dialog.chartHeight(charts.length);
+        this.requestMetricValues(charts);
+        const context = {
+            markers: visibleMarkers(this.markers, this.shownMarkers, this.shownEvents),
+            // with several charts, each chart can be removed
+            isRemovable: charts.length + this.pies.length > 1,
+            visibleRange: rangeTimestamps(this.dateRange),
+            height: dialog.chartHeight(charts.length),
+            // the trends, which apply to at least one series of the shown line charts
+            applicableOverlays: new Set(),
+        };
         // the styles of the shown charts, a new style of one chart must not change the others
         this.shownStyles = {};
-        // the trends, which apply to at least one series of the shown line charts
-        const applicableOverlays = new Set();
         // the series with values, e.g. for the years of the menu "Range"
         const shownSeries = [];
         // values of metrics, which are still loading, e.g. after a change of the level
         let isLoading = false;
-        let shownCharts = 0;
         for (const chart of charts) {
-            const key = lineChartKey(chart);
-            const level = chart.period === METRIC_PERIOD ? chartLevel(chart, this.chartLevels) : null;
-            let chartSeries = this.series.filter(s => s.period === chart.period && chart.units.includes(s.unit));
-            if (level !== null) {
-                chartSeries = this.metricChartSeries(chartSeries, level);
-                // the values are still loading, or the metrics have no values
-                if (chartSeries.length === 0) {
-                    isLoading ||= this.isLoadingMetrics();
-                    continue;
-                }
+            const chartSeries = this.renderLineChart(chart, context);
+            if (chartSeries === null) {
+                isLoading ||= this.metricValues.isLoading;
+            } else {
+                shownSeries.push(...chartSeries);
             }
-            shownSeries.push(...chartSeries);
-            shownCharts++;
-            if (!this.showIncomplete) {
-                chartSeries = chartSeries.map(withoutIncomplete);
+        }
+        // while values are loading, the menu "Range" keeps the years of the shown values
+        const years = rangeYears(shownSeries);
+        this.shownYears = isLoading ? [...new Set([...years, ...this.shownYears])].sort((a, b) => b - a) : years;
+        dialog.setDateRange(this.shownYears, this.dateRange);
+
+        for (const pie of this.pies) {
+            this.renderPieChart(pie, context.isRemovable);
+        }
+        if (this.series.length === 0 && this.pies.length === 0) {
+            dialog.showEmptyHint();
+        }
+        dialog.setApplicableOverlays([...context.applicableOverlays]);
+        // measured after the browser has laid out the charts
+        requestAnimationFrame(() => dialog.fitChartHeights(this.plots));
+    }
+
+    /**
+     * Requests the missing values of the charts of metrics, one request for each window and detail level with the
+     * values of all charts.
+     */
+    requestMetricValues(charts) {
+        const requests = new Map();
+        for (const chart of charts.filter(c => c.period === METRIC_PERIOD)) {
+            const level = chartLevel(chart, this.chartLevels);
+            for (const s of this.chartSeriesOf(chart)) {
+                const window = this.seriesWindow(s, level);
+                const detail = this.seriesDetail(s, window, level);
+                const key = window + "/" + detail;
+                requests.set(key, {window, detail, ids: [...(requests.get(key)?.ids ?? []), metricDataId(s)]});
             }
-            const detail = level?.detail ?? null;
-            const chartStyle = this.chartStyles[key] ?? this.preferredStyle;
-            this.shownStyles[key] = chartStyle;
-            const overlays = this.trends(chartSeries, detail);
-            for (const series of chartSeries) {
-                OVERLAYS.filter(kind => overlayApplies(kind, series, detail, level?.window)).forEach(kind => applicableOverlays.add(kind));
+        }
+        requests.forEach(({window, detail, ids}) => this.loadMetrics(window, detail, ids));
+    }
+
+    /** @return {object[]} The series of a line chart of {@link groupCharts}. */
+    chartSeriesOf(chart) {
+        return this.series.filter(s => s.period === chart.period && chart.units.includes(s.unit));
+    }
+
+    /**
+     * Adds a line chart with its toolbar to the dialog.
+     *
+     * @param {{period: string, units: string[], dateRange: [number, number]|null}} chart A chart of {@link groupCharts}.
+     * @param {{markers: object[], isRemovable: boolean, visibleRange: [number, number]|null, height: number,
+     *  applicableOverlays: Set<string>}} context The options of all charts, the trends, which apply to the series of
+     *  the chart, are added to `applicableOverlays`.
+     * @return {object[]|null} The shown series of the chart, null if the chart isn't shown: the values of its metrics
+     *  are still loading, or the metrics have no values.
+     */
+    renderLineChart(chart, context) {
+        const dialog = this.dialog;
+        const key = lineChartKey(chart);
+        const level = chart.period === METRIC_PERIOD ? chartLevel(chart, this.chartLevels) : null;
+        let chartSeries = this.chartSeriesOf(chart);
+        if (level !== null) {
+            chartSeries = this.metricChartSeries(chartSeries, level);
+            if (chartSeries.length === 0) {
+                return null;
             }
-            // charts of metrics and charts without incomplete values have their own date range
-            const chartDateRange = level === null && this.showIncomplete
-                ? chart.dateRange
-                : dateRange(chartSeries) ?? chart.dateRange;
-            const panel = dialog.addPanel("chart-panel");
-            const toolbar = this.toolbar(panel);
-            const chartOptions = {
-                units: chart.units,
-                series: chartSeries,
-                overlays,
-                dateRange: chartDateRange,
-                markers,
-                formatter: this.formatter,
-                // the cursors of the charts with the same dates are synchronized
-                syncKey: "marketplace-charts-" + (detail === null ? chart.period : "detail-" + detail),
-                chartStyle,
-                // the values of tables are shown like monthly values
-                // the dates of a chart with a line per day, e.g. of the sales per day in a chart of months, are days
-                granularity: detail === null ? "month" : detailGranularity(finestDetail([detail, ...chartSeries.map(s => s.detail)])),
-                extremes: this.shownExtremes,
-                valueTable: this.showValueTable,
-                comparisonLines: this.showComparisonLines,
-                hideAxisValues: this.hideAxisValues,
-                detail,
-                visibleRange,
-                hiddenSeries: this.hiddenSeries,
-                fontFamily: this.fontFamily,
-            };
-            const onZoom = (from, to) => this.setDateRange(from === null ? null : rangeOfTimestamps(from, to));
+        }
+        const shownSeries = chartSeries;
+        if (!this.showIncomplete) {
+            chartSeries = chartSeries.map(withoutIncomplete);
+        }
+        const detail = level?.detail ?? null;
+        const chartStyle = this.chartStyles[key] ?? this.preferredStyle;
+        this.shownStyles[key] = chartStyle;
+        for (const series of chartSeries) {
+            OVERLAYS.filter(kind => overlayApplies(kind, series, detail, level?.window)).forEach(kind => context.applicableOverlays.add(kind));
+        }
+        // charts of metrics and charts without incomplete values have their own date range
+        const chartDateRange = level === null && this.showIncomplete
+            ? chart.dateRange
+            : dateRange(chartSeries) ?? chart.dateRange;
+        const panel = dialog.addPanel("chart-panel");
+        const toolbar = this.toolbar(panel);
+        const chartOptions = {
+            units: chart.units,
+            series: chartSeries,
+            overlays: this.trends(chartSeries, detail),
+            dateRange: chartDateRange,
+            markers: context.markers,
+            formatter: this.formatter,
+            // the cursors of the charts with the same dates are synchronized
+            syncKey: "marketplace-charts-" + (detail === null ? chart.period : "detail-" + detail),
+            chartStyle,
+            // the values of tables are shown like monthly values
+            // the dates of a chart with a line per day, e.g. of the sales per day in a chart of months, are days
+            granularity: detail === null ? "month" : detailGranularity(finestDetail([detail, ...chartSeries.map(s => s.detail)])),
+            extremes: this.shownExtremes,
+            valueTable: this.showValueTable,
+            comparisonLines: this.showComparisonLines,
+            hideAxisValues: this.hideAxisValues,
+            detail,
+            visibleRange: context.visibleRange,
+            hiddenSeries: this.hiddenSeries,
+            fontFamily: this.fontFamily,
+        };
+        const plot = createLineChart({...chartOptions, ...this.lineChartCallbacks(), width: dialog.chartWidth, height: context.height, container: panel});
+        this.plots.push(plot);
+        const title = document.title;
+        const chartExport = {
+            fileName: extension => exportFileName([title, ...chartSeries.map(s => s.label)], extension),
+            image: () => lightLineChartImage(plot, chartOptions, {title, fontFamily: this.fontFamily}),
+            // the values of the shown lines of metrics, the values of tables have no address
+            ...(level !== null ? {dataUrl: () => chartExportUrl(window.location.href, {
+                series: chartSeries, detail, shownOverlays: this.shownOverlays, hiddenSeries: this.hiddenSeries,
+                dateRange: this.dateRange, showIncomplete: this.showIncomplete,
+            })} : {}),
+        };
+        this.exports.push(chartExport);
+        toolbar.append(this.exportMenu(chartExport));
+        if (level !== null) {
+            toolbar.append(compactSwitch(detailSwitch(level.detail, detail => {
+                // the selected window is kept, it's shown again with the levels, to which it applies
+                this.setChartLevel(chart, {...storedChartLevel(chart, this.chartLevels), detail});
+                this.save();
+                this.render();
+            })));
+        }
+        toolbar.append(compactSwitch(styleSwitch(chartStyle, style => {
+            // only this chart changes, the other charts keep their current style
+            this.chartStyles = {...this.chartStyles, ...this.shownStyles, [key]: style};
+            this.preferredStyle = style;
+            this.save();
+            this.render();
+        })));
+        if (context.isRemovable) {
+            toolbar.append(this.removeButton(() => {
+                this.series = this.series.filter(s => s.period !== chart.period || !chart.units.includes(s.unit));
+            }));
+        }
+        return shownSeries;
+    }
+
+    /** @return {object} The callbacks of the legend and the zoom of a line chart, see createLineChart. */
+    lineChartCallbacks() {
+        return {
+            onZoom: (from, to) => this.setDateRange(from === null ? null : rangeOfTimestamps(from, to)),
             // the hidden lines stay hidden, e.g. after the level of the chart was changed
-            const onSeriesVisibilityChange = (key, visible) => {
+            onSeriesVisibilityChange: (key, visible) => {
                 if (visible !== !this.hiddenSeries.has(key)) {
                     visible ? this.hiddenSeries.delete(key) : this.hiddenSeries.add(key);
                     this.save();
                 }
-            };
+            },
             // the window of a line is selected in the legend
-            const onSeriesWindowChange = (key, window) => {
+            onSeriesWindowChange: (key, window) => {
                 const series = this.series.find(s => s.key === key);
                 if (series) {
                     this.setSeriesWindow(series, window);
@@ -947,9 +716,9 @@ class ChartController {
                     this.save();
                     this.render();
                 }
-            };
+            },
             // the style of a line is selected in the legend, without a style it has the style of the chart
-            const onSeriesStyleChange = (key, style) => {
+            onSeriesStyleChange: (key, style) => {
                 this.series = this.series.map(s => {
                     if (s.key !== key) {
                         return s;
@@ -959,81 +728,46 @@ class ChartController {
                 });
                 this.save();
                 this.render();
-            };
+            },
             // the × of a line in the legend removes it
-            const onSeriesRemove = key => {
+            onSeriesRemove: key => {
                 this.series = this.series.filter(s => s.key !== key);
                 this.save();
                 this.render();
-            };
-            const plot = createLineChart({...chartOptions, onZoom, onSeriesVisibilityChange, onSeriesWindowChange, onSeriesStyleChange, onSeriesRemove, width: dialog.chartWidth, height, container: panel});
-            this.plots.push(plot);
-            const title = document.title;
-            const labels = chartSeries.map(s => s.label);
-            const chartExport = {
-                fileName: extension => exportFileName([title, ...labels], extension),
-                image: () => this.lightLineChartImage(plot, chartOptions, title),
-                // the values of the shown lines of metrics, the values of tables have no address
-                ...(level !== null ? {dataUrl: () => chartExportUrl(window.location.href, {
-                    series: chartSeries, detail, shownOverlays: this.shownOverlays, hiddenSeries: this.hiddenSeries,
-                    dateRange: this.dateRange, showIncomplete: this.showIncomplete,
-                })} : {}),
-            };
-            this.exports.push(chartExport);
-            toolbar.append(this.exportMenu(chartExport));
-            if (level !== null) {
-                // the window only applies to sums and rates
-                toolbar.append(compactSwitch(this.detailSwitch(chart, level)));
-            }
-            toolbar.append(compactSwitch(this.styleSwitch(key, chartStyle)));
-            if (isRemovable) {
-                toolbar.append(this.removeButton(() => {
-                    this.series = this.series.filter(s => s.period !== chart.period || !chart.units.includes(s.unit));
-                }));
-            }
-        }
-        // while values are loading, the menu "Range" keeps the years of the shown values
-        const years = rangeYears(shownSeries);
-        this.shownYears = isLoading ? [...new Set([...years, ...this.shownYears])].sort((a, b) => b - a) : years;
-        dialog.setDateRange(this.shownYears, this.dateRange);
+            },
+        };
+    }
 
-        for (const pie of this.pies) {
-            const panel = dialog.addPanel("chart-panel chart-pie-panel");
-            const svg = () => pieChartSvg(pie, this.formatter, this.fontFamily);
-            const chartExport = {
-                fileName: extension => exportFileName([document.title, pie.label], extension),
-                image: () => svgCanvas(svg()),
-                svg,
-            };
-            this.exports.push(chartExport);
-            const pieToolbar = this.toolbar(panel);
-            pieToolbar.append(this.exportMenu(chartExport));
-            if (isRemovable) {
-                pieToolbar.append(this.removeButton(() => this.pies = this.pies.filter(p => p !== pie)));
-            }
-            renderPie(pie, panel, this.formatter);
+    /** Adds a pie chart with its toolbar to the dialog. */
+    renderPieChart(pie, isRemovable) {
+        const panel = this.dialog.addPanel("chart-panel chart-pie-panel");
+        const svg = () => pieChartSvg(pie, this.formatter, this.fontFamily);
+        const chartExport = {
+            fileName: extension => exportFileName([document.title, pie.label], extension),
+            image: () => svgCanvas(svg()),
+            svg,
+        };
+        this.exports.push(chartExport);
+        const toolbar = this.toolbar(panel);
+        toolbar.append(this.exportMenu(chartExport));
+        if (isRemovable) {
+            toolbar.append(this.removeButton(() => this.pies = this.pies.filter(p => p !== pie)));
         }
-
-        if (this.series.length === 0 && this.pies.length === 0) {
-            dialog.showEmptyHint();
-        }
-        // measured after the browser has laid out the charts
-        dialog.setApplicableOverlays([...applicableOverlays]);
-        requestAnimationFrame(() => dialog.fitChartHeights(this.plots));
+        renderPie(pie, panel, this.formatter);
     }
 
     /**
      * @param {object[]} seriesList The series of metrics of a line chart.
      * @param {{window: string, detail: string}} level The window and the detail level of the chart.
-     * @return {object[]|null} The series with the values of the metrics, without series without values, or null if the
-     *  values are still loading.
+     * @return {object[]} The series with the values of the metrics, without series without values, e.g. while their
+     *  values are loading.
      */
     metricChartSeries(seriesList, level) {
         return seriesList.flatMap(s => {
             const window = this.seriesWindow(s, level);
             // a window shorter than the steps of the dates has finer dates, e.g. the sales per day in a chart of months
             const detail = this.seriesDetail(s, window, level);
-            const data = this.metricValues[window + "/" + detail]?.data;
+            const data = this.metricValues.data(window, detail);
             const values = data?.series[metricDataId(s)];
             const points = data ? metricPoints(data, metricDataId(s)) : null;
             if (!values || points === null || points.points.size === 0) {
@@ -1080,54 +814,31 @@ class ChartController {
         return overlays.filter(overlay => overlay.points.size > 0);
     }
 
-    /** @return {boolean} If values of metrics are loading. */
-    isLoadingMetrics() {
-        return Object.values(this.metricValues).some(entry => entry.pending);
-    }
-
     /**
-     * Loads the missing values of metrics of a window and a detail level, the values of all metrics of a level have
-     * the same dates. The charts are drawn again when the values are loaded. While values are loading, the charts show
-     * the values, which are already loaded.
+     * Loads the missing values of metrics of a window and a detail level, see MetricValueCache. The charts are drawn
+     * again when the values are loaded. While values are loading, the charts show the values, which are already loaded.
      *
      * @param {string} chartWindow The window of the values, see WINDOWS.
      * @param {string[]} ids The IDs of the metrics and of their averages, e.g. `sales@avg3`.
      */
     loadMetrics(chartWindow, detail, ids) {
-        const key = chartWindow + "/" + detail;
-        const entry = this.metricValues[key] ??= {data: null, pending: false, failed: new Set()};
-        const missing = [...new Set(ids)].filter(id => !entry.failed.has(id) && !(entry.data?.series[id] || entry.data?.missing.has(id)));
-        // the missing values of other charts are requested when the current request is done
-        if (missing.length === 0 || entry.pending) {
+        const request = this.metricValues.load(chartWindow, detail, ids);
+        if (request === null) {
             return;
         }
-        entry.pending = true;
         if (this.dialog?.isOpen && this.dialog.message.hidden) {
             this.dialog.showMessage(LOADING_MESSAGE);
         }
-
-        const url = pageEndpoint("/chart-data");
-        url.searchParams.set("metrics", missing.join(","));
-        url.searchParams.set("window", chartWindow);
-        url.searchParams.set("detail", detail);
-        fetchJson(url)
-            .then(data => {
-                // the values of other metrics of the level are kept, they have the same dates
-                const series = data.dates.join() === entry.data?.dates.join() ? {...entry.data.series, ...data.series} : data.series;
-                const missingIds = new Set([...(entry.data?.missing ?? []), ...missing.filter(id => !data.series[id])]);
-                entry.data = {dates: data.dates, series, missing: missingIds};
-                this.updateMetricSeries(data, missing);
+        request
+            .then(({data, requested}) => {
+                this.updateMetricSeries(data, requested);
                 this.clearLoadingMessage();
             })
             .catch(error => {
-                console.error("Loading the values of " + missing.join(", ") + " failed", error);
-                // loaded again when the charts are opened the next time
-                missing.forEach(id => entry.failed.add(id));
+                console.error("Loading the values of metrics failed", error);
                 this.dialog?.showMessage("The values couldn't be loaded.");
-                setTimeout(() => missing.forEach(id => entry.failed.delete(id)));
             })
             .finally(() => {
-                entry.pending = false;
                 if (this.dialog?.isOpen) {
                     this.render();
                 }
@@ -1167,32 +878,6 @@ class ChartController {
     }
 
     /**
-     * @return {HTMLElement} Buttons to show the values of a chart of metrics at the end of each year, month or week, or
-     *  of each day.
-     */
-    detailSwitch(chart, level) {
-        const group = document.createElement("div");
-        group.className = "chart-button-group";
-        group.setAttribute("role", "group");
-        group.setAttribute("aria-label", "Values per");
-        group.title = DETAIL_HINT;
-        for (const detail of DETAILS) {
-            const button = document.createElement("button");
-            button.type = "button";
-            button.textContent = DETAIL_LABELS[detail];
-            button.setAttribute("aria-pressed", String(detail === level.detail));
-            button.addEventListener("click", () => {
-                // the selected window is kept, it's shown again with the levels, to which it applies
-                this.setChartLevel(chart, {...storedChartLevel(chart, this.chartLevels), detail});
-                this.save();
-                this.render();
-            });
-            group.append(button);
-        }
-        return group;
-    }
-
-    /**
      * @param {() => void} remove Removes the series or the pie of the chart.
      * @return {HTMLButtonElement} A button to remove the chart.
      */
@@ -1217,138 +902,13 @@ class ChartController {
         return toolbar;
     }
 
-    /**
-     * @param {{fileName: (extension: string) => string, image: () => HTMLCanvasElement|Promise<HTMLCanvasElement>, svg?: () => SVGSVGElement}} chartExport
-     * @return {HTMLElement} A menu to print the chart, to download it as PNG and, if available, as SVG, and to bookmark
-     *  the view of the charts.
-     */
+    /** @return {HTMLElement} The menu "Export" of a chart, see chartExports.js. */
     exportMenu(chartExport) {
-        const items = [
-            {label: "Print", run: () => this.print([chartExport])},
-            // shown when the menu opens, the other charts are added after this menu
-            {label: "Print all charts", run: () => this.print(this.exports), isShown: () => this.exports.length > 1},
-            {label: "Download PNG", run: async () => downloadCanvas(await chartExport.image(), chartExport.fileName("png"))},
-            // the same image as the download, e.g. to paste it into a message
-            ...(canCopyImages() ? [{label: "Copy PNG", run: () => this.copyImage(chartExport)}] : []),
-            // the values of the chart for an AI agent or another program
-            ...(chartExport.dataUrl ? [{label: "Copy data URL", run: () => this.copyDataUrl(chartExport)}] : []),
-            {label: "Bookmark this view", run: () => this.bookmark()},
-        ];
-        // the bookmark is the last item, after the download of an SVG
-        if (chartExport.svg) {
-            items.splice(items.length - 1, 0, {label: "Download SVG", run: async () => downloadSvg(chartExport.svg(), chartExport.fileName("svg"))});
-        }
-
-        const {menu, items: list} = createMenu("Export");
-        for (const item of items) {
-            const button = document.createElement("button");
-            button.type = "button";
-            button.setAttribute("role", "menuitem");
-            button.textContent = item.label;
-            button.addEventListener("click", () => {
-                menu.open = false;
-                item.run().catch(error => console.error("Export of the chart failed", error));
-            });
-            list.append(button);
-            if (item.isShown) {
-                menu.addEventListener("toggle", () => button.hidden = !item.isShown());
-            }
-        }
-        return menu;
-    }
-
-    /**
-     * Copies the address of the values of the shown lines of a chart as CSV, see chartExportUrl. Without access to the
-     * clipboard, the message shows the address.
-     */
-    async copyDataUrl(chartExport) {
-        const url = chartExport.dataUrl();
-        if (url === null) {
-            this.dialog.showMessage("The chart has no shown lines.");
-            return;
-        }
-        try {
-            await navigator.clipboard.writeText(url);
-            this.dialog.showMessage("The data URL was copied. It returns the values of the shown lines as CSV, e.g. for an AI agent, "
-                + "with &format=json as JSON with the units and incomplete values.");
-        } catch (error) {
-            this.dialog.showMessage("The data URL of the values: " + url);
-        }
-    }
-
-    /** Copies the image of a chart into the clipboard and shows if it was copied. */
-    async copyImage(chartExport) {
-        try {
-            await copyCanvas(Promise.resolve(chartExport.image()));
-            this.dialog.showMessage("The image of the chart was copied.");
-        } catch (error) {
-            console.error("Copying the image failed", error);
-            this.dialog.showMessage("The image couldn't be copied.");
-        }
-    }
-
-    /**
-     * Exported and printed images use the light colors. A chart in the dark mode is drawn again with the light colors
-     * for the image, outside the visible area of the page.
-     *
-     * @return {Promise<HTMLCanvasElement>}
-     */
-    async lightLineChartImage(plot, chartOptions, title) {
-        if (lineChartTheme(plot) === "light") {
-            return lineChartImage(plot, {title, fontFamily: this.fontFamily});
-        }
-        const container = document.createElement("div");
-        container.style.cssText = "position: fixed; left: -10000px; top: 0;";
-        document.body.append(container);
-        const lightPlot = createLineChart({...chartOptions, theme: "light", width: plot.width, height: plot.height, container});
-        try {
-            // the same date range and the same hidden series as the shown chart
-            lightPlot.setScale("x", {min: plot.scales.x.min, max: plot.scales.x.max});
-            plot.series.forEach((series, index) => {
-                if (index > 0 && lightPlot.series[index].show !== series.show) {
-                    lightPlot.setSeries(index, {show: series.show});
-                }
-            });
-            // uPlot draws asynchronously
-            await new Promise(resolve => setTimeout(resolve));
-            return lineChartImage(lightPlot, {title, fontFamily: this.fontFamily});
-        } finally {
-            lightPlot.destroy();
-            container.remove();
-        }
-    }
-
-    /**
-     * Prints charts, pie charts as SVG and line charts as images.
-     */
-    async print(chartExports) {
-        const images = await Promise.all(chartExports.map(chartExport => chartExport.svg?.() ?? chartExport.image()));
-        await printImages(images);
-    }
-
-    /**
-     * @return {HTMLElement} Buttons to switch a line chart between lines and bars.
-     */
-    styleSwitch(key, currentStyle) {
-        const group = document.createElement("div");
-        group.className = "chart-button-group chart-style-switch";
-        group.setAttribute("role", "group");
-        group.setAttribute("aria-label", "Chart style");
-        for (const style of CHART_STYLES) {
-            const button = document.createElement("button");
-            button.type = "button";
-            button.textContent = STYLE_LABELS[style];
-            button.setAttribute("aria-pressed", String(style === currentStyle));
-            button.addEventListener("click", () => {
-                // only this chart changes, the other charts keep their current style
-                this.chartStyles = {...this.chartStyles, ...this.shownStyles, [key]: style};
-                this.preferredStyle = style;
-                this.save();
-                this.render();
-            });
-            group.append(button);
-        }
-        return group;
+        return exportMenu(chartExport, {
+            allExports: () => this.exports,
+            bookmark: () => this.bookmark(),
+            showMessage: text => this.dialog.showMessage(text),
+        });
     }
 
     resize() {
