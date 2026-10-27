@@ -129,6 +129,7 @@ class LiveApiCoverageTest {
         check("plugins/{id}/rating-granular", MapSerializer(PluginRatingCategory.serializer(), PluginCategoryRating.serializer())) { marketplace.get("$api/rating-granular") }
         check("plugins/{id}/compatible-products", ListSerializer(String.serializer())) { marketplace.get("$api/compatible-products") }
         check("plugins/{id}/developers", ListSerializer(JetBrainsAccountInfo.serializer())) { marketplace.get("$api/developers") }
+        check("plugins/{id}/features", ListSerializer(PluginFeature.serializer())) { marketplace.get("$api/features") }
         check("plugins/{id}/channels", ListSerializer(String.serializer())) { marketplace.get("$api/channels") }
         check("plugins/{id}/comments", ListSerializer(PluginReviewComment.serializer())) {
             marketplace.get("$api/comments") { parameter("size", 1000); parameter("page", 1) }
