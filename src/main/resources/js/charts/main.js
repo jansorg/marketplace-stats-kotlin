@@ -391,7 +391,8 @@ class ChartController {
     /**
      * Adds a metric of the menu "Add" to the chart of its unit, sums and rates with the window.
      *
-     * @param {{id: string, title: string, unit: string, measure: string, usesWindow: boolean}} metric A metric of /chart-metrics.
+     * @param {{id: string, title: string, unit: string, measure: string, usesWindow: boolean, description?: string}} metric
+     *  A metric of /chart-metrics.
      */
     addMetric(metric, window, average = null) {
         const series = metricSeries({metric: metric.id, window, usesWindow: metric.usesWindow, average, label: metric.title,
@@ -473,7 +474,8 @@ class ChartController {
         button.setAttribute("aria-haspopup", "menu");
         button.textContent = metric.title;
         // values at a date, e.g. the MRR, don't use the window
-        button.title = metric.usesWindow ? "Sums or rates of the selected window" : "Values at each date";
+        const windowHint = metric.usesWindow ? "Sums or rates of the selected window" : "Values at each date";
+        button.title = metric.description ? `${metric.description}\n${windowHint}` : windowHint;
         // A mouse shows the submenu on hover and a click adds the values. A tap of a touch screen or a pen shows and hides
         // the submenu below the item, within the list of the menu: without hover, e.g. on an iPad, the submenu beside
         // the item wasn't usable. The pointer of the last pointerdown, e.g. before the click or the focus of the item.

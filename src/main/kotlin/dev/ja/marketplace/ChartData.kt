@@ -100,7 +100,10 @@ class ChartData {
                 .filterNot { it.id.endsWith(".${CustomerType.Unknown}") }
                 .sortedBy { ChartMetric.all.indexOf(it) }
                 .map { metric ->
-                    ChartMetricData(metric.id, metric.title, metric.unit.id(values.currency), metric.measure.name.lowercase(), metric.usesWindow, metric.group)
+                    ChartMetricData(
+                        metric.id, metric.title, metric.unit.id(values.currency), metric.measure.name.lowercase(), metric.usesWindow,
+                        metric.group, metric.description,
+                    )
                 }
         }
 
@@ -187,6 +190,8 @@ class ChartMetricData(
     val measure: String,
     val usesWindow: Boolean,
     val group: String,
+    /** What the metric measures, the tooltip of the metric in the menu to add metrics. */
+    val description: String,
 )
 
 /**
