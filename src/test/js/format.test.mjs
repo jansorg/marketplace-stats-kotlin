@@ -12,6 +12,9 @@ test("dates have the precision of the period", () => {
     assert.equal(formatDate(timestamp, "day"), "2026-10-23");
     assert.equal(formatDate(timestamp, "month"), "2026-10");
     assert.equal(formatDate(timestamp, "year"), "2026");
+    // the Sunday of the week, e.g. of the middle of the week, at which a chart shows its value
+    assert.equal(formatDate(timestamp, "week"), "2026-10-25");
+    assert.equal(formatDate(isoDateToTimestamp("2026-10-25"), "week"), "2026-10-25");
     assert.equal(formatDate(null, "day"), NO_VALUE);
 });
 
@@ -76,4 +79,18 @@ test("dates are formatted with the locale of the page", () => {
     const timestamp = isoDateToTimestamp("2025-12-31");
     assert.equal(createFormatter("de-DE").date(timestamp), "31.12.2025");
     assert.equal(createFormatter("en-US").date(timestamp), "Dec 31, 2025");
+});
+
+test("the tooltip dates have the period of the values: the month, the week from Monday to Sunday and the day", () => {
+    const formatter = createFormatter("en-US");
+    // the value of October at its last day, of the current month at today
+    assert.equal(formatter.month(isoDateToTimestamp("2026-10-31")), "October 2026");
+    assert.equal(formatter.month(isoDateToTimestamp("2026-01-15")), "January 2026");
+    // the value of a week at its Sunday, of the current week at today, e.g. a Wednesday. Intl separates the dates
+    // with thin spaces.
+    const week = iso => formatter.week(isoDateToTimestamp(iso)).replace(/\s/g, " ");
+    assert.equal(week("2026-10-25"), "Oct 19 – 25, 2026");
+    assert.equal(week("2026-10-21"), "Oct 19 – 25, 2026");
+    assert.equal(week("2026-12-31"), "Dec 28, 2026 – Jan 3, 2027");
+    assert.equal(formatter.date(isoDateToTimestamp("2026-10-28")), "Oct 28, 2026");
 });

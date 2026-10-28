@@ -51,16 +51,21 @@ export function unitTitle(unit) {
 }
 
 /**
- * Dates are shown with the precision of the period, e.g. `2026-10` for a month.
+ * Dates are shown with the precision of the period, e.g. `2026-10` for a month. A week is shown with its Sunday, the
+ * date of the value of a week.
  *
  * @param {number|null|undefined} timestamp Timestamp in seconds.
- * @param {string} period One of {@link PERIODS}.
+ * @param {string} period One of {@link PERIODS} or `week`.
  */
 export function formatDate(timestamp, period) {
     if (timestamp === null || timestamp === undefined) {
         return NO_VALUE;
     }
-    const isoDate = new Date(timestamp * 1000).toISOString().substring(0, 10);
+    const date = new Date(timestamp * 1000);
+    if (period === "week") {
+        date.setUTCDate(date.getUTCDate() + (7 - date.getUTCDay()) % 7);
+    }
+    const isoDate = date.toISOString().substring(0, 10);
     switch (period) {
         case "year":
             return isoDate.substring(0, 4);
@@ -87,6 +92,7 @@ export function createFormatter(locale) {
     const changeFormat = new Intl.NumberFormat(locale, {minimumFractionDigits: 1, maximumFractionDigits: 1});
     const dayFormat = new Intl.DateTimeFormat(locale, {day: "numeric", month: "short", timeZone: "UTC"});
     const dateFormat = new Intl.DateTimeFormat(locale, {dateStyle: "medium", timeZone: "UTC"});
+    const monthFormat = new Intl.DateTimeFormat(locale, {month: "long", year: "numeric", timeZone: "UTC"});
 
     return {
         /**
@@ -148,6 +154,21 @@ export function createFormatter(locale) {
         /** A date with its year, e.g. `31.12.2025` or `Dec 31, 2025`. */
         date(timestamp) {
             return dateFormat.format(new Date(timestamp * 1000));
+        },
+
+        /**
+         * The week of a date from Monday to Sunday, e.g. `Oct 19 – 25, 2026`, the date of the value of a week: its
+         * Sunday, or today for the current week.
+         */
+        week(timestamp) {
+            const date = new Date(timestamp * 1000);
+            const monday = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - (date.getUTCDay() + 6) % 7);
+            return dateFormat.formatRange(new Date(monday), new Date(monday + 6 * 24 * 60 * 60 * 1000));
+        },
+
+        /** The month of a date with its year, e.g. `January 2026`, the date of the value of a month. */
+        month(timestamp) {
+            return monthFormat.format(new Date(timestamp * 1000));
         },
     };
 }

@@ -549,6 +549,82 @@ export function barLayout(seriesCount, slotWidth, {maxBarWidth, gap}) {
 }
 
 /**
+ * @param {number} timestamp A date, in seconds.
+ * @param {"week"|"month"|"year"} period
+ * @param {number} [count] The number of periods after the period of the date, e.g. 1 for the next period.
+ * @return {number} The first day of the period of the date, in seconds: the Monday of its week, the first day of its
+ *  month or of its year.
+ */
+export function periodStart(timestamp, period, count = 0) {
+    const date = new Date(timestamp * 1000);
+    const [year, month, day] = [date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()];
+    switch (period) {
+        case "week":
+            return Date.UTC(year, month, day - (date.getUTCDay() + 6) % 7 + 7 * count) / 1000;
+        case "month":
+            return Date.UTC(year, month + count, 1) / 1000;
+        default:
+            return Date.UTC(year + count, 0, 1) / 1000;
+    }
+}
+
+/**
+ * The values of weeks, months and years are located at the last day of their period, or at today for the current
+ * period. A line chart shows them in the middle of their periods, between the ticks at the first days of the periods,
+ * so that a bar of October isn't at the tick of November, the bar of the current week isn't squeezed next to the bar of
+ * the previous week, and the range of a year doesn't show the value of the period before it.
+ *
+ * @param {number} timestamp A date of the period, in seconds.
+ * @param {"week"|"month"|"year"} period
+ * @return {number} The middle of the period of the date, in seconds.
+ */
+export function periodMiddle(timestamp, period) {
+    return (periodStart(timestamp, period) + periodStart(timestamp, period, 1)) / 2;
+}
+
+/**
+ * @param {[number, number]} range The first and the last date, in seconds.
+ * @param {"week"|"month"|"year"} period
+ * @return {[number, number]} The whole periods of the dates: from the first day of the first period until the first
+ *  day of the period after the last one, the range of a line chart of the values of the periods, see {@link periodMiddle}.
+ */
+export function periodsRange([from, to], period) {
+    return [periodStart(from, period), periodStart(to, period, 1)];
+}
+
+/**
+ * @param {{points: Map<number, number>, incomplete?: Set<number>, partial?: Set<number>}} series A series or a trend of
+ *  the values of weeks, months or years.
+ * @param {"week"|"month"|"year"} period
+ * @return {object} The series with its values at the middle of their periods, see {@link periodMiddle}.
+ */
+export function atPeriodMiddles(series, period) {
+    const middle = timestamp => periodMiddle(timestamp, period);
+    const moved = {...series, points: new Map([...series.points].map(([timestamp, value]) => [middle(timestamp), value]))};
+    for (const key of ["incomplete", "partial"]) {
+        if (series[key]) {
+            moved[key] = new Set([...series[key]].map(middle));
+        }
+    }
+    return moved;
+}
+
+/**
+ * @param {number} min The first shown date, in seconds.
+ * @param {number} max The last shown date.
+ * @return {number[]} The first days of the years within the dates, the ticks of a chart of years, see {@link periodMiddle}.
+ */
+export function yearStartTicks(min, max) {
+    const ticks = [];
+    for (let tick = periodStart(min, "year"); tick <= max; tick = periodStart(tick, "year", 1)) {
+        if (tick >= min) {
+            ticks.push(tick);
+        }
+    }
+    return ticks;
+}
+
+/**
  * The date axis of a chart ends with the period of the last value, so that the value of the current, incomplete
  * period, which is located at today, isn't at the right edge, e.g. the axis of the years shows the whole current year.
  *
@@ -782,30 +858,6 @@ export function detailPeriod(detail) {
  */
 export function detailGranularity(detail) {
     return {day: "day", week: "week", month: "monthEnd", year: "yearEnd"}[detail] ?? "monthEnd";
-}
-
-/**
- * @param {number} min The first timestamp of the date axis, in seconds.
- * @param {number} max The last timestamp of the date axis, in seconds.
- * @param {number|undefined} lastValue The timestamp of the last value, e.g. today for the value of the current year.
- * @return {number[]} The ticks of yearly values at the values, so that the tick and the tooltip of a value show the
- *  same year: the last day of each year until the last value, and the last value of the current year, which is
- *  located at today. The axis may end after the last value, at the end of the current year, which has no tick.
- */
-export function yearEndTicks(min, max, lastValue) {
-    const ticks = [];
-    for (let year = new Date(min * 1000).getUTCFullYear(); year <= new Date(max * 1000).getUTCFullYear(); year++) {
-        const end = Date.UTC(year, 11, 31) / 1000;
-        if (end >= min && end <= max && (lastValue === undefined || end <= lastValue)) {
-            ticks.push(end);
-        }
-    }
-    const isNewYear = lastValue !== undefined && (ticks.length === 0
-        || new Date(lastValue * 1000).getUTCFullYear() > new Date(ticks[ticks.length - 1] * 1000).getUTCFullYear());
-    if (isNewYear && lastValue >= min && lastValue <= max) {
-        ticks.push(lastValue);
-    }
-    return ticks;
 }
 
 /**

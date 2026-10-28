@@ -480,10 +480,16 @@ queries, and one which excludes all these tags. The results are in the order of 
   the × of `removeButton` (`dialog.js`), which also removes a chart.
 - Only series of the same period (`DataTable.chartPeriod`: day, month or year) share a line chart and its date range,
   the series of metrics have their own period `metric`.
-  Values of months and years are located at the end of the period, the current period at today (`ChartValues.xValue`).
-  The ticks of yearly values are at the values, the end of each year and today (`yearEndTicks` in `model.js`), so that a tick and the tooltip of its value show the same year. The date axis
-  ends with the period of the last value (`periodEnd`), so that the value of the current period at today isn't at
-  the right edge. Values of the first period of a plugin, which started within it, are partial (`partialUntil` of
+  Values of weeks, months and years are located at the end of the period, the current period at today
+  (`ChartValues.xValue`). The line charts of these levels show them in the middle of their periods (`atPeriodMiddles`,
+  `periodMiddle` in `model.js`), between the ticks at the first days of the periods (the default ticks of uPlot,
+  `yearStartTicks` for years), and their date axis covers whole periods (`periodsRange`), also of a selected range,
+  e.g. the range of a year doesn't show the value of the December before it. The tooltip names the period of a value
+  (`tooltipDate` in `lineChart.js`: the month, the year, the week from Monday to Sunday or the day), the table of the
+  values the month, the year, the Sunday of a week or the day (`formatDate`). Values per day stay at their dates, the
+  axis ends with the period of the last value (`periodEnd`), so that the value of the current period at today isn't at
+  the right edge. The chart images of the server keep the values at the ends of their periods, with the ticks of
+  months and years there (`ChartAxes.dateTicks`). Values of the first period of a plugin, which started within it, are partial (`partialUntil` of
   `/chart-data`, `isPartialPeriod` of the tables): hollow points and outlined bars in the color of the series.
 - The menu "Range" of the dialog selects the shown dates of all line charts: all dates, a range until today (today,
   the past 7 days, this month, `RANGE_PRESETS` and `rangeOfPreset`, stored with their `preset` and calculated again

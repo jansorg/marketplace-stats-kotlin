@@ -9,7 +9,7 @@
 
 import {formatDate, SECONDS_PER_DAY, unitTitle} from "./format.js";
 import {createMenu} from "./menu.js";
-import {alignSeries, availableComparisons, barLayout, cursorPosition, periodEnd, displayColor, extremeIndices, incompleteColor, pinchedRange, layoutLabels, logRange, logScaleValues, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, typicalInterval, barSlot, valueChange, valueNear, yearEndTicks, zeroBasedRange, alignedRanges, niceStep, rangeTicks, seriesMenuSections, seriesStyle, shownDateRange} from "./model.js";
+import {alignSeries, availableComparisons, barLayout, cursorPosition, periodEnd, displayColor, extremeIndices, incompleteColor, pinchedRange, layoutLabels, logRange, logScaleValues, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, typicalInterval, barSlot, valueChange, valueNear, zeroBasedRange, alignedRanges, niceStep, rangeTicks, seriesMenuSections, seriesStyle, shownDateRange, atPeriodMiddles, periodsRange, yearStartTicks} from "./model.js";
 
 /**
  * The colors of the charts in the light and the dark mode. The surface is the background of the charts in the chart
@@ -1101,7 +1101,8 @@ function xAxisTicks(period, formatter) {
             return {incrs: [DAY, 2 * DAY, 7 * DAY, 14 * DAY], values: (plot, splits) => splits.map(value => formatter.day(value))};
         case "year":
             return {
-                splits: (plot, axisIndex, min, max) => yearEndTicks(min, max, plot.data[0][plot.data[0].length - 1]),
+                // the values of the years are between the ticks, see periodMiddle
+                splits: (plot, axisIndex, min, max) => yearStartTicks(min, max),
                 values: (plot, splits) => splits.map(value => new Date(value * 1000).getUTCFullYear()),
             };
         default:
@@ -1197,22 +1198,30 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     const theme = CHART_THEMES[themeName];
     const style = {formatter, fonts: fonts(fontFamily), theme, hideAxisValues};
     const scaleKeys = ["y", "y2"];
+    const period = shortestPeriod(series);
+    const isFiner = granularity === "week" || granularity === "day";
+    // the values at the end of each month are shown with the month, the values at the end of each year with the year
+    // the values of weeks with their Sundays
+    const datePeriod = granularity === "monthEnd" ? "month" : granularity === "yearEnd" ? "year" : granularity === "week" ? "week" : isFiner ? "day" : period;
+    // the values of weeks, months and years are shown in the middle of their periods, between the ticks of the periods
+    const positionPeriod = ["week", "month", "year"].includes(datePeriod) ? datePeriod : null;
+    const atPosition = positionPeriod === null ? s => s : s => atPeriodMiddles(s, positionPeriod);
     const chartSeries = units.flatMap((unit, unitIndex) => series
         .filter(s => s.unit === unit)
-        .map(s => ({...s, color: displayColor(s.color, theme.isDark), scale: scaleKeys[unitIndex], isRightAxis: unitIndex === 1})));
+        .map(s => ({...atPosition(s), color: displayColor(s.color, theme.isDark), scale: scaleKeys[unitIndex], isRightAxis: unitIndex === 1})));
 
     // the overlays of series, which aren't shown in this chart, are ignored
     const chartOverlays = overlays
-        .map(overlay => ({...overlay, base: chartSeries.find(s => s.key === overlay.base)}))
+        .map(overlay => ({...atPosition(overlay), base: chartSeries.find(s => s.key === overlay.base)}))
         .filter(overlay => overlay.base !== undefined);
     const {timestamps, values: allValues} = alignSeries([...chartSeries, ...chartOverlays]);
     const values = allValues.slice(0, chartSeries.length);
     const overlayValues = allValues.slice(chartSeries.length);
     const overlayIndex = index => chartSeries.length + index + 1;
-    const period = shortestPeriod(chartSeries);
-    const isFiner = granularity === "week" || granularity === "day";
-    // the values at the end of each month are shown with the month, the values at the end of each year with the year
-    const datePeriod = granularity === "monthEnd" ? "month" : granularity === "yearEnd" ? "year" : isFiner ? "day" : period;
+    // the tooltip shows the period of a value: its month, its year, its week or its day
+    const tooltipDate = timestamp => datePeriod === "month" ? formatter.month(timestamp)
+        : datePeriod === "year" ? String(new Date(timestamp * 1000).getUTCFullYear())
+            : datePeriod === "week" ? formatter.week(timestamp) : formatter.date(timestamp);
 
     // a line has its own style, or the style of the chart
     const isBar = series => seriesStyle(series, chartStyle) === "bars";
@@ -1222,12 +1231,11 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     // bars at the first and last date need space beside the date
     // the usual distance of the dates, e.g. a week at the level Week, today after the last Sunday doesn't narrow all bars
     const interval = typicalInterval(timestamps, SECONDS_PER_DAY);
-    const xPadding = isBars ? interval / 2 : 0;
+    // the values of periods are within their periods, see periodsRange
+    const xPadding = isBars && positionPeriod === null ? interval / 2 : 0;
     // the tooltip lists the series, which are shown, series can be hidden by a click on the legend.
-    // The values of months and years are at the last day of their window, e.g. 2025-12-31 or today for the current
-    // period, the tooltip shows this date at all levels, in the locale of the page.
     const describe = (plot, index) => ({
-        date: formatter.date(timestamps[index]),
+        date: tooltipDate(timestamps[index]),
         rows: chartSeries
             .map((s, seriesIndex) => ({s, seriesIndex}))
             // lines without a value at the date aren't listed, like the trends, e.g. the unique downloads of a week
@@ -1249,9 +1257,9 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     // the values per year of monthly values have the ticks and the range of yearly values
     const axisPeriod = granularity === "yearEnd" ? "year" : period;
     // the axis ends with the period of the last value, e.g. the current month, whose value is located at today
-    const axisRange = range => axisPeriod === "year"
-        ? yearRange(range, granularity !== "month" && granularity !== "yearEnd")
-        : [range[0] - xPadding, Math.max(range[1], periodEnd(range[1], granularity ?? "month")) + xPadding];
+    const axisRange = range => positionPeriod !== null ? periodsRange(range, positionPeriod)
+        : axisPeriod === "year" ? yearRange(range, true)
+            : [range[0] - xPadding, Math.max(range[1], periodEnd(range[1], granularity ?? "month")) + xPadding];
     const fullRange = axisRange(dateRange);
     /**
      * With all dates, the axis covers the dates of the shown lines: hiding a line, whose values start earlier than
@@ -1266,8 +1274,10 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         const range = shownDateRange(timestamps, allValues, shown);
         return range === null ? fullRange : axisRange(range);
     };
+    // e.g. the months of the selected year
+    const visibleAxisRange = range => positionPeriod !== null ? periodsRange(range, positionPeriod) : [range[0] - xPadding, range[1] + xPadding];
     let xRange = visibleRange !== null
-        ? [visibleRange[0] - xPadding, visibleRange[1] + xPadding]
+        ? visibleAxisRange(visibleRange)
         : shownRange([...chartSeries.map(s => !hiddenSeries.has(s.key)), ...chartOverlays.map(overlay => !hiddenSeries.has(overlayKey(overlay)))]);
     // the range while two fingers zoom, see enablePinchZoom
     let pinchPreview = null;

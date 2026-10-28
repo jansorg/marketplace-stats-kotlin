@@ -7,9 +7,14 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
+    atPeriodMiddles,
+    periodMiddle,
+    periodsRange,
+    periodStart,
+    yearStartTicks,
     allowedWindow, alignedRanges, chartExportUrl, exportLineId, familyMetricId, familyOfMetric, loadedRangeStart, niceStep, parameterSections, parameterValuesKey, rangeTicks, seriesMenuSections, seriesStyle, SERIES_STYLES, WINDOWS, RANGE_PRESETS, rangeOfPreset,
     pinchedRange, rangeLabel, rangeMenuItems, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
-    alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, finestDetail, lineDetail, periodEnd, shownWindow, storedChartLevel, tableWindow, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
+    alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, finestDetail, lineDetail, periodEnd, shownWindow, storedChartLevel, tableWindow, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, shownDateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
     chartKey, colorDistance, lineChartKey, MIN_COLOR_DISTANCE, slicePath, eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, MARKER_KINDS, MARKER_LABELS, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, typicalInterval, barSlot, zeroBasedRange, shiftDate, valueChange, valueNear, logRange, logScaleValues,
 } from "../../main/resources/js/charts/model.js";
@@ -426,14 +431,10 @@ test("the previous year is complete, also after the current month", () => {
 });
 
 
-test("the ticks of years are at the values of the years, at the end of each year and at today", () => {
+test("the ticks of years are at the first days of the years, the values of the years are between them", () => {
     const day = isoDateToTimestamp;
-    // a month before the value of 2022 until the end of the current year, the current year has its tick at today
-    assert.deepEqual(yearEndTicks(day("2022-12-01"), day("2026-12-31"), day("2026-10-26")),
-        [day("2022-12-31"), day("2023-12-31"), day("2024-12-31"), day("2025-12-31"), day("2026-10-26")]);
-    // the current year has no value yet
-    assert.deepEqual(yearEndTicks(day("2022-12-01"), day("2024-01-05"), day("2023-12-31")), [day("2022-12-31"), day("2023-12-31")]);
-    assert.deepEqual(yearEndTicks(day("2026-01-01"), day("2026-10-26"), undefined), []);
+    assert.deepEqual(yearStartTicks(day("2024-01-01"), day("2027-01-01")), [day("2024-01-01"), day("2025-01-01"), day("2026-01-01"), day("2027-01-01")]);
+    assert.deepEqual(yearStartTicks(day("2024-03-01"), day("2025-12-31")), [day("2025-01-01")]);
 });
 
 test("custom events are shown one by one", () => {
@@ -731,4 +732,31 @@ test("the unique downloads only offer the windows, which have values", () => {
 
     const series = {usesWindow: true, window: "follow", windows};
     assert.deepEqual(seriesMenuSections(series, true)[0].items.map(item => item.value), ["follow", "day", "week", "calendar-month"]);
+});
+
+test("the values of weeks, months and years are in the middle of their periods, the range covers whole periods", () => {
+    const day = iso => isoDateToTimestamp(iso);
+    // the value of October at its last day and of the current month at today
+    assert.equal(periodMiddle(day("2026-10-31"), "month"), day("2026-10-16") + SECONDS_PER_DAY / 2);
+    assert.equal(periodMiddle(day("2026-10-28"), "month"), periodMiddle(day("2026-10-01"), "month"));
+    assert.equal(periodMiddle(day("2026-02-28"), "month"), day("2026-02-15"));
+    // a week from Monday to Sunday, the value of the current week at today, e.g. a Wednesday
+    assert.equal(periodStart(day("2026-10-25"), "week"), day("2026-10-19"));
+    assert.equal(periodMiddle(day("2026-10-25"), "week"), day("2026-10-22") + SECONDS_PER_DAY / 2);
+    assert.equal(periodMiddle(day("2026-10-28"), "week"), periodMiddle(day("2026-11-01"), "week"));
+    assert.equal(periodMiddle(day("2026-12-31"), "year"), (day("2026-01-01") + day("2027-01-01")) / 2);
+    // e.g. the range of the year 2026 doesn't contain the value of December 2025 or of 2025
+    assert.deepEqual(periodsRange([day("2026-01-01"), day("2026-12-31")], "month"), [day("2026-01-01"), day("2027-01-01")]);
+    assert.deepEqual(periodsRange([day("2026-01-01"), day("2026-12-31")], "year"), [day("2026-01-01"), day("2027-01-01")]);
+    assert.deepEqual(periodsRange([day("2026-10-21"), day("2026-10-28")], "week"), [day("2026-10-19"), day("2026-11-02")]);
+    assert.ok(periodMiddle(day("2025-12-31"), "month") < day("2026-01-01"));
+    assert.ok(periodMiddle(day("2025-12-31"), "year") < day("2026-01-01"));
+
+    const series = {key: "metric:sales", points: new Map([[day("2026-09-30"), 1], [day("2026-10-28"), 2]]), incomplete: new Set([day("2026-10-28")])};
+    const moved = atPeriodMiddles(series, "month");
+    assert.deepEqual([...moved.points.values()], [1, 2]);
+    assert.deepEqual([...moved.points.keys()], [periodMiddle(day("2026-09-30"), "month"), periodMiddle(day("2026-10-28"), "month")]);
+    assert.ok(moved.incomplete.has(periodMiddle(day("2026-10-28"), "month")));
+    assert.equal(moved.partial, undefined);
+    assert.equal(moved.key, "metric:sales");
 });
