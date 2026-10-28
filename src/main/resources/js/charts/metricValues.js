@@ -66,8 +66,11 @@ export class MetricValueCache {
          * @type {Object<string, {window: string, detail: string, from: string|null, data: MetricData|null, pending: boolean, failed: Set<string>}>}
          */
         this.entries = {};
-        /** The pending requests, see {@link abort}. */
-        this.requests = new Set();
+        /**
+         * The pending requests and the keys of their levels, see {@link abort}.
+         * @type {Map<AbortController, string>}
+         */
+        this.requests = new Map();
     }
 
     /**
@@ -75,14 +78,29 @@ export class MetricValueCache {
      * requested again, when they're needed.
      */
     abort() {
-        this.requests.forEach(controller => controller.abort());
+        this.requests.forEach((key, controller) => controller.abort());
         this.requests.clear();
+    }
+
+    /**
+     * Aborts the pending requests of the levels, which aren't shown anymore, e.g. the values of each day, which take
+     * long to load, after the level of the chart was changed to months, see {@link abort}.
+     *
+     * @param {Set<string>} shown The keys of the shown levels, `<window>/<detail>`.
+     */
+    abortHidden(shown) {
+        this.requests.forEach((key, controller) => {
+            if (!shown.has(key)) {
+                controller.abort();
+                this.requests.delete(controller);
+            }
+        });
     }
 
     /** @return {Promise<object>} The values of /chart-data, a request, which {@link abort} can abort. */
     async fetchAbortable(window, detail, ids, from) {
         const controller = new AbortController();
-        this.requests.add(controller);
+        this.requests.set(controller, window + "/" + detail);
         try {
             return await this.fetchValues(window, detail, ids, controller.signal, from);
         } finally {
