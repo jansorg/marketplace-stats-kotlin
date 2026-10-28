@@ -229,7 +229,8 @@ queries, and one which excludes all these tags. The results are in the order of 
   a day, see `DownloadsCompleteness`; responses, which end at least 7 days before today, don't change anymore and are
   kept for `CachingStrategy.Static`, each response has its maximum age. The parts of long time ranges are stored one by
   one, `CaffeineCacheMarketplaceClient.loadDownloads`/`loadGroupedDownloads`, so that overlapping time ranges use them
-  again) and the products and releases of JetBrains (Ktor's HTTP cache in
+  again), the channels and the pages of the releases of a plugin (`plugin-<id>-releases`, `Daily`) and the dependencies
+  of the releases (`release-dependencies`, `Static`, `loadCachedResponse`) and the products and releases of JetBrains (Ktor's HTTP cache in
   `jetbrains/http/`, shared by all accounts, `CachingJetBrainsServiceClient` keeps them in memory for a day and then
   sends a conditional request, which the services answer with 304 if the data is unchanged).
 - `refreshPlugin` of the automatic refresh fetches cached values outside the cache, a request of a value, which is
