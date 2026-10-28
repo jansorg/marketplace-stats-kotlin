@@ -734,6 +734,8 @@ class ChartController {
                 requests.set(key, {window, detail, ids: [...(requests.get(key)?.ids ?? []), metricDataId(s)]});
             }
         }
+        // e.g. the values of each day are still loading after a change of the level to months
+        this.metricValues.abortHidden(new Set(requests.keys()));
         requests.forEach(({window, detail, ids}) => this.loadMetrics(window, detail, ids));
     }
 

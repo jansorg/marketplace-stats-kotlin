@@ -165,6 +165,21 @@ test("aborted requests aren't failures, their values are requested again", async
     assert.deepEqual(values.data("month", "month").series.sales.values, [1]);
 });
 
+test("the requests of levels, which aren't shown anymore, are aborted", async () => {
+    const values = new MetricValueCache((window, detail, ids, signal) => new Promise((resolve, reject) => {
+        signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        setTimeout(() => resolve({dates: ["2026-01-31"], series: Object.fromEntries(ids.map(id => [id, {values: [1]}]))}), 20);
+    }));
+
+    const days = values.load("day", "day", ["downloads"]);
+    const months = values.load("calendar-month", "month", ["downloads"]);
+    values.abortHidden(new Set(["calendar-month/month"]));
+    await assert.rejects(days, error => isAbortError(error));
+    await months;
+    assert.deepEqual(values.data("calendar-month", "month").series.downloads.values, [1]);
+    assert.equal(values.data("day", "day"), null);
+});
+
 test("loaded values from a start are used for later starts, an earlier start loads them again", async () => {
     const requests = [];
     const values = new MetricValueCache(async (window, detail, ids, signal, from) => {
