@@ -103,6 +103,17 @@ class ChartDataTest {
     }
 
     @Test
+    fun downloadsByMonthForTheCalendarWindowsOfMonthsAndYears() {
+        assertTrue(ChartData.isByMonth(ChartDetail.Month, listOf(ChartWindow.CalendarMonth), 0))
+        assertTrue(ChartData.isByMonth(ChartDetail.Year, listOf(ChartWindow.CalendarYear, ChartWindow.CalendarQuarter), 0))
+        // days and weeks, rolling windows and moving averages need the downloads of each day
+        assertFalse(ChartData.isByMonth(ChartDetail.Week, listOf(ChartWindow.CalendarMonth), 0))
+        assertFalse(ChartData.isByMonth(ChartDetail.Day, listOf(ChartWindow.CalendarMonth), 0))
+        assertFalse(ChartData.isByMonth(ChartDetail.Month, listOf(ChartWindow.Month), 0))
+        assertFalse(ChartData.isByMonth(ChartDetail.Month, listOf(ChartWindow.CalendarMonth), 3))
+    }
+
+    @Test
     suspend fun metricsOfFreePlugin() {
         // a free plugin has no sales, licenses and trials, the menu only offers its downloads
         val values = ChartData().values(McpTestData.pluginData(free = true))

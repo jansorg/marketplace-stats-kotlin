@@ -494,7 +494,7 @@ class MarketplaceStatsServer(
                 // closing the chart dialog aborts the request, e.g. the downloads of a release aren't loaded anymore
                 val response = call.cancelOnDisconnect {
                     val values = chartMetricValues() ?: return@cancelOnDisconnect null
-                    ChartData.prepare(values, metrics, from, window)
+                    ChartData.prepare(values, metrics, from, window, detail)
                     withContext(Dispatchers.Default) { ChartData.chartData(values, metrics, window, detail) }
                 } ?: return@get
                 call.respondJsonStream(ChartDataResponse.serializer(), response)
@@ -514,7 +514,12 @@ class MarketplaceStatsServer(
                     val (plugin, values) = chartSource() ?: return@cancelOnDisconnect null
                     // the previous year needs the year before the dates
                     val months = request.lines.maxOfOrNull { (it.averageMonths ?: 0) + if (it.previousYear) 12 else 0 } ?: 0
-                    values.prepare(request.lines.map { it.metric }, ChartData.loadStart(request.from, request.lines.map { it.window }, months))
+                    val windows = request.lines.map { it.window }
+                    val averageMonths = request.lines.maxOfOrNull { it.averageMonths ?: 0 } ?: 0
+                    // the finer dates of short windows are days, see ChartExport.lineDetail
+                    val byMonth = ChartData.isByMonth(request.detail, windows, averageMonths) &&
+                            request.lines.all { ChartExport.lineDetail(it.window, request.detail) == request.detail }
+                    values.prepare(request.lines.map { it.metric }, ChartData.loadStart(request.from, windows, months), byMonth)
                     withContext(Dispatchers.Default) { ChartExport.table(values, request, plugin?.let { it.id to it.name }) }
                 } ?: return@get
                 // the values are calculated with the current data

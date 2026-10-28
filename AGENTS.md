@@ -413,7 +413,11 @@ queries, and one which excludes all these tags. The results are in the order of 
     before it), these downloads are only loaded from then on, the windows before have no value. The cache of the values
     in the browser keeps the start of each level (`MetricValueCache`, `coversStart`), an earlier start loads them again.
     The charts started from the releases list and the page of a release show the range "This year"
-    (`ChartMetricName.range`). The page of a release has the charts of
+    (`ChartMetricName.range`). At the levels Month and Year with calendar windows and without moving averages, the
+    downloads are loaded by month, which is faster (`ChartData.isByMonth`, a month is counted at its last day, the
+    current month at today), by calendar year from January 1 (`yearChunks`): the statistics service only counts whole
+    calendar months, a start within a month leaves out the month, an end within a month is ignored. Downloads by month
+    are loaded again by day, when a request needs days. The page of a release has the charts of
     the other pages, its downloads have the buttons of `ChartMetricName`, the requests of the charts use
     `data-plugin-id` of the `<body>` (`pageEndpoint` in `endpoints.js`), the page has the parameter `pId`.
   - Decimals: `ChartMetric.fractionDigits` is the maximum number of decimals of the shown values of a metric, e.g. of

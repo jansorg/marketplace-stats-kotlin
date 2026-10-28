@@ -132,11 +132,32 @@ class ChartData(private val downloadsSource: ((PluginId) -> ChartDownloadsSource
          *
          * @param metrics The IDs of the metrics and of their moving averages, see [chartData].
          * @param from The first shown date, e.g. of the range of a chart, `null` for all dates, see [loadStart].
+         * @param detail The dates of the values, the downloads of releases and products are loaded by month, if it's
+         *  enough, see [isByMonth].
          */
-        suspend fun prepare(values: ChartMetricValues, metrics: List<String>, from: YearMonthDay? = null, window: ChartWindow = ChartWindow.Day) {
+        suspend fun prepare(
+            values: ChartMetricValues,
+            metrics: List<String>,
+            from: YearMonthDay? = null,
+            window: ChartWindow = ChartWindow.Day,
+            detail: ChartDetail = ChartDetail.Day,
+        ) {
             val months = metrics.mapNotNull { averageMonths[it.substringAfter(AVERAGE_SEPARATOR, "")] }.maxOrNull() ?: 0
-            values.prepare(metrics.mapNotNull { ChartMetric.byId(it.substringBefore(AVERAGE_SEPARATOR)) }, loadStart(from, listOf(window), months))
+            val metricsOfIds = metrics.mapNotNull { ChartMetric.byId(it.substringBefore(AVERAGE_SEPARATOR)) }
+            values.prepare(metricsOfIds, loadStart(from, listOf(window), months), isByMonth(detail, listOf(window), months))
         }
+
+        /**
+         * @return If the downloads of each month are enough for the values, which are faster to load than the
+         *  downloads of each day: the dates are the ends of months or years and today ([ChartDetail.Month],
+         *  [ChartDetail.Year]), the windows are calendar windows, and there are no moving averages, whose rolling
+         *  windows end within the months.
+         */
+        fun isByMonth(detail: ChartDetail, windows: Collection<ChartWindow>, averageMonths: Int): Boolean {
+            return detail in setOf(ChartDetail.Month, ChartDetail.Year) && averageMonths == 0 && windows.all { it in CALENDAR_WINDOWS }
+        }
+
+        private val CALENDAR_WINDOWS = setOf(ChartWindow.CalendarMonth, ChartWindow.CalendarQuarter, ChartWindow.CalendarYear)
 
         /**
          * @param from The first shown date, `null` for all dates.
