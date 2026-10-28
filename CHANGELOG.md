@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.52.0
+
+- Releases:
+  - A page of the releases of a plugin with a table of each channel (version, date, downloads, compatible builds,
+    size), also for free plugins.
+  - A page of each release: its data, the downloads by product, the compatible and unsupported products, the
+    dependencies, the results of the Plugin Verifier and of the IDE performance verifier and the release notes.
+  - The MCP tool `list_plugin_releases` returns the verification results with `includeVerification`.
+- Free plugins: the years and the monthly overview show their downloads, also before 2019, the chart menu only
+  offers the downloads.
+- Charts:
+  - Metrics with parameters: the downloads of a release, optionally in a product, the downloads in a product and
+    the unique downloads of the plugin, of a release or of a product (per day, calendar week or calendar month).
+  - The legend duplicates a line, e.g. to compare two releases, and changes the parameters of a line.
+  - The downloads of releases and products are only loaded for the shown dates, by month for the calendar windows
+    of months and years, and from the release date of a release. The lines of downloads end with the first zero
+    after their last value.
+  - Closing the chart dialog or changing the level cancels the loading of the values, also on the server.
+  - The values of weeks, months and years are shown in the middle of their periods, between the ticks of the
+    periods, the tooltip names the period, e.g. the month. The range of a year only shows the values of the year.
+  - The bars have the width of the usual distance of their dates, the bar at the cursor is outlined.
+  - The releases of IntelliJ IDEA before 2019.2 are shown as events.
+- Caching: the downloads of the past are cached for a week, complete downloads are stored for 90 days, the parts of
+  long time ranges are stored one by one. The channels, the releases and the dependencies of releases are stored in
+  the persistent cache.
+- Marketplace client: `verificationResults` loads the results of the verifiers of a release (requires the API key of
+  a developer of the plugin), statistics can be requested by week (`DownloadRequestDimension.Week`).
+
 ## 0.51.0
 
 - Requests:
