@@ -7,7 +7,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
-    alignedRanges, chartExportUrl, exportLineId, familyMetricId, familyOfMetric, niceStep, parameterSections, parameterValuesKey, rangeTicks, seriesMenuSections, seriesStyle, SERIES_STYLES, WINDOWS, RANGE_PRESETS, rangeOfPreset,
+    alignedRanges, chartExportUrl, exportLineId, familyMetricId, familyOfMetric, loadedRangeStart, niceStep, parameterSections, parameterValuesKey, rangeTicks, seriesMenuSections, seriesStyle, SERIES_STYLES, WINDOWS, RANGE_PRESETS, rangeOfPreset,
     pinchedRange, rangeLabel, rangeMenuItems, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, finestDetail, lineDetail, periodEnd, shownWindow, storedChartLevel, tableWindow, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, shownDateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
@@ -699,4 +699,14 @@ test("a logarithmic axis has the powers of ten around the values", () => {
     // without positive values
     assert.deepEqual(logRange(null, null), [1, 10]);
     assert.deepEqual(logRange(-3, 0), [1, 10]);
+});
+
+test("the values are loaded from the start of the range, a year earlier for the trend of the previous year", () => {
+    const range = {from: "2026-01-01", to: "2026-10-28", preset: "this-year"};
+    assert.equal(loadedRangeStart(range, []), "2026-01-01");
+    assert.equal(loadedRangeStart(range, ["average3"]), "2026-01-01");
+    assert.equal(loadedRangeStart(range, ["previousYear"]), "2025-01-01");
+    assert.equal(loadedRangeStart({from: "2028-02-29", to: "2028-03-31"}, ["previousYear"]), "2027-02-28");
+    // all dates
+    assert.equal(loadedRangeStart(null, ["previousYear"]), null);
 });

@@ -24,7 +24,7 @@ import {createLineChart} from "./lineChart.js";
 import {isAbortError, metricDataId, metricEntry, metricSeries, MetricValueCache} from "./metricValues.js";
 import {
     canCombineUnits, chartExportUrl, chartLevel, chartLevelKeys, dateRange, detailGranularity, detailPeriod, exportFileName, familyMetricId, familyOfMetric,
-    finestDetail, groupCharts, groupUnits, parameterSections, parameterValuesKey,
+    finestDetail, groupCharts, groupUnits, loadedRangeStart, parameterSections, parameterValuesKey,
     lineChartKey, lineDetail, MARKER_KINDS, MAX_PIES, MAX_SERIES, METRIC_PERIOD, metricLabel, metricPoints, nextColor, overlayApplies, OVERLAYS,
     pieSlices, previousYear, rangeLabel, rangeOfPreset, rangeOfTimestamps, rangeTimestamps, rangeYears, seriesStyle, shownWindow, storedChartLevel,
     visibleMarkers, withoutIncomplete,
@@ -355,6 +355,10 @@ class ChartController {
         const values = familyMetric.values.map((current, i) => i === index ? value : current);
         series.metric = familyMetricId(familyMetric.family.id, values);
         series.key = metricKey(series.metric, series.window, series.average, series.copy);
+        // the label until the values with the title of the server are loaded, e.g. "Downloads of a release: 1.0, IntelliJ IDEA"
+        const labels = familyMetric.family.parameters.flatMap((parameter, i) => values[i] === null ? []
+            : this.parameterValues[parameterValuesKey(familyMetric.family.id, parameter.id)]?.find(v => v.value === values[i])?.label ?? values[i]);
+        series.label = `${familyMetric.family.title}: ${labels.join(", ")}`;
     }
 
     /**
@@ -790,9 +794,11 @@ class ChartController {
             OVERLAYS.filter(kind => overlayApplies(kind, series, detail, level?.window)).forEach(kind => context.applicableOverlays.add(kind));
         }
         // charts of metrics and charts without incomplete values have their own date range
-        const chartDateRange = level === null && this.showIncomplete
+        const chartDateRange = (level === null && this.showIncomplete
             ? chart.dateRange
-            : dateRange(chartSeries) ?? chart.dateRange;
+            : dateRange(chartSeries) ?? chart.dateRange)
+            // the lines of the chart are loading, e.g. after another release was selected: the shown range or this year
+            ?? context.visibleRange ?? rangeTimestamps(rangeOfPreset("this-year"));
         const panel = dialog.addPanel("chart-panel");
         const toolbar = this.toolbar(panel);
         const chartOptions = {
@@ -947,7 +953,14 @@ class ChartController {
             const values = data?.series[metricDataId(s)];
             const points = data ? metricPoints(data, metricDataId(s)) : null;
             if (!values || points === null || points.points.size === 0) {
-                return [];
+                // While the values are loading, e.g. after another release was selected in the legend, the line stays
+                // in the legend without points. A line without values after loading isn't shown, e.g. the trials on
+                // the list of plugins.
+                if (this.metricValues.isKnownWithoutValues(window, detail, metricDataId(s))) {
+                    return [];
+                }
+                return [{...s, points: new Map(), incomplete: new Set(), label: s.label, window, selectedWindow: s.window ?? level.window, detail,
+                    period: detailPeriod(detail), parameterSections: this.parameterSectionsOf(s)}];
             }
             // the window of the level, e.g. the calendar month at the level Month, isn't part of the label
             const label = metricLabel({label: values.title, usesWindow: values.usesWindow}, window, shownWindow("follow", level.detail))
@@ -998,7 +1011,8 @@ class ChartController {
      */
     trends(chartSeries, detail) {
         const overlays = [];
-        for (const series of chartSeries) {
+        // a line without points, e.g. while its values are loading, has no trends
+        for (const series of chartSeries.filter(s => s.points.size > 0)) {
             for (const kind of OVERLAYS.filter(k => this.shownOverlays.includes(k) && overlayApplies(k, series, detail, series.window))) {
                 if (kind === "previousYear") {
                     overlays.push({kind, base: series.key, label: `${series.label}, previous year`, points: previousYear(series).points});
@@ -1016,8 +1030,9 @@ class ChartController {
      * @param {string[]} ids The IDs of the metrics and of their averages, e.g. `sales@avg3`.
      */
     loadMetrics(chartWindow, detail, ids) {
-        // e.g. the downloads of a release are only loaded from the start of the shown range, they take long to load
-        const request = this.metricValues.load(chartWindow, detail, ids, this.dateRange?.from ?? null);
+        // e.g. the downloads of a release are only loaded from the start of the shown range, they take long to load,
+        // the trend of the previous year needs the range of the previous year
+        const request = this.metricValues.load(chartWindow, detail, ids, loadedRangeStart(this.dateRange, this.shownOverlays));
         if (request === null) {
             return;
         }

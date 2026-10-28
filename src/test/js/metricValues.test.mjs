@@ -198,3 +198,24 @@ test("a copy of a line has its own key and is stored with its number", () => {
     assert.equal(metricSeries(metricEntry(copy), "#111").key, copy.key);
     assert.equal("copy" in metricEntry(line), false);
 });
+
+test("only metrics, which the server answered without values, are known without values", async () => {
+    let fail = false;
+    const values = new MetricValueCache(async (window, detail, ids) => {
+        if (fail) {
+            throw new Error("failed");
+        }
+        return {dates: ["2026-01-31"], series: ids.includes("sales") ? {sales: {values: [1]}} : {}};
+    });
+    // not requested yet
+    assert.equal(values.isKnownWithoutValues("month", "month", "trials"), false);
+    const loading = values.load("month", "month", ["sales", "trials"]);
+    assert.equal(values.isKnownWithoutValues("month", "month", "trials"), false);
+    await loading;
+    assert.equal(values.isKnownWithoutValues("month", "month", "trials"), true);
+    assert.equal(values.isKnownWithoutValues("month", "month", "sales"), false);
+    // a failed request
+    fail = true;
+    await assert.rejects(values.load("month", "month", ["mrr"]));
+    assert.equal(values.isKnownWithoutValues("month", "month", "mrr"), true);
+});
