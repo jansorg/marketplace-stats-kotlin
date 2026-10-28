@@ -70,6 +70,14 @@ class PricingOverviewTableTest {
     }
 
     @Test
+    suspend fun freePluginHasNoPrices() {
+        // the data of free plugins has no pricing, the table makes no requests
+        val table = PricingOverviewTable()
+        table.init(McpTestData.pluginData(withPricing = false))
+        assertTrue(table.renderTable().sections.isEmpty())
+    }
+
+    @Test
     suspend fun perpetualPrices() {
         val table = render(LicensingType.Perpetual)
         assertEquals(listOf("pricing-country", "pricing-perpetual", "pricing-perpetual-commercial"), table.sections.first().columns!!.map { it.id })

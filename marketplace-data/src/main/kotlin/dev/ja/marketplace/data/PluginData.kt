@@ -32,6 +32,7 @@ data class PluginData(
     private val downloadsDailyDeferred: Deferred<List<DailyDownload>>,
 
     // info for paid or freemium plugin/s
+    /** The prices, `null` for free plugins. */
     val pluginPricing: PluginPricing?,
     private val salesWithLicensesDeferred: Deferred<SalesWithLicensesInfo>?,
     private val trialsDeferred: Deferred<List<PluginTrial>>?,

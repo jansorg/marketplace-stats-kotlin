@@ -33,7 +33,8 @@ import javax.money.MonetaryAmount
  */
 class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column-wide"),
     MarketplaceDataSink {
-    private lateinit var pluginPricing: PluginPricing
+    // null for free plugins, which have no prices
+    private var pluginPricing: PluginPricing? = null
     private lateinit var countries: Countries
 
     // the Marketplace offers either subscriptions or perpetual licenses
@@ -74,7 +75,7 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
         super.init(data)
 
         this.countries = data.countries
-        this.pluginPricing = data.pluginPricing!!
+        this.pluginPricing = data.pluginPricing
         this.isPerpetual = data.getOfferedLicensePeriods()?.let { LicensePeriod.Perpetual in it && LicensePeriod.Annual !in it } ?: false
     }
 
@@ -83,6 +84,7 @@ class PricingOverviewTable : SimpleDataTable("Pricing", "pricing", "table-column
     }
 
     override suspend fun createSections(): List<DataTableSection> {
+        val pluginPricing = pluginPricing ?: return emptyList()
 
         val countryComparator = Comparator.comparing<Pair<CountryWithCurrency, PluginPriceInfo>, String>(
             { it.first.country.printableName },
