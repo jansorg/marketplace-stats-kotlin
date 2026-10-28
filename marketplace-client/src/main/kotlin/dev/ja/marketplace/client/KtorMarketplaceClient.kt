@@ -47,14 +47,18 @@ open class KtorMarketplaceClient(
     private val processingDispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2),
 ) : MarketplaceClient {
     internal val httpClient: HttpClient = httpClientBuilder
+
         .withBaseUrl("https://$apiHost")
+
         .withBearerAuth(apiKey)
+
         .build()
 
     // downloads the CSV files of the reports without the API key, see downloadReport
     private val reportHttpClientDelegate = lazy {
         httpClientBuilder.withBaseUrl(null).withBearerAuth(null).build()
     }
+
     private val reportHttpClient by reportHttpClientDelegate
 
     /**
@@ -179,6 +183,11 @@ open class KtorMarketplaceClient(
         response.data.serie.sumOf { it.value }
     }
 
+    /**
+     * Downloads by month or day, which the statistics service answers with 503 because they take too long, are
+     * requested by calendar year, see [loadStatisticsByYear]. The monthly downloads without a start date can't be
+     * split: they're the first month of the downloads of the plugin.
+     */
     override suspend fun downloads(
         plugin: PluginId,
         groupType: DownloadRequestDimension,
@@ -186,24 +195,23 @@ open class KtorMarketplaceClient(
         startDate: YearMonthDay?,
         vararg filters: DownloadFilter,
         endDate: YearMonthDay?,
-    ): DownloadResponse = withContext(processingDispatcher) {
-        httpClient.get("/statistic/${countType.requestPathSegment}/${groupType.requestPathSegment}") {
-            slowRequest()
-            parameter("plugin", plugin)
-            if (startDate != null) {
-                parameter("startDate", startDate.asIsoString)
-            }
-            if (endDate != null) {
-                parameter("endDate", endDate.asIsoString)
-            }
-            addDownloadFilters(filters)
-        }.body<DownloadResponse>()
+    ): DownloadResponse {
+        val load: suspend (YearMonthDay?, YearMonthDay?, Boolean) -> DownloadResponse = { start, end, isPart ->
+            loadDownloads(plugin, groupType, countType, start, filters, end, isPart)
+        }
+        val canSplit = groupType in DATE_DIMENSIONS && !(groupType == DownloadRequestDimension.Month && startDate == null)
+        if (!canSplit) {
+            return load(startDate, endDate, false)
+        }
+        return loadStatisticsByYear(plugin, countType, startDate, endDate, trySingleRequest = true, load) { parts ->
+            parts.first().copy(data = parts.first().data.copy(serie = mergeSeries(parts.map { it.data.serie })))
+        }
     }
 
     /**
-     * The statistics service of the Marketplace answers with 503, if a request takes too long, e.g. the downloads of a
-     * plugin with many downloads by month and product since its start. Long time ranges of downloads by month or day
-     * are requested in calendar years and merged, see [groupedDownloadsByYear].
+     * Downloads by month or day of a long time range are requested by calendar year and merged, see
+     * [loadStatisticsByYear]: the statistics service answers e.g. the downloads by month and product of the whole
+     * history of a plugin with many downloads with 503, because it takes too long.
      */
     override suspend fun groupedDownloads(
         plugin: PluginId,
@@ -214,86 +222,20 @@ open class KtorMarketplaceClient(
         vararg filters: DownloadFilter,
         endDate: YearMonthDay?,
     ): GroupedDownloadResponse {
-        val isByDate = dimension in DATE_DIMENSIONS || groupType in DATE_DIMENSIONS
-        if (!isByDate) {
-            return loadGroupedDownloads(plugin, dimension, groupType, countType, startDate, filters, endDate)
+        val load: suspend (YearMonthDay?, YearMonthDay?, Boolean) -> GroupedDownloadResponse = { start, end, isPart ->
+            loadGroupedDownloads(plugin, dimension, groupType, countType, start, filters, end, isPart)
         }
-
-        // without a start date, the downloads since the first month with downloads of the plugin
-        val start = startDate ?: downloads(plugin, DownloadRequestDimension.Month, countType, null).data.serie
-            .mapNotNull { runCatching { YearMonthDay.parse(it.name) }.getOrNull() }
-            .minOrNull()
-        val end = endDate ?: YearMonthDay.now()
-        if (start == null || start.year == end.year) {
-            return loadGroupedDownloads(plugin, dimension, groupType, countType, startDate, filters, endDate)
+        if (dimension !in DATE_DIMENSIONS && groupType !in DATE_DIMENSIONS) {
+            return load(startDate, endDate, false)
         }
-        return groupedDownloadsByYear(plugin, dimension, groupType, countType, start, end, filters, endDate == null)
-    }
-
-    /**
-     * Requests the downloads of each calendar year from [start] to [end] concurrently and merges them. A month or day
-     * is part of a single year, a group or a value of each year has the same name in the merged response.
-     *
-     * @param untilToday If the last year is requested without an end date, i.e. until today.
-     */
-    private suspend fun groupedDownloadsByYear(
-        plugin: PluginId,
-        dimension: DownloadRequestDimension,
-        groupType: DownloadRequestDimension,
-        countType: DownloadCountType,
-        start: YearMonthDay,
-        end: YearMonthDay,
-        filters: Array<out DownloadFilter>,
-        untilToday: Boolean,
-    ): GroupedDownloadResponse = coroutineScope {
-        val responses = (start.year..end.year).map { year ->
-            val yearStart = maxOf(start, YearMonthDay(year, 1, 1))
-            val yearEnd = when {
-                year == end.year && untilToday -> null
-                else -> minOf(end, YearMonthDay(year, 12, 31))
-            }
-            async { loadGroupedDownloads(plugin, dimension, groupType, countType, yearStart, filters, yearEnd, chunk = true) }
-        }.awaitAll()
-
-        val groups = LinkedHashMap<String, Pair<String?, MutableMap<String, DownloadResponseItem>>>()
-        for (group in responses.flatMap { it.groups }) {
-            val (_, items) = groups.getOrPut(group.name) { group.comment to LinkedHashMap() }
-            for (item in group.serie) {
-                items.merge(item.name, item) { old, new -> old.copy(value = old.value + new.value) }
-            }
+        // the single request of a long time range is known to take too long for plugins with many downloads
+        return loadStatisticsByYear(plugin, countType, startDate, endDate, trySingleRequest = false, load) { parts ->
+            val groups = LinkedHashMap<String, MutableList<DownloadResponseGroup>>()
+            parts.flatMap { it.groups }.forEach { groups.getOrPut(it.name, ::mutableListOf) += it }
+            parts.first().copy(groups = groups.map { (name, yearGroups) ->
+                DownloadResponseGroup(name, yearGroups.firstNotNullOfOrNull { it.comment }, mergeSeries(yearGroups.map { it.serie }))
+            })
         }
-        responses.first().copy(
-            groups = groups.map { (name, value) ->
-                DownloadResponseGroup(name, value.first, value.second.values.sortedBy(DownloadResponseItem::name))
-            },
-        )
-    }
-
-    private suspend fun loadGroupedDownloads(
-        plugin: PluginId,
-        dimension: DownloadRequestDimension,
-        groupType: DownloadRequestDimension,
-        countType: DownloadCountType,
-        startDate: YearMonthDay?,
-        filters: Array<out DownloadFilter>,
-        endDate: YearMonthDay?,
-        chunk: Boolean = false,
-    ): GroupedDownloadResponse = withContext(processingDispatcher) {
-        val background = BackgroundRequests.isActive()
-        httpClient.get("/statistic/${countType.requestPathSegment}/${dimension.requestPathSegment}/${groupType.requestPathSegment}") {
-            slowRequest()
-            if (chunk) {
-                chunkRequest(background)
-            }
-            parameter("plugin", plugin)
-            if (startDate != null) {
-                parameter("startDate", startDate.asIsoString)
-            }
-            if (endDate != null) {
-                parameter("endDate", endDate.asIsoString)
-            }
-            addDownloadFilters(filters)
-        }.body<GroupedDownloadResponse>()
     }
 
     override suspend fun pageAnalytics(plugin: PluginId, timeFrame: PageAnalyticsTimeFrame): PluginPageAnalytics = withContext(processingDispatcher) {
@@ -423,126 +365,9 @@ open class KtorMarketplaceClient(
         }
     }
 
-    /** The results of [request] within the window of the Marketplace. */
-    private suspend fun searchWindow(
-        request: MarketplacePluginSearchRequest,
-        pageSize: Int,
-    ): List<MarketplacePluginSearchResultItem> {
-        val window = Marketplace.MAX_SEARCH_RESULT_WINDOW
-        if (request.offset >= window) {
-            return emptyList()
-        }
-        val maxResults = request.maxResults ?: Int.MAX_VALUE
-        return searchPages(request, request.offset, min(maxResults, window - request.offset), pageSize).items
-    }
-
-    /**
-     * All results of [request], beyond the window of the Marketplace: if the query has more results than the window,
-     * the results of disjoint queries by tag in their order, see [searchSlices].
-     */
-    private suspend fun searchAnySize(
-        request: MarketplacePluginSearchRequest,
-        pageSize: Int,
-    ): List<MarketplacePluginSearchResultItem> {
-        val maxResults = request.maxResults ?: Int.MAX_VALUE
-        if (maxResults <= 0) {
-            return emptyList()
-        }
-
-        val probe = marketplacePluginsSearchSinglePage(request.copy(offset = 0, maxResults = 1))
-        if (probe.totalResult < Marketplace.MAX_SEARCH_RESULT_WINDOW) {
-            return searchWindow(request, pageSize)
-        }
-
-        var skippedResults = request.offset
-        val seenIds = HashSet<PluginId>()
-        val result = mutableListOf<MarketplacePluginSearchResultItem>()
-        for (slices in searchSlices(request).chunked(MAX_CONCURRENT_SEARCH_SLICES)) {
-            if (result.size >= maxResults) {
-                break
-            }
-
-            val sliceResults = coroutineScope {
-                slices.map { slice -> async { searchPages(slice, 0, Marketplace.MAX_SEARCH_RESULT_WINDOW, pageSize) } }.awaitAll()
-            }
-            for ((slice, sliceResult) in slices.zip(sliceResults)) {
-                if (sliceResult.isCapped) {
-                    logger.warn("Plugin search slice with tags ${slice.requiredTags} has more results than the Marketplace returns, results are missing")
-                }
-
-                for (item in sliceResult.items) {
-                    // the slices are disjoint, but plugins may change while they're loaded
-                    if (seenIds.add(item.id)) {
-                        if (skippedResults > 0) {
-                            skippedResults--
-                        } else {
-                            result += item
-                        }
-                    }
-                }
-            }
-        }
-        return result.take(maxResults)
-    }
-
     override suspend fun marketplaceTags(): List<PluginTag> = withContext(processingDispatcher) {
         httpClient.get("${apiPath}/tags").body()
     }
-
-    /**
-     * Loads [count] results of the search, starting at [offset], in pages of [pageSize].
-     * [count] must not exceed the window of [Marketplace.MAX_SEARCH_RESULT_WINDOW] results.
-     */
-    private suspend fun searchPages(
-        request: MarketplacePluginSearchRequest,
-        offset: Int,
-        count: Int,
-        pageSize: Int,
-    ): SearchPages {
-        val result = mutableListOf<MarketplacePluginSearchResultItem>()
-        var isCapped = false
-        var nextOffset = offset
-        var pending = count
-        while (pending > 0) {
-            val page = marketplacePluginsSearchSinglePage(
-                request.copy(offset = nextOffset, maxResults = min(pageSize, pending))
-            )
-            isCapped = page.totalResult >= Marketplace.MAX_SEARCH_RESULT_WINDOW
-            if (page.searchResult.isEmpty()) {
-                break
-            }
-
-            result += page.searchResult
-            nextOffset += page.searchResult.size
-
-            // The API rejects requests if offset + maxResults is larger than the total size or the window
-            pending = min(count - result.size, min(page.totalResult, Marketplace.MAX_SEARCH_RESULT_WINDOW) - nextOffset)
-        }
-        return SearchPages(result, isCapped)
-    }
-
-    /**
-     * Disjoint queries, which together return all results of [request]:
-     * one query per tag, which excludes the tags of the previous queries, and, if the request doesn't require tags,
-     * a query for plugins without any of these tags.
-     */
-    private suspend fun searchSlices(request: MarketplacePluginSearchRequest): List<MarketplacePluginSearchRequest> {
-        val excludedTags = request.excludeTags.mapTo(HashSet()) { it.lowercase() }
-        val tags = request.requiredTags.ifEmpty { marketplaceTags().map(PluginTag::name) }
-            .filter { it.lowercase() !in excludedTags }
-            .distinctBy { it.lowercase() }
-
-        val baseRequest = request.copy(offset = 0, maxResults = null)
-        val slices = tags.mapIndexed { index, tag ->
-            baseRequest.copy(requiredTags = listOf(tag), excludeTags = request.excludeTags + tags.take(index))
-        }
-        return when {
-            request.requiredTags.isEmpty() -> slices + baseRequest.copy(excludeTags = request.excludeTags + tags)
-            else -> slices
-        }
-    }
-
-    private data class SearchPages(val items: List<MarketplacePluginSearchResultItem>, val isCapped: Boolean)
 
     override suspend fun reviewComments(plugin: PluginId, pageSize: Int): List<PluginReviewComment> = withContext(processingDispatcher) {
         val completeResult = mutableListOf<PluginReviewComment>()
@@ -558,6 +383,8 @@ open class KtorMarketplaceClient(
 
         completeResult
     }
+
+    private data class SearchPages(val items: List<MarketplacePluginSearchResultItem>, val isCapped: Boolean)
 
     override suspend fun reviewCommentsSinglePage(plugin: PluginId, size: Int, page: Int): List<PluginReviewComment> =
         withContext(processingDispatcher) {
@@ -699,38 +526,48 @@ open class KtorMarketplaceClient(
     }
 
     /**
-     * The API returns a temporary, presigned URL of the CSV file of a report. The file is downloaded without the
-     * API key: the storage of the reports rejects requests with more than one kind of authentication.
+     * Loads statistics of a time range by calendar year, if it's longer than a year, and merges them. The statistics
+     * service of the Marketplace answers requests, which take longer than about 30 seconds, with 503.
+     * The values must be values of months or days: each value is part of a single year.
+     *
+     * @param startDate The start of the time range, `null` for the first month of the downloads of the plugin.
+     * @param endDate The end of the time range, `null` until today.
+     * @param trySingleRequest If the time range is loaded with a single request first, and only by year if the
+     *  service answers with 503. Otherwise, it's always loaded by year.
+     * @param load Loads a time range, with `true` for a part of a longer time range.
+     * @param merge Merges the values of the years.
      */
-    private suspend fun downloadReport(reportUrlPath: String): String = withContext(processingDispatcher) {
-        val reportUrl = httpClient.get(reportUrlPath).bodyAsText().trim()
-        reportHttpClient.get(reportUrl) {
-            // reports of plugins with many sales are large
-            timeout { requestTimeoutMillis = REPORT_TIMEOUT.inWholeMilliseconds }
-        }.bodyAsText()
-    }
-
-    private suspend fun Path.streamingDownload(url: Url): Unit = withContext(processingDispatcher) {
-        if (Files.exists(this@streamingDownload)) {
-            throw IllegalArgumentException("File ${this@streamingDownload} already exists, unable to download $url.")
-        }
-
-        // a failed download doesn't leave a partial file, the complete file is moved to the target
-        val target = this@streamingDownload
-        val temporaryFile = Files.createTempFile(target.toAbsolutePath().parent, target.fileName.toString(), ".download")
-        try {
-            Files.newByteChannel(temporaryFile, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING).use { outputChannel ->
-                // the request timeout limits the whole download, large files take longer
-                httpClient.prepareGet(url) {
-                    timeout { requestTimeoutMillis = HttpTimeoutConfig.INFINITE_TIMEOUT_MS }
-                }.execute { httpResponse ->
-                    httpResponse.body<ByteReadChannel>().copyTo(outputChannel)
+    protected suspend fun <T> loadStatisticsByYear(
+        plugin: PluginId,
+        countType: DownloadCountType,
+        startDate: YearMonthDay?,
+        endDate: YearMonthDay?,
+        trySingleRequest: Boolean,
+        load: suspend (start: YearMonthDay?, end: YearMonthDay?, isPart: Boolean) -> T,
+        merge: (List<T>) -> T,
+    ): T {
+        if (trySingleRequest) {
+            try {
+                return load(startDate, endDate, false)
+            } catch (e: ServerResponseException) {
+                if (e.response.status != HttpStatusCode.ServiceUnavailable) {
+                    throw e
                 }
+                logger.info("The statistics of plugin $plugin took too long, they're requested by year")
             }
-            Files.move(temporaryFile, target, java.nio.file.StandardCopyOption.ATOMIC_MOVE)
-        } finally {
-            Files.deleteIfExists(temporaryFile)
         }
+
+        val start = startDate ?: firstDownloadMonth(plugin, countType)
+        val end = endDate ?: YearMonthDay.now()
+        if (start == null || start.year == end.year) {
+            return load(startDate, endDate, false)
+        }
+        val parts = coroutineScope {
+            calendarYearRanges(start, end, untilToday = endDate == null).map { (yearStart, yearEnd) ->
+                async { load(yearStart, yearEnd, true) }
+            }.awaitAll()
+        }
+        return merge(parts)
     }
 
     protected open suspend fun loadSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> = withContext(processingDispatcher) {
@@ -767,6 +604,216 @@ open class KtorMarketplaceClient(
             .sorted()
     }
 
+    private suspend fun loadDownloads(
+        plugin: PluginId,
+        groupType: DownloadRequestDimension,
+        countType: DownloadCountType,
+        startDate: YearMonthDay?,
+        filters: Array<out DownloadFilter>,
+        endDate: YearMonthDay?,
+        isPart: Boolean,
+    ): DownloadResponse = withContext(processingDispatcher) {
+        val background = BackgroundRequests.isActive()
+        httpClient.get("/statistic/${countType.requestPathSegment}/${groupType.requestPathSegment}") {
+            slowRequest()
+            if (isPart) {
+                chunkRequest(background)
+            }
+            parameter("plugin", plugin)
+            if (startDate != null) {
+                parameter("startDate", startDate.asIsoString)
+            }
+            if (endDate != null) {
+                parameter("endDate", endDate.asIsoString)
+            }
+            addDownloadFilters(filters)
+        }.body<DownloadResponse>()
+    }
+
+    /** @return The first month with downloads of the plugin, `null` without downloads. */
+    private suspend fun firstDownloadMonth(plugin: PluginId, countType: DownloadCountType): YearMonthDay? {
+        return downloads(plugin, DownloadRequestDimension.Month, countType, null).data.serie
+            .mapNotNull { runCatching { YearMonthDay.parse(it.name) }.getOrNull() }
+            .minOrNull()
+    }
+
+    private suspend fun loadGroupedDownloads(
+        plugin: PluginId,
+        dimension: DownloadRequestDimension,
+        groupType: DownloadRequestDimension,
+        countType: DownloadCountType,
+        startDate: YearMonthDay?,
+        filters: Array<out DownloadFilter>,
+        endDate: YearMonthDay?,
+        isPart: Boolean,
+    ): GroupedDownloadResponse = withContext(processingDispatcher) {
+        val background = BackgroundRequests.isActive()
+        httpClient.get("/statistic/${countType.requestPathSegment}/${dimension.requestPathSegment}/${groupType.requestPathSegment}") {
+            slowRequest()
+            if (isPart) {
+                chunkRequest(background)
+            }
+            parameter("plugin", plugin)
+            if (startDate != null) {
+                parameter("startDate", startDate.asIsoString)
+            }
+            if (endDate != null) {
+                parameter("endDate", endDate.asIsoString)
+            }
+            addDownloadFilters(filters)
+        }.body<GroupedDownloadResponse>()
+    }
+
+    /** The results of [request] within the window of the Marketplace. */
+    private suspend fun searchWindow(
+        request: MarketplacePluginSearchRequest,
+        pageSize: Int,
+    ): List<MarketplacePluginSearchResultItem> {
+        val window = Marketplace.MAX_SEARCH_RESULT_WINDOW
+        if (request.offset >= window) {
+            return emptyList()
+        }
+        val maxResults = request.maxResults ?: Int.MAX_VALUE
+        return searchPages(request, request.offset, min(maxResults, window - request.offset), pageSize).items
+    }
+
+    /**
+     * All results of [request], beyond the window of the Marketplace: if the query has more results than the window,
+     * the results of disjoint queries by tag in their order, see [searchSlices].
+     */
+    private suspend fun searchAnySize(
+        request: MarketplacePluginSearchRequest,
+        pageSize: Int,
+    ): List<MarketplacePluginSearchResultItem> {
+        val maxResults = request.maxResults ?: Int.MAX_VALUE
+        if (maxResults <= 0) {
+            return emptyList()
+        }
+
+        val probe = marketplacePluginsSearchSinglePage(request.copy(offset = 0, maxResults = 1))
+        if (probe.totalResult < Marketplace.MAX_SEARCH_RESULT_WINDOW) {
+            return searchWindow(request, pageSize)
+        }
+
+        var skippedResults = request.offset
+        val seenIds = HashSet<PluginId>()
+        val result = mutableListOf<MarketplacePluginSearchResultItem>()
+        for (slices in searchSlices(request).chunked(MAX_CONCURRENT_SEARCH_SLICES)) {
+            if (result.size >= maxResults) {
+                break
+            }
+
+            val sliceResults = coroutineScope {
+                slices.map { slice -> async { searchPages(slice, 0, Marketplace.MAX_SEARCH_RESULT_WINDOW, pageSize) } }.awaitAll()
+            }
+            for ((slice, sliceResult) in slices.zip(sliceResults)) {
+                if (sliceResult.isCapped) {
+                    logger.warn("Plugin search slice with tags ${slice.requiredTags} has more results than the Marketplace returns, results are missing")
+                }
+
+                for (item in sliceResult.items) {
+                    // the slices are disjoint, but plugins may change while they're loaded
+                    if (seenIds.add(item.id)) {
+                        if (skippedResults > 0) {
+                            skippedResults--
+                        } else {
+                            result += item
+                        }
+                    }
+                }
+            }
+        }
+        return result.take(maxResults)
+    }
+
+    /**
+     * Loads [count] results of the search, starting at [offset], in pages of [pageSize].
+     * [count] must not exceed the window of [Marketplace.MAX_SEARCH_RESULT_WINDOW] results.
+     */
+    private suspend fun searchPages(
+        request: MarketplacePluginSearchRequest,
+        offset: Int,
+        count: Int,
+        pageSize: Int,
+    ): SearchPages {
+        val result = mutableListOf<MarketplacePluginSearchResultItem>()
+        var isCapped = false
+        var nextOffset = offset
+        var pending = count
+        while (pending > 0) {
+            val page = marketplacePluginsSearchSinglePage(
+                request.copy(offset = nextOffset, maxResults = min(pageSize, pending))
+            )
+            isCapped = page.totalResult >= Marketplace.MAX_SEARCH_RESULT_WINDOW
+            if (page.searchResult.isEmpty()) {
+                break
+            }
+
+            result += page.searchResult
+            nextOffset += page.searchResult.size
+
+            // The API rejects requests if offset + maxResults is larger than the total size or the window
+            pending = min(count - result.size, min(page.totalResult, Marketplace.MAX_SEARCH_RESULT_WINDOW) - nextOffset)
+        }
+        return SearchPages(result, isCapped)
+    }
+
+    /**
+     * Disjoint queries, which together return all results of [request]:
+     * one query per tag, which excludes the tags of the previous queries, and, if the request doesn't require tags,
+     * a query for plugins without any of these tags.
+     */
+    private suspend fun searchSlices(request: MarketplacePluginSearchRequest): List<MarketplacePluginSearchRequest> {
+        val excludedTags = request.excludeTags.mapTo(HashSet()) { it.lowercase() }
+        val tags = request.requiredTags.ifEmpty { marketplaceTags().map(PluginTag::name) }
+            .filter { it.lowercase() !in excludedTags }
+            .distinctBy { it.lowercase() }
+
+        val baseRequest = request.copy(offset = 0, maxResults = null)
+        val slices = tags.mapIndexed { index, tag ->
+            baseRequest.copy(requiredTags = listOf(tag), excludeTags = request.excludeTags + tags.take(index))
+        }
+        return when {
+            request.requiredTags.isEmpty() -> slices + baseRequest.copy(excludeTags = request.excludeTags + tags)
+            else -> slices
+        }
+    }
+
+    /**
+     * The API returns a temporary, presigned URL of the CSV file of a report. The file is downloaded without the
+     * API key: the storage of the reports rejects requests with more than one kind of authentication.
+     */
+    private suspend fun downloadReport(reportUrlPath: String): String = withContext(processingDispatcher) {
+        val reportUrl = httpClient.get(reportUrlPath).bodyAsText().trim()
+        reportHttpClient.get(reportUrl) {
+            // reports of plugins with many sales are large
+            timeout { requestTimeoutMillis = REPORT_TIMEOUT.inWholeMilliseconds }
+        }.bodyAsText()
+    }
+
+    private suspend fun Path.streamingDownload(url: Url): Unit = withContext(processingDispatcher) {
+        if (Files.exists(this@streamingDownload)) {
+            throw IllegalArgumentException("File ${this@streamingDownload} already exists, unable to download $url.")
+        }
+
+        // a failed download doesn't leave a partial file, the complete file is moved to the target
+        val target = this@streamingDownload
+        val temporaryFile = Files.createTempFile(target.toAbsolutePath().parent, target.fileName.toString(), ".download")
+        try {
+            Files.newByteChannel(temporaryFile, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING).use { outputChannel ->
+                // the request timeout limits the whole download, large files take longer
+                httpClient.prepareGet(url) {
+                    timeout { requestTimeoutMillis = HttpTimeoutConfig.INFINITE_TIMEOUT_MS }
+                }.execute { httpResponse ->
+                    httpResponse.body<ByteReadChannel>().copyTo(outputChannel)
+                }
+            }
+            Files.move(temporaryFile, target, java.nio.file.StandardCopyOption.ATOMIC_MOVE)
+        } finally {
+            Files.deleteIfExists(temporaryFile)
+        }
+    }
+
     private fun HttpRequestBuilder.addDownloadFilters(filters: Array<out DownloadFilter>) {
         filters.forEach { filter ->
             if (filter.type != DownloadFilterType.Unknown) {
@@ -779,8 +826,37 @@ open class KtorMarketplaceClient(
 /** The time of the download of a sales report. */
 private val REPORT_TIMEOUT: Duration = 5.minutes
 
-/** The dimensions of downloads by date, see [KtorMarketplaceClient.groupedDownloads]. */
+/** The dimensions of downloads by date, they can be loaded by year, see [KtorMarketplaceClient.loadStatisticsByYear]. */
 private val DATE_DIMENSIONS = setOf(DownloadRequestDimension.Month, DownloadRequestDimension.Day)
+
+/**
+ * @param untilToday If the last range has no end date, i.e. it ends today.
+ * @return The ranges of the calendar years from [start] to [end], the first starts at [start], the last ends at [end]
+ *  or, with [untilToday], without an end date.
+ */
+internal fun calendarYearRanges(start: YearMonthDay, end: YearMonthDay, untilToday: Boolean): List<Pair<YearMonthDay, YearMonthDay?>> {
+    require(start <= end) { "The start $start is after the end $end" }
+    return (start.year..end.year).map { year ->
+        val yearStart = maxOf(start, YearMonthDay(year, 1, 1))
+        val yearEnd = when {
+            year == end.year && untilToday -> null
+            else -> minOf(end, YearMonthDay(year, 12, 31))
+        }
+        yearStart to yearEnd
+    }
+}
+
+/**
+ * Merges the values of series, e.g. of the years of a time range: values with the same name are summed, the result
+ * is sorted by name, e.g. by date.
+ */
+internal fun mergeSeries(series: List<List<DownloadResponseItem>>): List<DownloadResponseItem> {
+    val merged = LinkedHashMap<String, DownloadResponseItem>()
+    for (item in series.flatten()) {
+        merged.merge(item.name, item) { old, new -> old.copy(value = old.value + new.value) }
+    }
+    return merged.values.sortedBy(DownloadResponseItem::name)
+}
 
 /** The number of slices of [KtorMarketplaceClient.marketplacePluginsSearch], which are loaded concurrently. */
 private const val MAX_CONCURRENT_SEARCH_SLICES: Int = 4

@@ -118,11 +118,6 @@ class HttpClientBuilder private constructor(private val settings: Settings) {
      */
     fun withRequestTimeout(timeout: Duration?): HttpClientBuilder = HttpClientBuilder(settings.copy(requestTimeout = timeout.checkTimeout()))
 
-    private fun Duration?.checkTimeout(): Duration? {
-        require(this == null || isPositive()) { "A timeout must be positive" }
-        return this
-    }
-
     /**
      * Limits the requests of a created client to [maxRequests] requests per [period], e.g. 10 requests per second.
      * Any [period] contains at most [maxRequests] requests, requests beyond the limit wait. Each attempt of a request
@@ -159,6 +154,11 @@ class HttpClientBuilder private constructor(private val settings: Settings) {
         return HttpClient(engine) {
             configure()
         }
+    }
+
+    private fun Duration?.checkTimeout(): Duration? {
+        require(this == null || isPositive()) { "A timeout must be positive" }
+        return this
     }
 
     private fun HttpClientConfig<*>.configure() {

@@ -54,15 +54,21 @@ class CaffeineCacheMarketplaceClient(
     private val persistentHistorySettings = cachingStrategy.historySettings
 
     private val cache = Caffeine.newBuilder()
+
         .expireAfter(CacheExpiry())
+
         .maximumSize(10_000)
+
         .buildCoroutine()
 
     // background updates of the persistent cache
     // background work, its requests have a lower limit than the requests of pages
     private val persistentCacheScope = CoroutineScope(SupervisorJob() + Dispatchers.IO + BackgroundRequests)
+
     private val persistentSales = ConcurrentHashMap<PluginId, PersistentHistoryCache<PluginSale, CachedSale>>()
+
     private val persistentTrials = ConcurrentHashMap<PluginId, PersistentHistoryCache<PluginTrial, CachedTrial>>()
+
     private val persistentPrices = persistentCache?.let {
         PersistentPriceCache(it, persistentCacheScope, maxAge = cachingStrategy.maxAge(Category.Static))
     }
@@ -180,18 +186,6 @@ class CaffeineCacheMarketplaceClient(
     }
 
     /**
-     * Data is refreshed before the data derived from it, e.g. the sales before the licenses and the downloads
-     * before the monthly downloads.
-     */
-    private fun refreshOrder(key: String): Int {
-        return when (key.substringBefore('.')) {
-            "loadSalesInfo", "loadTrialsInfo", "downloads", "downloadsTotal", "groupedDownloads" -> 0
-            "licenseInfo" -> 2
-            else -> 1
-        }
-    }
-
-    /**
      * Waits until the background updates of the persistent cache are done, for tests.
      */
     internal suspend fun awaitPersistentCacheUpdates() {
@@ -199,16 +193,6 @@ class CaffeineCacheMarketplaceClient(
             persistentCacheScope.coroutineContext.job.children.toList().joinAll()
             (persistentSales.values + persistentTrials.values).forEach { it.awaitBackgroundFetch() }
         } while (persistentCacheScope.coroutineContext.job.children.any { it.isActive })
-    }
-
-    private suspend fun loadInBackground(plugin: PluginId, name: String, load: suspend () -> Unit) {
-        try {
-            load()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn("Updating the stored $name of plugin $plugin failed", e)
-        }
     }
 
     override suspend fun userInfo(): UserInfo {
@@ -356,33 +340,6 @@ class CaffeineCacheMarketplaceClient(
         }
         return loadCachedStored(key, Category.Daily, refresh = { loader(true) }, categoryOf = category) { loader(false) }
     }
-
-    /**
-     * @param forceFetch If the downloads are fetched also if they're stored, e.g. by the automatic refresh.
-     * @param category The category of the stored downloads: downloads fetched before the downloads of yesterday were
-     *  published are fetched again after the age of [Category.Recent], see [DownloadsCompleteness].
-     * @return The downloads of the persistent cache, which are fetched again after a day, or the loaded downloads without a persistent cache.
-     */
-    private suspend fun <T> storedDownloads(
-        plugin: PluginId,
-        key: String,
-        serializer: KSerializer<T>,
-        forceFetch: Boolean,
-        category: (Stored<T>) -> Category,
-        loader: suspend () -> T,
-    ): Stored<T> {
-        val store = persistentDownloads ?: return Stored(loader(), System.currentTimeMillis())
-        val stored = store.get(downloadsFileName(plugin), key, serializer, forceFetch, loader)
-        val age = (System.currentTimeMillis() - stored.fetchedMillis).milliseconds
-        return when {
-            !forceFetch && category(stored) == Category.Recent && age >= cachingStrategy.maxAge(Category.Recent) ->
-                store.get(downloadsFileName(plugin), key, serializer, true, loader)
-
-            else -> stored
-        }
-    }
-
-    private fun downloadsFileName(plugin: PluginId): String = "plugin-$plugin-downloads"
 
     override suspend fun pageAnalytics(plugin: PluginId, timeFrame: PageAnalyticsTimeFrame): PluginPageAnalytics {
         return loadCached("pageAnalytics.$plugin.$timeFrame", Category.Daily) {
@@ -588,6 +545,55 @@ class CaffeineCacheMarketplaceClient(
             super.loadTrialsInfo(plugin, range)
         }
     }
+
+    /**
+     * Data is refreshed before the data derived from it, e.g. the sales before the licenses and the downloads
+     * before the monthly downloads.
+     */
+    private fun refreshOrder(key: String): Int {
+        return when (key.substringBefore('.')) {
+            "loadSalesInfo", "loadTrialsInfo", "downloads", "downloadsTotal", "groupedDownloads" -> 0
+            "licenseInfo" -> 2
+            else -> 1
+        }
+    }
+
+    private suspend fun loadInBackground(plugin: PluginId, name: String, load: suspend () -> Unit) {
+        try {
+            load()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn("Updating the stored $name of plugin $plugin failed", e)
+        }
+    }
+
+    /**
+     * @param forceFetch If the downloads are fetched also if they're stored, e.g. by the automatic refresh.
+     * @param category The category of the stored downloads: downloads fetched before the downloads of yesterday were
+     *  published are fetched again after the age of [Category.Recent], see [DownloadsCompleteness].
+     * @return The downloads of the persistent cache, which are fetched again after a day, or the loaded downloads without a persistent cache.
+     */
+    private suspend fun <T> storedDownloads(
+        plugin: PluginId,
+        key: String,
+        serializer: KSerializer<T>,
+        forceFetch: Boolean,
+        category: (Stored<T>) -> Category,
+        loader: suspend () -> T,
+    ): Stored<T> {
+        val store = persistentDownloads ?: return Stored(loader(), System.currentTimeMillis())
+        val stored = store.get(downloadsFileName(plugin), key, serializer, forceFetch, loader)
+        val age = (System.currentTimeMillis() - stored.fetchedMillis).milliseconds
+        return when {
+            !forceFetch && category(stored) == Category.Recent && age >= cachingStrategy.maxAge(Category.Recent) ->
+                store.get(downloadsFileName(plugin), key, serializer, true, loader)
+
+            else -> stored
+        }
+    }
+
+    private fun downloadsFileName(plugin: PluginId): String = "plugin-$plugin-downloads"
 
     private fun licenseInfoKey(plugin: PluginId): String = "licenseInfo.$plugin"
 
