@@ -45,6 +45,8 @@ enum class ChartUnit {
  * @param description What the metric measures, e.g. the tooltip of the metric in the menu to add metrics.
  * @param fractionDigits The maximum number of decimals of the shown values, e.g. of the moving averages. The values of
  *  `/chart-data` and of the exports aren't rounded, only the charts round them.
+ * @param isPaidOnly If the metric needs the sales, licenses or trials of a paid or freemium plugin. Free plugins don't
+ *  have them, their charts only offer the other metrics, e.g. the downloads.
  */
 class ChartMetric private constructor(
     val id: String,
@@ -55,6 +57,7 @@ class ChartMetric private constructor(
     val group: String,
     val description: String,
     val fractionDigits: Int,
+    val isPaidOnly: Boolean,
     /** The name of the discount of a metric of [discount], `null` for the other metrics. */
     val discountName: String? = null,
 ) {
@@ -72,8 +75,9 @@ class ChartMetric private constructor(
             group: String,
             description: String,
             fractionDigits: Int = defaultFractionDigits(unit, measure),
+            isPaidOnly: Boolean = true,
         ): ChartMetric {
-            val metric = ChartMetric(id, title, measure, unit, usesWindow, group, description, fractionDigits)
+            val metric = ChartMetric(id, title, measure, unit, usesWindow, group, description, fractionDigits, isPaidOnly)
             check(registered.put(id, metric) == null) { "Duplicate chart metric $id" }
             return metric
         }
@@ -104,6 +108,7 @@ class ChartMetric private constructor(
         val Downloads = register(
             "downloads", "Downloads", ChartMeasure.Flow, ChartUnit.Count, group = "Downloads",
             description = "The downloads of the plugin",
+            isPaidOnly = false,
         )
         val Trials = register(
             "trials", "New trials", ChartMeasure.Flow, ChartUnit.Count, group = "Trials",
@@ -277,6 +282,7 @@ class ChartMetric private constructor(
                     description = "The amount given away by the discount \"$name\" in the sales of the window, " +
                             "calculated from the paid amount and the percent of the discount of each sale",
                     fractionDigits = defaultFractionDigits(ChartUnit.Amount, ChartMeasure.Flow),
+                    isPaidOnly = true,
                     discountName = name,
                 )
             }
