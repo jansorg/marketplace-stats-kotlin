@@ -79,6 +79,27 @@ class PersistentResponseCacheTest {
     }
 
     @Test
+    suspend fun responsesWithALongerMaximumAgeAreKeptLonger() {
+        val cache = createCache()
+        cache.get("plugin-1-downloads", "past", DownloadResponse.serializer(), maxAge = 7.days) { loads.incrementAndGet(); response }
+        cache.flush()
+
+        // the maximum age is stored with the response, it's kept after a restart and when the file is written again
+        nowMillis += 3.days.inWholeMilliseconds
+        val restarted = createCache()
+        restarted.get("plugin-1-downloads", "past", DownloadResponse.serializer(), maxAge = 7.days) { error("must not fetch") }
+        restarted.load("other")
+        restarted.flush()
+        nowMillis += 3.days.inWholeMilliseconds
+        createCache().get("plugin-1-downloads", "past", DownloadResponse.serializer(), maxAge = 7.days) { error("must not fetch") }
+        assertEquals(2, loads.get())
+
+        nowMillis += 2.days.inWholeMilliseconds
+        createCache().get("plugin-1-downloads", "past", DownloadResponse.serializer(), maxAge = 7.days) { loads.incrementAndGet(); response }
+        assertEquals(3, loads.get())
+    }
+
+    @Test
     suspend fun responsesAreFetchedAgainAfterADay() {
         val cache = createCache()
         cache.load()

@@ -55,16 +55,17 @@ class StatisticsInChunksTest {
     @Test
     fun weeklyChunksOfDailyStatistics() {
         assertEquals(
+            // calendar weeks from Monday to Sunday, the first starts at a Wednesday
             listOf(
-                YearMonthDay(2026, 7, 29) to YearMonthDay(2026, 8, 4),
-                YearMonthDay(2026, 8, 5) to YearMonthDay(2026, 8, 11),
-                YearMonthDay(2026, 8, 12) to YearMonthDay(2026, 8, 14),
+                YearMonthDay(2026, 7, 29) to YearMonthDay(2026, 8, 2),
+                YearMonthDay(2026, 8, 3) to YearMonthDay(2026, 8, 9),
+                YearMonthDay(2026, 8, 10) to YearMonthDay(2026, 8, 14),
             ),
             statisticsChunks(YearMonthDay(2026, 7, 29), YearMonthDay(2026, 8, 14), DownloadRequestDimension.Day, untilToday = false),
         )
-        // the last chunk ends today, without an end date
+        // the last chunk ends today, without an end date, the first starts at a Saturday
         assertEquals(
-            listOf(YearMonthDay(2026, 8, 1) to YearMonthDay(2026, 8, 7), YearMonthDay(2026, 8, 8) to null),
+            listOf(YearMonthDay(2026, 8, 1) to YearMonthDay(2026, 8, 2), YearMonthDay(2026, 8, 3) to YearMonthDay(2026, 8, 9), YearMonthDay(2026, 8, 10) to null),
             statisticsChunks(YearMonthDay(2026, 8, 1), YearMonthDay(2026, 8, 10), DownloadRequestDimension.Day, untilToday = true),
         )
         assertEquals(
@@ -151,12 +152,13 @@ class StatisticsInChunksTest {
         val client = KtorMarketplaceClient(httpClientBuilder = mockHttpClientBuilder(engine))
         val response = client.groupedDownloads(
             1, DownloadRequestDimension.Day, DownloadRequestDimension.ProductCode, DownloadCountType.Downloads,
-            YearMonthDay(2026, 8, 1), endDate = YearMonthDay(2026, 8, 14),
+            // the weeks from Monday to Sunday
+            YearMonthDay(2026, 8, 3), endDate = YearMonthDay(2026, 8, 16),
         )
 
-        val loaded = listOf(1 to 3, 4 to 5, 6 to 7, 8 to 10, 11 to 12, 13 to 14)
+        val loaded = listOf(3 to 5, 6 to 7, 8 to 9, 10 to 12, 13 to 14, 15 to 16)
         assertEquals(
-            listOf(1 to 7, 1 to 3, 4 to 7, 4 to 5, 6 to 7, 8 to 14, 8 to 10, 11 to 14, 11 to 12, 13 to 14).sortedWith(compareBy({ it.first }, { it.second })),
+            listOf(3 to 9, 3 to 5, 6 to 9, 6 to 7, 8 to 9, 10 to 16, 10 to 12, 13 to 16, 13 to 14, 15 to 16).sortedWith(compareBy({ it.first }, { it.second })),
             requests.map { YearMonthDay.parse(it.url.parameters["startDate"]!!).day to YearMonthDay.parse(it.url.parameters["endDate"]!!).day }
                 .sortedWith(compareBy({ it.first }, { it.second })),
         )

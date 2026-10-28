@@ -614,7 +614,11 @@ open class KtorMarketplaceClient(
             .sorted()
     }
 
-    private suspend fun loadDownloads(
+    /**
+     * Requests the downloads of a time range, [isPart] for a part of a longer range, see [loadStatisticsInChunks].
+     * The cached client stores the parts, see [CaffeineCacheMarketplaceClient].
+     */
+    protected open suspend fun loadDownloads(
         plugin: PluginId,
         groupType: DownloadRequestDimension,
         countType: DownloadCountType,
@@ -638,6 +642,37 @@ open class KtorMarketplaceClient(
             }
             addDownloadFilters(filters)
         }.body<DownloadResponse>()
+    }
+
+    /**
+     * Requests the downloads grouped by two dimensions of a time range, [isPart] for a part of a longer range, see
+     * [loadStatisticsInChunks]. The cached client stores the parts, see [CaffeineCacheMarketplaceClient].
+     */
+    protected open suspend fun loadGroupedDownloads(
+        plugin: PluginId,
+        dimension: DownloadRequestDimension,
+        groupType: DownloadRequestDimension,
+        countType: DownloadCountType,
+        startDate: YearMonthDay?,
+        filters: Array<out DownloadFilter>,
+        endDate: YearMonthDay?,
+        isPart: Boolean,
+    ): GroupedDownloadResponse = withContext(processingDispatcher) {
+        val background = BackgroundRequests.isActive()
+        httpClient.get("/statistic/${countType.requestPathSegment}/${dimension.requestPathSegment}/${groupType.requestPathSegment}") {
+            slowRequest()
+            if (isPart) {
+                chunkRequest(background)
+            }
+            parameter("plugin", plugin)
+            if (startDate != null) {
+                parameter("startDate", startDate.asIsoString)
+            }
+            if (endDate != null) {
+                parameter("endDate", endDate.asIsoString)
+            }
+            addDownloadFilters(filters)
+        }.body<GroupedDownloadResponse>()
     }
 
     /**
@@ -669,33 +704,6 @@ open class KtorMarketplaceClient(
         return downloads(plugin, DownloadRequestDimension.Month, countType, null).data.serie
             .mapNotNull { runCatching { YearMonthDay.parse(it.name) }.getOrNull() }
             .minOrNull()
-    }
-
-    private suspend fun loadGroupedDownloads(
-        plugin: PluginId,
-        dimension: DownloadRequestDimension,
-        groupType: DownloadRequestDimension,
-        countType: DownloadCountType,
-        startDate: YearMonthDay?,
-        filters: Array<out DownloadFilter>,
-        endDate: YearMonthDay?,
-        isPart: Boolean,
-    ): GroupedDownloadResponse = withContext(processingDispatcher) {
-        val background = BackgroundRequests.isActive()
-        httpClient.get("/statistic/${countType.requestPathSegment}/${dimension.requestPathSegment}/${groupType.requestPathSegment}") {
-            slowRequest()
-            if (isPart) {
-                chunkRequest(background)
-            }
-            parameter("plugin", plugin)
-            if (startDate != null) {
-                parameter("startDate", startDate.asIsoString)
-            }
-            if (endDate != null) {
-                parameter("endDate", endDate.asIsoString)
-            }
-            addDownloadFilters(filters)
-        }.body<GroupedDownloadResponse>()
     }
 
     /** The results of [request] within the window of the Marketplace. */
@@ -867,8 +875,9 @@ private val DATE_DIMENSIONS = setOf(DownloadRequestDimension.Month, DownloadRequ
 private const val DAILY_STATISTICS_CHUNK_DAYS: Int = 7
 
 /**
- * @param granularity The dates of the values: [DownloadRequestDimension.Day] for chunks of a week, otherwise chunks of
- *  a calendar month.
+ * @param granularity The dates of the values: [DownloadRequestDimension.Day] for chunks of a calendar week, from Monday
+ *  to Sunday, otherwise chunks of a calendar month. The chunks of overlapping time ranges are the same, so that their
+ *  stored responses are used again, see [CaffeineCacheMarketplaceClient.loadGroupedDownloads].
  * @param untilToday If the last chunk has no end date, i.e. it ends today.
  * @return The chunks of the time range from [start] to [end], the first starts at [start], the last ends at [end] or,
  *  with [untilToday], without an end date.
@@ -884,7 +893,8 @@ internal fun statisticsChunks(
     var chunkStart = start
     while (chunkStart <= end) {
         val next = when (granularity) {
-            DownloadRequestDimension.Day -> chunkStart.add(0, 0, DAILY_STATISTICS_CHUNK_DAYS)
+            // the next Monday
+            DownloadRequestDimension.Day -> chunkStart.add(0, 0, DAILY_STATISTICS_CHUNK_DAYS + 1 - chunkStart.toLocalDate().dayOfWeek.value)
             else -> chunkStart.atFirstOfMonth().add(0, 1, 0)
         }
         val chunkEnd = minOf(end, next.add(0, 0, -1))

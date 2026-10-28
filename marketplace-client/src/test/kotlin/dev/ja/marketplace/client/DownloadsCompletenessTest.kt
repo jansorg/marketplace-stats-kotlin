@@ -58,6 +58,18 @@ class DownloadsCompletenessTest {
     }
 
     @Test
+    fun responsesOfThePastAreComplete() {
+        // a week before today and earlier, the downloads don't change anymore
+        assertEquals(Category.Static, completeness.category(1, fetchedMillis = 1_000, endDate = YearMonthDay(2026, 3, 3)))
+        assertEquals(Category.Static, completeness.category(1, fetchedMillis = 1_000, endDate = YearMonthDay(2025, 12, 31)))
+        assertEquals(Category.Daily, completeness.category(1, fetchedMillis = 1_000, endDate = YearMonthDay(2026, 3, 4)))
+        assertEquals(true, completeness.isComplete(YearMonthDay(2026, 3, 3)))
+        assertEquals(false, completeness.isComplete(YearMonthDay(2026, 3, 4)))
+        // until today
+        assertEquals(false, completeness.isComplete(null))
+    }
+
+    @Test
     fun daysOfSeries() {
         val days = DownloadsCompleteness.days(
             listOf(
