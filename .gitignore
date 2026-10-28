@@ -12,3 +12,6 @@ events.yml
 .marketplace-data-cache/
 # git worktrees of the agents of Claude Code
 .claude/worktrees/
+
+# logs of servers started in the working tree
+server.log
