@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.51.0
+
+- Requests:
+  - All HTTP clients share their settings and limit their requests to each server: at most 8 concurrent requests,
+    a pause of all requests after 429 or 503 until `Retry-After`, and a rate limit of 10 requests per second
+    (`--rate-limit`, `MARKETPLACE_RATE_LIMIT` or `rateLimit` of the configuration file, `0` disables it). Requests in
+    the background, e.g. the automatic refresh, don't delay the requests of the pages.
+  - Requests have a timeout of 2 minutes, sales reports 5 minutes.
+  - Downloads of long time ranges are loaded by calendar year, the Marketplace fails slow requests of plugins with
+    many downloads.
+- Caching:
+  - The products and releases of JetBrains and the ECB exchange rates are validated with conditional requests,
+    unchanged data isn't downloaded again.
+  - Countries without prices of a plugin are cached and not requested again after a restart.
+  - A request of a value, which the automatic refresh is loading, waits for it instead of loading it again.
+  - Failed requests, e.g. server errors or failed connections, are cached for a minute.
+- Pages:
+  - The pricing page doesn't request prices of free plugins and doesn't fail if a plugin has no prices in a country.
+  - The summary of all plugins loads the plugins concurrently.
+- The help shows the defaults of the options, the configuration file is their fallback.
+- Marketplace client: `MarketplaceClient` and `JetBrainsServiceClient` are `AutoCloseable` and take an
+  `HttpClientBuilder` (`HttpClientFactory.builder()`). `priceInfo` returns `null` for countries without prices.
+  `EcbExchangeRateData.Default` is removed, `ExchangeRates` requires an `EcbExchangeRateData`.
+  The files `jetbrains-products` and `jetbrains-product-releases` of the previous cache are unused and can be deleted.
+
 ## 0.50.0
 
 - Charts:
