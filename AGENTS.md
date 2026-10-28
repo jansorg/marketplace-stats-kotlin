@@ -365,8 +365,8 @@ queries, and one which excludes all these tags. The results are in the order of 
     window of the level, e.g. the calendar year at the level Year. Lines of tables with the calendar window of their
     level follow the level (`tableWindow`). The "+" menu of the dialog adds a metric of `/chart-metrics` (the metrics
     of the page, grouped by `ChartMetric.group`) with a selected window to the chart of its unit. The tooltip of a
-    metric in the menu is its `ChartMetric.description`, a new metric needs one. Free plugins only have the metric of
-    the downloads (`ChartMetricValues.freePlugin`), like their tables of the years and months.
+    metric in the menu is its `ChartMetric.description`, a new metric needs one. Free plugins only have the metrics,
+    which don't need sales, licenses or trials (`ChartMetric.isPaidOnly`, `ChartMetricValues.freePlugin`), e.g. the downloads.
   - Menus open above their button, if they don't fit below (`menu.js`), menus in scrolled containers like the legend
     are placed in the window (`createMenu(label, {fixed: true})`, `position: fixed`), a long list, e.g. the "+" menu,
     which uses the height of the window on touch screens, scrolls with a finger (`touch-action: pan-y`). The items must
