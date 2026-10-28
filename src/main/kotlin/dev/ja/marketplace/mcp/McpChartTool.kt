@@ -330,6 +330,8 @@ class McpChartTool(private val provider: McpDataProvider) {
                                         "the downloads of a release (${ChartMetricFamily.ReleaseDownloads.id}.<release ID of list_plugin_releases>), " +
                                         "of a release in a product (${ChartMetricFamily.ReleaseDownloads.id}.<release ID>.<product code, e.g. IIU>), " +
                                         "or of the plugin in a product (${ChartMetricFamily.ProductDownloads.id}.<product code, e.g. IIU>), " +
+                                        "the downloads of the releases for an IDE version (${ChartMetricFamily.MajorVersionDownloads.id}.<branch of the " +
+                                        "builds, e.g. 262 for 2026.2>, the releases, whose compatible builds since and until of list_plugin_releases are of the branch), " +
                                         "and the unique downloads of the plugin (${ChartMetricFamily.UniqueDownloads.id}), of a release " +
                                         "(${ChartMetricFamily.ReleaseUniqueDownloads.id}.<release ID>[.<product code>]) or in a product " +
                                         "(${ChartMetricFamily.ProductUniqueDownloads.id}.<product code>), only of the windows day, week " +

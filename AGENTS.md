@@ -182,7 +182,8 @@ queries, and one which excludes all these tags. The results are in the order of 
   loaded lazily on the first request for a plugin and then cached in memory, so the first page load for a plugin is slow.
   For testing, prefer a plugin with few sales, because plugins with a long sales history take much longer to load.
 - Useful routes: `/` (plugin list with the summary of all paid plugins, `--no-all-plugins-summary` disables it, or report with `?pluginId=<id>`), `/licenses`, `/customers`, `/trials`, `/countries`,
-  `/pricing`, `/offers` (see "Offers"), `/releases` (a table of each release channel, the downloads have a chart of
+  `/pricing`, `/offers` (see "Offers"), `/releases` (a table of the IDE versions of the releases, `MajorVersionsTable`, whose downloads show the
+  downloads for the IDE version in a chart, and a table of each release channel, the downloads have a chart of
   the release, the header of the column the chart of the downloads of the plugin (`DataTableColumn.showsMetricChart`),
   the versions link to `/release/<id>`, all data of a release, `ReleaseDetails`, with charts of its
   downloads and a badge of the plugin model, a heuristic by the dependencies, `PluginReleases.pluginModel`), `/downloads/monthly`, `/chart-data` (JSON), `/chart-export` (CSV or JSON of the lines of a chart, see "Charts"), all with `?pluginId=<id>`. `POST /refresh?pluginId=<id>&reload=true` drops cached data.
@@ -399,8 +400,14 @@ queries, and one which excludes all these tags. The results are in the order of 
     values, separated by `.`, e.g. `release-downloads.<release ID>[.<product code>]`, missing optional values are left
     out (`ChartMetricFamily.parse`, `familyOfMetric`/`familyMetricId` in `model.js`). Families: the shares of the
     customer types (`customer-type-share.<type>`), the discount amounts (`discount.<Base64 name>`), the downloads of a
-    release, of all products or of a product (`release-downloads`, the product is optional), and the downloads in a
-    product (`product-downloads.<code>`, the codes of the statistics, e.g. `IIU`). `/chart-metrics` lists a family
+    release, of all products or of a product (`release-downloads`, the product is optional), the downloads in a
+    product (`product-downloads.<code>`, the codes of the statistics, e.g. `IIU`), and the downloads for an IDE version
+    (`major-version-downloads.<branch>`, e.g. `262` for 2026.2, `ChartMetricFamily.ideVersion`). The statistics
+    service ignores its filter `versionMajor` and has no dimension of IDE versions: the downloads for an IDE version
+    are the sums of the downloads of its releases, whose compatible builds since and until are of the branch
+    (`PluginReleases.byMajorVersion`, releases for several IDE versions are left out), loaded with a single request
+    grouped by release (`groupedDownloads` by day or month and `Update`, `ChartDownloadsSource.majorVersionDownloads`),
+    which the client loads in parts of weeks or months. `/chart-metrics` lists a family
     once with its `parameters`, `/chart-metric-parameters?family=<id>&parameter=<id>` returns the values of a
     parameter with their labels (`ChartMetricValues.parameterValues`, which registers the labels for the titles of
     the lines, `ChartMetricParameter.registerLabel`). The "+" menu shows a family with a selection of each parameter

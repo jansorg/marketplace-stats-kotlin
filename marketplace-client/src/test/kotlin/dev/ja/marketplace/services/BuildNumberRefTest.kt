@@ -40,4 +40,10 @@ class BuildNumberRefTest {
         assertEquals(BuildNumberRef.of("202").sortValue, BuildNumberRef.of("202.0").sortValue)
         assertTrue(BuildNumberRef.of("202.123.*").sortValue < BuildNumberRef.of("202.124").sortValue)
     }
+
+    @Test
+    fun branch() {
+        assertEquals(262, BuildNumberRef.of("262.4852.0").branch)
+        assertEquals(262, BuildNumberRef.of("262.*").branch)
+    }
 }

@@ -15,6 +15,7 @@ import dev.ja.marketplace.client.model.DownloadCountType
 import dev.ja.marketplace.client.model.DownloadFilter
 import dev.ja.marketplace.client.model.DownloadFilterType
 import dev.ja.marketplace.client.model.DownloadRequestDimension
+import dev.ja.marketplace.client.model.PluginReleaseInfo
 import dev.ja.marketplace.data.releases.PluginReleases
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.async
@@ -24,8 +25,9 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
 /**
- * Loads the downloads of the releases and the products of a plugin for the metrics of
- * [ChartMetricFamily.ReleaseDownloads] and [ChartMetricFamily.ProductDownloads], and the values of their parameters.
+ * Loads the downloads of the releases, the products and the IDE versions of a plugin for the metrics of
+ * [ChartMetricFamily.ReleaseDownloads], [ChartMetricFamily.ProductDownloads] and
+ * [ChartMetricFamily.MajorVersionDownloads], and the values of their parameters.
  * The data is loaded when a metric is requested, see [ChartMetricValues.prepare].
  */
 interface ChartDownloadsSource {
@@ -34,6 +36,21 @@ interface ChartDownloadsSource {
 
     /** @return The products, in which the plugin was downloaded, the most downloads first: their codes and names. */
     suspend fun products(): List<ChartParameterValue>
+
+    /**
+     * @return The IDE versions, for which the plugin has releases, the latest first: the branches of their builds and
+     *  the versions, e.g. `262` and `2026.2`, see [ChartMetricFamily.MajorVersionDownloads].
+     */
+    suspend fun majorVersions(): List<ChartParameterValue>
+
+    /**
+     * @param branch The branch of the builds of the IDE version, e.g. `262`, see [majorVersions].
+     * @param start The first day of the charts, the downloads start at the release date of the first release for the
+     *  IDE version at the earliest.
+     * @param byMonth If the downloads of each month are loaded instead of each day, like [downloads].
+     * @return The downloads of each day of the releases for the IDE version.
+     */
+    suspend fun majorVersionDownloads(branch: Int, start: YearMonthDay, byMonth: Boolean = false): List<DailyDownload>
 
     /**
      * @param start The first day of the charts, the downloads of a release start at its release date at the earliest.
@@ -142,7 +159,38 @@ interface ChartDownloadsSource {
                     .sortedBy { it.day }
             }
 
+            override suspend fun majorVersions(): List<ChartParameterValue> {
+                return releasesByBranch().keys.sortedDescending().map { ChartParameterValue(it.toString(), ChartMetricFamily.ideVersion(it)) }
+            }
+
+            override suspend fun majorVersionDownloads(branch: Int, start: YearMonthDay, byMonth: Boolean): List<DailyDownload> {
+                val releases = releasesByBranch()[branch] ?: return emptyList()
+                val releaseIds = releases.map { it.id.toString() }.toSet()
+                // the releases have no downloads before their release dates
+                val first = maxOf(start, releases.minOf { YearMonthDay.of(it.createdTimestamp) })
+                val today = YearMonthDay.now()
+                // a single request of the downloads of all releases, the client loads it in parts, e.g. by week, and
+                // caches the parts. The statistics service only counts whole months, the months start at their first day.
+                val dimension = if (byMonth) DownloadRequestDimension.Month else DownloadRequestDimension.Day
+                val requestStart = if (byMonth) YearMonthDay.firstOfMonth(first.year, first.month) else first
+                val groups = chartRequests.withPermit {
+                    client.groupedDownloads(pluginId, dimension, DownloadRequestDimension.Update, DownloadCountType.Downloads, requestStart).groups
+                }
+                return groups.asSequence()
+                    .filter { it.name in releaseIds }
+                    .flatMap { it.serie }
+                    .groupBy { item ->
+                        val day = YearMonthDay.parse(item.name)
+                        // like downloads, the downloads of a month at its last day, of the current month at today
+                        if (byMonth) minOf(YearMonthDay.lastOfMonth(day.year, day.month), today) else day
+                    }
+                    .map { (day, items) -> DailyDownload(day, items.sumOf { it.value }) }
+                    .sortedBy { it.day }
+            }
+
             private suspend fun releasesById() = PluginReleases.byChannel(client, pluginId).values.flatten().associateBy { it.id }
+
+            private suspend fun releasesByBranch(): Map<Int, List<PluginReleaseInfo>> = PluginReleases.byMajorVersion(releasesById().values)
         }
     }
 }

@@ -34,6 +34,17 @@ object PluginReleases {
             .associate { (channel, releases) -> channel to releases.sortedByDescending { it.createdTimestamp } }
     }
 
+    /**
+     * @return The releases for a single IDE version by the branch of their builds, e.g. `262` for 2026.2: their
+     *  compatible builds from and until are of the same branch, e.g. `262.4852` until `262.*`. Releases for several
+     *  IDE versions are left out, see [ChartMetricFamily.MajorVersionDownloads].
+     */
+    fun byMajorVersion(releases: Collection<PluginReleaseInfo>): Map<Int, List<PluginReleaseInfo>> {
+        return releases
+            .mapNotNull { release -> release.since?.branch?.takeIf { it == release.until?.branch }?.let { it to release } }
+            .groupBy({ it.first }, { it.second })
+    }
+
     /** @return The title of a channel, e.g. "Stable" or "eap". */
     fun channelTitle(channel: PluginChannel): String = channel.ifEmpty { "Stable" }
 
@@ -63,14 +74,74 @@ object PluginReleases {
     }
 }
 
-/** Creates a table of the releases of each channel of a plugin, see [ReleasesTable]. */
+/**
+ * Creates the table of the IDE versions of the releases, if the plugin has releases for single IDE versions, see
+ * [MajorVersionsTable], and a table of the releases of each channel of a plugin, see [ReleasesTable].
+ */
 object ReleasesTableFactories {
     suspend fun create(client: MarketplaceClient, pluginId: PluginId): List<MarketplaceDataTableFactory> {
-        return PluginReleases.byChannel(client, pluginId).map { (channel, releases) ->
+        val byChannel = PluginReleases.byChannel(client, pluginId)
+        val byMajorVersion = PluginReleases.byMajorVersion(byChannel.values.flatten())
+        val majorVersions = object : MarketplaceDataTableFactory {
+            override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable = MajorVersionsTable(byMajorVersion)
+        }
+        return listOfNotNull(majorVersions.takeIf { byMajorVersion.isNotEmpty() }) + byChannel.map { (channel, releases) ->
             object : MarketplaceDataTableFactory {
                 override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable = ReleasesTable(channel, releases)
             }
         }
+    }
+}
+
+/**
+ * The IDE versions, for which the plugin has releases, the latest first: the number of releases, the latest release
+ * and the downloads of the releases, which show the downloads for the IDE version in a chart, e.g. to see how much an
+ * IDE version is still in demand, see [ChartMetricFamily.MajorVersionDownloads].
+ */
+class MajorVersionsTable(
+    private val releases: Map<Int, List<PluginReleaseInfo>>,
+) : SimpleDataTable("IDE Versions", "releases-ide-versions", "sortable") {
+    private val columnVersion = DataTableColumn("ide-version", null, accessibleTitle = "IDE version", preSorted = AriaSortOrder.Descending)
+    private val columnReleases = DataTableColumn("ide-version-releases", "Releases", "num")
+    private val columnLatest = DataTableColumn("ide-version-latest", "Latest", tooltip = "The date of the latest release for the IDE version")
+    private val columnDownloads = DataTableColumn(
+        "ide-version-downloads", "Downloads", "num",
+        tooltip = "The downloads of the releases, which are only compatible with the builds of the IDE version",
+    )
+
+    override val columns: List<DataTableColumn> = listOf(columnVersion, columnReleases, columnLatest, columnDownloads)
+
+    override val collapsedRowCount: Int = ReleasesTable.SHOWN_ROWS
+
+    override suspend fun process(licenseInfo: LicenseInfo) {
+        // ignored
+    }
+
+    override suspend fun createSections(): List<DataTableSection> {
+        val family = ChartMetricFamily.MajorVersionDownloads
+        val rows = releases.entries.sortedByDescending { it.key }.map { (branch, releases) ->
+            val version = ChartMetricFamily.ideVersion(branch)
+            family.parameters[0].registerLabel(branch.toString(), version)
+            val metric = family.metric(listOf(branch.toString()))
+            val downloads = releases.sumOf { it.downloads.toLong() }
+            val latest = releases.maxOf { it.createdTimestamp }
+            SimpleDateTableRow(
+                values = mapOf(
+                    columnVersion to version,
+                    columnReleases to Formatters.formatInteger(releases.size),
+                    columnLatest to YearMonthDay.of(latest),
+                    // a click shows the downloads for the IDE version in a chart, in front of the number like the downloads by product
+                    columnDownloads to ChartMetricName(Formatters.formatInteger(downloads), metric.id, metric.title, ChartUnit.Count.id(""), isButtonFirst = true),
+                ),
+                sortValues = mapOf(
+                    columnVersion to branch.toLong(),
+                    columnReleases to releases.size.toLong(),
+                    columnLatest to latest.epochSeconds,
+                    columnDownloads to downloads,
+                ),
+            )
+        }
+        return listOf(SimpleTableSection(rows))
     }
 }
 

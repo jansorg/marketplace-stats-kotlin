@@ -178,7 +178,8 @@ class ChartMetricValues private constructor(
      */
     private suspend fun prepareDownloads(source: ChartDownloadsSource, metric: ChartMetric, start: YearMonthDay, byMonth: Boolean) {
         val (release, product) = releaseAndProduct(metric)
-        if (!isKnown(source, metric, release, product)) {
+        val branch = majorVersionBranch(metric)
+        if (!isKnown(source, metric, release, product) || branch != null && source.majorVersions().none { it.value == branch.toString() }) {
             return
         }
         repeat(MAX_LOAD_ATTEMPTS) {
@@ -189,7 +190,10 @@ class ChartMetricValues private constructor(
             val loadByMonth = byMonth && (loaded == null || loaded.byMonth)
             // a line, whose downloads couldn't be loaded, has no values, the other lines are shown
             val downloads = try {
-                source.downloads(release, product, start, loadByMonth)
+                when (branch) {
+                    null -> source.downloads(release, product, start, loadByMonth)
+                    else -> source.majorVersionDownloads(branch, start, loadByMonth)
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -263,6 +267,11 @@ class ChartMetricValues private constructor(
         }
     }
 
+    /** @return The branch of the IDE version of a metric of [ChartMetricFamily.MajorVersionDownloads], e.g. `262`. */
+    private fun majorVersionBranch(metric: ChartMetric): Int? {
+        return metric.parameterValues.firstOrNull()?.toIntOrNull()?.takeIf { metric.family == ChartMetricFamily.MajorVersionDownloads }
+    }
+
     /**
      * @return If the release and the product are those of the plugin, see [parameterValues]: the downloads of other
      *  releases, e.g. of another plugin or of a made-up ID, aren't loaded, the statistics service would answer the
@@ -304,6 +313,7 @@ class ChartMetricValues private constructor(
 
             ChartMetricFamily.ReleaseDownloads, ChartMetricFamily.ReleaseUniqueDownloads -> if (index == 0) source?.releases() else source?.products()
             ChartMetricFamily.ProductDownloads, ChartMetricFamily.ProductUniqueDownloads -> source?.products()
+            ChartMetricFamily.MajorVersionDownloads -> source?.majorVersions()
             else -> null
         } ?: emptyList()
         values.forEach { family.parameters[index].registerLabel(it.value, it.label) }
@@ -785,7 +795,7 @@ class ChartMetricValues private constructor(
         private val customerTypeShares = CustomerType.entries.associateBy(ChartMetric::customerTypeShare)
 
         /** The families, whose data is loaded when their metrics are requested, see [prepare]. */
-        private val LOADED_FAMILIES = setOf(ChartMetricFamily.ReleaseDownloads, ChartMetricFamily.ProductDownloads)
+        private val LOADED_FAMILIES = setOf(ChartMetricFamily.ReleaseDownloads, ChartMetricFamily.ProductDownloads, ChartMetricFamily.MajorVersionDownloads)
 
         /** How often a request loads the downloads of a metric, which concurrent loads replaced, see [prepare]. */
         private const val MAX_LOAD_ATTEMPTS = 3

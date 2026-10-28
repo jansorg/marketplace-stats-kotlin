@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -20,6 +20,9 @@ data class BuildNumberRef(private val segments: IntArray, val hasWildcard: Boole
             else -> base
         }
     }
+
+    /** The branch of the build, its first segment, e.g. `262` of `262.4852.0` or of `262.*`, the IDE version 2026.2. */
+    val branch: Int? get() = segments.firstOrNull()
 
     override fun compareTo(other: BuildNumber): Int {
         val buildSegments = other.segments

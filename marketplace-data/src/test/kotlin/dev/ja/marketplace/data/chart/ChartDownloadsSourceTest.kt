@@ -15,6 +15,9 @@ import dev.ja.marketplace.client.model.DownloadResponse
 import dev.ja.marketplace.client.model.DownloadResponseData
 import dev.ja.marketplace.client.model.DownloadResponseItem
 import dev.ja.marketplace.client.model.PluginReleaseInfo
+import dev.ja.marketplace.client.model.DownloadResponseGroup
+import dev.ja.marketplace.client.model.GroupedDownloadResponse
+import dev.ja.marketplace.services.BuildNumberRef
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -110,5 +113,54 @@ class ChartDownloadsSourceTest {
             DailyDownload(today, 7),
         )
         assertEquals(expected, downloads)
+    }
+
+    @Test
+    suspend fun theDownloadsForAnIdeVersionAreTheDownloadsOfItsReleases() {
+        val grouped = mutableListOf<String>()
+        fun release(id: Int, created: String, since: String, until: String?) = PluginReleaseInfo(
+            id = id, pluginId = 1, updateInfoUrlPath = "", version = "1.$id", approve = true, listed = true, hidden = false,
+            createdTimestamp = Instant.parse("${created}T12:00:00Z"), fileUrlPath = "", fileSizeBytes = 0, channel = "", downloads = 0,
+            since = BuildNumberRef.of(since), until = until?.let(BuildNumberRef::of),
+        )
+        // two releases for 2026.2, one for 2026.1, one for 2026.1 and 2026.2, one for 2026.1 and later IDEs
+        val releases = listOf(
+            release(2001, "2026-07-10", "262.1", "262.*"),
+            release(2002, "2026-08-01", "262.4852.0", "262.*"),
+            release(2003, "2026-06-01", "261.1", "262.*"),
+            release(2004, "2026-05-01", "261.1", null),
+            release(2005, "2026-04-01", "261.22158.0", "261.*"),
+        )
+        val client = Proxy.newProxyInstance(javaClass.classLoader, arrayOf(MarketplaceClient::class.java)) { _, method, args ->
+            when (method.name) {
+                "channels" -> emptyList<String>()
+                "releases" -> if (args[1] == "") releases else emptyList()
+                "groupedDownloads" -> {
+                    val dimension = args[1] as DownloadRequestDimension
+                    grouped += "$dimension ${args[2]} ${args[4]}"
+                    val days = if (dimension == DownloadRequestDimension.Month) listOf("2026-07-01", "2026-08-01") else listOf("2026-08-03", "2026-08-04")
+                    GroupedDownloadResponse("downloads-count", dimension.requestPathSegment, "update", releases.map { release ->
+                        DownloadResponseGroup(release.id.toString(), null, days.map { DownloadResponseItem(it, release.id - 2000L) })
+                    })
+                }
+
+                else -> throw UnsupportedOperationException(method.name)
+            }
+        } as MarketplaceClient
+        val source = ChartDownloadsSource.of(client, 1)
+
+        assertEquals(listOf("262", "261"), source.majorVersions().map { it.value })
+        assertEquals(listOf("2026.2", "2026.1"), source.majorVersions().map { it.label })
+        // the sums of the releases 2001 and 2002 from the first release for the IDE version
+        val downloads = source.majorVersionDownloads(262, YearMonthDay(2026, 1, 1))
+        assertEquals(listOf(DailyDownload(YearMonthDay(2026, 8, 3), 3), DailyDownload(YearMonthDay(2026, 8, 4), 3)), downloads)
+        assertEquals(listOf("Day Update 2026-07-10"), grouped)
+
+        // by month from the first day of the month, the downloads of a month at its last day
+        grouped.clear()
+        val months = source.majorVersionDownloads(262, YearMonthDay(2026, 1, 1), byMonth = true)
+        assertEquals(listOf("Month Update 2026-07-01"), grouped)
+        assertEquals(listOf(YearMonthDay(2026, 7, 31), YearMonthDay(2026, 8, 31)), months.map { it.day })
+        assertEquals(emptyList<DailyDownload>(), source.majorVersionDownloads(243, YearMonthDay(2026, 1, 1)))
     }
 }

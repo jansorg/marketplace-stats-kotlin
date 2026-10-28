@@ -30,6 +30,19 @@ class ChartMetricFamilyTest {
 
         override suspend fun products() = listOf(ChartParameterValue("IIU", "IntelliJ IDEA"), ChartParameterValue("PCP", "PyCharm"))
 
+        val majorVersionRequests = mutableListOf<Pair<Int, Boolean>>()
+
+        override suspend fun majorVersions() = listOf(ChartParameterValue("252", "2025.2"), ChartParameterValue("251", "2025.1"))
+
+        /** The downloads of the releases for 2025.2 in September 2025. */
+        override suspend fun majorVersionDownloads(branch: Int, start: YearMonthDay, byMonth: Boolean): List<DailyDownload> {
+            majorVersionRequests += branch to byMonth
+            return when (branch) {
+                252 -> listOf(DailyDownload(YearMonthDay(2025, 9, 1), 8), DailyDownload(YearMonthDay(2025, 9, 3), 2))
+                else -> emptyList()
+            }.filter { it.day >= start }
+        }
+
         override suspend fun downloads(release: PluginReleaseId?, product: String?, start: YearMonthDay, byMonth: Boolean): List<DailyDownload> {
             requests += release to product
             starts += start
@@ -100,6 +113,33 @@ class ChartMetricFamilyTest {
         assertEquals("Downloads of 1.0 in IntelliJ IDEA", metric.title)
         assertEquals(ChartUnit.Count, metric.unit)
         assertTrue(metric.usesWindow)
+    }
+
+    @Test
+    suspend fun downloadsForAnIdeVersion() {
+        val values = ChartMetricValues.freePlugin(downloads, exchangeRates, today, source)
+        val metric = ChartMetric.byId("major-version-downloads.252")!!
+        assertSame(ChartMetricFamily.MajorVersionDownloads, metric.family)
+        assertTrue(values.isAvailable(metric))
+        assertEquals(listOf("2025.2", "2025.1"), values.parameterValues(ChartMetricFamily.MajorVersionDownloads, 0).map { it.label })
+
+        values.prepare(listOf(metric), byMonth = true)
+        assertEquals(listOf(252 to true), source.majorVersionRequests)
+        assertEquals(BigDecimal(10), values.series(metric, ChartWindow.CalendarMonth)!!.values[values.days.indexOf(today)])
+        assertEquals("Downloads for 2025.2", metric.title)
+
+        // an IDE version without releases of the plugin isn't requested, the statistics service would answer with 0
+        val other = ChartMetric.byId("major-version-downloads.243")!!
+        values.prepare(listOf(other))
+        assertEquals(listOf(252 to true), source.majorVersionRequests)
+        assertNull(values.series(other, ChartWindow.CalendarMonth))
+
+        // the branches of the builds of the IDEs
+        assertNull(ChartMetric.byId("major-version-downloads.2025"))
+        assertNull(ChartMetric.byId("major-version-downloads.x"))
+        assertEquals("2026.2", ChartMetricFamily.ideVersion(262))
+        assertEquals("2016.2", ChartMetricFamily.ideVersion(162))
+        assertEquals("build 145", ChartMetricFamily.ideVersion(145))
     }
 
     @Test
@@ -237,7 +277,7 @@ class ChartMetricFamilyTest {
         val values = ChartMetricValues.freePlugin(downloads, exchangeRates, today, source)
         assertEquals(
             setOf(
-                ChartMetricFamily.ReleaseDownloads, ChartMetricFamily.ProductDownloads,
+                ChartMetricFamily.ReleaseDownloads, ChartMetricFamily.ProductDownloads, ChartMetricFamily.MajorVersionDownloads,
                 ChartMetricFamily.UniqueDownloads, ChartMetricFamily.ReleaseUniqueDownloads, ChartMetricFamily.ProductUniqueDownloads,
             ),
             values.families,

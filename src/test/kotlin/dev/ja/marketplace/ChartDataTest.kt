@@ -122,12 +122,14 @@ class ChartDataTest {
         val source = object : ChartDownloadsSource {
             override suspend fun releases() = emptyList<ChartParameterValue>()
             override suspend fun products() = emptyList<ChartParameterValue>()
+            override suspend fun majorVersions() = emptyList<ChartParameterValue>()
+            override suspend fun majorVersionDownloads(branch: Int, start: YearMonthDay, byMonth: Boolean) = emptyList<DailyDownload>()
             override suspend fun downloads(release: Int?, product: String?, start: YearMonthDay, byMonth: Boolean) = emptyList<DailyDownload>()
             override suspend fun uniqueDownloads(release: Int?, product: String?, start: YearMonthDay, period: DownloadRequestDimension) =
                 emptyList<DailyDownload>()
         }
         val metrics = ChartData { source }.values(McpTestData.pluginData(free = true)).let(ChartData::metrics).associateBy { it.id }
-        assertEquals(listOf("downloads", "release-downloads", "product-downloads", "unique-downloads", "release-unique-downloads", "product-unique-downloads"), metrics.keys.toList())
+        assertEquals(listOf("downloads", "release-downloads", "product-downloads", "major-version-downloads", "unique-downloads", "release-unique-downloads", "product-unique-downloads"), metrics.keys.toList())
         // the unique downloads of the plugin are a metric without parameters, with the windows of the statistics service
         assertNull(metrics.getValue("unique-downloads").parameters)
         assertEquals(listOf("day", "week", "calendar-month"), metrics.getValue("unique-downloads").windows)

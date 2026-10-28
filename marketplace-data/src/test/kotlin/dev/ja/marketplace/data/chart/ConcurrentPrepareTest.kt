@@ -31,6 +31,8 @@ class ConcurrentPrepareTest {
     private val source = object : ChartDownloadsSource {
         override suspend fun releases() = listOf(ChartParameterValue("1001", "1.0"))
         override suspend fun products() = listOf(ChartParameterValue("IIU", "IntelliJ IDEA"))
+        override suspend fun majorVersions() = emptyList<ChartParameterValue>()
+        override suspend fun majorVersionDownloads(branch: Int, start: YearMonthDay, byMonth: Boolean) = emptyList<DailyDownload>()
 
         override suspend fun downloads(release: PluginReleaseId?, product: String?, start: YearMonthDay, byMonth: Boolean): List<DailyDownload> {
             loads += if (byMonth) "month" else "day"

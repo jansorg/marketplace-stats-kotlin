@@ -178,6 +178,25 @@ class ChartMetricFamily internal constructor(
         )
 
         /**
+         * The downloads of the releases of the plugin for an IDE version, by the branch of the builds, e.g.
+         * `major-version-downloads.262` for 2026.2: how much the plugin is still downloaded for an IDE version. A
+         * release is for an IDE version, if the builds from and until which it's compatible are of the same branch, e.g.
+         * `262.4852` until `262.*`. Releases for several IDE versions aren't part of any, their downloads can't be
+         * split by IDE version: the statistics service has no downloads by IDE version.
+         */
+        val MajorVersionDownloads = register(
+            ChartMetricFamily(
+                "major-version-downloads", "Downloads for an IDE version", ChartMeasure.Flow, ChartUnit.Count, "Downloads",
+                "The downloads of the releases of the plugin for a major IDE version, e.g. 2026.2: the releases, " +
+                        "which are only compatible with the builds of this version",
+                listOf(ChartMetricParameter("version", "IDE version", defaultLabel = { it.toIntOrNull()?.let(::ideVersion) ?: it })),
+                isPaidOnly = false, fractionDigits = 1,
+                metricTitle = { (version) -> "Downloads for $version" },
+                isValidValue = { _, value -> value.toIntOrNull()?.let { it in BRANCHES } == true },
+            )
+        )
+
+        /**
          * The windows of the unique downloads: the statistics service has them by day, calendar week and calendar
          * month, they can't be summed, e.g. a user, who downloads on two days, is counted once in the month. At the
          * level Week, whose dates are Sundays, the window [ChartWindow.Week] is the calendar week.
@@ -226,7 +245,20 @@ class ChartMetricFamily internal constructor(
 
         /** The families of the downloads, see [ChartMetric.endsWithLastValue]. */
         val DOWNLOAD_FAMILIES: Set<ChartMetricFamily> =
-            setOf(ReleaseDownloads, ProductDownloads, UniqueDownloads, ReleaseUniqueDownloads, ProductUniqueDownloads)
+            setOf(ReleaseDownloads, ProductDownloads, MajorVersionDownloads, UniqueDownloads, ReleaseUniqueDownloads, ProductUniqueDownloads)
+
+        /** The branches of the builds of the IDEs, e.g. `262`, see [ideVersion]. */
+        private val BRANCHES = 100..999
+
+        /**
+         * @param branch The branch of the builds of an IDE, e.g. `262`, see [dev.ja.marketplace.services.BuildNumberRef.branch].
+         * @return The version of the IDEs of the branch, e.g. `2026.2`. The versions before 2016.2 didn't follow the
+         *  branches, they're named by the branch, e.g. `build 145`.
+         */
+        fun ideVersion(branch: Int): String = when {
+            branch >= 162 -> "20${branch / 10}.${branch % 10}"
+            else -> "build $branch"
+        }
 
         /** The codes of the products of the statistics of the Marketplace, e.g. `IIU`. */
         private val PRODUCT_CODE = Regex("[A-Za-z0-9_-]+")
