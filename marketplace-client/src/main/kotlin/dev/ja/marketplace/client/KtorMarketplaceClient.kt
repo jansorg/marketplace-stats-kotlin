@@ -573,11 +573,19 @@ open class KtorMarketplaceClient(
         }.build())
     }
 
-    override suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo = withContext(processingDispatcher) {
-        httpClient.get("${apiPath}/marketplace/plugin/${plugin}/prices") {
-            chunkRequest()
-            parameter("countryCode", isoCountryCode)
-        }.body()
+    override suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo? = withContext(processingDispatcher) {
+        try {
+            httpClient.get("${apiPath}/marketplace/plugin/${plugin}/prices") {
+                chunkRequest()
+                parameter("countryCode", isoCountryCode)
+            }.body<PluginPriceInfo>()
+        } catch (e: ClientRequestException) {
+            // the Marketplace has no prices of some countries, and none of free plugins
+            if (e.response.status != HttpStatusCode.NotFound) {
+                throw e
+            }
+            null
+        }
     }
 
     override suspend fun marketplacePrograms(plugin: PluginId): List<MarketplaceProgram> = withContext(processingDispatcher) {

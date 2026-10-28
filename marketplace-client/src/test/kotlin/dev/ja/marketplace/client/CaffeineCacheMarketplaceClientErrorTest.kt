@@ -10,6 +10,7 @@ import io.ktor.client.engine.mock.*
 import io.ktor.client.plugins.*
 import io.ktor.http.*
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.io.IOException
@@ -60,6 +61,14 @@ class CaffeineCacheMarketplaceClientErrorTest {
         }
         val client = CaffeineCacheMarketplaceClient(httpClientBuilder = mockHttpClientBuilder(engine))
         repeat(2) { assertThrows<IOException> { client.pluginInfo(1) } }
+        assertEquals(1, requests.get())
+    }
+
+    @Test
+    suspend fun countryWithoutPricesIsCached() {
+        // the Marketplace has no prices of the plugin in the country, it's cached like prices
+        val client = createClient(HttpStatusCode.NotFound)
+        repeat(2) { assertNull(client.priceInfo(1, "AT")) }
         assertEquals(1, requests.get())
     }
 }

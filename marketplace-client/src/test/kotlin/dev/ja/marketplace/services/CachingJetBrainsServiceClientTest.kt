@@ -5,21 +5,15 @@
 
 package dev.ja.marketplace.services
 
-import dev.ja.marketplace.client.persistentCache.PersistentCacheStore
 import kotlinx.coroutines.delay
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
-import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.milliseconds
 
 class CachingJetBrainsServiceClientTest {
-    @TempDir
-    lateinit var tempDir: Path
-
     private val requests = AtomicInteger()
     private var closed = false
 
@@ -60,42 +54,31 @@ class CachingJetBrainsServiceClientTest {
     }
 
     @Test
-    suspend fun productsAndReleasesAreStored() {
-        val store = PersistentCacheStore(tempDir)
-        val client = CachingJetBrainsServiceClient(delegate, store)
+    suspend fun productsAndReleasesAreCachedInMemory() {
+        val client = CachingJetBrainsServiceClient(delegate)
         assertEquals(listOf(release), client.productReleases(JetBrainsProductCode.IntelliJIDEAUltimate, ProductReleaseType.Release))
         assertEquals(listOf(product), client.products().productsWithReleases)
-        // cached in memory
+        client.productReleases(JetBrainsProductCode.IntelliJIDEAUltimate, ProductReleaseType.Release)
         client.products()
         assertEquals(2, requests.get())
 
-        // the files are written shortly after the requests
-        repeat(50) {
-            if (!store.exists("jetbrains-products") || !store.exists("jetbrains-product-releases")) delay(100)
-        }
-
-        // a new client, e.g. after a restart, reads the stored data
-        val restarted = CachingJetBrainsServiceClient(delegate, PersistentCacheStore(tempDir))
-        assertEquals(listOf(release), restarted.productReleases(JetBrainsProductCode.IntelliJIDEAUltimate, ProductReleaseType.Release))
-        assertEquals(listOf(product), restarted.products().productsWithReleases)
-        assertEquals(2, requests.get())
-
-        restarted.invalidateCache()
-        restarted.products()
+        client.invalidateCache()
+        client.products()
         assertEquals(3, requests.get())
     }
 
     @Test
-    suspend fun withoutStore() {
-        val client = CachingJetBrainsServiceClient(delegate, store = null, maxAge = 1.days)
+    suspend fun cachedDataExpires() {
+        val client = CachingJetBrainsServiceClient(delegate, maxAge = 100.milliseconds)
         client.products()
+        delay(300)
         client.products()
-        assertEquals(1, requests.get())
+        assertEquals(2, requests.get())
     }
 
     @Test
     fun closeClosesTheDelegate() {
-        CachingJetBrainsServiceClient(delegate, PersistentCacheStore(tempDir)).close()
+        CachingJetBrainsServiceClient(delegate).close()
         assertTrue(closed)
     }
 }

@@ -38,11 +38,13 @@ internal class CachedPrices(
 internal class CachedPriceEntry(
     @ProtoNumber(1) val countryIsoCode: String,
     @ProtoNumber(2) val fetchedMillis: Long,
-    @ProtoNumber(3) val priceInfoJson: String,
+    /** `null` if the plugin has no prices in the country. */
+    @ProtoNumber(3) val priceInfoJson: String? = null,
 )
 
 /**
- * Persistent cache of the prices of plugins in the countries. The pricing of a plugin is loaded with a request per country,
+ * Persistent cache of the prices of plugins in the countries, also of the countries without prices of a plugin.
+ * The pricing of a plugin is loaded with a request per country,
  * which is slow for all countries. Prices rarely change, cached prices are used until they're older than [maxAge].
  * Changes are written to disk after [writeDelay], to store the prices of many countries at once.
  */
@@ -53,7 +55,8 @@ internal class PersistentPriceCache(
     private val writeDelay: Duration = 2.seconds,
     private val currentTimeMillis: () -> Long = System::currentTimeMillis,
 ) {
-    private class Entry(val fetchedMillis: Long, val priceInfo: PluginPriceInfo)
+    // without prices, if the plugin has no prices in the country
+    private class Entry(val fetchedMillis: Long, val priceInfo: PluginPriceInfo?)
 
     private class PluginPrices(val entries: ConcurrentHashMap<String, Entry>) {
         val isWriteScheduled = AtomicBoolean(false)
@@ -68,7 +71,7 @@ internal class PersistentPriceCache(
     /**
      * @param forceFetch If the prices are fetched, also if the stored prices aren't outdated yet, e.g. by the automatic refresh.
      */
-    suspend fun get(plugin: PluginId, countryIsoCode: String, forceFetch: Boolean = false, loader: suspend () -> PluginPriceInfo): Stored<PluginPriceInfo> {
+    suspend fun get(plugin: PluginId, countryIsoCode: String, forceFetch: Boolean = false, loader: suspend () -> PluginPriceInfo?): Stored<PluginPriceInfo?> {
         val prices = plugins[plugin] ?: withContext(Dispatchers.IO) { plugins.computeIfAbsent(plugin, ::readStored) }
         val now = currentTimeMillis()
         val cached = prices.entries[countryIsoCode]
@@ -110,7 +113,7 @@ internal class PersistentPriceCache(
         // concurrent writes must not replace newer data with older data
         synchronized(prices) {
             val entries = prices.entries.map { (country, entry) ->
-                CachedPriceEntry(country, entry.fetchedMillis, json.encodeToString(PluginPriceInfo.serializer(), entry.priceInfo))
+                CachedPriceEntry(country, entry.fetchedMillis, entry.priceInfo?.let { json.encodeToString(PluginPriceInfo.serializer(), it) })
             }
             store.write(fileName(plugin), DATA_VERSION, CachedPrices.serializer(), CachedPrices(entries))
         }
@@ -121,7 +124,7 @@ internal class PersistentPriceCache(
         val stored = store.read(fileName(plugin), DATA_VERSION, CachedPrices.serializer())
         stored?.entries?.forEach { entry ->
             try {
-                entries[entry.countryIsoCode] = Entry(entry.fetchedMillis, json.decodeFromString(PluginPriceInfo.serializer(), entry.priceInfoJson))
+                entries[entry.countryIsoCode] = Entry(entry.fetchedMillis, entry.priceInfoJson?.let { json.decodeFromString(PluginPriceInfo.serializer(), it) })
             } catch (e: Exception) {
                 logger.warn("Ignoring invalid cached price of plugin $plugin in ${entry.countryIsoCode}: $e")
             }

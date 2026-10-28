@@ -341,11 +341,12 @@ private fun createJetBrainsServiceClient(
     httpClientBuilder: HttpClientBuilder
 ): CachingJetBrainsServiceClient {
     // the products of JetBrains are the same for all accounts, they're stored outside the directory of the account.
-    // The services support conditional requests, the HTTP cache validates the stored responses after a day.
+    // The services support conditional requests, the HTTP cache validates the stored responses after a day, the
+    // client keeps them in memory for a day.
     val servicesStore = cacheStore?.subStore("jetbrains")
+    servicesStore?.let { store -> CachingJetBrainsServiceClient.LEGACY_FILE_NAMES.forEach(store::delete) }
     return CachingJetBrainsServiceClient(
         KtorJetBrainsServiceClient(httpClientBuilder.withHttpCacheDirectory(servicesStore?.directory?.resolve("http"))),
-        servicesStore,
     )
 }
 
