@@ -221,3 +221,10 @@ test("the y-axes are linear by default, also with a setup stored before the opti
     assert.equal(load({logScale: "yes"}).logScale, false);
     assert.equal(load({logScale: true}).logScale, true);
 });
+
+test("a copy of a line is stored with its number, an invalid number is ignored", () => {
+    const entry = {type: "metric", metric: "release-downloads.1", label: "Downloads", unit: "count"};
+    const view = setup => decodeView(encodeView({...emptySetup(), entries: setup}));
+    assert.deepEqual(view([entry, {...entry, copy: 2}]).entries.map(e => e.copy), [undefined, 2]);
+    assert.equal(view([{...entry, copy: 1}, {...entry, copy: "2"}]).entries.length, 0);
+});

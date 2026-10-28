@@ -186,3 +186,15 @@ test("loaded values from a start are used for later starts, an earlier start loa
     assert.equal(coversStart("2026-01-01", null), false);
     assert.equal(coversStart("2026-01-01", "2026-01-01"), true);
 });
+
+test("a copy of a line has its own key and is stored with its number", () => {
+    const line = metricSeries({metric: "release-downloads.1", window: "follow", usesWindow: true, label: "Downloads", unit: "count", measure: "flow"}, "#000");
+    const copy = metricSeries({...line, copy: 2}, "#111");
+    assert.notEqual(copy.key, line.key);
+    assert.equal(copy.key, "metric:release-downloads.1@follow#2");
+    assert.equal(line.copy, undefined);
+    // the stored entry restores the copy
+    assert.equal(metricEntry(copy).copy, 2);
+    assert.equal(metricSeries(metricEntry(copy), "#111").key, copy.key);
+    assert.equal("copy" in metricEntry(line), false);
+});

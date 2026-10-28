@@ -383,7 +383,9 @@ queries, and one which excludes all these tags. The results are in the order of 
     (`average` of the series), which the submenu of a metric in the "+" menu adds, a click on the metric adds its values. A mouse opens the submenu
     on hover beside the metric. Touch screens and pens have no hover: a tap on the metric opens and closes the submenu
     below it, within the list (`clickOpensSubmenu` in `menu.js`, class `chart-add-inline`). The View menu only has the
-    trend "Previous year". Lines of averages have no points, next to lines of values they're dashed (`averageDashOf`). The × of a line in the legend removes it. The windows, which end at the
+    trend "Previous year". Lines of averages have no points, next to lines of values they're dashed (`averageDashOf`). The × of a line in the legend removes it, the button
+    next to it adds a copy of a line of a metric (`duplicateSeries` in `main.js`), e.g. to show another release next
+    to it: the copy has a number (`copy` of the series and the stored entry), which is part of its key. The windows, which end at the
     date and before each previous window, fill the months: sums are divided by the number of windows (e.g. the average
     month), rates are pooled from their numerators and denominators (`DailyRatio`, e.g. churned and previously active
     licenses), values at a date are averaged over the days. Calendar windows use their rolling windows. The
