@@ -15,6 +15,7 @@ import dev.ja.marketplace.client.model.DownloadResponse
 import dev.ja.marketplace.client.model.DownloadResponseData
 import dev.ja.marketplace.client.model.DownloadResponseItem
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.lang.reflect.Proxy
 
@@ -40,6 +41,24 @@ class ChartDownloadsSourceTest {
             else -> throw UnsupportedOperationException(method.name)
         }
     } as MarketplaceClient
+
+    @Test
+    suspend fun uniqueDownloadsAreRequestedInWholePeriods() {
+        val today = YearMonthDay.now()
+        val start = today.add(0, -2, 0)
+        val source = ChartDownloadsSource.of(client, 1)
+        for (period in listOf(DownloadRequestDimension.Day, DownloadRequestDimension.Week, DownloadRequestDimension.Month)) {
+            source.uniqueDownloads(null, "IIU", start, period)
+        }
+        val ranges = requests.map { it.split(" ") }.groupBy({ it[0] }, { it[1].split("..").let { (from, to) -> YearMonthDay.parse(from) to to.takeUnless { it == "null" }?.let(YearMonthDay::parse) } })
+
+        // the half months by day, the blocks of 4 weeks from Monday, the calendar years by month, the last one until today
+        assertTrue(setOf(1, 16).containsAll(ranges.getValue("Day").map { it.first.day }))
+        assertEquals(setOf(java.time.DayOfWeek.MONDAY), ranges.getValue("Week").map { it.first.toLocalDate().dayOfWeek }.toSet())
+        ranges.getValue("Week").dropLast(1).forEach { (from, to) -> assertEquals(from.add(0, 0, 27), to) }
+        assertEquals(setOf(1 to 1), ranges.getValue("Month").map { it.first.month to it.first.day }.toSet())
+        listOf("Day", "Week", "Month").forEach { assertEquals(null, ranges.getValue(it).maxBy { range -> range.first }.second) }
+    }
 
     @Test
     suspend fun downloadsOfEachMonthAreCountedAtItsEnd() {

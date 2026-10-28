@@ -219,12 +219,12 @@ class ChartMetricFamilyTest {
 
     @Test
     fun requestsOfTheWeeks() {
-        // blocks of 26 weeks from Monday, the same for all requests, the current one until today
+        // blocks of 4 weeks from Monday, the same for all requests, the current one until today
         val chunks = weekChunks(YearMonthDay(2026, 9, 9), YearMonthDay(2026, 10, 28))
         assertEquals(java.time.DayOfWeek.MONDAY, chunks.first().first.toLocalDate().dayOfWeek)
         assertTrue(chunks.first().first <= YearMonthDay(2026, 9, 9))
         assertNull(chunks.last().second)
-        chunks.dropLast(1).forEach { (start, end) -> assertEquals(start.add(0, 0, 26 * 7 - 1), end) }
+        chunks.dropLast(1).forEach { (start, end) -> assertEquals(start.add(0, 0, 4 * 7 - 1), end) }
         assertEquals(chunks, weekChunks(chunks.first().first, YearMonthDay(2026, 10, 28)))
     }
 

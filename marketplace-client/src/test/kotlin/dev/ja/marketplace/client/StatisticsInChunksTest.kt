@@ -113,6 +113,77 @@ class StatisticsInChunksTest {
     }
 
     @Test
+    fun splitStatisticsRangeByWeek() {
+        // 4 weeks from Monday, August 3, are split at a Monday
+        assertEquals(
+            (YearMonthDay(2026, 8, 3) to YearMonthDay(2026, 8, 16)) to (YearMonthDay(2026, 8, 17) to YearMonthDay(2026, 8, 30)),
+            splitStatisticsRange(YearMonthDay(2026, 8, 3), YearMonthDay(2026, 8, 30), DownloadRequestDimension.Week),
+        )
+        // 3 weeks: the first half has a week, like the shorter first half of days and months
+        assertEquals(
+            YearMonthDay(2026, 8, 10),
+            splitStatisticsRange(YearMonthDay(2026, 8, 3), YearMonthDay(2026, 8, 23), DownloadRequestDimension.Week)!!.second.first,
+        )
+        // a single week can't be split
+        assertNull(splitStatisticsRange(YearMonthDay(2026, 8, 3), YearMonthDay(2026, 8, 9), DownloadRequestDimension.Week))
+    }
+
+    @Test
+    suspend fun uniqueDownloadsByWeekAreSplitAfterA503() {
+        // the service answers more than one week with 503, the values are named by the Monday of the week
+        val engine = MockEngine { request ->
+            requests += request
+            val start = YearMonthDay.parse(request.url.parameters["startDate"]!!)
+            val end = YearMonthDay.parse(request.url.parameters["endDate"]!!)
+            when {
+                start daysUntil end > 6 -> respond("", HttpStatusCode.ServiceUnavailable)
+                else -> respond(
+                    """{"measure": "downloads-unique", "filters": [], "dim1": "week", "data": {"dimension": "week",
+                        "serie": [{"name": "$start", "value": ${start.day}}]}}""",
+                    HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"),
+                )
+            }
+        }
+        val client = KtorMarketplaceClient(httpClientBuilder = mockHttpClientBuilder(engine))
+        val response = client.downloads(
+            1, DownloadRequestDimension.Week, DownloadCountType.DownloadsUnique, YearMonthDay(2026, 8, 3), endDate = YearMonthDay(2026, 8, 30),
+        )
+
+        // all requests start at a Monday, the weeks are merged
+        assertEquals(listOf("2026-08-03", "2026-08-10", "2026-08-17", "2026-08-24"), response.data.serie.map { it.name })
+        assertEquals(listOf(3L, 10L, 17L, 24L), response.data.serie.map { it.value })
+        assertEquals(7, requests.size)
+        assertEquals(setOf(java.time.DayOfWeek.MONDAY), requests.map { YearMonthDay.parse(it.url.parameters["startDate"]!!).toLocalDate().dayOfWeek }.toSet())
+    }
+
+    @Test
+    suspend fun uniqueDownloadsByMonthAreSplitAtTheFirstDayOfAMonthAfterA503() {
+        // the service answers more than one month with 503
+        val engine = MockEngine { request ->
+            requests += request
+            val start = YearMonthDay.parse(request.url.parameters["startDate"]!!)
+            val end = request.url.parameters["endDate"]?.let(YearMonthDay::parse) ?: YearMonthDay(2026, 4, 30)
+            when {
+                start.month != end.month -> respond("", HttpStatusCode.ServiceUnavailable)
+                else -> respond(
+                    """{"measure": "downloads-unique", "filters": [], "dim1": "month", "data": {"dimension": "month",
+                        "serie": [{"name": "$start", "value": ${start.month}}]}}""",
+                    HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"),
+                )
+            }
+        }
+        val client = KtorMarketplaceClient(httpClientBuilder = mockHttpClientBuilder(engine))
+        val response = client.downloads(
+            1, DownloadRequestDimension.Month, DownloadCountType.DownloadsUnique, YearMonthDay(2026, 1, 1), endDate = YearMonthDay(2026, 4, 30),
+        )
+
+        // all requests start at the first day of a month, the months are merged
+        assertEquals(listOf("2026-01-01", "2026-02-01", "2026-03-01", "2026-04-01"), response.data.serie.map { it.name })
+        assertEquals(listOf(1L, 2L, 3L, 4L), response.data.serie.map { it.value })
+        assertEquals(setOf(1), requests.map { YearMonthDay.parse(it.url.parameters["startDate"]!!).day }.toSet())
+    }
+
+    @Test
     fun mergeSeries() {
         val merged = mergeSeries(listOf(
             listOf(DownloadResponseItem("2025-12-01", 2), DownloadResponseItem("2025-11-01", 1)),
