@@ -111,8 +111,8 @@ The builder also limits the requests of each client (each client has its own lim
   e.g. the downloads by day and product of a few weeks of a plugin with many downloads (the time grows with the
   number of values). These requests are marked with `slowRequest()`: their 503 isn't retried
   and doesn't pause the other requests. `KtorMarketplaceClient.loadStatisticsInChunks` loads statistics of months or
-  days in parts and merges them (`mergeSeries`): `groupedDownloads` always by week (by day) or calendar month
-  (`statisticsChunks`, without a start date since the first month of the monthly downloads), `downloads` only after
+  days in parts and merges them (`mergeSeries`): `groupedDownloads` always by calendar week, Monday to Sunday (by
+  day), or calendar month (`statisticsChunks`, without a start date since the first month of the monthly downloads), `downloads` only after
   a 503 of the single request. A part answered with 503 is split into halves (`splitStatisticsRange`, by month at the
   first day of a month, so that unique downloads of a month aren't summed) until it's a single day or month. The
   monthly downloads without a start date can't be split, they're the first month
@@ -225,7 +225,10 @@ queries, and one which excludes all these tags. The results are in the order of 
   plugin prices by country (`PersistentPriceCache`, also the countries without prices of a plugin, which the API
   answers with 404, `priceInfo` returns `null` for them), the ECB exchange rates (`EcbExchangeRateData`), downloads
   (`PersistentResponseCache`, responses of `downloads`, `downloadsTotal` and `groupedDownloads` as JSON, fetched again after
-  a day, see `DownloadsCompleteness`) and the products and releases of JetBrains (Ktor's HTTP cache in
+  a day, see `DownloadsCompleteness`; responses, which end at least 7 days before today, don't change anymore and are
+  kept for `CachingStrategy.Static`, each response has its maximum age. The parts of long time ranges are stored one by
+  one, `CaffeineCacheMarketplaceClient.loadDownloads`/`loadGroupedDownloads`, so that overlapping time ranges use them
+  again) and the products and releases of JetBrains (Ktor's HTTP cache in
   `jetbrains/http/`, shared by all accounts, `CachingJetBrainsServiceClient` keeps them in memory for a day and then
   sends a conditional request, which the services answer with 304 if the data is unchanged).
 - `refreshPlugin` of the automatic refresh fetches cached values outside the cache, a request of a value, which is

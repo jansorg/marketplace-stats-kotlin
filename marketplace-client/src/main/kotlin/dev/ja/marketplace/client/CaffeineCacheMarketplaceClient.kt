@@ -283,8 +283,7 @@ class CaffeineCacheMarketplaceClient(
     }
 
     override suspend fun downloadsTotal(plugin: PluginId, vararg filters: DownloadFilter): Long {
-        val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
-        val key = "downloadsTotal.$plugin.$filterString"
+        val key = "downloadsTotal.$plugin.${filterKey(filters)}"
         val category: (Stored<Long>) -> Category = { downloadsCompleteness.category(plugin, it.fetchedMillis) }
         val loader: suspend (Boolean) -> Stored<Long> = { forceFetch ->
             storedDownloads(plugin, key, Long.serializer(), forceFetch, category) { super.downloadsTotal(plugin, *filters) }
@@ -300,8 +299,7 @@ class CaffeineCacheMarketplaceClient(
         vararg filters: DownloadFilter,
         endDate: YearMonthDay?,
     ): DownloadResponse {
-        val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
-        val key = "downloads.$plugin.$groupType.$countType.$startDate.$filterString" + (endDate?.let { ".$it" } ?: "")
+        val key = "downloads.$plugin.$groupType.$countType.$startDate.${filterKey(filters)}" + (endDate?.let { ".$it" } ?: "")
         val category: (Stored<DownloadResponse>) -> Category = { stored ->
             if (groupType == DownloadRequestDimension.Day) {
                 downloadsCompleteness.recordDays(plugin, DownloadsCompleteness.days(stored.value.data.serie), stored.fetchedMillis)
@@ -309,7 +307,7 @@ class CaffeineCacheMarketplaceClient(
             downloadsCompleteness.category(plugin, stored.fetchedMillis, endDate)
         }
         val loader: suspend (Boolean) -> Stored<DownloadResponse> = { forceFetch ->
-            storedDownloads(plugin, key, DownloadResponse.serializer(), forceFetch, category) {
+            storedDownloads(plugin, key, DownloadResponse.serializer(), forceFetch, category, endDate) {
                 super.downloads(plugin, groupType, countType, startDate, *filters, endDate = endDate)
             }
         }
@@ -325,8 +323,7 @@ class CaffeineCacheMarketplaceClient(
         vararg filters: DownloadFilter,
         endDate: YearMonthDay?,
     ): GroupedDownloadResponse {
-        val filterString = filters.map(DownloadFilter::toString).sorted().joinToString(",")
-        val key = "groupedDownloads.$plugin.$dimension.$groupType.$countType.$startDate.$filterString" + (endDate?.let { ".$it" } ?: "")
+        val key = "groupedDownloads.$plugin.$dimension.$groupType.$countType.$startDate.${filterKey(filters)}" + (endDate?.let { ".$it" } ?: "")
         val category: (Stored<GroupedDownloadResponse>) -> Category = { stored ->
             if (dimension == DownloadRequestDimension.Day) {
                 downloadsCompleteness.recordDays(plugin, DownloadsCompleteness.days(stored.value.groups.flatMap { it.serie }), stored.fetchedMillis)
@@ -334,7 +331,7 @@ class CaffeineCacheMarketplaceClient(
             downloadsCompleteness.category(plugin, stored.fetchedMillis, endDate)
         }
         val loader: suspend (Boolean) -> Stored<GroupedDownloadResponse> = { forceFetch ->
-            storedDownloads(plugin, key, GroupedDownloadResponse.serializer(), forceFetch, category) {
+            storedDownloads(plugin, key, GroupedDownloadResponse.serializer(), forceFetch, category, endDate) {
                 super.groupedDownloads(plugin, dimension, groupType, countType, startDate, *filters, endDate = endDate)
             }
         }
@@ -547,6 +544,66 @@ class CaffeineCacheMarketplaceClient(
     }
 
     /**
+     * Each part of the downloads of a long time range is stored, e.g. the weeks of the downloads by day, so that
+     * overlapping time ranges use the stored parts again, and a range until today only fetches its last part again.
+     */
+    override suspend fun loadDownloads(
+        plugin: PluginId,
+        groupType: DownloadRequestDimension,
+        countType: DownloadCountType,
+        startDate: YearMonthDay?,
+        filters: Array<out DownloadFilter>,
+        endDate: YearMonthDay?,
+        isPart: Boolean,
+    ): DownloadResponse {
+        if (!isPart) {
+            return super.loadDownloads(plugin, groupType, countType, startDate, filters, endDate, false)
+        }
+        val key = "downloadsPart.$plugin.$groupType.$countType.$startDate.${filterKey(filters)}" + (endDate?.let { ".$it" } ?: "")
+        val category: (Stored<DownloadResponse>) -> Category = { stored ->
+            if (groupType == DownloadRequestDimension.Day) {
+                downloadsCompleteness.recordDays(plugin, DownloadsCompleteness.days(stored.value.data.serie), stored.fetchedMillis)
+            }
+            downloadsCompleteness.category(plugin, stored.fetchedMillis, endDate)
+        }
+        val loader: suspend (Boolean) -> Stored<DownloadResponse> = { forceFetch ->
+            storedDownloads(plugin, key, DownloadResponse.serializer(), forceFetch, category, endDate) {
+                super.loadDownloads(plugin, groupType, countType, startDate, filters, endDate, true)
+            }
+        }
+        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }, categoryOf = category) { loader(false) }
+    }
+
+    /** Each part of the grouped downloads of a long time range is stored, like the parts of [loadDownloads]. */
+    override suspend fun loadGroupedDownloads(
+        plugin: PluginId,
+        dimension: DownloadRequestDimension,
+        groupType: DownloadRequestDimension,
+        countType: DownloadCountType,
+        startDate: YearMonthDay?,
+        filters: Array<out DownloadFilter>,
+        endDate: YearMonthDay?,
+        isPart: Boolean,
+    ): GroupedDownloadResponse {
+        if (!isPart) {
+            return super.loadGroupedDownloads(plugin, dimension, groupType, countType, startDate, filters, endDate, false)
+        }
+        val key = "groupedDownloadsPart.$plugin.$dimension.$groupType.$countType.$startDate.${filterKey(filters)}" + (endDate?.let { ".$it" } ?: "")
+        val category: (Stored<GroupedDownloadResponse>) -> Category = { stored ->
+            if (dimension == DownloadRequestDimension.Day) {
+                downloadsCompleteness.recordDays(plugin, DownloadsCompleteness.days(stored.value.groups.flatMap { it.serie }), stored.fetchedMillis)
+            }
+            downloadsCompleteness.category(plugin, stored.fetchedMillis, endDate)
+        }
+        val loader: suspend (Boolean) -> Stored<GroupedDownloadResponse> = { forceFetch ->
+            storedDownloads(plugin, key, GroupedDownloadResponse.serializer(), forceFetch, category, endDate) {
+                super.loadGroupedDownloads(plugin, dimension, groupType, countType, startDate, filters, endDate, true)
+            }
+        }
+        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }, categoryOf = category) { loader(false) }
+    }
+
+    /**
      * Data is refreshed before the data derived from it, e.g. the sales before the licenses and the downloads
      * before the monthly downloads.
      */
@@ -574,24 +631,32 @@ class CaffeineCacheMarketplaceClient(
      *  published are fetched again after the age of [Category.Recent], see [DownloadsCompleteness].
      * @return The downloads of the persistent cache, which are fetched again after a day, or the loaded downloads without a persistent cache.
      */
+    /**
+     * @param endDate The last day of the downloads, the downloads of the past are stored longer, see
+     *  [DownloadsCompleteness.isComplete]. `null` until today.
+     */
     private suspend fun <T> storedDownloads(
         plugin: PluginId,
         key: String,
         serializer: KSerializer<T>,
         forceFetch: Boolean,
         category: (Stored<T>) -> Category,
+        endDate: YearMonthDay? = null,
         loader: suspend () -> T,
     ): Stored<T> {
         val store = persistentDownloads ?: return Stored(loader(), System.currentTimeMillis())
-        val stored = store.get(downloadsFileName(plugin), key, serializer, forceFetch, loader)
+        val maxAge = cachingStrategy.maxAge(if (downloadsCompleteness.isComplete(endDate)) Category.Static else Category.Daily)
+        val stored = store.get(downloadsFileName(plugin), key, serializer, forceFetch, maxAge, loader)
         val age = (System.currentTimeMillis() - stored.fetchedMillis).milliseconds
         return when {
             !forceFetch && category(stored) == Category.Recent && age >= cachingStrategy.maxAge(Category.Recent) ->
-                store.get(downloadsFileName(plugin), key, serializer, true, loader)
+                store.get(downloadsFileName(plugin), key, serializer, true, maxAge, loader)
 
             else -> stored
         }
     }
+
+    private fun filterKey(filters: Array<out DownloadFilter>): String = filters.map(DownloadFilter::toString).sorted().joinToString(",")
 
     private fun downloadsFileName(plugin: PluginId): String = "plugin-$plugin-downloads"
 

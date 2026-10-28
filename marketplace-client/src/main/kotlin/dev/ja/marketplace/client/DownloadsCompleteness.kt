@@ -18,6 +18,9 @@ import java.util.concurrent.ConcurrentHashMap
  * the plugin, which were fetched at that time or later, are complete. A plugin without downloads yesterday is fetched
  * again like recent data until the end of the day.
  *
+ * Responses, which end at least [COMPLETE_AFTER_DAYS] days before today, e.g. the parts of long time ranges, are
+ * complete and cached like rarely changing data ([Category.Static]), in memory and on disk.
+ *
  * @param today The current day, for tests.
  */
 internal class DownloadsCompleteness(private val today: () -> YearMonthDay = YearMonthDay::now) {
@@ -50,6 +53,10 @@ internal class DownloadsCompleteness(private val today: () -> YearMonthDay = Yea
      */
     fun category(plugin: PluginId, fetchedMillis: Long, endDate: YearMonthDay? = null): Category {
         val yesterday = today().add(0, 0, -1)
+        // the downloads of the past don't change anymore, only those of the recent days may be published late
+        if (isComplete(endDate)) {
+            return Category.Static
+        }
         // a response, which ends before yesterday, doesn't change anymore
         if (endDate != null && endDate < yesterday) {
             return Category.Daily
@@ -61,7 +68,18 @@ internal class DownloadsCompleteness(private val today: () -> YearMonthDay = Yea
         }
     }
 
+    /**
+     * @return If the downloads of a response, which ends at [endDate], don't change anymore: it ends at least
+     *  [COMPLETE_AFTER_DAYS] days before today. Responses until today, `null`, may change.
+     */
+    fun isComplete(endDate: YearMonthDay?): Boolean {
+        return endDate != null && endDate <= today().add(0, 0, -COMPLETE_AFTER_DAYS)
+    }
+
     companion object {
+        /** The days, after which the downloads of a day are complete, see [isComplete]. */
+        const val COMPLETE_AFTER_DAYS = 7
+
         /** @return The downloads of each day of a series grouped by day, items with other names are ignored. */
         fun days(series: Iterable<DownloadResponseItem>): Map<YearMonthDay, Long> {
             val result = HashMap<YearMonthDay, Long>()
