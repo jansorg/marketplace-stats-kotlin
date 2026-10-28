@@ -34,9 +34,12 @@ interface ChartDownloadsSource {
 
     /**
      * @param start The first day of the charts, the downloads of a release start at its release date at the earliest.
+     * @param byMonth If the downloads of each month are loaded instead of each day, which is faster: the downloads of
+     *  a month are counted at its last day, of the current month at today. Sums of calendar windows are exact at the
+     *  ends of the months, e.g. of the levels Month and Year, other values aren't.
      * @return The downloads of each day, of a release and of a product, of all releases or products for `null`.
      */
-    suspend fun downloads(release: PluginReleaseId?, product: String?, start: YearMonthDay): List<DailyDownload>
+    suspend fun downloads(release: PluginReleaseId?, product: String?, start: YearMonthDay, byMonth: Boolean = false): List<DailyDownload>
 
     companion object {
         fun of(client: MarketplaceClient, pluginId: PluginId): ChartDownloadsSource = object : ChartDownloadsSource {
@@ -63,7 +66,7 @@ interface ChartDownloadsSource {
                     .map { ChartParameterValue(it.name, it.productLabel) }
             }
 
-            override suspend fun downloads(release: PluginReleaseId?, product: String?, start: YearMonthDay): List<DailyDownload> = coroutineScope {
+            override suspend fun downloads(release: PluginReleaseId?, product: String?, start: YearMonthDay, byMonth: Boolean): List<DailyDownload> = coroutineScope {
                 val filters = listOfNotNull(
                     release?.let(DownloadFilter::update),
                     product?.let { DownloadFilter(DownloadFilterType.ProductCode, it) },
@@ -71,7 +74,22 @@ interface ChartDownloadsSource {
                 // a release has no downloads before its release date
                 val releaseDate = release?.let { id -> releasesById().get(id)?.let { YearMonthDay.of(it.createdTimestamp) } }
                 val first = maxOf(start, releaseDate ?: start)
-                halfMonthChunks(first, YearMonthDay.now())
+                val today = YearMonthDay.now()
+                if (byMonth) {
+                    return@coroutineScope yearChunks(first, today)
+                        .map { (chunkStart, chunkEnd) ->
+                            async { client.downloads(pluginId, DownloadRequestDimension.Month, DownloadCountType.Downloads, chunkStart, *filters, endDate = chunkEnd).data.serie }
+                        }
+                        .awaitAll()
+                        .flatten()
+                        .map { item ->
+                            val month = YearMonthDay.parse(item.name)
+                            DailyDownload(minOf(YearMonthDay.lastOfMonth(month.year, month.month), today), item.value)
+                        }
+                        .distinctBy { it.day }
+                        .sortedBy { it.day }
+                }
+                halfMonthChunks(first, today)
                     .map { (chunkStart, chunkEnd) ->
                         async { client.downloads(pluginId, DownloadRequestDimension.Day, DownloadCountType.Downloads, chunkStart, *filters, endDate = chunkEnd).data.serie }
                     }
@@ -104,4 +122,17 @@ internal fun halfMonthChunks(start: YearMonthDay, today: YearMonthDay): List<Pai
         chunkStart = next
     }
     return chunks
+}
+
+/**
+ * @return The calendar years from the year of [start] until [today], the requests of the downloads by month. The
+ *  years start at January 1, the same for all requests, so that their cached downloads are used again. The current
+ *  year ends with `null`, until today.
+ *
+ *  The statistics service groups the downloads by calendar month and only counts whole months: a start within a
+ *  month leaves out the month, an end within a month is ignored, the month is counted until its end. The requests
+ *  by month must therefore start at the first day of a month and end at the last day of a month or today.
+ */
+internal fun yearChunks(start: YearMonthDay, today: YearMonthDay): List<Pair<YearMonthDay, YearMonthDay?>> {
+    return (start.year..today.year).map { year -> YearMonthDay(year, 1, 1) to YearMonthDay(year, 12, 31).takeIf { year < today.year } }
 }

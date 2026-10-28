@@ -23,14 +23,16 @@ class ChartMetricFamilyTest {
     private val source = object : ChartDownloadsSource {
         val requests = mutableListOf<Pair<PluginReleaseId?, String?>>()
         val starts = mutableListOf<YearMonthDay>()
+        val byMonths = mutableListOf<Boolean>()
 
         override suspend fun releases() = listOf(ChartParameterValue("1002", "1.1"), ChartParameterValue("1001", "1.0"))
 
         override suspend fun products() = listOf(ChartParameterValue("IIU", "IntelliJ IDEA"), ChartParameterValue("PCP", "PyCharm"))
 
-        override suspend fun downloads(release: PluginReleaseId?, product: String?, start: YearMonthDay): List<DailyDownload> {
+        override suspend fun downloads(release: PluginReleaseId?, product: String?, start: YearMonthDay, byMonth: Boolean): List<DailyDownload> {
             requests += release to product
             starts += start
+            byMonths += byMonth
             return when (release to product) {
                 1001 to "IIU" -> listOf(DailyDownload(YearMonthDay(2025, 9, 1), 3), DailyDownload(YearMonthDay(2025, 9, 2), 4))
                 1002 to null -> listOf(DailyDownload(YearMonthDay(2025, 3, 1), 5), DailyDownload(YearMonthDay(2025, 8, 15), 10))
@@ -130,6 +132,27 @@ class ChartMetricFamilyTest {
             halfMonthChunks(YearMonthDay(2028, 2, 3), YearMonthDay(2028, 2, 29)),
         )
         assertEquals(listOf(YearMonthDay(2026, 10, 1) to null), halfMonthChunks(YearMonthDay(2026, 10, 1), YearMonthDay(2026, 10, 15)))
+    }
+
+    @Test
+    suspend fun downloadsByMonthAreLoadedAgainByDay() {
+        val values = ChartMetricValues.freePlugin(downloads, exchangeRates, today, source)
+        val metric = ChartMetric.byId("release-downloads.1002")!!
+        values.prepare(listOf(metric), byMonth = true)
+        // the downloads by month are enough again, the downloads by day are loaded once
+        values.prepare(listOf(metric), byMonth = true)
+        values.prepare(listOf(metric), byMonth = false)
+        values.prepare(listOf(metric), byMonth = true)
+        values.prepare(listOf(metric), byMonth = false)
+        assertEquals(listOf(true, false), source.byMonths)
+    }
+
+    @Test
+    fun requestsOfTheYears() {
+        assertEquals(
+            listOf(YearMonthDay(2024, 1, 1) to YearMonthDay(2024, 12, 31), YearMonthDay(2025, 1, 1) to YearMonthDay(2025, 12, 31), YearMonthDay(2026, 1, 1) to null),
+            yearChunks(YearMonthDay(2024, 3, 5), YearMonthDay(2026, 10, 28)),
+        )
     }
 
     @Test
