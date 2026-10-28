@@ -168,7 +168,7 @@ object ChartAxes {
 
     /**
      * The ticks of the date axis, at most about [maxTicks]:
-     * - at the level Year the last day of each year and [lastValue] in the current year, like `yearEndTicks`, so that
+     * - at the level Year the last day of each year and [lastValue] in the current year, so that
      *   a tick shows the year of a value,
      * - at the level Month the last day of each month or of every 2, 3, 6 or 12 months,
      * - at the levels Week and Day the days, the Mondays or the first days of months.
