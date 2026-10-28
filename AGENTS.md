@@ -413,8 +413,7 @@ queries, and one which excludes all these tags. The results are in the order of 
     date of the range (`from` of `/chart-data`, `ChartData.loadStart` adds the window and the months of the averages
     before it), these downloads are only loaded from then on, the windows before have no value. The cache of the values
     in the browser keeps the start of each level (`MetricValueCache`, `coversStart`), an earlier start loads them again.
-    The charts started from the releases list and the page of a release show the range "This year"
-    (`ChartMetricName.range`). At the levels Month and Year with calendar windows and without moving averages, the
+    At the levels Month and Year with calendar windows and without moving averages, the
     downloads are loaded by month, which is faster (`ChartData.isByMonth`, a month is counted at its last day, the
     current month at today), by calendar year from January 1 (`yearChunks`): the statistics service only counts whole
     calendar months, a start within a month leaves out the month, an end within a month is ignored. Downloads by month
