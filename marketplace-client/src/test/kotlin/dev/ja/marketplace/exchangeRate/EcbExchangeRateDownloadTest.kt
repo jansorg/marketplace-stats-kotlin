@@ -14,13 +14,10 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import java.io.ByteArrayOutputStream
 import java.math.BigDecimal
 import java.net.URI
 import java.time.LocalDate
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
 
 /**
  * The download of the rates with the HTTP client of the application.
@@ -28,13 +25,7 @@ import java.util.zip.ZipOutputStream
 class EcbExchangeRateDownloadTest {
     private val requests = CopyOnWriteArrayList<String>()
 
-    private val archive = ByteArrayOutputStream().also { out ->
-        ZipOutputStream(out).use { zip ->
-            zip.putNextEntry(ZipEntry("eurofxref-hist.csv"))
-            zip.write("Date,USD,JPY,\n2026-10-27,1.1600,175.20,\n".toByteArray())
-            zip.closeEntry()
-        }
-    }.toByteArray()
+    private val archive = EcbTestData.archive("Date,USD,JPY,\n2026-10-27,1.1600,175.20,\n")
 
     private fun data(status: HttpStatusCode = HttpStatusCode.OK): EcbExchangeRateData {
         val engine = MockEngine { request ->

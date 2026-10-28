@@ -81,7 +81,12 @@ Version constraints to keep in mind when upgrading:
 ./gradlew test                           # run all tests
 ./gradlew :marketplace-client:test       # run tests of a single module
 ./gradlew shadowJar                      # build/libs/marketplace-stats-all.jar (fat JAR)
+./gradlew liveTest                       # only the tests with the tag "live", which request the real servers
 ```
+
+Tests don't request remote servers: they use `MockEngine` (`mockHttpClientBuilder`) or a local server with made-up
+data in the format of the real responses, e.g. `EcbTestData`. Don't commit copies of real responses. Tests of the
+real servers have the tag `live` (`@Tag("live")`), `test` and `build` exclude them, `liveTest` runs them.
 
 CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
 
@@ -116,7 +121,7 @@ would go unnoticed. `LiveApiCoverageTest` (`marketplace-client`) requests all GE
 JetBrains services, and fails for properties of the responses and columns of the sales reports, which the models don't
 have (`UnknownJsonKeys`, `SalesReportCsv.unknownColumns`), and for responses the client can't decode. It only runs with
 `MARKETPLACE_API_KEY` and `MARKETPLACE_COVERAGE_PLUGIN_IDS` (comma-separated IDs of paid and free plugins of the account),
-e.g. after API changes: `./gradlew :marketplace-client:test --tests '*LiveApiCoverageTest' --rerun`. New properties are
+e.g. after API changes: `./gradlew :marketplace-client:liveTest --tests '*LiveApiCoverageTest'`. New properties are
 added to the models as optional properties at the end of the constructors. Values of the API, which the Marketplace may
 extend, must not fail a response:
 - Enums, which the code handles in `when` expressions, e.g. `LicensePeriod`, `CustomerType` and `PluginSaleItemType`, have
