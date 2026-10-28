@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
+import org.junit.jupiter.api.assertThrows
 
 class CachingStrategyTest {
     private val today = YearMonthDay(2026, 10, 26)
@@ -24,6 +25,13 @@ class CachingStrategyTest {
         // a range, which ends within the recent days, may still change
         assertEquals(Category.Recent, strategy.historyCategory(YearMonthDayRange(today.add(0, 0, -76), today.add(0, 0, -45)), today))
         assertEquals(Category.Static, strategy.historyCategory(YearMonthDayRange(today.add(0, 0, -76), today.add(0, 0, -46)), today))
+    }
+
+    @Test
+    fun maxCachedValues() {
+        assertEquals(CachingStrategy.DEFAULT_MAX_CACHED_VALUES, CachingStrategy().maxCachedValues)
+        assertEquals(100_000, CachingStrategy(maxCachedValues = 100_000).maxCachedValues)
+        assertThrows<IllegalArgumentException> { CachingStrategy(maxCachedValues = -1) }
     }
 
     @Test

@@ -44,7 +44,7 @@ import kotlin.time.Duration.Companion.minutes
 /**
  * Client, which caches the API responses in memory.
  *
- * The durations of the cached data are defined by the [cachingStrategy].
+ * The durations of the cached data and the size of the memory cache are defined by the [cachingStrategy].
  * If a [persistentCache] is given, the history of sales and trials and the prices of plugins are also stored on disk.
  * After a restart, the stored data is used and updated in the background, see [PersistentHistoryCache].
  * The store must only be used for the data of a single account, see [PersistentCacheStore.accountStore].
@@ -64,9 +64,7 @@ class CaffeineCacheMarketplaceClient(
 
         .expireAfter(CacheExpiry())
 
-        // the Marketplace has about 15,000 plugins, the cache keeps a value of each plugin, e.g. the info of each plugin
-        // while a snapshot of all plugins is downloaded, with room for the growth of the Marketplace
-        .maximumSize(30_000)
+        .maximumSize(cachingStrategy.maxCachedValues)
 
         .buildCoroutine()
 
