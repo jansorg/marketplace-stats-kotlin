@@ -8,9 +8,11 @@ package dev.ja.marketplace.exchangeRate
 import dev.ja.marketplace.client.YearMonthDay
 import org.javamoney.moneta.FastMoney
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
+import java.time.Duration
 import java.time.LocalDate
 
 /**
@@ -36,5 +38,18 @@ class ExchangeRatesLiveTest {
 
         val expected = exchangeRates.convert(YearMonthDay.now(), amount)
         assertEquals(expected, exchangeRates.convert(YearMonthDay.now().add(0, 0, 1), amount))
+    }
+
+    @Test
+    fun unchangedRatesAreNotDownloadedAgain() {
+        // outdated at once: the second get() validates the rates with If-Modified-Since, the ECB answers with 304
+        val data = EcbExchangeRateData(maxAge = Duration.ZERO)
+        data.use {
+            val table = data.get()
+            data.get()
+            data.awaitBackgroundRefresh()
+            // a downloaded archive would be merged into a new object
+            assertSame(table, data.get())
+        }
     }
 }

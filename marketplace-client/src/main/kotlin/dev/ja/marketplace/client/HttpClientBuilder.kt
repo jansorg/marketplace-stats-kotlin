@@ -72,7 +72,8 @@ class HttpClientBuilder private constructor(private val settings: Settings) {
     /**
      * Stores the responses in [directory] and validates them with conditional requests, e.g. `If-Modified-Since`, `null`
      * to disable the cache, the default. Only useful for servers, which support conditional requests, e.g. the services
-     * of JetBrains. The Marketplace forbids storing its responses.
+     * of JetBrains. The Marketplace forbids storing its responses. Responses, which are fresh without a request
+     * (`max-age`), would still take the permits and the rate limit of a request.
      */
     fun withHttpCacheDirectory(directory: Path?): HttpClientBuilder = HttpClientBuilder(settings.copy(httpCacheDirectory = directory))
 
@@ -182,8 +183,10 @@ class HttpClientBuilder private constructor(private val settings: Settings) {
             deflate()
         }
 
-        // The cache answers in the send pipeline, within the limits of the Send hooks below: a cached response also
-        // takes a permit and a slot of the rate limit. Its clients, e.g. of the JetBrains services, send few requests.
+        // The cache answers in the send pipeline, within the limits of the Send hooks below. It's only used for servers
+        // without max-age, e.g. the JetBrains services: each use of a stored response sends a conditional request,
+        // which rightly takes a permit and a slot of the rate limit. Limits behind the cache would be within
+        // HttpTimeout, the time waiting for them would count for the timeout.
         settings.httpCacheDirectory?.let { directory ->
             Files.createDirectories(directory)
             install(HttpCache) {
