@@ -90,7 +90,13 @@ internal class PersistentResponseCache(
         val cached = file.entries[key]
         if (!forceFetch && cached != null && cached.fetchedMillis >= invalidatedMillis && now - cached.fetchedMillis < maxAge.inWholeMilliseconds) {
             try {
-                return Stored(json.decodeFromString(serializer, cached.json), cached.fetchedMillis)
+                val stored = Stored(json.decodeFromString(serializer, cached.json), cached.fetchedMillis)
+                // e.g. a part of the downloads, which became complete since it was stored, is stored longer
+                if (cached.maxAgeMillis < maxAge.inWholeMilliseconds) {
+                    file.entries[key] = Entry(cached.fetchedMillis, cached.json, maxAge.inWholeMilliseconds)
+                    scheduleWrite(fileName, file)
+                }
+                return stored
             } catch (e: Exception) {
                 logger.warn("Ignoring invalid cached response $key in $fileName: $e")
             }

@@ -8,6 +8,7 @@ package dev.ja.marketplace.mcp
 import dev.ja.marketplace.ChartData
 import dev.ja.marketplace.chartImage.*
 import dev.ja.marketplace.client.PluginChannelNames
+import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.model.PluginInfoSummary
 import dev.ja.marketplace.data.chart.ChartDetail
 import dev.ja.marketplace.data.chart.ChartMetric
@@ -391,8 +392,15 @@ class McpChartTool(private val provider: McpDataProvider) {
         }
 
         val values = provider.chartValues(plugin)
-        // e.g. the downloads of a release are loaded when they're requested
-        values.prepare(request.series.map { it.metric }, windows = request.series.map { it.window ?: request.window ?: ChartRequest.detailWindow(request.detail) })
+        // e.g. the downloads of a release are loaded when they're requested, like those of /chart-data only from the
+        // start of the range, the windows and the averages before it, and by month, if that's enough
+        val windows = request.series.map {
+            if (it.metric.usesWindow) it.window ?: request.window ?: ChartRequest.detailWindow(request.detail) else ChartRequest.detailWindow(request.detail)
+        }
+        val averageMonths = request.series.maxOfOrNull { it.average ?: 0 } ?: 0
+        val from = ChartData.loadStart(request.range.start?.let(YearMonthDay::of), windows, averageMonths + if (request.previousYear) 12 else 0)
+        val byMonth = ChartData.isByMonth(request.detail, windows, averageMonths) && windows.all { ChartRequest.lineDetail(it, request.detail) == request.detail }
+        values.prepare(request.series.map { it.metric }, from, byMonth, windows)
         val markers = markers(plugin, request.markers)
         val subject = plugin?.name ?: "All paid plugins"
         val (chart, image) = withContext(Dispatchers.Default) {
