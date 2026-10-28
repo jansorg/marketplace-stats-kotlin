@@ -31,4 +31,13 @@ class BuildNumberRefTest {
         assertFalse(BuildNumberRef.of("242.*") < BuildNumber.of("242.20224.300"))
         assertTrue(BuildNumberRef.of("242.*") > BuildNumber.of("242.20224.300"))
     }
+
+    @Test
+    fun sortValue() {
+        // a wildcard sorts after all builds it matches, and before the next major version
+        val sorted = listOf("202.0", "202.123", "202.123.4", "202.6000", "202.*", "203.0", "1000.1.2.3")
+        assertEquals(sorted, sorted.reversed().sortedBy { BuildNumberRef.of(it).sortValue })
+        assertEquals(BuildNumberRef.of("202").sortValue, BuildNumberRef.of("202.0").sortValue)
+        assertTrue(BuildNumberRef.of("202.123.*").sortValue < BuildNumberRef.of("202.124").sortValue)
+    }
 }

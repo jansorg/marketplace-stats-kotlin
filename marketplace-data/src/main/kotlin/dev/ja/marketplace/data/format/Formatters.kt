@@ -81,6 +81,15 @@ object Formatters {
     /** @see formatInteger */
     fun formatInteger(value: Int): String = formatInteger(value.toLong())
 
+    /** @return The size of a file in bytes, KB or MB (1,024 bytes per KB), e.g. `1.25 MB`. */
+    fun formatFileSize(bytes: Long): String {
+        return when {
+            bytes < 1024 -> "${formatInteger(bytes)} bytes"
+            bytes < 1024 * 1024 -> "${formatDecimal(bytes / 1024.0)} KB"
+            else -> "${formatDecimal(bytes / (1024.0 * 1024.0))} MB"
+        }
+    }
+
     /** Same output as `String.format("%,.2f %%", value)`, with a thin space before the percent sign. */
     fun formatPercentage(value: BigDecimal): String {
         return formatDecimal(value) + "\u2009%"

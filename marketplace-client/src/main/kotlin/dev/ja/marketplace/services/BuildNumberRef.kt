@@ -45,6 +45,24 @@ data class BuildNumberRef(private val segments: IntArray, val hasWildcard: Boole
         return 0
     }
 
+    /**
+     * A number, which sorts the references by their builds, e.g. in sortable tables: the first [SORTED_SEGMENTS]
+     * segments, a wildcard sorts after all builds it matches, e.g. `202.*` after `202.123` and `202.0`.
+     */
+    val sortValue: Long
+        get() {
+            var value = 0L
+            for (index in 0 until SORTED_SEGMENTS) {
+                val segment = when {
+                    index < segments.size -> segments[index].coerceIn(0, if (index == 0) MAX_FIRST_SEGMENT else MAX_SEGMENT)
+                    hasWildcard -> MAX_SEGMENT
+                    else -> 0
+                }
+                value = value * (MAX_SEGMENT + 1) + segment
+            }
+            return value
+        }
+
     infix fun equalsBuild(other: BuildNumber): Boolean {
         return compareTo(other) == 0
     }
@@ -67,6 +85,12 @@ data class BuildNumberRef(private val segments: IntArray, val hasWildcard: Boole
     }
 
     companion object {
+        private const val SORTED_SEGMENTS = 4
+        private const val MAX_SEGMENT = 99_999
+
+        /** The first segment is the major version, e.g. 263, the larger values wouldn't fit into a [Long]. */
+        private const val MAX_FIRST_SEGMENT = 9_000
+
         fun of(value: String): BuildNumberRef {
             val segments = value
                 .let {

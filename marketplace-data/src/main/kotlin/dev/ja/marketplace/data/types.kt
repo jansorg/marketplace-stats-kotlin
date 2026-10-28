@@ -9,6 +9,7 @@ import dev.ja.marketplace.client.CustomerId
 import dev.ja.marketplace.client.LicenseId
 import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.PluginId
+import dev.ja.marketplace.client.PluginReleaseId
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.MonthlyDownload
@@ -124,6 +125,15 @@ data class LinkedCustomerName(val name: String, val id: CustomerId, val pluginId
 data class LinkedLicense(val id: LicenseId, val pluginId: PluginId)
 
 data class LinkedRefNum(val refNum: String, val pluginId: PluginId)
+
+/** The version of a release of a plugin, linked to the page of the release. */
+data class LinkedRelease(val id: PluginReleaseId, val version: String, val pluginId: PluginId)
+
+/** Values, which are rendered as a list in a cell, e.g. the missing dependencies of a product. */
+data class ItemList(val items: List<Any?>)
+
+/** A link to another site, e.g. the Marketplace, which opens in a new tab. */
+data class ExternalLink(val text: String, val href: String)
 
 /**
  * The end of a purchase of an expired license, rendered with a symbol, so that expired licenses aren't only marked by

@@ -9,6 +9,9 @@
 @import dev.ja.marketplace.data.LinkedCustomerName
 @import dev.ja.marketplace.data.LinkedLicense
 @import dev.ja.marketplace.data.LinkedRefNum
+@import dev.ja.marketplace.data.LinkedRelease
+@import dev.ja.marketplace.data.ExternalLink
+@import dev.ja.marketplace.data.ItemList
 @import dev.ja.marketplace.data.PercentageValue
 @import dev.ja.marketplace.data.TransferredLicenseEnd
 @import dev.ja.marketplace.data.format.Formatters
@@ -36,6 +39,9 @@
 --%>@elseif(value is LinkedCustomerName)<a href="/customer/${value.id}?pId=${value.pluginId}">${value.name}</a><%--
 --%>@elseif(value is LinkedLicense)<a href="/license/${value.id}?pId=${value.pluginId}">${value.id}</a><%--
 --%>@elseif(value is LinkedRefNum)<a href="/refnum/${value.refNum}?pId=${value.pluginId}">${value.refNum}</a><%--
+--%>@elseif(value is LinkedRelease)<a href="/release/${value.id}?pId=${value.pluginId}">${value.version}</a><%--
+--%>@elseif(value is ItemList)<ul class="cell-list">@for(item in value.items)<li>@template.render(item)</li>@endfor</ul><%--
+--%>@elseif(value is ExternalLink)<a href="${value.href}" target="_blank" rel="noopener">${value.text}</a><%--
 --%>@elseif(value is LinkedChurnRate)<a href="/churn-rate/${value.periodLinkSegment}/${value.previousPeriodMarkerDate.toString()}/${value.currentPeriodMarkerDate.toString()}?pId=${value.pluginId}">@template.render(value.churnRate)</a><%--
 --%>@elseif(value is LinkedOfferUsage)<a href="${value.href}">${Formatters.formatInteger(value.count)}</a><%--
 --%>@elseif(value is ChartMetricName)<span class="chart-row-name">${value.name}</span><%--

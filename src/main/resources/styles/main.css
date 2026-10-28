@@ -1145,7 +1145,24 @@ th.highlighted, td.highlighted {
     width: 100%;
 }
 
+/* the lists in the cells of tables, e.g. the missing dependencies of a product */
+.cell-list {
+    margin: 0;
+    padding-left: 1.1em;
+}
+
 /* details in a grid of at most 4 columns, each with its label above its value, e.g. on the page of a sale */
+/* the release notes are text with the line breaks of their HTML, long notes are collapsed until they're expanded */
+.release-notes {
+    white-space: pre-line;
+}
+
+.release-notes.collapsed {
+    max-height: 8lh;
+    overflow: hidden;
+    mask-image: linear-gradient(to bottom, black 60%, transparent);
+}
+
 dl.detail-grid {
     display: grid;
     /* the minimum width of a quarter limits the grid to 4 columns, the column gap is part of the calculation */

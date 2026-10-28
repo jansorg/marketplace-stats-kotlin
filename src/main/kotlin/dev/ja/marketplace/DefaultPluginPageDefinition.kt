@@ -41,6 +41,11 @@ class DefaultPluginPageDefinition(
     private val cacheTables: Boolean = true,
     /** If tables without rows are left out. If all tables are empty, the first one is shown. */
     private val hideEmptyTables: Boolean = false,
+    /**
+     * The factories of tables, which depend on the data of the plugin, e.g. a table of each release channel. They
+     * follow the tables of [factories]. Their data is loaded when the tables are created, pass `cacheTables = false`.
+     */
+    private val pluginFactories: (suspend (PluginData) -> List<MarketplaceDataTableFactory>)? = null,
 ) : PluginPageDefinition {
     /** The calculated tables by the plugin and the maximum number of rows. */
     private val tableCache = VersionedCache<Pair<PluginId, Int?>, List<RenderedDataTable>>()
@@ -83,7 +88,8 @@ class DefaultPluginPageDefinition(
 
     /** @return The tables of the page, the data is processed by the tables concurrently. */
     private suspend fun createTables(data: PluginData, maxTableRows: Int?): List<RenderedDataTable> {
-        return factories.map { it.createTable(client, maxTableRows) }
+        return (factories + (pluginFactories?.invoke(data) ?: emptyList()))
+            .map { it.createTable(client, maxTableRows) }
             .asFlow()
             .onEach { table ->
                 table.init(data)

@@ -46,6 +46,7 @@ import dev.ja.marketplace.data.subscriptions.MrrMovementsTableFactory
 import dev.ja.marketplace.data.subscriptions.RealizedLifetimeValueTableFactory
 import dev.ja.marketplace.data.subscriptions.RenewalRateTableFactory
 import dev.ja.marketplace.data.subscriptions.RevenueRetentionTableFactory
+import dev.ja.marketplace.data.releases.ReleasesTableFactories
 import dev.ja.marketplace.data.timeSpanSummary.TimeSpanSummaryFactory
 import dev.ja.marketplace.data.topCountries.TopCountriesFactory
 import dev.ja.marketplace.data.topTrialCountries.TopTrialCountriesFactory
@@ -247,6 +248,16 @@ class MarketplaceStatsServer(
         pageNote = { data -> PricingOverviewTable.continuityDiscountNote(data.getMarketplacePluginInfo()) },
         // the prices are loaded when the table is calculated, they aren't part of the version of the data
         cacheTables = false,
+    )
+
+    private val releasesPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+        client,
+        emptyList(),
+        pageTitle = "Releases",
+        pageDescription = "The releases of each channel and their downloads.",
+        // the releases are loaded when the tables are created, they aren't part of the version of the data
+        cacheTables = false,
+        pluginFactories = { data -> ReleasesTableFactories.create(client, data.pluginId) },
     )
 
     private val offersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
@@ -620,6 +631,21 @@ class MarketplaceStatsServer(
                     ?: throw IllegalStateException("unable to find customer id")
 
                 renderLicensePage(loader, licenseId, serverConfiguration)
+            }
+            get("/releases") {
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", releasesPageData.createTemplateParameters(loader, call.request, serverConfiguration)))
+            }
+            get("/release/{id}") {
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                val releaseId = call.parameters["id"]?.toIntOrNull()
+                if (releaseId == null) {
+                    call.respondText("Invalid release ID", status = HttpStatusCode.BadRequest)
+                    return@get
+                }
+                renderReleasePage(loader, releaseId, serverConfiguration)
             }
             get("/refnum/{id}") {
                 val loader = getDataLoader()
@@ -1034,6 +1060,33 @@ class MarketplaceStatsServer(
                     "otherPlugins" to loader.otherPaidPlugins,
                     "sale" to sale,
                     "lineItems" to lineItems,
+                    "settings" to serverConfiguration,
+                )
+            )
+        )
+    }
+
+    private suspend fun RoutingContext.renderReleasePage(
+        loader: PluginDataLoader,
+        releaseId: PluginReleaseId,
+        serverConfiguration: ServerConfiguration,
+    ) {
+        val data = loader.load()
+        val details = ReleaseDetails.load(client, servicesClient, data.pluginId, releaseId)
+        if (details == null) {
+            call.respondText("Release $releaseId not found", status = HttpStatusCode.NotFound)
+            return
+        }
+
+        call.respond(
+            JteContent(
+                "release.kte", mapOf(
+                    "plugin" to data.getPluginInfo(),
+                    "urls" to client as MarketplaceUrlSupport,
+                    "rating" to data.getPluginRating(),
+                    "today" to YearMonthDay.now(),
+                    "otherPlugins" to loader.otherPaidPlugins,
+                    "details" to details,
                     "settings" to serverConfiguration,
                 )
             )
