@@ -232,7 +232,10 @@ object ChartExport {
                 }
                 lineValues[days[index]] = daily.value(sourceIndex)
             }
-            LineValues(line, daily.unit, detail, lineValues)
+            // e.g. the downloads of a release end with the first zero after the last value, like in the charts
+            val dates = lineValues.keys.toList()
+            val shownValues = line.metric.withoutTrailingZeros(lineValues.values.toList()) { it.value?.signum()?.let { s -> s != 0 } == true }
+            LineValues(line, daily.unit, detail, dates.indices.mapNotNull { i -> shownValues[i]?.let { dates[i] to it } }.toMap())
         }
 
         // the values start with the first date, at which a line has a value, like in the charts

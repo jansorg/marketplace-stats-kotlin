@@ -447,7 +447,8 @@ queries, and one which excludes all these tags. The results are in the order of 
     paid: renewals, period changes, free licenses paid later and the purchases after a transfer don't count.
     `new-trial-users` counts the first trial of each customer (only for single plugins).
   - Cancellation: closing the chart dialog aborts the pending requests of values (`MetricValueCache.abort`, aborted
-    requests aren't failures). Ktor doesn't cancel a call, whose connection was closed: `/chart-data`, `/chart-export`
+    requests aren't failures), a change of the level aborts the requests of the levels, which aren't shown anymore
+    (`MetricValueCache.abortHidden`, called by `requestMetricValues` in `main.js`). Ktor doesn't cancel a call, whose connection was closed: `/chart-data`, `/chart-export`
     and `/chart-metric-parameters` run in `cancelOnDisconnect` (`ClientDisconnect.kt`, the close of the Netty channel),
     which cancels the loads of the cached client and their requests to the Marketplace. Concurrent requests share the
     load of a value in the coroutine of the first request, the others load again after its cancellation (`loadShared`
@@ -456,6 +457,10 @@ queries, and one which excludes all these tags. The results are in the order of 
     after 5 minutes (`refreshMetricValues` in `main.js`, `MetricValueCache.refresh`), also when the dialog is opened
     or the tab is shown again later. The charts are only drawn again if the values or dates changed, so that open
     menus stay open. New values need new data of the server, see `CachingStrategy` and `--auto-refresh`.
+  - Lines start with the last zero before their first value (`metricPoints` in `model.js`, `ChartExport.table`). The
+    downloads (`ChartMetric.endsWithLastValue`) also end with the first zero after their last value, the values after
+    it are `null` (`ChartMetric.withoutTrailingZeros`, `/chart-data`, `/chart-export`), e.g. a release, which isn't
+    downloaded anymore, doesn't show the zeros until today.
   Columns of chartable tables without a metric, e.g. the renewal rates and the cohorts, and the pie charts still show
   the values of their tables (`data-chart-value`, `data-chart-history`, `data-chart-share`).
 - Vertical lines in line charts: major releases of the plugin (`MajorReleases`, from the plugin's releases), changes of the

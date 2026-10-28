@@ -224,6 +224,10 @@ class ChartMetricFamily internal constructor(
             )
         )
 
+        /** The families of the downloads, see [ChartMetric.endsWithLastValue]. */
+        val DOWNLOAD_FAMILIES: Set<ChartMetricFamily> =
+            setOf(ReleaseDownloads, ProductDownloads, UniqueDownloads, ReleaseUniqueDownloads, ProductUniqueDownloads)
+
         /** The codes of the products of the statistics of the Marketplace, e.g. `IIU`. */
         private val PRODUCT_CODE = Regex("[A-Za-z0-9_-]+")
 

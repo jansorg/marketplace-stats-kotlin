@@ -71,6 +71,27 @@ class ChartMetric private constructor(
     val discountName: String?
         get() = parameterValues.firstOrNull()?.takeIf { family == ChartMetricFamily.Discount }?.let(ChartMetricFamily::decodeName)
 
+    /**
+     * If the values end with the first zero after the last value, e.g. the downloads of a release, which isn't
+     * downloaded anymore: the charts don't show the zeros until today, see [withoutTrailingZeros].
+     */
+    val endsWithLastValue: Boolean
+        get() = this == Downloads || family in ChartMetricFamily.DOWNLOAD_FAMILIES
+
+    /**
+     * @param values The values at the dates of a chart.
+     * @param isValue If a value is a value other than zero.
+     * @return The [values] without the zeros after the first zero after the last value, which are `null`, if the
+     *  metric [endsWithLastValue], otherwise the values. The charts start with the last zero before the first value.
+     */
+    fun <T> withoutTrailingZeros(values: List<T>, isValue: (T) -> Boolean): List<T?> {
+        val lastValue = values.indexOfLast(isValue)
+        if (!endsWithLastValue || lastValue + 2 >= values.size) {
+            return values
+        }
+        return values.mapIndexed { index, value -> value.takeIf { index <= lastValue + 1 } }
+    }
+
     override fun toString(): String = id
 
     /** Metrics with the same ID are the same, e.g. a metric of a family, which was parsed from a request. */
