@@ -14,14 +14,25 @@ import dev.ja.marketplace.client.model.DownloadRequestDimension
 import dev.ja.marketplace.client.model.DownloadResponse
 import dev.ja.marketplace.client.model.DownloadResponseData
 import dev.ja.marketplace.client.model.DownloadResponseItem
+import dev.ja.marketplace.client.model.PluginReleaseInfo
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.lang.reflect.Proxy
+import kotlin.time.Instant
 
 class ChartDownloadsSourceTest {
     /** The requested dimensions and ranges, e.g. `Month 2025-01-01..2025-12-31`. */
     private val requests = mutableListOf<String>()
+
+    /** The release 1001, published in the middle of the month before the previous month. */
+    private val releaseDate = YearMonthDay.now().add(0, -2, 0).let { YearMonthDay(it.year, it.month, 20) }
+
+    private val release = PluginReleaseInfo(
+        id = 1001, pluginId = 1, updateInfoUrlPath = "", version = "1.0", approve = true, listed = true, hidden = false,
+        createdTimestamp = Instant.parse("${releaseDate.asIsoString}T12:00:00Z"), fileUrlPath = "", fileSizeBytes = 0,
+        channel = "", downloads = 0,
+    )
 
     /** The downloads of February 2025 and of the current month. */
     private val client = Proxy.newProxyInstance(javaClass.classLoader, arrayOf(MarketplaceClient::class.java)) { _, method, args ->
@@ -38,6 +49,8 @@ class ChartDownloadsSourceTest {
                     DownloadResponseData(DownloadDimension.Month, months.map { (month, value) -> DownloadResponseItem(month.asIsoString, value) }))
             }
 
+            "channels" -> emptyList<String>()
+            "releases" -> if (args[1] == "") listOf(release) else emptyList()
             else -> throw UnsupportedOperationException(method.name)
         }
     } as MarketplaceClient
@@ -58,6 +71,29 @@ class ChartDownloadsSourceTest {
         ranges.getValue("Week").dropLast(1).forEach { (from, to) -> assertEquals(from.add(0, 0, 27), to) }
         assertEquals(setOf(1 to 1), ranges.getValue("Month").map { it.first.month to it.first.day }.toSet())
         listOf("Day", "Week", "Month").forEach { assertEquals(null, ranges.getValue(it).maxBy { range -> range.first }.second) }
+    }
+
+    @Test
+    suspend fun theDownloadsOfAReleaseAreRequestedFromItsReleaseDate() {
+        val source = ChartDownloadsSource.of(client, 1)
+        val start = releaseDate.add(-1, 0, 0)
+        source.downloads(1001, "IIU", start)
+        source.uniqueDownloads(1001, null, start, DownloadRequestDimension.Day)
+
+        // the half months by day from the half of the release date, there are no downloads before it
+        val firstDays = requests.map { YearMonthDay.parse(it.substringAfter(" ").substringBefore("..")) }
+        assertEquals(YearMonthDay(releaseDate.year, releaseDate.month, 16), firstDays.min())
+        assertEquals(2 * firstDays.distinct().size, requests.size)
+
+        // a later start of the shown range is used
+        requests.clear()
+        source.downloads(1001, "IIU", YearMonthDay.now())
+        assertTrue(requests.all { YearMonthDay.parse(it.substringAfter(" ").substringBefore("..")) > releaseDate })
+
+        // the plugin's downloads aren't limited by a release
+        requests.clear()
+        source.downloads(null, "IIU", start)
+        assertEquals(YearMonthDay(start.year, start.month, if (start.day >= 16) 16 else 1), requests.minOf { YearMonthDay.parse(it.substringAfter(" ").substringBefore("..")) })
     }
 
     @Test
