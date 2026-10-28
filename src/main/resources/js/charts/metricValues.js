@@ -55,13 +55,35 @@ export function metricEntry(s) {
  */
 export class MetricValueCache {
     /**
-     * @param {(window: string, detail: string, ids: string[]) => Promise<{dates: string[], series: Object<string, object>}>} fetchValues
+     * @param {(window: string, detail: string, ids: string[], signal: AbortSignal) => Promise<{dates: string[], series: Object<string, object>}>} fetchValues
      *  Loads the values of metrics from /chart-data.
      */
     constructor(fetchValues) {
         this.fetchValues = fetchValues;
         /** @type {Object<string, {window: string, detail: string, data: MetricData|null, pending: boolean, failed: Set<string>}>} */
         this.entries = {};
+        /** The pending requests, see {@link abort}. */
+        this.requests = new Set();
+    }
+
+    /**
+     * Aborts the pending requests, e.g. when the chart dialog is closed. Their values aren't failed, they're
+     * requested again, when they're needed.
+     */
+    abort() {
+        this.requests.forEach(controller => controller.abort());
+        this.requests.clear();
+    }
+
+    /** @return {Promise<object>} The values of /chart-data, a request, which {@link abort} can abort. */
+    async fetchAbortable(window, detail, ids) {
+        const controller = new AbortController();
+        this.requests.add(controller);
+        try {
+            return await this.fetchValues(window, detail, ids, controller.signal);
+        } finally {
+            this.requests.delete(controller);
+        }
     }
 
     /** @return {MetricData|null} The loaded values of the window and the detail level, null before they're loaded. */
@@ -91,7 +113,7 @@ export class MetricValueCache {
             return null;
         }
         entry.pending = true;
-        return this.fetchValues(window, detail, requested)
+        return this.fetchAbortable(window, detail, requested)
             .then(data => {
                 const series = data.dates.join() === entry.data?.dates.join() ? {...entry.data.series, ...data.series} : data.series;
                 const missing = new Set([...(entry.data?.missing ?? []), ...requested.filter(id => !data.series[id])]);
@@ -99,8 +121,11 @@ export class MetricValueCache {
                 return {data, requested};
             })
             .catch(error => {
-                requested.forEach(id => entry.failed.add(id));
-                setTimeout(() => requested.forEach(id => entry.failed.delete(id)));
+                // an aborted request isn't a failure, its values are requested again, when they're needed
+                if (!isAbortError(error)) {
+                    requested.forEach(id => entry.failed.add(id));
+                    setTimeout(() => requested.forEach(id => entry.failed.delete(id)));
+                }
                 throw error;
             })
             .finally(() => entry.pending = false);
@@ -120,14 +145,16 @@ export class MetricValueCache {
             const requested = Object.keys(previous.series);
             entry.pending = true;
             try {
-                const data = await this.fetchValues(entry.window, entry.detail, requested);
+                const data = await this.fetchAbortable(entry.window, entry.detail, requested);
                 const missing = new Set([...previous.missing, ...requested.filter(id => !data.series[id])]);
                 entry.data = {dates: data.dates, series: data.series, missing};
                 const changed = data.dates.join() !== previous.dates.join()
                     || requested.some(id => JSON.stringify(data.series[id]) !== JSON.stringify(previous.series[id]));
                 return {changed, response: {data, requested}};
             } catch (error) {
-                console.error("Loading the values of metrics again failed", error);
+                if (!isAbortError(error)) {
+                    console.error("Loading the values of metrics again failed", error);
+                }
                 return {changed: false, response: null};
             } finally {
                 entry.pending = false;
@@ -135,4 +162,9 @@ export class MetricValueCache {
         }));
         return {changed: results.some(result => result.changed), responses: results.map(result => result.response).filter(Boolean)};
     }
+}
+
+/** @return {boolean} If the error is of an aborted request, see {@link MetricValueCache#abort}. */
+export function isAbortError(error) {
+    return error?.name === "AbortError";
 }

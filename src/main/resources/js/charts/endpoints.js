@@ -22,9 +22,12 @@ export function pageEndpoint(path) {
     return url;
 }
 
-/** @return {Promise<any>} The JSON of the response, rejected if the response has an error status. */
-export async function fetchJson(url) {
-    const response = await fetch(url);
+/**
+ * @param {AbortSignal} [signal] Aborts the request, e.g. when the chart dialog is closed.
+ * @return {Promise<any>} The JSON of the response, rejected if the response has an error status.
+ */
+export async function fetchJson(url, signal) {
+    const response = await fetch(url, {signal});
     if (!response.ok) {
         throw new Error("HTTP status " + response.status);
     }
@@ -35,14 +38,15 @@ export async function fetchJson(url) {
  * @param {string} window The window of the values, see WINDOWS in model.js.
  * @param {string} detail The detail level of the values, see DETAILS in model.js.
  * @param {string[]} ids The IDs of the metrics and of their averages, e.g. `sales@avg3`.
+ * @param {AbortSignal} [signal] Aborts the request, the server stops loading the values, see cancelOnDisconnect.
  * @return {Promise<{dates: string[], series: Object<string, object>}>} The values of /chart-data.
  */
-export function fetchMetricValues(window, detail, ids) {
+export function fetchMetricValues(window, detail, ids, signal) {
     const url = pageEndpoint("/chart-data");
     url.searchParams.set("metrics", ids.join(","));
     url.searchParams.set("window", window);
     url.searchParams.set("detail", detail);
-    return fetchJson(url);
+    return fetchJson(url, signal);
 }
 
 /** @return {Promise<object[]>} The metrics of the page of /chart-metrics, for the menu to add a metric. */

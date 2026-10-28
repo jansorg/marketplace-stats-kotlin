@@ -18,6 +18,7 @@ import dev.ja.marketplace.data.RenderedDataTable
 import dev.ja.marketplace.data.chargeOverview.ChargeOverviewTableFactory
 import dev.ja.marketplace.data.chart.ChartDetail
 import dev.ja.marketplace.data.chart.ChartDownloadsSource
+import dev.ja.marketplace.data.chart.ChartMetricFamily
 import dev.ja.marketplace.data.chart.ChartMetricValues
 import dev.ja.marketplace.data.chart.ChartWindow
 import dev.ja.marketplace.data.customerType.CustomerTypeFactory
@@ -463,13 +464,17 @@ class MarketplaceStatsServer(
 
             // the values of a parameter of a family of metrics, e.g. /chart-metric-parameters?pluginId=1&family=release-downloads&parameter=release
             get("/chart-metric-parameters") {
-                val parameters = call.request.queryParameters
-                val values = chartMetricValues() ?: return@get
-                val result = ChartData.parameterValues(values, parameters["family"] ?: "", parameters["parameter"] ?: "")
-                if (result == null) {
+                val familyId = call.request.queryParameters["family"] ?: ""
+                val parameterId = call.request.queryParameters["parameter"] ?: ""
+                if (ChartMetricFamily.byId(familyId)?.parameters?.any { it.id == parameterId } != true) {
                     call.respondText("Unknown family or parameter", status = HttpStatusCode.BadRequest)
                     return@get
                 }
+                // the releases may take long to load, e.g. of a plugin with many releases
+                val result = call.cancelOnDisconnect {
+                    val values = chartMetricValues() ?: return@cancelOnDisconnect null
+                    ChartData.parameterValues(values, familyId, parameterId)
+                } ?: return@get
                 call.respondJsonStream(ListSerializer(ChartParameterValueData.serializer()), result)
             }
 
@@ -484,9 +489,12 @@ class MarketplaceStatsServer(
                     return@get
                 }
 
-                val values = chartMetricValues() ?: return@get
-                ChartData.prepare(values, metrics)
-                val response = withContext(Dispatchers.Default) { ChartData.chartData(values, metrics, window, detail) }
+                // closing the chart dialog aborts the request, e.g. the downloads of a release aren't loaded anymore
+                val response = call.cancelOnDisconnect {
+                    val values = chartMetricValues() ?: return@cancelOnDisconnect null
+                    ChartData.prepare(values, metrics)
+                    withContext(Dispatchers.Default) { ChartData.chartData(values, metrics, window, detail) }
+                } ?: return@get
                 call.respondJsonStream(ChartDataResponse.serializer(), response)
             }
 
@@ -500,9 +508,11 @@ class MarketplaceStatsServer(
                     return@get
                 }
 
-                val (plugin, values) = chartSource() ?: return@get
-                values.prepare(request.lines.map { it.metric })
-                val table = withContext(Dispatchers.Default) { ChartExport.table(values, request, plugin?.let { it.id to it.name }) }
+                val table = call.cancelOnDisconnect {
+                    val (plugin, values) = chartSource() ?: return@cancelOnDisconnect null
+                    values.prepare(request.lines.map { it.metric })
+                    withContext(Dispatchers.Default) { ChartExport.table(values, request, plugin?.let { it.id to it.name }) }
+                } ?: return@get
                 // the values are calculated with the current data
                 call.response.header(HttpHeaders.CacheControl, "no-store")
                 when (request.format) {
