@@ -25,6 +25,7 @@ import dev.ja.marketplace.data.chart.DailySeries
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.customer
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.licenses
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.sale
+import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -35,7 +36,7 @@ import java.math.RoundingMode
 import kotlin.random.Random
 
 class SubscriptionDailyValuesTest {
-    private val exchangeRates = ExchangeRates("USD")
+    private val exchangeRates = ExchangeRates("USD", EcbExchangeRateData())
     private val today = YearMonthDay(2025, 9, 17)
     private val firstDay = YearMonthDay(2023, 1, 1)
     private val days = List((firstDay daysUntil today).toInt() + 1) { firstDay.add(0, 0, it) }

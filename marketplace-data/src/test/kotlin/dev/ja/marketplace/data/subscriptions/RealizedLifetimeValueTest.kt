@@ -11,6 +11,7 @@ import dev.ja.marketplace.client.model.PluginSaleItemType
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.customer
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.licenses
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.sale
+import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -27,7 +28,7 @@ class RealizedLifetimeValueTest {
             sale(customer(2), "b", YearMonthDay(2024, 9, 1), 60, LicensePeriod.Annual),
         )
         val today = YearMonthDay(2026, 1, 15)
-        val revenue = CustomerRecurringRevenue(licenses(*sales.toTypedArray()), ExchangeRates("USD"), today)
+        val revenue = CustomerRecurringRevenue(licenses(*sales.toTypedArray()), ExchangeRates("USD", EcbExchangeRateData()), today)
         val payments = sales.map { CustomerPayment(it.customer.code, it.date, it.amountUSD.number.numberValue(BigDecimal::class.java)) }
 
         val cohorts = RealizedLifetimeValue.of(revenue, payments, today)
@@ -52,7 +53,7 @@ class RealizedLifetimeValueTest {
             sale(customer(2), "b", YearMonthDay(2024, 11, 1), 50, LicensePeriod.Annual),
         )
         val today = YearMonthDay(2025, 6, 1)
-        val revenue = CustomerRecurringRevenue(licenses(*sales.toTypedArray()), ExchangeRates("USD"), today)
+        val revenue = CustomerRecurringRevenue(licenses(*sales.toTypedArray()), ExchangeRates("USD", EcbExchangeRateData()), today)
         val payments = sales.map { CustomerPayment(it.customer.code, it.date, it.amountUSD.number.numberValue(BigDecimal::class.java)) }
 
         val firstYear = RealizedLifetimeValue.of(revenue, payments, today).single().years.single()

@@ -85,7 +85,7 @@ fun Application.marketplaceMcp(tools: MarketplaceMcpTools, allowedHosts: List<St
 
 fun createMcpServer(tools: MarketplaceMcpTools): Server {
     val server = Server(
-        Implementation(name = "marketplace-stats", version = BuildConfig.APP_VERSION.trim()),
+        Implementation(name = "marketplace-stats", version = BuildConfig.APP_VERSION),
         ServerOptions(capabilities = ServerCapabilities(tools = ServerCapabilities.Tools(listChanged = false))),
         McpServerInstructions,
     )

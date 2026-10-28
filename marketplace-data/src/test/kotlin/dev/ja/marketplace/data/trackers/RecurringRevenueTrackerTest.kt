@@ -13,13 +13,14 @@ import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.PluginSaleItemDiscount
 import dev.ja.marketplace.client.model.SubscriptionPluginSaleItem
+import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.javamoney.moneta.FastMoney
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class RecurringRevenueTrackerTest {
-    private val exchangeRates = ExchangeRates("USD")
+    private val exchangeRates = ExchangeRates("USD", EcbExchangeRateData())
     private val month = YearMonthDayRange.ofMonth(2025, 9)
 
     @Test

@@ -88,8 +88,9 @@ CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
 The HTTP clients are configured in one place: `HttpClientFactory.builder()` returns an immutable `HttpClientBuilder`
 (log level, user agent, retries, the engine for tests, ...), each `with` method returns a copy. `Application.kt`
 configures one builder and passes it to `CaffeineCacheMarketplaceClient`, `KtorJetBrainsServiceClient` and
-`EcbExchangeRateData.Default` (`useHttpClientBuilder`), which add their URL and API key and create and close their own
-`HttpClient`, also the client of the downloads of the sales reports. `MarketplaceClient` and `JetBrainsServiceClient`
+`EcbExchangeRateData`, which add their URL and API key and create and close their own `HttpClient`, also the client
+of the downloads of the sales reports. The application creates one `EcbExchangeRateData`, which the server passes to
+all its `ExchangeRates`, there's no global instance. `MarketplaceClient` and `JetBrainsServiceClient`
 are `AutoCloseable`. The services client and the report downloads never send the API key of the Marketplace. Tests
 pass a `MockEngine` with `mockHttpClientBuilder` (without retries).
 The builder also limits the requests of each client (each client has its own limits, e.g. per server):

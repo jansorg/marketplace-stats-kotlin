@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.data.chart.ChartMetric
 import dev.ja.marketplace.data.chart.ChartMetricValues
 import dev.ja.marketplace.data.chart.ChartWindow
+import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import dev.ja.marketplace.mcp.McpTestData
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -19,7 +20,7 @@ import java.math.BigDecimal
 
 class CustomerTypeShareTest {
     // sales: 2024-03-10 individual 100 USD, 2024-11-05 organization 300 USD, 2025-02-01 individual 10 USD
-    private val values = ChartMetricValues.create(McpTestData.sales, emptyList(), emptyList(), emptyList(), ExchangeRates("USD"), YearMonthDay(2025, 3, 31))
+    private val values = ChartMetricValues.create(McpTestData.sales, emptyList(), emptyList(), emptyList(), ExchangeRates("USD", EcbExchangeRateData()), YearMonthDay(2025, 3, 31))
 
     private fun share(window: ChartWindow, type: CustomerType, day: YearMonthDay): BigDecimal? {
         return values.series(ChartMetric.customerTypeShare(type), window)!!.values[values.days.indexOf(day)]

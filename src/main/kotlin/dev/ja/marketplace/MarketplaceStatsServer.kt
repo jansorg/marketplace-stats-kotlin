@@ -115,6 +115,8 @@ class MarketplaceStatsServer(
     private val mcpAllowedHosts: List<String>? = null,
     /** Refreshes the data of the requested plugins in the background, `null` if it's disabled. */
     private val autoRefresh: PluginAutoRefresh? = null,
+    /** The ECB exchange rates, which all [ExchangeRates] of the server share. */
+    private val ecbRates: EcbExchangeRateData,
 ) {
     private lateinit var allPlugins: List<PluginInfoSummary>
     private lateinit var countries: Countries
@@ -306,12 +308,12 @@ class MarketplaceStatsServer(
         override fun exchangeRates(currencyCode: String?): ExchangeRates {
             return when (currencyCode) {
                 null, exchangeRates.targetCurrency.currencyCode -> exchangeRates
-                else -> mcpExchangeRates.computeIfAbsent(currencyCode) { ExchangeRates(it) }
+                else -> mcpExchangeRates.computeIfAbsent(currencyCode) { ExchangeRates(it, ecbRates) }
             }
         }
 
         override suspend fun exchangeRateTable(): EcbRateTable {
-            return withContext(Dispatchers.IO) { EcbExchangeRateData.Default.get() }
+            return withContext(Dispatchers.IO) { ecbRates.get() }
         }
 
         override suspend fun groupedDownloads(
@@ -670,7 +672,7 @@ class MarketplaceStatsServer(
 
         countries = countriesAsync.await()
         allPlugins = allPluginsAsync.await()
-        exchangeRates = ExchangeRates(serverConfiguration.userDisplayCurrencyCode)
+        exchangeRates = ExchangeRates(serverConfiguration.userDisplayCurrencyCode, ecbRates)
         // stored data is updated after the start, also without a report being opened
         (client as? CaffeineCacheMarketplaceClient)?.updateStoredHistory(allPlugins.filter(PluginInfoSummary::isPaidOrFreemium).map(PluginInfoSummary::id))
         if (serverConfiguration.showAllPluginsSummary) {

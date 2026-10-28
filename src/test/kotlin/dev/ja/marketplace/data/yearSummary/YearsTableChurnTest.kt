@@ -21,6 +21,7 @@ import dev.ja.marketplace.data.SimpleDateTableRow
 import dev.ja.marketplace.data.chart.ChartMetric
 import dev.ja.marketplace.data.chart.ChartMetricValues
 import dev.ja.marketplace.data.chart.ChartWindow
+import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import dev.ja.marketplace.mcp.McpTestData
 import org.javamoney.moneta.FastMoney
@@ -80,7 +81,7 @@ class YearsTableChurnTest {
         val yearColumn = table.columns.single { it.id == "year" }
         assertTrue(column.tooltip!!.startsWith("Combined churn rate"))
 
-        val values = ChartMetricValues.create(sales, LicenseInfo.createFrom(sales), emptyList(), emptyList(), ExchangeRates("USD"), today)
+        val values = ChartMetricValues.create(sales, LicenseInfo.createFrom(sales), emptyList(), emptyList(), ExchangeRates("USD", EcbExchangeRateData()), today)
         var yearsWithChurn = 0
         val rows = rendered.sections.single().rows.map { it as SimpleDateTableRow }
         for (row in rows) {
@@ -99,16 +100,16 @@ class YearsTableChurnTest {
     suspend fun combinedChurnOfAllPluginsPoolsTheLicensesOfThePlugins() {
         // two plugins with the same IDs of the licenses
         val otherSales = sales.filter { it.customer.code % 3 == 0 }
-        val table = AllPluginsSummaryTable(ExchangeRates("USD"))
+        val table = AllPluginsSummaryTable(ExchangeRates("USD", EcbExchangeRateData()))
         table.add(sales, LicenseInfo.createFrom(sales), emptyList())
         table.add(otherSales, LicenseInfo.createFrom(otherSales), emptyList())
         val rendered = table.renderTable()
         val column = table.columns.single { it.id == "churn-combined-paid" }
         val yearColumn = table.columns.single { it.id == "year" }
 
-        val single = ChartMetricValues.create(sales, LicenseInfo.createFrom(sales), emptyList(), emptyList(), ExchangeRates("USD"), today)
-        val other = ChartMetricValues.create(otherSales, LicenseInfo.createFrom(otherSales), emptyList(), emptyList(), ExchangeRates("USD"), today)
-        val all = ChartMetricValues.allPlugins(sales + otherSales, emptyList(), listOf(LicenseInfo.createFrom(sales), LicenseInfo.createFrom(otherSales)), ExchangeRates("USD"), today)
+        val single = ChartMetricValues.create(sales, LicenseInfo.createFrom(sales), emptyList(), emptyList(), ExchangeRates("USD", EcbExchangeRateData()), today)
+        val other = ChartMetricValues.create(otherSales, LicenseInfo.createFrom(otherSales), emptyList(), emptyList(), ExchangeRates("USD", EcbExchangeRateData()), today)
+        val all = ChartMetricValues.allPlugins(sales + otherSales, emptyList(), listOf(LicenseInfo.createFrom(sales), LicenseInfo.createFrom(otherSales)), ExchangeRates("USD", EcbExchangeRateData()), today)
         var yearsWithChurn = 0
         for (row in rendered.sections.single().rows.map { it as SimpleDateTableRow }) {
             val year = row.values[yearColumn] as Int

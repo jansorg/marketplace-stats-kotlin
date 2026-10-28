@@ -195,7 +195,7 @@ internal class CachedEcbCurrencyRates(
 
 /**
  * Lazily loads and caches the ECB exchange rates since the launch of the JetBrains Marketplace.
- * The data is shared by all [ExchangeRates] instances.
+ * An application creates one instance, which its [ExchangeRates] share. [close] closes the HTTP client of the downloads.
  *
  * If the persistent cache is enabled, the rates are also stored on disk. After a restart, the stored rates are used.
  * If they're outdated, they're updated in the background and the downloaded rates are merged into the stored rates.
@@ -206,11 +206,8 @@ class EcbExchangeRateData(
     private val retryDelay: Duration = Duration.ofMinutes(10),
     private val clock: Clock = Clock.systemUTC(),
     private val downloader: (() -> EcbRateTable)? = null,
-    httpClientBuilder: HttpClientBuilder = HttpClientFactory.builder(),
-) {
-    // guarded by this
-    private var httpClientBuilder: HttpClientBuilder = httpClientBuilder
-
+    private val httpClientBuilder: HttpClientBuilder = HttpClientFactory.builder(),
+) : AutoCloseable {
     // created on the first download, guarded by this
     private var httpClient: HttpClient? = null
 
@@ -238,16 +235,17 @@ class EcbExchangeRateData(
         }
     }
 
-    /**
-     * The settings of the HTTP client of the downloads, e.g. the user agent of the application.
-     */
-    fun useHttpClientBuilder(builder: HttpClientBuilder) {
+    /** Closes the HTTP client of the downloads, a running download in the background fails. */
+    override fun close() {
         synchronized(this) {
-            httpClientBuilder = builder
             httpClient?.close()
             httpClient = null
         }
     }
+
+    /** If the HTTP client of the downloads was created and isn't closed, for tests. */
+    internal val isHttpClientOpen: Boolean
+        get() = synchronized(this) { httpClient != null }
 
     private fun httpClient(): HttpClient = synchronized(this) {
         httpClient ?: httpClientBuilder.build().also { httpClient = it }
@@ -383,6 +381,5 @@ class EcbExchangeRateData(
         // a few days before the launch to support the lookup of the rates of previous days
         private val minDate: LocalDate = Marketplace.Birthday.add(0, 0, -7).toLocalDate()
 
-        val Default = EcbExchangeRateData()
     }
 }

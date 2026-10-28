@@ -456,9 +456,10 @@ project(":") {
     buildConfig {
         className("BuildConfig")
         packageName("dev.ja.marketplace")
-        useKotlinOutput()
+        // public, so that the JTE templates can use it
+        useKotlinOutput { internalVisibility = false }
 
-        buildConfigField("APP_VERSION", provider { rootDir.resolve("VERSION.txt").readText() })
+        buildConfigField("APP_VERSION", provider { rootDir.resolve("VERSION.txt").readText().trim() })
     }
 
     tasks {

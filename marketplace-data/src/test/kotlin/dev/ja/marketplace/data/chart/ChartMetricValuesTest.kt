@@ -28,6 +28,7 @@ import dev.ja.marketplace.data.trackers.SimpleTrialTracker
 import dev.ja.marketplace.data.trackers.getResultWithinConversionPeriod
 import dev.ja.marketplace.data.trackers.trialConversionDays
 import dev.ja.marketplace.client.Marketplace
+import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -38,7 +39,7 @@ import javax.money.MonetaryAmount
 import kotlin.random.Random
 
 class ChartMetricValuesTest {
-    private val exchangeRates = ExchangeRates("USD")
+    private val exchangeRates = ExchangeRates("USD", EcbExchangeRateData())
     private val today = YearMonthDay(2025, 9, 17)
 
     /**
@@ -309,7 +310,7 @@ class ChartMetricValuesTest {
             inCurrency(sale(customer(1), "a", YearMonthDay(2025, 1, 1), 120, LicensePeriod.Annual), 100, "EUR"),
             inCurrency(sale(customer(2), "b", YearMonthDay(2025, 1, 1), 12), 9, "EUR"),
         )
-        val values = ChartMetricValues.create(sales, licenses(*sales.toTypedArray()), emptyList(), emptyList(), ExchangeRates("EUR"), today)
+        val values = ChartMetricValues.create(sales, licenses(*sales.toTypedArray()), emptyList(), emptyList(), ExchangeRates("EUR", EcbExchangeRateData()), today)
         val index = values.days.indexOf(YearMonthDay(2025, 1, 31))
 
         val series = values.series(ChartMetric.Sales, ChartWindow.Month)!!

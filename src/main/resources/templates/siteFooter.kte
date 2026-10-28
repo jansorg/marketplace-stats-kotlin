@@ -5,7 +5,7 @@
 
 !{val renderedAt = java.time.ZonedDateTime.now().truncatedTo(java.time.temporal.ChronoUnit.MINUTES)}
 <footer class="site-footer">
-    <span>Marketplace Stats ${dev.ja.marketplace.AppInfo.version}</span>
+    <span>Marketplace Stats ${dev.ja.marketplace.BuildConfig.APP_VERSION}</span>
     @if(dropCachesPluginId != null)
         <form class="noprint" action="/refresh?pluginId=${dropCachesPluginId}&reload=true" method="POST"><button class="site-footer-button" title="Drops the cached data and loads it again"><svg class="site-footer-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9 M12.5 1.5v3h-3"/></svg>Drop caches</button></form>
     @endif

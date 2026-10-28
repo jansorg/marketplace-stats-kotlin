@@ -12,6 +12,7 @@ import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.customer
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.inCurrency
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.licenses
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.sale
+import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -27,7 +28,7 @@ class CustomerRecurringRevenueTest {
             // a monthly sale of the same license within the annual subscription, the annual sale ends later
             sale(customer(1), "a", YearMonthDay(2025, 6, 15), 20, LicensePeriod.Monthly, PluginSaleItemType.Renew),
         )
-        val revenue = CustomerRecurringRevenue(licenses, ExchangeRates("USD"), today)
+        val revenue = CustomerRecurringRevenue(licenses, ExchangeRates("USD", EcbExchangeRateData()), today)
 
         val june = revenue.months.indexOf(YearMonthDay(2025, 6, 1))
         assertEquals(0, BigDecimal.TEN.compareTo(revenue.mrr(june, 1)))
@@ -41,7 +42,7 @@ class CustomerRecurringRevenueTest {
             // renewed by an organization after a transfer
             sale(customer(2), "a", YearMonthDay(2025, 2, 1), 10, type = PluginSaleItemType.Renew),
         )
-        val revenue = CustomerRecurringRevenue(licenses, ExchangeRates("USD"), today)
+        val revenue = CustomerRecurringRevenue(licenses, ExchangeRates("USD", EcbExchangeRateData()), today)
 
         assertEquals(0, BigDecimal.TEN.compareTo(revenue.mrr(0, 1)))
         assertEquals(0, BigDecimal.ZERO.compareTo(revenue.mrr(1, 1)))
@@ -58,7 +59,7 @@ class CustomerRecurringRevenueTest {
             inCurrency(sale(customer(1), "a", YearMonthDay(2025, 1, 1), 120, LicensePeriod.Annual), 100, "EUR"),
             inCurrency(sale(customer(2), "b", YearMonthDay(2025, 1, 1), 12), 9, "EUR"),
         )
-        val revenue = CustomerRecurringRevenue(licenses, ExchangeRates("EUR"), today)
+        val revenue = CustomerRecurringRevenue(licenses, ExchangeRates("EUR", EcbExchangeRateData()), today)
 
         assertEquals("EUR", revenue.currency.currencyCode)
         assertEquals(0, BigDecimal("8.33").compareTo(revenue.mrr(0, 1).setScale(2, java.math.RoundingMode.HALF_UP)))

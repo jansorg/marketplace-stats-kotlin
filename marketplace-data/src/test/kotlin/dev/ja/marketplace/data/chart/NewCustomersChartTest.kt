@@ -15,13 +15,14 @@ import dev.ja.marketplace.client.model.SubscriptionPluginSaleItem
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.customer
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.sale
 import dev.ja.marketplace.data.transfers.LicenseTransfers
+import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
 
 class NewCustomersChartTest {
-    private val exchangeRates = ExchangeRates("USD")
+    private val exchangeRates = ExchangeRates("USD", EcbExchangeRateData())
     private val today = YearMonthDay(2025, 9, 17)
 
     private val sales: List<PluginSale> = listOf(

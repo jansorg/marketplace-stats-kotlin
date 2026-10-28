@@ -21,10 +21,12 @@ import javax.money.MonetaryException
 
 /**
  * Converts monetary amounts with the daily reference rates of the European Central Bank.
+ *
+ * @param rateData The rates, the instances of an application share them, so that they're loaded once.
  */
 class ExchangeRates(
     targetCurrencyCode: String,
-    private val rateData: EcbExchangeRateData = EcbExchangeRateData.Default,
+    private val rateData: EcbExchangeRateData,
 ) : CacheAware {
     private data class CacheKey(val date: YearMonthDay, val baseCurrency: CurrencyUnit)
 

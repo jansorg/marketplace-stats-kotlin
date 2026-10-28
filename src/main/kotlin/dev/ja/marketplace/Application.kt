@@ -5,11 +5,7 @@
 
 package dev.ja.marketplace
 
-import com.github.ajalt.clikt.core.BadParameterValue
-import com.github.ajalt.clikt.core.CliktCommand
-import com.github.ajalt.clikt.core.Context
-import com.github.ajalt.clikt.core.context
-import com.github.ajalt.clikt.core.main
+import com.github.ajalt.clikt.core.*
 import com.github.ajalt.clikt.output.MordantHelpFormatter
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.convert
@@ -19,12 +15,7 @@ import com.github.ajalt.clikt.parameters.options.*
 import com.github.ajalt.clikt.parameters.types.enum
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
-import dev.ja.marketplace.client.CachingStrategy
-import dev.ja.marketplace.client.CaffeineCacheMarketplaceClient
-import dev.ja.marketplace.client.ClientLogLevel
-import dev.ja.marketplace.client.HttpClientFactory
-import dev.ja.marketplace.client.Marketplace
-import dev.ja.marketplace.client.PluginAutoRefresh
+import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.persistentCache.PersistentCacheStore
 import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.mcp.McpDefaultAllowedHosts
@@ -151,13 +142,51 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
         if (cacheDir != null && Files.exists(cacheDir) && !Files.isDirectory(cacheDir)) {
             throw BadParameterValue("The cache directory $cacheDir is a file.")
         }
-        val rateLimit = this.rateLimit
-            ?: applicationConfig?.rateLimit
-            ?: DEFAULT_RATE_LIMIT
-        if (rateLimit < 0) {
-            throw BadParameterValue("The rate limit must not be negative: $rateLimit")
-        }
 
+        val customEvents = loadEventsConfiguration()
+        val mcpAllowedHosts = createMcpAllowedHosts()
+        val httpClientBuilder = createDefaultHttpClientBuilder(findRateLimit())
+        val cachingStrategy = CachingStrategy(autoRefreshInterval = autoRefreshMinutes?.takeIf { it > 0 }?.minutes)
+        val cacheStore = cacheDir?.let(::PersistentCacheStore)
+        val ecbRates = createEcbRatesProvider(httpClientBuilder, cacheStore)
+        val client = createMarketplaceClient(apiKey, httpClientBuilder, cacheStore, cachingStrategy)
+        val servicesClient = createJetBrainsServiceClient(cacheStore, httpClientBuilder)
+
+        // the clients and their connections are closed after the web server stopped
+        client.use {
+            servicesClient.use {
+                ecbRates.use {
+                    runBlocking {
+                        val server = MarketplaceStatsServer(
+                            client,
+                            servicesClient,
+                            serverHostname,
+                            serverPort,
+                            ServerConfiguration(displayCurrencyCode, showResellerCharges, allPluginsSummary, customEvents),
+                            mcpAllowedHosts.takeIf { mcpEnabled },
+                            PluginAutoRefresh(client, cachingStrategy).takeIf { cachingStrategy.autoRefreshInterval != null },
+                            ecbRates,
+                        )
+
+                        server.start()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun createMcpAllowedHosts(): List<String> {
+        return buildList {
+            addAll(McpDefaultAllowedHosts)
+            add(serverHostname.takeUnless { it == "0.0.0.0" || it == "::" })
+            addAll(mcpAllowedHosts)
+        }
+            .filterNotNull()
+            .mapNotNull(::normalizeMcpAllowedHost)
+            .distinct()
+    }
+
+    private fun loadEventsConfiguration(): CustomEventsFile? {
         // like the cache directory, a relative path of the configuration file is relative to its directory
         val eventsPath = when (val option = this.eventsFile) {
             null -> applicationConfigFile?.let { (config, file) ->
@@ -166,10 +195,12 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
 
             else -> configuredPath(option, baseDirectory = null)
         }
-        val customEvents = eventsPath?.let { path ->
+
+        return eventsPath?.let { path ->
             if (!Files.isRegularFile(path)) {
                 throw BadParameterValue("The events file $path doesn't exist.")
             }
+
             CustomEventsFile(path).also {
                 try {
                     it.load()
@@ -178,55 +209,58 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
                 }
             }
         }
-        // the wildcard addresses accept connections for any hostname, they can't be used to validate the Host header
-        val mcpAllowedHosts = (McpDefaultAllowedHosts + serverHostname.takeUnless { it == "0.0.0.0" || it == "::" } + mcpAllowedHosts)
-            .filterNotNull()
-            .mapNotNull(::normalizeMcpAllowedHost)
-            .distinct()
+    }
 
-        val cachingStrategy = CachingStrategy(autoRefreshInterval = autoRefreshMinutes?.takeIf { it > 0 }?.minutes)
-        // the settings of all HTTP clients
-        val httpClientBuilder = HttpClientFactory.builder()
+    private fun findRateLimit(): Int {
+        val rateLimit = this.rateLimit
+            ?: applicationConfig?.rateLimit
+            ?: DEFAULT_RATE_LIMIT
+        if (rateLimit < 0) {
+            throw BadParameterValue("The rate limit must not be negative: $rateLimit")
+        }
+        return rateLimit
+    }
+
+    private fun createDefaultHttpClientBuilder(rateLimit: Int): HttpClientBuilder {
+        return HttpClientFactory.builder()
             .withLogLevel(logging)
-            .withUserAgent("${HttpClientFactory.DEFAULT_USER_AGENT}/${AppInfo.version}")
-            // the Java engine doesn't support a socket timeout, a stalled request must not wait forever
-            .withRequestTimeout(2.minutes)
+            .withUserAgent("${HttpClientFactory.DEFAULT_USER_AGENT}/${BuildConfig.APP_VERSION}")
+            .withRequestTimeout(2.minutes) // the Java engine doesn't support a socket timeout, a stalled request must not wait forever
             .let { if (rateLimit > 0) it.withRateLimit(rateLimit, 1.seconds) else it }
-        val cacheStore = cacheDir?.let(::PersistentCacheStore)
-        EcbExchangeRateData.Default.useHttpClientBuilder(httpClientBuilder)
-        cacheStore?.let(EcbExchangeRateData.Default::enablePersistentCache)
-        val client = CaffeineCacheMarketplaceClient(
+    }
+
+    /** The exchange rates of all currencies, loaded once. */
+    private fun createEcbRatesProvider(httpClientBuilder: HttpClientBuilder, cacheStore: PersistentCacheStore?): EcbExchangeRateData {
+        val ecbRates = EcbExchangeRateData(httpClientBuilder = httpClientBuilder)
+        cacheStore?.let(ecbRates::enablePersistentCache)
+        return ecbRates
+    }
+
+    private fun createMarketplaceClient(
+        apiKey: String,
+        httpClientBuilder: HttpClientBuilder,
+        cacheStore: PersistentCacheStore?,
+        cachingStrategy: CachingStrategy
+    ): CaffeineCacheMarketplaceClient {
+        return CaffeineCacheMarketplaceClient(
             apiKey = apiKey,
             httpClientBuilder = httpClientBuilder,
             persistentCache = cacheStore?.accountStore(Marketplace.HOSTNAME, apiKey),
             cachingStrategy = cachingStrategy,
         )
+    }
+
+    private fun createJetBrainsServiceClient(
+        cacheStore: PersistentCacheStore?,
+        httpClientBuilder: HttpClientBuilder
+    ): CachingJetBrainsServiceClient {
         // the products of JetBrains are the same for all accounts, they're stored outside the directory of the account.
         // The services support conditional requests, the HTTP cache validates the stored responses after a day.
         val servicesStore = cacheStore?.subStore("jetbrains")
-        val servicesClient = CachingJetBrainsServiceClient(
+        return CachingJetBrainsServiceClient(
             KtorJetBrainsServiceClient(httpClientBuilder.withHttpCacheDirectory(servicesStore?.directory?.resolve("http"))),
             servicesStore,
         )
-
-        // the clients and their connections are closed after the web server stopped
-        client.use {
-            servicesClient.use {
-                runBlocking {
-                    val server = MarketplaceStatsServer(
-                        client,
-                        servicesClient,
-                        serverHostname,
-                        serverPort,
-                        ServerConfiguration(displayCurrencyCode, showResellerCharges, allPluginsSummary, customEvents),
-                        mcpAllowedHosts.takeIf { mcpEnabled },
-                        PluginAutoRefresh(client, cachingStrategy).takeIf { cachingStrategy.autoRefreshInterval != null },
-                    )
-
-                    server.start()
-                }
-            }
-        }
     }
 }
 
