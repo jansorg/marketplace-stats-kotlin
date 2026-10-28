@@ -13,18 +13,18 @@ import {metricKey} from "./tableData.js";
 
 /**
  * @param {{metric: string, window?: string|null, usesWindow?: boolean, average?: number, label: string, unit: string,
- *  measure?: string|null, row?: string, style?: string}} series A series of a metric column, of the menu to add
- *  metrics or of the stored setup. Sums and rates have a window, e.g. the trials of each month and of each day are two
- *  series.
+ *  measure?: string|null, row?: string, style?: string, copy?: number}} series A series of a metric column, of the
+ *  menu to add metrics or of the stored setup. Sums and rates have a window, e.g. the trials of each month and of each
+ *  day are two series. A copy of a line has a number, so that it can be changed independently of the line.
  * @param {string} color
  * @return {object} The series of the metric, its values are loaded when it's shown, see ChartController.metricChartSeries.
  */
-export function metricSeries({metric, window, usesWindow, average, label, unit, measure, row, style}, color) {
+export function metricSeries({metric, window, usesWindow, average, label, unit, measure, row, style, copy}, color) {
     const hasWindow = usesWindow ?? measure !== "stock";
     const seriesWindow = hasWindow ? window ?? null : null;
     return {
-        key: metricKey(metric, seriesWindow, average), metric, window: seriesWindow, usesWindow: hasWindow,
-        ...(average ? {average} : {}), label, unit, measure: measure ?? null, ...(row ? {row} : {}),
+        key: metricKey(metric, seriesWindow, average, copy), metric, window: seriesWindow, usesWindow: hasWindow,
+        ...(average ? {average} : {}), ...(copy ? {copy} : {}), label, unit, measure: measure ?? null, ...(row ? {row} : {}),
         period: METRIC_PERIOD, points: new Map(), incomplete: new Set(), color, ...(style ? {style} : {}),
     };
 }
@@ -39,7 +39,8 @@ export function metricDataId(series) {
 
 /** @return {import("./storage.js").ChartEntry} The stored entry of a series of a metric, see {@link metricSeries}. */
 export function metricEntry(s) {
-    return {type: "metric", metric: s.metric, ...(s.window ? {window: s.window} : {}), usesWindow: s.usesWindow, ...(s.average ? {average: s.average} : {}), label: s.label, unit: s.unit,
+    return {type: "metric", metric: s.metric, ...(s.window ? {window: s.window} : {}), usesWindow: s.usesWindow, ...(s.average ? {average: s.average} : {}),
+        ...(s.copy ? {copy: s.copy} : {}), label: s.label, unit: s.unit,
         ...(s.measure ? {measure: s.measure} : {}), ...(s.row ? {row: s.row} : {}), color: s.color, ...(s.style ? {style: s.style} : {})};
 }
 

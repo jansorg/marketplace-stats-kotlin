@@ -1998,6 +1998,16 @@ dl.detail-grid dd {
     border-color: var(--separator-light-color);
 }
 
+/* the button next to the ×, which adds a copy of a line, see duplicateButtonOf in lineChart.js */
+.chart-series-duplicate svg {
+    width: 0.85em;
+    height: 0.85em;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.4;
+    stroke-linejoin: round;
+}
+
 .chart-series-window .chart-menu-items {
     font-size: .75rem;
     left: 0;

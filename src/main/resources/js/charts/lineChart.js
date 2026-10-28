@@ -913,6 +913,9 @@ function renderComparisonTable(table, {plot, rows, seriesPoints, comparisons, ti
             if (series.seriesMenu) {
                 content.append(series.seriesMenu());
             }
+            if (series.duplicateButton) {
+                content.append(series.duplicateButton());
+            }
             if (series.removeButton) {
                 content.append(series.removeButton());
             }
@@ -1094,6 +1097,8 @@ function yAxis(unit, scale, side, style) {
  * @param {((key: string, index: number, value: string|null) => void)|null} [options.onSeriesParameterChange] Called
  *  with the key of a line of a metric of a family, the index of a parameter and its selected value, see
  *  parameterSections in model.js.
+ * @param {((key: string) => void)|null} [options.onSeriesDuplicate] Called with the key of a line of a metric, whose
+ *  duplicate button in the legend was clicked.
  * @param {boolean} [options.hideAxisValues] If the y-axes have no values, e.g. to share the chart without numbers.
  * @param {boolean} [options.logScale] If the y-axes are logarithmic, e.g. to compare lines of very different values.
  *  Values of 0 and below aren't drawn, the ticks of two y-axes aren't aligned.
@@ -1116,7 +1121,7 @@ function yAxis(unit, scale, side, style) {
  * @param {"light"|"dark"} [options.theme] The colors of the chart, by default the color scheme of the browser.
  * @return {uPlot}
  */
-export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, comparisonLines = false, hideAxisValues = false, logScale = false, detail = null, onSeriesWindowChange = null, onSeriesStyleChange = null, onSeriesParameterChange = null, onSeriesRemove = null, overlays = [], visibleRange = null, onZoom = null, hiddenSeries = new Set(), onSeriesVisibilityChange = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
+export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, comparisonLines = false, hideAxisValues = false, logScale = false, detail = null, onSeriesWindowChange = null, onSeriesStyleChange = null, onSeriesParameterChange = null, onSeriesDuplicate = null, onSeriesRemove = null, overlays = [], visibleRange = null, onZoom = null, hiddenSeries = new Set(), onSeriesVisibilityChange = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
     const theme = CHART_THEMES[themeName];
     const style = {formatter, fonts: fonts(fontFamily), theme, hideAxisValues};
     const scaleKeys = ["y", "y2"];
@@ -1379,7 +1384,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         return chartSeries.flatMap((s, seriesIndex) => {
             const label = s.isRightAxis ? s.label + " (right axis)" : s.label;
             const seriesRow = [{label, color: s.color, unit: s.unit, fractionDigits: s.fractionDigits, incomplete: s.incomplete, values: values[seriesIndex], plotIndex: seriesIndex + 1,
-                seriesMenu: seriesMenuOf(s), removeButton: removeButtonOf(s), dash: isBar(s) ? null : averageDash(s)}];
+                seriesMenu: seriesMenuOf(s), duplicateButton: duplicateButtonOf(s), removeButton: removeButtonOf(s), dash: isBar(s) ? null : averageDash(s)}];
             return seriesRow.concat(chartOverlays
                 .map((overlay, overlayIndex) => ({overlay, overlayIndex}))
                 .filter(({overlay}) => overlay.base === s)
@@ -1414,6 +1419,38 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
                 onSeriesParameterChange(series.key, Number(kind.substring("parameter:".length)), value);
             }
         });
+    }
+
+    /**
+     * @return {(() => HTMLElement)|null} Creates the button, which adds a copy of a line of a metric, e.g. to show
+     *  another release next to it. Lines of the values of tables have none.
+     */
+    function duplicateButtonOf(series) {
+        if (!onSeriesDuplicate || !series.metric) {
+            return null;
+        }
+        return () => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "chart-series-remove chart-series-duplicate";
+            button.title = "Add a copy of this line, e.g. to change its options";
+            button.setAttribute("aria-label", "Duplicate " + series.label);
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.setAttribute("viewBox", "0 0 16 16");
+            svg.setAttribute("aria-hidden", "true");
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            // two overlapping sheets
+            path.setAttribute("d", "M5.5 5.5h7v7h-7z M3.5 10.5v-7h7");
+            svg.append(path);
+            button.append(svg);
+            // a click doesn't show or hide the line
+            button.addEventListener("click", event => {
+                event.stopPropagation();
+                onSeriesDuplicate(series.key);
+            });
+            button.addEventListener("keydown", event => event.stopPropagation());
+            return button;
+        };
     }
 
     /** @return {(() => HTMLElement)|null} Creates the button, which removes a line from the chart. */
@@ -1452,7 +1489,7 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         legendLabels.forEach(label => label.title = label.textContent);
         chartSeries.forEach((s, index) => {
             const legendLabel = legendLabels.find(label => label.textContent === plot.series[index + 1].label);
-            const elements = [seriesMenuOf(s)?.(), removeButtonOf(s)?.()].filter(Boolean);
+            const elements = [seriesMenuOf(s)?.(), duplicateButtonOf(s)?.(), removeButtonOf(s)?.()].filter(Boolean);
             legendLabel?.after(...elements);
         });
     }

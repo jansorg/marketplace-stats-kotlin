@@ -30,7 +30,7 @@ const VERSION = 2;
 /**
  * @typedef {{type: "line"|"pie", table: string, column: string, row?: string, color?: string, style?: "lines"|"bars"}
  *  |{type: "metric", metric: string, window?: string, usesWindow?: boolean, average?: number, label: string, unit: string, measure?: string,
- *   row?: string, color?: string, style?: "lines"|"bars"}} ChartEntry
+ *   row?: string, color?: string, style?: "lines"|"bars", copy?: number}} ChartEntry
  * @typedef {{window: string, detail: string}} ChartLevel
  * @typedef {{combineUnits: boolean, maximized: boolean, preferredStyle: "lines"|"bars",
  *  chartStyles: Object<string, "lines"|"bars">, chartLevels: Object<string, ChartLevel>, shownMarkers: string[], shownEvents: string[],
@@ -97,7 +97,9 @@ function isValidMetricEntry(entry) {
         && (entry.measure === undefined || typeof entry.measure === "string")
         && (entry.color === undefined || typeof entry.color === "string")
         && (entry.style === undefined || CHART_STYLES.includes(entry.style))
-        && (entry.row === undefined || typeof entry.row === "string");
+        && (entry.row === undefined || typeof entry.row === "string")
+        // a copy of a line, see the duplicate button of the legend
+        && (entry.copy === undefined || (Number.isInteger(entry.copy) && entry.copy > 1));
 }
 
 function isValidEntry(entry) {

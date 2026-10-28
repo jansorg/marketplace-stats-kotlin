@@ -172,10 +172,12 @@ export function readMetricSeries(table, columnIndex) {
  * @param {string|null} [window] The window of sums and rates, e.g. the trials of each month and of each day are
  *  different series.
  * @param {number|null} [average] The months of a moving average, which the series shows instead of the values.
+ * @param {number|null} [copy] The number of a copy of a line, see the duplicate button of the legend, null for the
+ *  original line.
  * @return {string} The key of the series of a metric, the same for all tables.
  */
-export function metricKey(metric, window = null, average = null) {
-    return "metric:" + metric + (window ? "@" + window : "") + (average ? "~avg" + average : "");
+export function metricKey(metric, window = null, average = null, copy = null) {
+    return "metric:" + metric + (window ? "@" + window : "") + (average ? "~avg" + average : "") + (copy ? "#" + copy : "");
 }
 
 /**

@@ -354,7 +354,24 @@ class ChartController {
         }
         const values = familyMetric.values.map((current, i) => i === index ? value : current);
         series.metric = familyMetricId(familyMetric.family.id, values);
-        series.key = metricKey(series.metric, series.window, series.average);
+        series.key = metricKey(series.metric, series.window, series.average, series.copy);
+    }
+
+    /**
+     * Adds a copy of a line of a metric after it, e.g. to show another release or window next to it. The copy has a
+     * number, which is part of its key, and the next free color.
+     */
+    duplicateSeries(series) {
+        const copies = this.series.filter(s => s.metric === series.metric).map(s => s.copy ?? 1);
+        const uncolored = metricSeries({...series, copy: Math.max(...copies) + 1});
+        const copy = {...uncolored, color: this.colorOf(uncolored)};
+        const rejection = this.rejectSeries(copy);
+        if (rejection === null) {
+            this.series.splice(this.series.indexOf(series) + 1, 0, copy);
+            this.save();
+        }
+        this.dialog?.showMessage(rejection || null);
+        this.render();
     }
 
     /**
@@ -379,7 +396,7 @@ class ChartController {
     /** Changes the window of a series of a metric, e.g. to show the trials of each day instead of each month. */
     setSeriesWindow(series, window) {
         series.window = window;
-        series.key = metricKey(series.metric, window, series.average);
+        series.key = metricKey(series.metric, window, series.average, series.copy);
     }
 
     /** Removes series, which became the same series, e.g. after changing the window of the lines of a chart. */
@@ -880,6 +897,13 @@ class ChartController {
                 });
                 this.save();
                 this.render();
+            },
+            // the duplicate button of a line of a metric in the legend adds a copy of it
+            onSeriesDuplicate: key => {
+                const series = this.series.find(s => s.key === key);
+                if (series?.metric) {
+                    this.duplicateSeries(series);
+                }
             },
             // the × of a line in the legend removes it
             onSeriesRemove: key => {
