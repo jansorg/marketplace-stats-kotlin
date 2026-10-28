@@ -7,7 +7,6 @@ package dev.ja.marketplace.mcp
 
 import dev.ja.marketplace.ChartData
 import dev.ja.marketplace.chartImage.*
-import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.PluginChannelNames
 import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.client.model.PluginInfoSummary
@@ -443,7 +442,6 @@ class McpChartTool(private val provider: McpDataProvider) {
                         .map { ChartMarker(it.toLocalDate(), "No continuity discount", kind) }
 
                     ChartMarkerKind.Ide -> IdeMajorReleases.find(provider.productReleases(JetBrainsProductCode.IntelliJIDEAUltimate, ProductReleaseType.Release))
-                        .filter { it.date >= Marketplace.Birthday }
                         .map { ChartMarker(it.date.toLocalDate(), it.version, kind) }
 
                     ChartMarkerKind.Event -> {

@@ -5,7 +5,6 @@
 
 package dev.ja.marketplace
 
-import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.data.releases.IdeMajorReleases
 import dev.ja.marketplace.data.releases.MajorRelease
 import dev.ja.marketplace.services.JetBrainsProductCode
@@ -39,8 +38,9 @@ class IdeReleaseProvider(
         val now = Clock.System.now()
         if (now >= validUntil) {
             try {
-                // older releases are before the launch of the Marketplace and never shown
-                releases = IdeMajorReleases.find(servicesClient.productReleases(product)).filter { it.date >= Marketplace.Birthday }
+                // all releases, also those before the launch of the Marketplace with the old versions, e.g. 15.0,
+                // the downloads of free plugins start earlier. The charts only show the releases within their dates.
+                releases = IdeMajorReleases.find(servicesClient.productReleases(product))
                 validUntil = now + maxAge
             } catch (e: CancellationException) {
                 throw e
