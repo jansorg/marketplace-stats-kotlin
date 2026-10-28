@@ -9,6 +9,7 @@ import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.*
+import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.javamoney.moneta.FastMoney
 import org.junit.jupiter.api.Assertions.*
@@ -16,7 +17,7 @@ import org.junit.jupiter.api.Test
 import java.math.BigDecimal
 
 class OfferDiscountChartTest {
-    private val exchangeRates = ExchangeRates("USD")
+    private val exchangeRates = ExchangeRates("USD", EcbExchangeRateData())
     private val today = YearMonthDay(2025, 9, 30)
 
     private val sales = listOf(

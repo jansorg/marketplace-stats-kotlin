@@ -10,6 +10,7 @@ import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.customer
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.licenses
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.sale
+import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -27,7 +28,7 @@ class AverageRevenuePerCustomerTest {
             sale(customer(2), "c", month, 10),
             sale(customer(3), "d", month, 20),
         )
-        val revenue = CustomerRecurringRevenue(licenses, ExchangeRates("USD"), today = YearMonthDay(2025, 2, 15))
+        val revenue = CustomerRecurringRevenue(licenses, ExchangeRates("USD", EcbExchangeRateData()), today = YearMonthDay(2025, 2, 15))
 
         val january = AverageRevenuePerCustomer.of(revenue, 0)
         assertEquals(3, january.customers)

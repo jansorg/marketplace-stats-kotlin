@@ -11,6 +11,7 @@ import dev.ja.marketplace.client.model.PluginTrial
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.customer
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.licenses
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.sale
+import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -29,7 +30,7 @@ class ChartMetricAveragesTest {
     private val trials = (0 until 20).map { PluginTrial("trial-$it", YearMonthDay(2024, 1, 1).add(0, it, 0), customer(it)) }
     private val sales = trials.filterIndexed { index, _ -> index % 2 == 0 }.map { sale(it.customer, "license-${it.referenceId}", it.date.add(0, 0, 3), 10) }
 
-    private val values = ChartMetricValues.create(sales, licenses(*sales.toTypedArray()), trials, downloads, ExchangeRates("USD"), today)
+    private val values = ChartMetricValues.create(sales, licenses(*sales.toTypedArray()), trials, downloads, ExchangeRates("USD", EcbExchangeRateData()), today)
 
     private fun value(series: DailySeries?, day: YearMonthDay): BigDecimal? = series!!.values[values.days.indexOf(day)]
 

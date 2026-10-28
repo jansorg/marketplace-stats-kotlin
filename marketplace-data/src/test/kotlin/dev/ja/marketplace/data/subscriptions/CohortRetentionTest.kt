@@ -11,6 +11,7 @@ import dev.ja.marketplace.client.model.PluginSaleItemType
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.customer
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.licenses
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.sale
+import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -19,7 +20,7 @@ import org.junit.jupiter.api.Test
 import java.math.BigDecimal
 
 class CohortRetentionTest {
-    private val exchangeRates = ExchangeRates("USD")
+    private val exchangeRates = ExchangeRates("USD", EcbExchangeRateData())
 
     @Test
     fun customersAreGroupedByTheirFirstYear() {

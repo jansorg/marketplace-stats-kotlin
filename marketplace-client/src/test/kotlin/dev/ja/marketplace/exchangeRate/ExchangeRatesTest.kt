@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test
 class ExchangeRatesTest {
     @Test
     fun historicDate() {
-        val exchangeRates = ExchangeRates("USD")
+        val exchangeRates = ExchangeRates("USD", EcbExchangeRateData())
         val amount = FastMoney.of(10, "EUR")
         assertEquals(FastMoney.of(10.963, "USD"), exchangeRates.convert(YearMonthDay(2020, 4, 13), amount))
         assertEquals(FastMoney.of(10.652, "USD"), exchangeRates.convert(YearMonthDay(2024, 4, 13), amount))
@@ -21,7 +21,7 @@ class ExchangeRatesTest {
 
     @Test
     fun futureDate() {
-        val exchangeRates = ExchangeRates("USD")
+        val exchangeRates = ExchangeRates("USD", EcbExchangeRateData())
         val amount = FastMoney.of(10, "EUR")
         val expected = exchangeRates.convert(YearMonthDay.now(), amount)
 

@@ -15,6 +15,7 @@ import dev.ja.marketplace.data.SimpleDateTableRow
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.customer
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.licenses
 import dev.ja.marketplace.data.subscriptions.SubscriptionTestData.sale
+import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.javamoney.moneta.FastMoney
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -22,7 +23,7 @@ import org.junit.jupiter.api.Test
 import javax.money.MonetaryAmount
 
 class AllPluginsTablesTest {
-    private val exchangeRates = ExchangeRates("USD")
+    private val exchangeRates = ExchangeRates("USD", EcbExchangeRateData())
 
     /** The sales of a plugin, the license IDs of different plugins are the same. */
     private fun pluginSales(): List<PluginSale> = listOf(

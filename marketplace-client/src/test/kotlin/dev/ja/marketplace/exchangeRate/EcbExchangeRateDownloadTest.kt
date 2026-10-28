@@ -10,6 +10,8 @@ import io.ktor.client.engine.mock.*
 import io.ktor.client.plugins.*
 import io.ktor.http.*
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.io.ByteArrayOutputStream
@@ -51,15 +53,14 @@ class EcbExchangeRateDownloadTest {
     }
 
     @Test
-    fun httpClientBuilderCanBeReplaced() {
-        val data = EcbExchangeRateData(dataUrl = URI("https://ecb.example.com/rates.zip"))
-        val engine = MockEngine { request ->
-            requests += "${request.url} ${request.headers[HttpHeaders.UserAgent]}"
-            respond(archive, HttpStatusCode.OK)
-        }
-        data.useHttpClientBuilder(mockHttpClientBuilder(engine).withUserAgent("app/2"))
+    fun closeClosesTheHttpClient() {
+        val data = data()
+        // the client is created by the first download
+        assertFalse(data.isHttpClientOpen)
         data.get()
-        assertEquals(listOf("https://ecb.example.com/rates.zip app/2"), requests)
+        assertTrue(data.isHttpClientOpen)
+        data.close()
+        assertFalse(data.isHttpClientOpen)
     }
 
     @Test

@@ -7,6 +7,7 @@ package dev.ja.marketplace
 
 import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.client.model.PluginPricingModel
+import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import dev.ja.marketplace.mcp.McpTestData
 import dev.ja.marketplace.services.Countries
@@ -23,7 +24,7 @@ class PluginDataLoaderTest {
     private fun loader(pricingModel: PluginPricingModel): PluginDataLoader {
         val plugin = McpTestData.plugin.copy(pricingModel = pricingModel)
         val ideReleases = IdeReleaseProvider(unusedClient<JetBrainsServiceClient>())
-        return PluginDataLoader(client, plugin, Countries(emptyList()), ExchangeRates("USD"), ideReleases)
+        return PluginDataLoader(client, plugin, Countries(emptyList()), ExchangeRates("USD", EcbExchangeRateData()), ideReleases)
     }
 
     @Test

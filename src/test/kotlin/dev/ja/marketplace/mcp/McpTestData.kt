@@ -292,7 +292,7 @@ object McpTestData {
 
         return PluginData(
             countries,
-            ExchangeRates("USD"),
+            ExchangeRates("USD", EcbExchangeRateData()),
             plugin,
             CompletableDeferred(pluginInfo),
             CompletableDeferred(PluginRating(0, 0, 0.0, emptyMap())),
