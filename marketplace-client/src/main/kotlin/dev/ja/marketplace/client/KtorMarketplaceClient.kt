@@ -199,7 +199,9 @@ open class KtorMarketplaceClient(
         val load: suspend (YearMonthDay?, YearMonthDay?, Boolean) -> DownloadResponse = { start, end, isPart ->
             loadDownloads(plugin, groupType, countType, start, filters, end, isPart)
         }
-        val canSplit = groupType in DATE_DIMENSIONS && !(groupType == DownloadRequestDimension.Month && startDate == null)
+        // without a start date, the first part of the months or weeks would start within a month or week and leave it out
+        val canSplit = (groupType in DATE_DIMENSIONS || groupType == DownloadRequestDimension.Week) &&
+                !(groupType != DownloadRequestDimension.Day && startDate == null)
         if (!canSplit) {
             return load(startDate, endDate, false)
         }
@@ -905,11 +907,11 @@ internal fun statisticsChunks(
 }
 
 /**
- * Splits a time range of statistics into halves. Statistics by month are split at the first day of a month, so that
- * each value of a month is part of a single half, e.g. the unique downloads of a month.
+ * Splits a time range of statistics into halves. Statistics by month are split at the first day of a month, by week
+ * at a Monday, so that each value of a month or week is part of a single half, e.g. the unique downloads of a month.
  *
  * @param end The end of the time range, `null` until today. The second half keeps it.
- * @return The halves, `null` if the time range is a single day or, by month, a single month.
+ * @return The halves, `null` if the time range is a single day or, by month or week, a single month or week.
  */
 internal fun splitStatisticsRange(
     start: YearMonthDay,
@@ -922,6 +924,13 @@ internal fun splitStatisticsRange(
             val days = start daysUntil last
             if (days < 1) return null
             start.add(0, 0, ((days + 1) / 2).toInt())
+        }
+
+        DownloadRequestDimension.Week -> {
+            val monday = start.add(0, 0, 1 - start.toLocalDate().dayOfWeek.value)
+            val weeks = (monday daysUntil last) / 7
+            if (weeks < 1) return null
+            monday.add(0, 0, ((weeks + 1) / 2 * 7).toInt())
         }
 
         else -> {

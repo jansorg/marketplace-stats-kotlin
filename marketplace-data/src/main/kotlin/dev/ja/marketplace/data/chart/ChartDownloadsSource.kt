@@ -193,8 +193,11 @@ internal fun weekChunks(start: YearMonthDay, today: YearMonthDay): List<Pair<Yea
     return chunks
 }
 
-/** The weeks of a request of the unique downloads by week, see [weekChunks]. */
-private const val WEEK_CHUNK_WEEKS = 26
+/**
+ * The weeks of a request of the unique downloads by week, see [weekChunks]: a longer time range with the filters by
+ * release and product takes longer than the statistics service allows, e.g. 26 weeks, it answers it with 503.
+ */
+private const val WEEK_CHUNK_WEEKS = 4
 
 /** A Monday, the start of the blocks of [weekChunks]. */
 private val WEEKS_EPOCH = YearMonthDay(2018, 1, 1)
