@@ -124,6 +124,17 @@ interface MarketplaceClient : MarketplaceUrlSupport, MarketplaceClientPublic, Au
     suspend fun pageAnalytics(plugin: PluginId, timeFrame: PageAnalyticsTimeFrame): PluginPageAnalytics
 
     /**
+     * The results of the verifiers of a release, e.g. of the Plugin Verifier. Requires the API key of a developer of the
+     * plugin, also for free plugins, the API answers other requests with 403.
+     *
+     * @return The results of the verification of the release, one for each verified IDE.
+     */
+    suspend fun verificationResults(
+        pluginReleaseId: PluginReleaseId,
+        type: PluginVerificationType = PluginVerificationType.IntelliJCompatibility,
+    ): List<PluginVerificationResult>
+
+    /**
      * Helper method to retrieve downloads grouped by month.
      */
     suspend fun downloadsMonthly(

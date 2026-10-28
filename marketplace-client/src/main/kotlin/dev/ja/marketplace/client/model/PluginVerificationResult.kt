@@ -10,7 +10,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * The kinds of verifications of the releases of a plugin, see [dev.ja.marketplace.client.MarketplaceClientPublic.verificationResults].
+ * The kinds of verifications of the releases of a plugin, see [dev.ja.marketplace.client.MarketplaceClient.verificationResults].
  */
 enum class PluginVerificationType(val requestParameter: String) {
     IntelliJCompatibility("INTELLIJ_COMPATIBILITY"),
