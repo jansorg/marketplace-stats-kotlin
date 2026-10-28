@@ -218,7 +218,7 @@ class ChartData(private val downloadsSource: ((PluginId) -> ChartDownloadsSource
                     measure = metric.measure.name.lowercase(),
                     usesWindow = metric.usesWindow,
                     averageMonths = months,
-                    values = indices.map { dailySeries.values[it] },
+                    values = metric.withoutTrailingZeros(indices.map { dailySeries.values[it] }) { it != null && it.signum() != 0 },
                     incompleteFrom = indices.indexOfFirst { it >= dailySeries.incompleteFrom }.takeIf { it >= 0 } ?: indices.size,
                     partialUntil = indices.count { it < dailySeries.partialUntil },
                     fractionDigits = metric.fractionDigits,

@@ -262,4 +262,15 @@ class ChartMetricFamilyTest {
         assertEquals(setOf("Individual", "Organization"), values.parameterValues(ChartMetricFamily.CustomerTypeShare, 0).map { it.value }.toSet())
         assertTrue(values.isAvailable(ChartMetric.customerTypeShare(CustomerType.Organization)))
     }
+
+    @Test
+    fun theDownloadsEndWithTheFirstZeroAfterTheLastValue() {
+        val values = listOf(0, 3, 0, 2, 0, 0, 0)
+        val release = ChartMetricFamily.ReleaseDownloads.parse("release-downloads.1001")!!
+        assertEquals(listOf(0, 3, 0, 2, 0, null, null), release.withoutTrailingZeros(values) { it != 0 })
+        assertEquals(listOf(0, 3, 0, 2, 0, null, null), ChartMetric.Downloads.withoutTrailingZeros(values) { it != 0 })
+        // a single zero at the end, e.g. today's incomplete value, and other metrics are unchanged
+        assertEquals(listOf(1, 0), release.withoutTrailingZeros(listOf(1, 0)) { it != 0 })
+        assertEquals(values, ChartMetric.Sales.withoutTrailingZeros(values) { it != 0 })
+    }
 }
