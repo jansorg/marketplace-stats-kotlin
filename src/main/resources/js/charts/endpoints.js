@@ -9,11 +9,13 @@
 
 /**
  * @param {string} path The path of an endpoint of the server, e.g. `/chart-data`.
- * @return {URL} The address of the endpoint with the plugin of the page, without a plugin for the summary of all plugins.
+ * @return {URL} The address of the endpoint with the plugin of the page, `data-plugin-id` of the `<body>` or the
+ *  parameter `pluginId` of the address, without a plugin for the summary of all plugins.
  */
 export function pageEndpoint(path) {
     const url = new URL(path, window.location.href);
-    const pluginId = new URLSearchParams(window.location.search).get("pluginId");
+    // e.g. the page of a release has the parameter pId
+    const pluginId = document.body.dataset.pluginId || new URLSearchParams(window.location.search).get("pluginId");
     if (pluginId !== null) {
         url.searchParams.set("pluginId", pluginId);
     }
@@ -46,4 +48,17 @@ export function fetchMetricValues(window, detail, ids) {
 /** @return {Promise<object[]>} The metrics of the page of /chart-metrics, for the menu to add a metric. */
 export function fetchMetrics() {
     return fetchJson(pageEndpoint("/chart-metrics"));
+}
+
+/**
+ * @param {string} family The ID of a family of metrics with parameters, e.g. `release-downloads`.
+ * @param {string} parameter The ID of the parameter, e.g. `release`.
+ * @return {Promise<{value: string, label: string}[]>} The values of the parameter of /chart-metric-parameters, e.g.
+ *  the releases of the plugin.
+ */
+export function fetchParameterValues(family, parameter) {
+    const url = pageEndpoint("/chart-metric-parameters");
+    url.searchParams.set("family", family);
+    url.searchParams.set("parameter", parameter);
+    return fetchJson(url);
 }

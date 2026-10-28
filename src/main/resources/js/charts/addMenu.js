@@ -7,9 +7,9 @@
  * The menu "+" of the chart dialog, which adds a metric of the page to the chart of its unit.
  */
 
-import {fetchMetrics} from "./endpoints.js";
+import {fetchMetrics, fetchParameterValues} from "./endpoints.js";
 import {clickOpensSubmenu} from "./menu.js";
-import {WINDOW_LABELS, WINDOWS} from "./model.js";
+import {familyMetricId, WINDOW_LABELS, WINDOWS} from "./model.js";
 
 /** The values of a metric in the menu: the values and their moving averages over 1, 3 and 12 months. */
 const ADD_MENU_VALUES = [
@@ -28,7 +28,8 @@ const ADD_MENU_VALUES = [
  * @param {string} options.selectedWindow The selected window, see WINDOWS in model.js.
  * @param {(window: string) => void} options.onWindowChange Called when another window is selected.
  * @param {(metric: object, window: string, average: number|null) => void} options.onAdd Called with a metric of
- *  /chart-metrics, the selected window and the months of a moving average, null for the values.
+ *  /chart-metrics, the selected window and the months of a moving average, null for the values. A metric of a family
+ *  has the ID with the selected values of the parameters, e.g. `release-downloads.1234`.
  * @param {() => void} options.onError Called after the menu was closed, if the metrics couldn't be loaded.
  * @param {() => void} options.close Closes the menu.
  */
@@ -61,7 +62,9 @@ export function fillAddMenu(items, {selectedWindow, onWindowChange, onAdd, onErr
                     heading.textContent = group;
                     items.append(heading);
                 }
-                items.append(addMenuItem(metric, average => add(metric, average)));
+                items.append(metric.parameters
+                    ? addFamilyItem(metric, (selected, average) => add(selected, average))
+                    : addMenuItem(metric, average => add(metric, average)));
             }
         })
         .catch(error => {
@@ -73,12 +76,62 @@ export function fillAddMenu(items, {selectedWindow, onWindowChange, onAdd, onErr
 }
 
 /**
+ * @param {{id: string, title: string, usesWindow: boolean, description?: string, parameters: object[]}} family A family
+ *  of metrics with parameters of /chart-metrics, e.g. the downloads of a release.
+ * @param {(metric: object, average: number|null) => void} add Adds the values or a moving average of the metric of
+ *  the selected values of the parameters.
+ * @return {HTMLElement} An item of the menu like addMenuItem, its submenu selects the values of the parameters, which
+ *  are loaded when the submenu is shown first, e.g. the releases of the plugin.
+ */
+function addFamilyItem(family, add) {
+    const selects = family.parameters.map(parameter => {
+        const label = document.createElement("label");
+        label.className = "chart-add-parameter";
+        const select = document.createElement("select");
+        select.disabled = true;
+        select.append(new Option("Loading…", ""));
+        label.append(parameter.title, select);
+        return {parameter, label, select};
+    });
+    let loading = null;
+    const load = () => {
+        loading ??= Promise.all(selects.map(({parameter, select}) => fetchParameterValues(family.id, parameter.id)
+            .then(values => {
+                select.replaceChildren(
+                    ...(parameter.allLabel ? [new Option(parameter.allLabel, "")] : []),
+                    ...values.map(({value, label}) => new Option(label, value)),
+                );
+                select.disabled = select.options.length === 0;
+            })
+            .catch(error => {
+                console.error("Loading the values of the parameter failed", family.id, parameter.id, error);
+                select.replaceChildren(new Option("Not available", ""));
+            })));
+    };
+    const item = addMenuItem(family, average => {
+        // the first value of a required parameter is selected after the values were loaded
+        const values = selects.map(({select}) => select.value || null);
+        if (selects.some(({parameter}, index) => !parameter.allLabel && values[index] === null)) {
+            return false;
+        }
+        const labels = selects.map(({select}) => select.value ? select.selectedOptions[0].text : null).filter(label => label !== null);
+        add({...family, id: familyMetricId(family.id, values), title: `${family.title}: ${labels.join(", ")}`}, average);
+        return true;
+    }, selects.map(({label}) => label), load);
+    return item;
+}
+
+/**
  * @param {{title: string, usesWindow: boolean, description?: string}} metric A metric of /chart-metrics.
- * @param {(average: number|null) => void} add Adds the values or a moving average of the metric.
+ * @param {(average: number|null) => boolean|void} add Adds the values or a moving average of the metric, false if it
+ *  wasn't added, e.g. while the values of the parameters of a family are loading.
+ * @param {HTMLElement[]} [controls] The elements above the items of the submenu, e.g. the selections of the values of
+ *  the parameters of a family.
+ * @param {() => void} [onShow] Called when the submenu is shown.
  * @return {HTMLElement} An item of the menu: a click adds the values of the metric, hovering it shows a submenu with
  *  the values and the moving averages. A tap of a touch screen shows the submenu below the item.
  */
-function addMenuItem(metric, add) {
+function addMenuItem(metric, add, controls = [], onShow = () => {}) {
     const item = document.createElement("div");
     item.className = "chart-add-metric";
     const button = document.createElement("button");
@@ -96,16 +149,16 @@ function addMenuItem(metric, add) {
     item.addEventListener("pointerdown", event => pointerType = event.pointerType);
     item.addEventListener("keydown", () => pointerType = null);
     button.addEventListener("click", () => {
-        if (clickOpensSubmenu(pointerType)) {
+        // a family without loaded values opens its submenu, which loads them
+        if (clickOpensSubmenu(pointerType) || add(null) === false) {
             toggleInline();
-        } else {
-            add(null);
         }
     });
 
     const submenu = document.createElement("div");
     submenu.className = "chart-add-submenu";
     submenu.setAttribute("role", "menu");
+    submenu.append(...controls);
     for (const [average, text, title] of ADD_MENU_VALUES) {
         const subButton = document.createElement("button");
         subButton.type = "button";
@@ -123,11 +176,13 @@ function addMenuItem(metric, add) {
         closeOthers();
         item.classList.remove("chart-add-open");
         if (item.classList.toggle("chart-add-inline")) {
+            onShow();
             submenu.scrollIntoView({block: "nearest"});
         }
     };
     const show = () => {
         closeOthers();
+        onShow();
         if (item.classList.contains("chart-add-inline")) {
             return;
         }
@@ -144,7 +199,9 @@ function addMenuItem(metric, add) {
     item.addEventListener("pointerenter", event => event.pointerType === "mouse" && show());
     // the focus of a tap, e.g. in Chromium, doesn't show the submenu beside the item
     item.addEventListener("focusin", () => !clickOpensSubmenu(pointerType) && show());
-    item.addEventListener("pointerleave", event => event.pointerType === "mouse" && item.classList.remove("chart-add-open"));
+    // the open list of a selection, e.g. of the products, is outside of the item, the submenu stays open while it's used
+    const isSelecting = () => document.activeElement?.tagName === "SELECT" && item.contains(document.activeElement);
+    item.addEventListener("pointerleave", event => event.pointerType === "mouse" && !isSelecting() && item.classList.remove("chart-add-open"));
     item.addEventListener("focusout", event => {
         if (!item.contains(event.relatedTarget)) {
             item.classList.remove("chart-add-open");

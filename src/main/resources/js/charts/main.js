@@ -17,13 +17,14 @@ import {fillAddMenu} from "./addMenu.js";
 import {compactSwitch, detailSwitch, styleSwitch} from "./chartControls.js";
 import {exportMenu, lightLineChartImage} from "./chartExports.js";
 import {ChartDialog, removeButton} from "./dialog.js";
-import {fetchMetricValues} from "./endpoints.js";
+import {fetchMetrics, fetchMetricValues, fetchParameterValues} from "./endpoints.js";
 import {pieChartSvg, svgCanvas} from "./exportImage.js";
 import {createFormatter} from "./format.js";
 import {createLineChart} from "./lineChart.js";
 import {metricDataId, metricEntry, metricSeries, MetricValueCache} from "./metricValues.js";
 import {
-    canCombineUnits, chartExportUrl, chartLevel, chartLevelKeys, dateRange, detailGranularity, detailPeriod, exportFileName, finestDetail, groupCharts, groupUnits,
+    canCombineUnits, chartExportUrl, chartLevel, chartLevelKeys, dateRange, detailGranularity, detailPeriod, exportFileName, familyMetricId, familyOfMetric,
+    finestDetail, groupCharts, groupUnits, parameterSections, parameterValuesKey,
     lineChartKey, lineDetail, MARKER_KINDS, MAX_PIES, MAX_SERIES, METRIC_PERIOD, metricLabel, metricPoints, nextColor, overlayApplies, OVERLAYS,
     pieSlices, previousYear, rangeLabel, rangeOfPreset, rangeOfTimestamps, rangeTimestamps, rangeYears, seriesStyle, shownWindow, storedChartLevel,
     visibleMarkers, withoutIncomplete,
@@ -98,6 +99,11 @@ class ChartController {
         this.refreshedAt = Date.now();
         this.shownStyles = {};
         this.dialog = null;
+        // the families of metrics with parameters of /chart-metrics, null until they're loaded, see loadFamilies
+        this.families = null;
+        // the loaded values of the parameters of the families by parameterValuesKey, see loadParameterValues
+        this.parameterValues = {};
+        this.loadingParameters = new Set();
     }
 
     start() {
@@ -292,6 +298,57 @@ class ChartController {
             this.save();
         }
         this.openDialog(rejection || null);
+    }
+
+    /**
+     * @return {Promise<object[]>} The families of metrics with parameters of /chart-metrics, loaded once. Without the
+     *  metrics, there are none.
+     */
+    loadFamilies() {
+        this.familiesRequest ??= fetchMetrics()
+            .then(metrics => metrics.filter(metric => metric.parameters))
+            .catch(error => {
+                console.error("Loading the metrics failed", error);
+                return [];
+            })
+            .then(families => {
+                this.families = families;
+                return families;
+            });
+        return this.familiesRequest;
+    }
+
+    /**
+     * Loads the values of the parameters of a family once, e.g. the releases, and draws the charts again, so that the
+     * legend can select them.
+     */
+    loadParameterValues(family) {
+        for (const parameter of family.parameters) {
+            const key = parameterValuesKey(family.id, parameter.id);
+            if (this.parameterValues[key] || this.loadingParameters.has(key)) {
+                continue;
+            }
+            this.loadingParameters.add(key);
+            fetchParameterValues(family.id, parameter.id)
+                .then(values => {
+                    this.parameterValues[key] = values;
+                    if (this.dialog?.isOpen) {
+                        this.render();
+                    }
+                })
+                .catch(error => console.error("Loading the values of the parameter failed", key, error));
+        }
+    }
+
+    /** Changes the value of a parameter of a series of a metric of a family, e.g. to show another release. */
+    setSeriesParameter(series, index, value) {
+        const familyMetric = familyOfMetric(series.metric, this.families ?? []);
+        if (familyMetric === null) {
+            return;
+        }
+        const values = familyMetric.values.map((current, i) => i === index ? value : current);
+        series.metric = familyMetricId(familyMetric.family.id, values);
+        series.key = metricKey(series.metric, series.window, series.average);
     }
 
     /**
@@ -794,6 +851,16 @@ class ChartController {
                     this.render();
                 }
             },
+            // the value of a parameter of a line is selected in the legend, e.g. another release
+            onSeriesParameterChange: (key, index, value) => {
+                const series = this.series.find(s => s.key === key);
+                if (series) {
+                    this.setSeriesParameter(series, index, value);
+                    this.removeDuplicateSeries();
+                    this.save();
+                    this.render();
+                }
+            },
             // the style of a line is selected in the legend, without a style it has the style of the chart
             onSeriesStyleChange: (key, style) => {
                 this.series = this.series.map(s => {
@@ -850,11 +917,29 @@ class ChartController {
             if (!values || points === null || points.points.size === 0) {
                 return [];
             }
-            const label = metricLabel({label: values.title, usesWindow: values.usesWindow}, window)
+            // the window of the level, e.g. the calendar month at the level Month, isn't part of the label
+            const label = metricLabel({label: values.title, usesWindow: values.usesWindow}, window, shownWindow("follow", level.detail))
                 + (s.average ? `, ${s.average}-month average` : "");
             return [{...s, ...points, label, unit: values.unit, measure: values.measure, usesWindow: values.usesWindow, fractionDigits: values.fractionDigits,
-                window, selectedWindow: s.window ?? level.window, detail, period: detailPeriod(detail)}];
+                window, selectedWindow: s.window ?? level.window, detail, period: detailPeriod(detail), parameterSections: this.parameterSectionsOf(s)}];
         });
+    }
+
+    /**
+     * @return {object[]} The sections of the menu of a line of a metric of a family, which select the values of its
+     *  parameters, see parameterSections in model.js. The families and the values are loaded when they're needed.
+     */
+    parameterSectionsOf(series) {
+        if (this.families === null) {
+            this.loadFamilies().then(families => families.length > 0 && this.dialog?.isOpen && this.render());
+            return [];
+        }
+        const familyMetric = familyOfMetric(series.metric, this.families);
+        if (familyMetric === null) {
+            return [];
+        }
+        this.loadParameterValues(familyMetric.family);
+        return parameterSections(familyMetric, this.parameterValues);
     }
 
     /**

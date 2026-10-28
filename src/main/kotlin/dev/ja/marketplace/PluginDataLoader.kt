@@ -25,6 +25,8 @@ class PluginDataLoader(
     val ideReleases: IdeReleaseProvider,
     /** The other paid and freemium plugins of the account, the report pages link to them. */
     val otherPaidPlugins: List<PluginInfoSummary> = emptyList(),
+    /** The other free plugins of the account, the report pages link to them, too. */
+    val otherFreePlugins: List<PluginInfoSummary> = emptyList(),
 ) {
     suspend fun load(): PluginData {
         return coroutineScope {

@@ -17,6 +17,7 @@ import dev.ja.marketplace.data.MarketplaceDataTableFactory
 import dev.ja.marketplace.data.RenderedDataTable
 import dev.ja.marketplace.data.chargeOverview.ChargeOverviewTableFactory
 import dev.ja.marketplace.data.chart.ChartDetail
+import dev.ja.marketplace.data.chart.ChartDownloadsSource
 import dev.ja.marketplace.data.chart.ChartMetricValues
 import dev.ja.marketplace.data.chart.ChartWindow
 import dev.ja.marketplace.data.customerType.CustomerTypeFactory
@@ -122,7 +123,7 @@ class MarketplaceStatsServer(
     private lateinit var exchangeRates: ExchangeRates
     private val ideReleases = IdeReleaseProvider(servicesClient)
 
-    private val chartData = ChartData()
+    private val chartData = ChartData { pluginId -> ChartDownloadsSource.of(client, pluginId) }
 
     /** Work in the background, e.g. loading the data of all plugins after the start. */
     private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -142,7 +143,9 @@ class MarketplaceStatsServer(
             TopCountriesFactory(smallSpace = true, maxCountries = 5),
             TopTrialCountriesFactory(5, smallSpace = true, showEmptyCountry = false),
             OverviewTableFactory()
-        )
+        ),
+        // the page exists for free plugins, the menu of the other plugins links to the same page of a free plugin
+        isForFreePlugins = true,
     )
 
     // free plugins have no sales, licenses and trials, the tables only have their downloads
@@ -151,7 +154,9 @@ class MarketplaceStatsServer(
         listOf(
             YearlySummaryFactory(),
             OverviewTableFactory(),
-        )
+        ),
+        // the page exists for free plugins, the menu of the other plugins links to the same page of a free plugin
+        isForFreePlugins = true,
     )
 
     private val licensePageData: PluginPageDefinition = DefaultPluginPageDefinition(
@@ -231,6 +236,8 @@ class MarketplaceStatsServer(
         client,
         listOf(MonthlyDownloadsFactory()),
         pageTitle = "Downloads",
+        // the page exists for free plugins, the menu of the other plugins links to the same page of a free plugin
+        isForFreePlugins = true,
     )
 
     private val resellerPageData: PluginPageDefinition = DefaultPluginPageDefinition(
@@ -258,6 +265,8 @@ class MarketplaceStatsServer(
         // the releases are loaded when the tables are created, they aren't part of the version of the data
         cacheTables = false,
         pluginFactories = { data -> ReleasesTableFactories.create(client, data.pluginId) },
+        // the page exists for free plugins, the menu of the other plugins links to the same page of a free plugin
+        isForFreePlugins = true,
     )
 
     private val offersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
@@ -452,6 +461,18 @@ class MarketplaceStatsServer(
                 call.respondJsonStream(ListSerializer(ChartMetricData.serializer()), ChartData.metrics(values))
             }
 
+            // the values of a parameter of a family of metrics, e.g. /chart-metric-parameters?pluginId=1&family=release-downloads&parameter=release
+            get("/chart-metric-parameters") {
+                val parameters = call.request.queryParameters
+                val values = chartMetricValues() ?: return@get
+                val result = ChartData.parameterValues(values, parameters["family"] ?: "", parameters["parameter"] ?: "")
+                if (result == null) {
+                    call.respondText("Unknown family or parameter", status = HttpStatusCode.BadRequest)
+                    return@get
+                }
+                call.respondJsonStream(ListSerializer(ChartParameterValueData.serializer()), result)
+            }
+
             // values of the metrics of the charts, e.g. /chart-data?pluginId=1&metrics=sales,mrr&window=month&detail=day
             get("/chart-data") {
                 val parameters = call.request.queryParameters
@@ -464,6 +485,7 @@ class MarketplaceStatsServer(
                 }
 
                 val values = chartMetricValues() ?: return@get
+                ChartData.prepare(values, metrics)
                 val response = withContext(Dispatchers.Default) { ChartData.chartData(values, metrics, window, detail) }
                 call.respondJsonStream(ChartDataResponse.serializer(), response)
             }
@@ -479,6 +501,7 @@ class MarketplaceStatsServer(
                 }
 
                 val (plugin, values) = chartSource() ?: return@get
+                values.prepare(request.lines.map { it.metric })
                 val table = withContext(Dispatchers.Default) { ChartExport.table(values, request, plugin?.let { it.id to it.name }) }
                 // the values are calculated with the current data
                 call.response.header(HttpHeaders.CacheControl, "no-store")
@@ -894,8 +917,8 @@ class MarketplaceStatsServer(
     private fun getDataLoader(plugin: PluginInfoSummary): PluginDataLoader {
         // the pages and the tools of the MCP server load the data of a plugin with a loader
         autoRefresh?.onRequest(plugin.id)
-        val otherPaidPlugins = allPlugins.filter { it.isPaidOrFreemium && it.id != plugin.id }
-        return PluginDataLoader(client, plugin, countries, exchangeRates, ideReleases, otherPaidPlugins)
+        val (otherPaidPlugins, otherFreePlugins) = allPlugins.filter { it.id != plugin.id }.partition(PluginInfoSummary::isPaidOrFreemium)
+        return PluginDataLoader(client, plugin, countries, exchangeRates, ideReleases, otherPaidPlugins, otherFreePlugins)
     }
 
     private fun RoutingContext.getDataLoader(): PluginDataLoader? {
@@ -960,6 +983,7 @@ class MarketplaceStatsServer(
                     "rating" to data.getPluginRating(),
                     "today" to YearMonthDay.now(),
                     "otherPlugins" to loader.otherPaidPlugins,
+                    "otherFreePlugins" to loader.otherFreePlugins,
                     "customer" to customerInfo,
                     "licenseTableMonthly" to licenseTableMonthly.renderTable(),
                     "licenseTableAnnual" to licenseTableAnnual.renderTable(),
@@ -1001,6 +1025,7 @@ class MarketplaceStatsServer(
                     "rating" to data.getPluginRating(),
                     "today" to YearMonthDay.now(),
                     "otherPlugins" to loader.otherPaidPlugins,
+                    "otherFreePlugins" to loader.otherFreePlugins,
                     "licenseId" to licenseId,
                     "licenseTable" to licenseTable.renderTable(),
                     "fallbackVersion" to loader.fallbackReleases()?.let { FallbackVersion.of(licenseId, licenses, it) },
@@ -1058,6 +1083,7 @@ class MarketplaceStatsServer(
                     "rating" to data.getPluginRating(),
                     "today" to YearMonthDay.now(),
                     "otherPlugins" to loader.otherPaidPlugins,
+                    "otherFreePlugins" to loader.otherFreePlugins,
                     "sale" to sale,
                     "lineItems" to lineItems,
                     "settings" to serverConfiguration,
@@ -1086,6 +1112,7 @@ class MarketplaceStatsServer(
                     "rating" to data.getPluginRating(),
                     "today" to YearMonthDay.now(),
                     "otherPlugins" to loader.otherPaidPlugins,
+                    "otherFreePlugins" to loader.otherFreePlugins,
                     "details" to details,
                     "settings" to serverConfiguration,
                 )

@@ -8,10 +8,10 @@ package dev.ja.marketplace.mcp
 import dev.ja.marketplace.ChartData
 import dev.ja.marketplace.chartImage.*
 import dev.ja.marketplace.client.PluginChannelNames
-import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.client.model.PluginInfoSummary
 import dev.ja.marketplace.data.chart.ChartDetail
 import dev.ja.marketplace.data.chart.ChartMetric
+import dev.ja.marketplace.data.chart.ChartMetricFamily
 import dev.ja.marketplace.data.chart.ChartMetricValues
 import dev.ja.marketplace.data.chart.ChartWindow
 import dev.ja.marketplace.data.prices.PriceChanges
@@ -105,9 +105,9 @@ internal data class ChartRequest(
             ChartWindow.CalendarYear to "Calendar year",
         )
 
-        /** The IDs of the metrics, the shares of unknown customer types aren't shown, like in `/chart-metrics`. */
+        /** The IDs of the metrics without parameters, the metrics with parameters belong to a [ChartMetricFamily]. */
         val metricIds: List<String>
-            get() = ChartMetric.all.map(ChartMetric::id).filterNot { it.endsWith(".${CustomerType.Unknown}") }
+            get() = ChartMetric.all.map(ChartMetric::id)
 
         val windowIds: List<String> get() = listOf(FOLLOW_WINDOW) + ChartWindow.entries.map(ChartWindow::id)
 
@@ -191,8 +191,8 @@ internal data class ChartRequest(
                 ?: throw IllegalArgumentException("$name.metric is required, metrics: ${metricIds.joinToString()}")
             // the IDs of the moving averages of /chart-data are accepted, e.g. sales@avg3
             val metricId = metricValue.substringBefore(ChartData.AVERAGE_SEPARATOR)
-            // the discount amounts of the discounts are metrics of each plugin, see chartMetrics of get_offer_usage
-            val metric = ChartMetric.byId(metricId)?.takeIf { it.id in metricIds || it.discountName != null }
+            // the metrics with parameters, e.g. the discount amounts of the discounts, see chartMetrics of get_offer_usage
+            val metric = ChartMetric.byId(metricId)?.takeIf { it.id in metricIds || it.family != null }
                 ?: ChartMetric.all.firstOrNull { it.id.equals(metricId, ignoreCase = true) && it.id in metricIds }
                 ?: throw IllegalArgumentException("Unknown metric '$metricValue' of $name, metrics: ${metricIds.joinToString()}")
             val averageOfId = when {
@@ -321,10 +321,14 @@ class McpChartTool(private val provider: McpDataProvider) {
                     put("items", buildJsonObject {
                         put("type", "object")
                         put("properties", buildJsonObject {
-                            // not an enum: the discount amounts are metrics of each plugin
+                            // not an enum: the metrics with parameters, e.g. the discount amounts, are metrics of each plugin
                             put("metric", stringProperty(
-                                "The metric, one of ${ChartRequest.metricIds.joinToString()}, or the discount amount of an offer or discount " +
-                                        "(${ChartMetric.DISCOUNT}.<id>, see chartMetrics of get_offer_usage)"
+                                "The metric, one of ${ChartRequest.metricIds.joinToString()}, or a metric with parameters: " +
+                                        "the share of the sales of a customer type (${ChartMetricFamily.CustomerTypeShare.id}.<Individual|Organization>), " +
+                                        "the discount amount of an offer or discount (${ChartMetricFamily.Discount.id}.<id>, see chartMetrics of get_offer_usage), " +
+                                        "the downloads of a release (${ChartMetricFamily.ReleaseDownloads.id}.<release ID of list_plugin_releases>), " +
+                                        "of a release in a product (${ChartMetricFamily.ReleaseDownloads.id}.<release ID>.<product code, e.g. IIU>), " +
+                                        "or of the plugin in a product (${ChartMetricFamily.ProductDownloads.id}.<product code, e.g. IIU>)"
                             ))
                             put("window", enumProperty(ChartRequest.windowIds, "Window of sums and rates. Default: the window of the chart"))
                             put("average", buildJsonObject {
@@ -383,6 +387,8 @@ class McpChartTool(private val provider: McpDataProvider) {
         }
 
         val values = provider.chartValues(plugin)
+        // e.g. the downloads of a release are loaded when they're requested
+        values.prepare(request.series.map { it.metric })
         val markers = markers(plugin, request.markers)
         val subject = plugin?.name ?: "All paid plugins"
         val (chart, image) = withContext(Dispatchers.Default) {
@@ -472,7 +478,7 @@ class McpChartTool(private val provider: McpDataProvider) {
             val seriesJson = mutableListOf<JsonObject>()
             val series = request.series.flatMapIndexed { index, item ->
                 val metric = item.metric
-                require(metric in values.metrics) {
+                require(values.isAvailable(metric)) {
                     val available = ChartData.metrics(values).map { it.id }
                     "The metric ${metric.id} has no values for $subject, metrics with values: ${available.joinToString()}"
                 }

@@ -735,10 +735,12 @@ export function chartLevelKeys(chart) {
 /**
  * @param {{label: string, usesWindow?: boolean}} series A series of a metric.
  * @param {string} window The window of the values, see {@link WINDOWS}.
+ * @param {string|null} [levelWindow] The calendar window of the level of the chart, e.g. `calendar-month` at the
+ *  level Month. Lines with this window have no suffix, it's the window of the dates.
  * @return {string} The label of the series with the window of sums and rates, e.g. "Trials, last 12 months".
  */
-export function metricLabel(series, window) {
-    return series.usesWindow ? `${series.label}, ${(WINDOW_LABELS[window] ?? window).toLowerCase()}` : series.label;
+export function metricLabel(series, window, levelWindow = null) {
+    return series.usesWindow && window !== levelWindow ? `${series.label}, ${(WINDOW_LABELS[window] ?? window).toLowerCase()}` : series.label;
 }
 
 /**
@@ -1178,7 +1180,8 @@ export function seriesStyle(series, chartStyle) {
  *  The sections, empty without options.
  */
 export function seriesMenuSections(series, canChangeWindow) {
-    const sections = [];
+    // the values of the parameters of a metric of a family, e.g. the release of the downloads of a release
+    const sections = [...(series.parameterSections ?? [])];
     if (canChangeWindow && series.usesWindow && series.window) {
         const selected = series.selectedWindow ?? series.window;
         sections.push({kind: "window", title: "Window", items: WINDOWS.map(window => ({value: window, label: WINDOW_LABELS[window], isChecked: window === selected}))});
@@ -1188,6 +1191,64 @@ export function seriesMenuSections(series, canChangeWindow) {
         sections.push({kind: "style", title: "Type", items: SERIES_STYLES.map(([value, label]) => ({value, label, isChecked: value === style}))});
     }
     return sections;
+}
+
+/**
+ * @param {string} metricId The ID of a metric, e.g. `release-downloads.1234.IIU`.
+ * @param {{id: string, parameters?: object[]}[]} families The families of metrics with parameters of /chart-metrics.
+ * @return {{family: object, values: (string|null)[]}|null} The family of a metric of a family and the values of its
+ *  parameters, `null` for missing optional values, or null for other metrics.
+ */
+export function familyOfMetric(metricId, families) {
+    const family = families.find(f => f.parameters && metricId.startsWith(f.id + "."));
+    if (!family) {
+        return null;
+    }
+    const values = metricId.slice(family.id.length + 1).split(".");
+    if (values.length > family.parameters.length || values.some(value => value === "")) {
+        return null;
+    }
+    return {family, values: family.parameters.map((_, index) => values[index] ?? null)};
+}
+
+/**
+ * @param {string} familyId The ID of a family of metrics, e.g. `release-downloads`.
+ * @param {(string|null)[]} values The values of its parameters, null for missing optional values.
+ * @return {string} The ID of the metric, e.g. `release-downloads.1234`, missing optional values are left out.
+ */
+export function familyMetricId(familyId, values) {
+    const present = [...values];
+    while (present.length > 0 && present[present.length - 1] === null) {
+        present.pop();
+    }
+    return [familyId, ...present].join(".");
+}
+
+/**
+ * @param {{family: object, values: (string|null)[]}} familyMetric A metric of a family, see familyOfMetric.
+ * @param {Object<string, {value: string, label: string}[]>} parameterValues The loaded values of the parameters by
+ *  `<family>/<parameter>`, see parameterValuesKey. Parameters without loaded values have no section.
+ * @return {{kind: string, title: string, items: {value: string|null, label: string, isChecked: boolean}[]}[]} The
+ *  sections of the menu of a line, which select the values of the parameters, e.g. the release and the product. The
+ *  kind is `parameter:<index>`, an optional parameter has the item of all values first.
+ */
+export function parameterSections({family, values}, parameterValues) {
+    return family.parameters.flatMap((parameter, index) => {
+        const loaded = parameterValues[parameterValuesKey(family.id, parameter.id)];
+        if (!loaded) {
+            return [];
+        }
+        const items = loaded.map(({value, label}) => ({value, label, isChecked: value === values[index]}));
+        if (parameter.allLabel) {
+            items.unshift({value: null, label: parameter.allLabel, isChecked: values[index] === null});
+        }
+        return [{kind: "parameter:" + index, title: parameter.title, items}];
+    });
+}
+
+/** @return {string} The key of the values of a parameter of a family of metrics, e.g. `release-downloads/release`. */
+export function parameterValuesKey(familyId, parameterId) {
+    return familyId + "/" + parameterId;
 }
 
 /**

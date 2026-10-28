@@ -133,7 +133,8 @@ export class ChartDialog {
 
         // a menu to add a metric, its items are added when it's opened
         // the long menu is placed in the window and scrolls, so that it doesn't enlarge the dialog
-        const {menu: addMenu, items: addItems} = createMenu("", {fixed: true, alignEnd: true, maxHeight: addMenuMaxHeight});
+        // it only opens on a click, leaving it while hovering, e.g. to a submenu, closed it unintentionally
+        const {menu: addMenu, items: addItems} = createMenu("", {fixed: true, alignEnd: true, maxHeight: addMenuMaxHeight, hover: false});
         addMenu.classList.add("chart-add-menu");
         const addSummary = addMenu.querySelector("summary");
         addSummary.append(icon("add"));
@@ -263,13 +264,25 @@ export class ChartDialog {
         this.setMaximized(false);
         // a click on the backdrop closes the dialog, a click outside of an open menu closes the menu.
         // The target of clicks on the backdrop and on the padding of the dialog is the dialog, only clicks outside of
-        // its bounds are on the backdrop.
+        // its bounds are on the backdrop. The pointerdown of the click must be there, too: choosing an item of the
+        // list of a <select>, which the browser shows outside of the dialog, e.g. in the menu to add a metric, is a
+        // click on the dialog outside of its bounds without a pointerdown on the page.
+        let pointerDown = null;
+        this.element.addEventListener("pointerdown", event => {
+            pointerDown = {target: event.target, onBackdrop: event.target === this.element && !this.contains(event.clientX, event.clientY)};
+        });
         this.element.addEventListener("click", event => {
-            if (event.target === this.element && !this.contains(event.clientX, event.clientY)) {
+            // a click of the keyboard has no pointer
+            const down = event.detail === 0 ? {target: event.target, onBackdrop: false} : pointerDown;
+            pointerDown = null;
+            if (down === null) {
+                return;
+            }
+            if (down.onBackdrop && event.target === this.element && !this.contains(event.clientX, event.clientY)) {
                 this.close();
             }
             for (const menu of this.element.querySelectorAll("details[open]")) {
-                if (!menu.contains(event.target)) {
+                if (!menu.contains(down.target) && !menu.contains(event.target)) {
                     menu.open = false;
                 }
             }

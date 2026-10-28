@@ -8,13 +8,17 @@ package dev.ja.marketplace.data.releases
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.PluginReleaseInfo
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.chart.ChartMetricFamily
+import dev.ja.marketplace.data.chart.ChartUnit
 import dev.ja.marketplace.data.format.Formatters
+import dev.ja.marketplace.client.model.PluginDependency
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 
 /** The releases of a plugin by their channel. */
 object PluginReleases {
+
     /**
      * @return The releases of each channel of the plugin, newest first. The stable channel comes first, the other
      *  channels are sorted by their name. Channels without releases are left out.
@@ -31,6 +35,22 @@ object PluginReleases {
 
     /** @return The title of a channel, e.g. "Stable" or "eap". */
     fun channelTitle(channel: PluginChannel): String = channel.ifEmpty { "Stable" }
+
+    /** @return The title of the table of the releases of a channel, e.g. "Channel: Stable". */
+    fun tableTitle(channel: PluginChannel): String = "Channel: ${channelTitle(channel)}"
+
+    /**
+     * @return The plugin model of a release by its dependencies, `v1` or `v2`: the plugin model v2 declares
+     *  dependencies on modules of the platform, e.g. `intellij.platform.vcs`, the plugin model v1 depends on plugins
+     *  and on the modules of the products, e.g. `com.intellij.modules.platform`. It's a heuristic, the API has no
+     *  plugin model.
+     */
+    fun pluginModel(dependencies: List<PluginDependency>): String {
+        return if (dependencies.any { it.name.startsWith("intellij.") }) "v2" else "v1"
+    }
+
+    /** @return The tooltip of a plugin model, e.g. "Plugin model v2". */
+    fun pluginModelTooltip(model: String): String = "Plugin model $model"
 
     /** @return The states of a release, which aren't the usual ones, e.g. "Hidden". */
     fun unusualStates(release: PluginReleaseInfo): List<String> {
@@ -59,7 +79,7 @@ object ReleasesTableFactories {
 class ReleasesTable(
     channel: PluginChannel,
     private val releases: List<PluginReleaseInfo>,
-) : SimpleDataTable(PluginReleases.channelTitle(channel), "releases-${channel.ifEmpty { "stable" }}", "table-column-wide sortable"),
+) : SimpleDataTable(PluginReleases.tableTitle(channel), "releases-${channel.ifEmpty { "stable" }}", "table-column-wide sortable"),
     MarketplaceDataSink {
     private var pluginId: PluginId? = null
 
@@ -79,6 +99,7 @@ class ReleasesTable(
     )
     private val columnState = DataTableColumn("release-state", "State", tooltip = "Releases, which are hidden, unlisted or not approved")
 
+
     override val columns: List<DataTableColumn> by lazy {
         listOfNotNull(
             columnVersion,
@@ -92,6 +113,9 @@ class ReleasesTable(
         )
     }
 
+    // the latest releases, the others are shown on demand
+    override val collapsedRowCount: Int = SHOWN_ROWS
+
     override suspend fun init(data: PluginData) {
         super.init(data)
         this.pluginId = data.pluginId
@@ -104,13 +128,18 @@ class ReleasesTable(
 
     override suspend fun createSections(): List<DataTableSection> {
         val pluginId = pluginId!!
+        // the titles of the charts of the downloads of the releases contain their versions
+        releases.forEach { ChartMetricFamily.ReleaseDownloads.parameters[0].registerLabel(it.id.toString(), it.version) }
         val rows = releases.map { release ->
             val published = release.createdTimestamp.epochSeconds
             SimpleDateTableRow(
                 values = mapOf(
                     columnVersion to LinkedRelease(release.id, release.version, pluginId),
                     columnDate to YearMonthDay.of(release.createdTimestamp),
-                    columnDownloads to release.downloads.toBigInteger(),
+                    // a click shows the downloads of the release in a chart, see ChartMetricFamily.ReleaseDownloads
+                    columnDownloads to ChartMetricName(
+                        Formatters.formatInteger(release.downloads), downloadsMetric(release).id, "Downloads of ${release.version}", ChartUnit.Count.id(""),
+                    ),
                     columnSince to release.since?.toString(),
                     columnUntil to release.until?.toString(),
                     columnSize to Formatters.formatFileSize(release.fileSizeBytes),
@@ -138,5 +167,12 @@ class ReleasesTable(
             ),
         )
         return listOf(SimpleTableSection(rows, footer = SimpleRowGroup(footer)))
+    }
+
+    private fun downloadsMetric(release: PluginReleaseInfo) = ChartMetricFamily.ReleaseDownloads.metric(listOf(release.id.toString(), null))
+
+    companion object {
+        /** The latest releases, which are shown until the table is expanded. */
+        const val SHOWN_ROWS = 7
     }
 }

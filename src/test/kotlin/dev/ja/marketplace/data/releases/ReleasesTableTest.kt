@@ -44,7 +44,7 @@ class ReleasesTableTest {
         table.init(McpTestData.pluginData())
         val section = table.renderTable().sections.single()
 
-        assertEquals("Stable", table.title)
+        assertEquals("Channel: Stable", table.title)
         // the releases have no release versions, the state column shows the hidden release
         assertEquals(listOf("release-version", "release-date", "release-downloads", "release-since", "release-until", "release-size", "release-state"), table.columns.map { it.id })
 
