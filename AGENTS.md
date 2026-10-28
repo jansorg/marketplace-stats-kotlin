@@ -413,7 +413,8 @@ queries, and one which excludes all these tags. The results are in the order of 
 - Vertical lines in line charts: major releases of the plugin (`MajorReleases`, from the plugin's releases), changes of the
   annual base price (`PriceChanges`, derived from undiscounted new US sales, the API has no price history), the date
   at which the plugin disabled the continuity discount (kind `continuity`, `continuityDiscountDisabledAt` of
-  `MarketplacePluginInfo`, only on the pages of a plugin) and major releases of IntelliJ IDEA (`IdeReleaseProvider`, from the JetBrains product service, cached for a day), and custom
+  `MarketplacePluginInfo`, only on the pages of a plugin) and major releases of IntelliJ IDEA (`IdeReleaseProvider`, from the JetBrains product service, cached for a day, also the
+  releases before the Marketplace with the old versions like 15.0, for the downloads of free plugins), and custom
   events of a YAML file (`--events`, `CustomEventsFile`, read again when it's modified). Each custom event belongs to a
   plugin (`plugin`), a page only contains the events of its plugin, the summary of all plugins the events of the paid
   plugins. The menu "Events" of the dialog lists the custom events (selected one by one, stored as `shownEvents`), a
