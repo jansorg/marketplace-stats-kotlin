@@ -186,8 +186,9 @@ data class LinkedChurnRate(
  * @param metric The ID of the metric, see [dev.ja.marketplace.data.chart.ChartMetric].
  * @param title The title of the metric in the charts.
  * @param unit The unit of the values, e.g. the currency code of amounts.
+ * @param isButtonFirst If the button is in front of the name, e.g. of a number in a column of numbers, which are aligned right.
  */
-data class ChartMetricName(val name: String, val metric: String, val title: String, val unit: String) {
+data class ChartMetricName(val name: String, val metric: String, val title: String, val unit: String, val isButtonFirst: Boolean = false) {
     override fun toString(): String = name
 }
 

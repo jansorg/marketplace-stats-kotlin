@@ -44,8 +44,8 @@
 --%>@elseif(value is ExternalLink)<a href="${value.href}" target="_blank" rel="noopener" title="${value.tooltip}">${value.text}</a><%--
 --%>@elseif(value is LinkedChurnRate)<a href="/churn-rate/${value.periodLinkSegment}/${value.previousPeriodMarkerDate.toString()}/${value.currentPeriodMarkerDate.toString()}?pId=${value.pluginId}">@template.render(value.churnRate)</a><%--
 --%>@elseif(value is LinkedOfferUsage)<a href="${value.href}">${Formatters.formatInteger(value.count)}</a><%--
---%>@elseif(value is ChartMetricName)<span class="chart-row-name">${value.name}</span><%--
+--%>@elseif(value is ChartMetricName)@if(!value.isButtonFirst)<span class="chart-row-name">${value.name}</span>@endif<%--
     the button is shown by the charts, see makeRowChartButtons in pageControls.js
-    --%><button type="button" class="chart-row-button noprint" hidden data-chart-row-metric="${value.metric}" data-chart-row-title="${value.title}" data-chart-row-unit="${value.unit}" title="Show ${value.title} in a chart" aria-label="Show ${value.title} in a chart"><%--
-    --%><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 13.5h12 M2.5 11l3.5-4 3 2.5 4.5-6"/></svg></button><%--
+    --%><button type="button" class="chart-row-button noprint${if (value.isButtonFirst) " chart-row-button-first" else ""}" hidden data-chart-row-metric="${value.metric}" data-chart-row-title="${value.title}" data-chart-row-unit="${value.unit}" title="Show ${value.title} in a chart" aria-label="Show ${value.title} in a chart"><%--
+    --%><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 13.5h12 M2.5 11l3.5-4 3 2.5 4.5-6"/></svg></button>@if(value.isButtonFirst)<span class="chart-row-name">${value.name}</span>@endif<%--
 --%>@else${value?.toString()}@endif

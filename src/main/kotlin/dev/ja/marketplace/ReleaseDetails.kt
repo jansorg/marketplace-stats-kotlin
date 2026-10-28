@@ -119,10 +119,17 @@ class ReleaseDetails(
             }
         }
 
-        /** @return The number of downloads with a button, which shows the downloads of the metric in a chart. */
-        private fun downloadsChart(downloads: Long, metric: ChartMetric): ChartMetricName {
-            return ChartMetricName(Formatters.formatInteger(downloads), metric.id, metric.title, ChartUnit.Count.id(""))
+        /**
+         * @param isButtonFirst If the button is in front of the number, e.g. in the column of the downloads by product.
+         * @return The number of downloads with a button, which shows the downloads of the metric in a chart.
+         */
+        private fun downloadsChart(downloads: Long, metric: ChartMetric, isButtonFirst: Boolean = false): ChartMetricName {
+            return ChartMetricName(Formatters.formatInteger(downloads), metric.id, metric.title, ChartUnit.Count.id(""), isButtonFirst)
         }
+
+        /** The tooltip of the downloads without a product, see [DownloadResponseItem.UNKNOWN_PRODUCT]. */
+        private const val UNKNOWN_PRODUCT_TOOLTIP = "The Marketplace reports these downloads without a product, " +
+                "probably downloads outside of an IDE, e.g. from its website. They can't be filtered by product."
 
         private fun marketplaceUrl(path: String): String = URLBuilder(Marketplace.MarketplaceFrontendUrl).takeFrom(path).buildString()
 
@@ -132,7 +139,8 @@ class ReleaseDetails(
             val range = DataTableColumn("versions", "Versions")
             return ListTable(
                 "Compatible Products", "release-compatible-products", listOf(product, range),
-                versions.entries.sortedBy { it.key }.map { (id, versionRange) -> mapOf(product to links.of(id, id), range to versionRange) },
+                // the API writes ranges of builds with a prefix, e.g. "build 263.3889 — 263.*", the numbers are enough
+                versions.entries.sortedBy { it.key }.map { (id, versionRange) -> mapOf(product to links.of(id, id), range to versionRange.removePrefix("build ")) },
             )
         }
 
@@ -151,6 +159,9 @@ class ReleaseDetails(
                         },
                     )
                 },
+                // the list of the dependencies may be long, e.g. of the modules of the platform
+                cssClass = "table-column-wide",
+                collapsedRowCount = 10,
             )
         }
 
@@ -210,10 +221,13 @@ class ReleaseDetails(
                     val chart = family.parse("${family.id}.${release.id}.${item.name}")
                     mapOf(
                         product to links.of(item.productLabel, item.name, item.comment),
-                        downloads to (chart?.let { downloadsChart(item.value, it) } ?: Formatters.formatInteger(item.value)),
+                        downloads to (chart?.let { downloadsChart(item.value, it, isButtonFirst = true) } ?: Formatters.formatInteger(item.value)),
                     )
                 },
                 sortValues = { index -> mapOf(downloads to items[index].value) },
+                tooltips = { index ->
+                    mapOf(product to UNKNOWN_PRODUCT_TOOLTIP.takeIf { items[index].name == DownloadResponseItem.UNKNOWN_PRODUCT })
+                },
                 footer = mapOf(downloads to items.sumOf { it.value }.toBigInteger()),
                 cssClass = "sortable",
             )
@@ -248,6 +262,8 @@ class ReleaseDetails(
         private val rows: List<Map<DataTableColumn, Any?>>,
         /** The values of the sortable table by the index of a row, e.g. of formatted numbers. */
         private val sortValues: (Int) -> Map<DataTableColumn, Long?> = { emptyMap() },
+        /** The tooltips of the cells by the index of a row. */
+        private val tooltips: (Int) -> Map<DataTableColumn, String?> = { emptyMap() },
         private val footer: Map<DataTableColumn, Any?>? = null,
         cssClass: String? = null,
         override val collapsedRowCount: Int? = null,
@@ -259,7 +275,7 @@ class ReleaseDetails(
         override suspend fun createSections(): List<DataTableSection> {
             return listOf(
                 SimpleTableSection(
-                    rows.mapIndexed { index, row -> SimpleDateTableRow(values = row, sortValues = sortValues(index)) },
+                    rows.mapIndexed { index, row -> SimpleDateTableRow(values = row, tooltips = tooltips(index), sortValues = sortValues(index)) },
                     footer = footer?.let { SimpleRowGroup(listOf(SimpleDateTableRow(values = it))) },
                 )
             )

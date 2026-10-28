@@ -828,7 +828,8 @@ function seriesMenu(series, sections, onSelect) {
 
 /**
  * @return {HTMLElement[]} The item of a parameter of a line of a metric of a family, e.g. "Release: 1.0", and its
- *  submenu below it, which a click shows and hides. The submenu lists the values of the parameter and scrolls.
+ *  submenu, a popup beside the menu, which a click on the item shows and hides. The submenu lists the values of the
+ *  parameter and scrolls, e.g. the releases.
  */
 function parameterSubmenu(section, radioButton) {
     const toggle = document.createElement("button");
@@ -846,13 +847,32 @@ function parameterSubmenu(section, radioButton) {
     submenu.hidden = true;
     section.items.forEach(item => submenu.append(radioButton(section, item)));
     toggle.addEventListener("click", () => {
-        submenu.hidden = !submenu.hidden;
-        toggle.setAttribute("aria-expanded", String(!submenu.hidden));
-        if (!submenu.hidden) {
+        const isOpen = submenu.hidden;
+        // the submenu of another parameter of the line is closed
+        toggle.closest(".chart-menu-items")?.querySelectorAll(".chart-series-parameter-values").forEach(other => {
+            other.hidden = true;
+            other.previousElementSibling?.setAttribute("aria-expanded", "false");
+        });
+        submenu.hidden = !isOpen;
+        toggle.setAttribute("aria-expanded", String(isOpen));
+        if (isOpen) {
+            placeBeside(submenu, toggle);
             submenu.querySelector("[aria-checked=true]")?.scrollIntoView({block: "nearest"});
         }
     });
     return [toggle, submenu];
+}
+
+/**
+ * Places a popup beside an item of a menu in the window, to the right, or to the left without space on the right,
+ * like the submenus of the menu to add metrics.
+ */
+function placeBeside(popup, item) {
+    const bounds = item.getBoundingClientRect();
+    const {width, height} = popup.getBoundingClientRect();
+    const left = bounds.right + width <= window.innerWidth ? bounds.right : Math.max(0, bounds.left - width);
+    popup.style.left = left + "px";
+    popup.style.top = Math.max(0, Math.min(bounds.top, window.innerHeight - height)) + "px";
 }
 
 /**
