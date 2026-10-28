@@ -26,6 +26,10 @@ enum class DownloadDimension {
     @SerialName("day")
     Day,
 
+    // downloads grouped by calendar week, from Monday
+    @SerialName("week")
+    Week,
+
     // downloads grouped by release of the plugin
     @SerialName("update")
     Update,

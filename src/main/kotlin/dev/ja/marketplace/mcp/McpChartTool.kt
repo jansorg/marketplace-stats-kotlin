@@ -328,7 +328,11 @@ class McpChartTool(private val provider: McpDataProvider) {
                                         "the discount amount of an offer or discount (${ChartMetricFamily.Discount.id}.<id>, see chartMetrics of get_offer_usage), " +
                                         "the downloads of a release (${ChartMetricFamily.ReleaseDownloads.id}.<release ID of list_plugin_releases>), " +
                                         "of a release in a product (${ChartMetricFamily.ReleaseDownloads.id}.<release ID>.<product code, e.g. IIU>), " +
-                                        "or of the plugin in a product (${ChartMetricFamily.ProductDownloads.id}.<product code, e.g. IIU>)"
+                                        "or of the plugin in a product (${ChartMetricFamily.ProductDownloads.id}.<product code, e.g. IIU>), " +
+                                        "and the unique downloads of the plugin (${ChartMetricFamily.UniqueDownloads.id}), of a release " +
+                                        "(${ChartMetricFamily.ReleaseUniqueDownloads.id}.<release ID>[.<product code>]) or in a product " +
+                                        "(${ChartMetricFamily.ProductUniqueDownloads.id}.<product code>), only of the windows day, week " +
+                                        "(the calendar week at the detail week) and calendar-month, unique downloads can't be summed"
                             ))
                             put("window", enumProperty(ChartRequest.windowIds, "Window of sums and rates. Default: the window of the chart"))
                             put("average", buildJsonObject {
@@ -388,7 +392,7 @@ class McpChartTool(private val provider: McpDataProvider) {
 
         val values = provider.chartValues(plugin)
         // e.g. the downloads of a release are loaded when they're requested
-        values.prepare(request.series.map { it.metric })
+        values.prepare(request.series.map { it.metric }, windows = request.series.map { it.window ?: request.window ?: ChartRequest.detailWindow(request.detail) })
         val markers = markers(plugin, request.markers)
         val subject = plugin?.name ?: "All paid plugins"
         val (chart, image) = withContext(Dispatchers.Default) {

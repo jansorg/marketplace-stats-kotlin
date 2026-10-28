@@ -519,7 +519,7 @@ class MarketplaceStatsServer(
                     // the finer dates of short windows are days, see ChartExport.lineDetail
                     val byMonth = ChartData.isByMonth(request.detail, windows, averageMonths) &&
                             request.lines.all { ChartExport.lineDetail(it.window, request.detail) == request.detail }
-                    values.prepare(request.lines.map { it.metric }, ChartData.loadStart(request.from, windows, months), byMonth)
+                    values.prepare(request.lines.map { it.metric }, ChartData.loadStart(request.from, windows, months), byMonth, windows)
                     withContext(Dispatchers.Default) { ChartExport.table(values, request, plugin?.let { it.id to it.name }) }
                 } ?: return@get
                 // the values are calculated with the current data

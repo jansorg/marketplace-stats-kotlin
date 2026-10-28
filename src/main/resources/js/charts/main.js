@@ -24,7 +24,7 @@ import {createLineChart} from "./lineChart.js";
 import {isAbortError, metricDataId, metricEntry, metricSeries, MetricValueCache} from "./metricValues.js";
 import {
     canCombineUnits, chartExportUrl, chartLevel, chartLevelKeys, dateRange, detailGranularity, detailPeriod, exportFileName, familyMetricId, familyOfMetric,
-    finestDetail, groupCharts, groupUnits, loadedRangeStart, parameterSections, parameterValuesKey,
+    allowedWindow, finestDetail, groupCharts, groupUnits, loadedRangeStart, parameterSections, parameterValuesKey,
     lineChartKey, lineDetail, MARKER_KINDS, MAX_PIES, MAX_SERIES, METRIC_PERIOD, metricLabel, metricPoints, nextColor, overlayApplies, OVERLAYS,
     pieSlices, previousYear, rangeLabel, rangeOfPreset, rangeOfTimestamps, rangeTimestamps, rangeYears, seriesStyle, shownWindow, storedChartLevel,
     visibleMarkers, withoutIncomplete,
@@ -385,7 +385,8 @@ class ChartController {
      *  A metric of /chart-metrics.
      */
     addMetric(metric, window, average = null) {
-        const uncolored = metricSeries({metric: metric.id, window, usesWindow: metric.usesWindow, average, label: metric.title,
+        // e.g. the unique downloads have no values of the window of the last 12 months
+        const uncolored = metricSeries({metric: metric.id, window: allowedWindow(window, metric.windows), usesWindow: metric.usesWindow, average, label: metric.title,
             unit: metric.unit, measure: metric.measure});
         const series = {...uncolored, color: this.colorOf(uncolored)};
         const rejection = this.rejectSeries(series);
@@ -966,6 +967,7 @@ class ChartController {
             const label = metricLabel({label: values.title, usesWindow: values.usesWindow}, window, shownWindow("follow", level.detail))
                 + (s.average ? `, ${s.average}-month average` : "");
             return [{...s, ...points, label, unit: values.unit, measure: values.measure, usesWindow: values.usesWindow, fractionDigits: values.fractionDigits,
+                ...(values.windows ? {windows: values.windows} : {}),
                 window, selectedWindow: s.window ?? level.window, detail, period: detailPeriod(detail), parameterSections: this.parameterSectionsOf(s)}];
         });
     }

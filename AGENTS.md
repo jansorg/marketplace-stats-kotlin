@@ -183,7 +183,8 @@ queries, and one which excludes all these tags. The results are in the order of 
   For testing, prefer a plugin with few sales, because plugins with a long sales history take much longer to load.
 - Useful routes: `/` (plugin list with the summary of all paid plugins, `--no-all-plugins-summary` disables it, or report with `?pluginId=<id>`), `/licenses`, `/customers`, `/trials`, `/countries`,
   `/pricing`, `/offers` (see "Offers"), `/releases` (a table of each release channel, the downloads have a chart of
-  the release, the versions link to `/release/<id>`, all data of a release, `ReleaseDetails`, with charts of its
+  the release, the header of the column the chart of the downloads of the plugin (`DataTableColumn.showsMetricChart`),
+  the versions link to `/release/<id>`, all data of a release, `ReleaseDetails`, with charts of its
   downloads and a badge of the plugin model, a heuristic by the dependencies, `PluginReleases.pluginModel`), `/downloads/monthly`, `/chart-data` (JSON), `/chart-export` (CSV or JSON of the lines of a chart, see "Charts"), all with `?pluginId=<id>`. `POST /refresh?pluginId=<id>&reload=true` drops cached data.
   See the routing in `MarketplaceStatsServer.kt`.
 - The MCP server is served at `/mcp` (Streamable HTTP, `src/main/kotlin/dev/ja/marketplace/mcp/`, see README.md).
@@ -417,7 +418,12 @@ queries, and one which excludes all these tags. The results are in the order of 
     downloads are loaded by month, which is faster (`ChartData.isByMonth`, a month is counted at its last day, the
     current month at today), by calendar year from January 1 (`yearChunks`): the statistics service only counts whole
     calendar months, a start within a month leaves out the month, an end within a month is ignored. Downloads by month
-    are loaded again by day, when a request needs days. The page of a release has the charts of
+    are loaded again by day, when a request needs days.
+  - Unique downloads (`unique-downloads`, `release-unique-downloads`, `product-unique-downloads`) only have the windows
+    Per day, Week and Calendar month (`ChartMetricFamily.windows`, listed by `/chart-metrics` and `/chart-data`, the
+    legend and the "+" menu only offer them): they can't be summed, the statistics service has them by day, calendar
+    week and calendar month (`ChartDownloadsSource.uniqueDownloads`, `weekChunks`). The value of a week is at its
+    Sunday, the dates of the level Week, of a month at its last day, and today. The page of a release has the charts of
     the other pages, its downloads have the buttons of `ChartMetricName`, the requests of the charts use
     `data-plugin-id` of the `<body>` (`pageEndpoint` in `endpoints.js`), the page has the parameter `pId`.
   - Decimals: `ChartMetric.fractionDigits` is the maximum number of decimals of the shown values of a metric, e.g. of

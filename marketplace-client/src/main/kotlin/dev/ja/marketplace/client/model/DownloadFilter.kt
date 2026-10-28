@@ -10,6 +10,11 @@ import dev.ja.marketplace.services.JetBrainsProductCode
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+/**
+ * A filter of the download statistics. The service applies the filters by release ([update]) and by product
+ * ([productCode]), also together and for unique downloads, and ignores the filters by country and major version.
+ * The group of the downloads without a known product (`unknown`) can't be filtered, the service answers it with 400.
+ */
 @Serializable
 data class DownloadFilter(
     @SerialName("name")

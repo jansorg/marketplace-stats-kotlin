@@ -6,7 +6,11 @@
 package dev.ja.marketplace
 
 import dev.ja.marketplace.client.YearMonthDay
+import dev.ja.marketplace.client.model.DailyDownload
+import dev.ja.marketplace.client.model.DownloadRequestDimension
 import dev.ja.marketplace.data.chart.ChartDetail
+import dev.ja.marketplace.data.chart.ChartDownloadsSource
+import dev.ja.marketplace.data.chart.ChartParameterValue
 import dev.ja.marketplace.data.chart.ChartMetric
 import dev.ja.marketplace.data.chart.ChartWindow
 import dev.ja.marketplace.mcp.McpTestData
@@ -111,6 +115,24 @@ class ChartDataTest {
         assertFalse(ChartData.isByMonth(ChartDetail.Day, listOf(ChartWindow.CalendarMonth), 0))
         assertFalse(ChartData.isByMonth(ChartDetail.Month, listOf(ChartWindow.Month), 0))
         assertFalse(ChartData.isByMonth(ChartDetail.Month, listOf(ChartWindow.CalendarMonth), 3))
+    }
+
+    @Test
+    suspend fun metricsOfTheDownloadsOfReleasesAndProducts() {
+        val source = object : ChartDownloadsSource {
+            override suspend fun releases() = emptyList<ChartParameterValue>()
+            override suspend fun products() = emptyList<ChartParameterValue>()
+            override suspend fun downloads(release: Int?, product: String?, start: YearMonthDay, byMonth: Boolean) = emptyList<DailyDownload>()
+            override suspend fun uniqueDownloads(release: Int?, product: String?, start: YearMonthDay, period: DownloadRequestDimension) =
+                emptyList<DailyDownload>()
+        }
+        val metrics = ChartData { source }.values(McpTestData.pluginData(free = true)).let(ChartData::metrics).associateBy { it.id }
+        assertEquals(listOf("downloads", "release-downloads", "product-downloads", "unique-downloads", "release-unique-downloads", "product-unique-downloads"), metrics.keys.toList())
+        // the unique downloads of the plugin are a metric without parameters, with the windows of the statistics service
+        assertNull(metrics.getValue("unique-downloads").parameters)
+        assertEquals(listOf("day", "week", "calendar-month"), metrics.getValue("unique-downloads").windows)
+        assertEquals(listOf("release", "product"), metrics.getValue("release-unique-downloads").parameters!!.map { it.id })
+        assertNull(metrics.getValue("release-downloads").windows)
     }
 
     @Test

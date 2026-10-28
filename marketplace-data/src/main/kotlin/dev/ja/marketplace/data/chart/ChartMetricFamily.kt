@@ -56,6 +56,8 @@ data class ChartParameterValue(val value: String, val label: String)
  * @param title The name of the family, e.g. in the menu to add metrics.
  * @param metricTitle The title of a metric of the family by the labels of its values, `null` for missing optional values.
  * @param isValidValue If a value of a parameter by its index is valid, e.g. a number for the ID of a release.
+ * @param windows The windows, which have values, `null` for all windows, e.g. the unique downloads only exist for the
+ *  periods of the statistics service. A family without parameters has a single metric with the ID of the family.
  */
 class ChartMetricFamily internal constructor(
     val id: String,
@@ -69,6 +71,7 @@ class ChartMetricFamily internal constructor(
     val fractionDigits: Int,
     private val metricTitle: (List<String?>) -> String,
     private val isValidValue: (index: Int, value: String) -> Boolean = { _, _ -> true },
+    val windows: Set<ChartWindow>? = null,
 ) {
     val usesWindow: Boolean get() = measure != ChartMeasure.Stock
 
@@ -93,6 +96,9 @@ class ChartMetricFamily internal constructor(
 
     /** @return The metric of the ID, if it's a valid ID of the family, e.g. `release-downloads.1234`. */
     fun parse(metricId: String): ChartMetric? {
+        if (parameters.isEmpty()) {
+            return if (metricId == id) metric(emptyList()) else null
+        }
         val values = metricId.removePrefix("$id.").takeIf { it != metricId }?.split('.') ?: return null
         val required = parameters.count { !it.isOptional }
         if (values.size !in required..parameters.size || values.withIndex().any { (index, value) -> value.isEmpty() || !isValidValue(index, value) }) {
@@ -164,6 +170,53 @@ class ChartMetricFamily internal constructor(
                 isPaidOnly = false, fractionDigits = 1,
                 metricTitle = { (product) -> "Downloads in $product" },
                 isValidValue = { _, value -> isProductCode(value) },
+            )
+        )
+
+        /**
+         * The windows of the unique downloads: the statistics service has them by day, calendar week and calendar
+         * month, they can't be summed, e.g. a user, who downloads on two days, is counted once in the month. At the
+         * level Week, whose dates are Sundays, the window [ChartWindow.Week] is the calendar week.
+         */
+        val UNIQUE_DOWNLOADS_WINDOWS: Set<ChartWindow> = setOf(ChartWindow.Day, ChartWindow.Week, ChartWindow.CalendarMonth)
+
+        /** The unique downloads of the plugin, e.g. `unique-downloads`. */
+        val UniqueDownloads = register(
+            ChartMetricFamily(
+                "unique-downloads", "Unique downloads", ChartMeasure.Flow, ChartUnit.Count, "Downloads",
+                "The unique downloads of the plugin in the window: a day, a calendar week or a calendar month",
+                emptyList(), isPaidOnly = false, fractionDigits = 1,
+                metricTitle = { "Unique downloads" },
+                windows = UNIQUE_DOWNLOADS_WINDOWS,
+            )
+        )
+
+        /** The unique downloads of a release, optionally in a product, e.g. `release-unique-downloads.1234.IIU`. */
+        val ReleaseUniqueDownloads = register(
+            ChartMetricFamily(
+                "release-unique-downloads", "Unique downloads of a release", ChartMeasure.Flow, ChartUnit.Count, "Downloads",
+                "The unique downloads of a release of the plugin in the window: a day, a calendar week or a calendar month",
+                listOf(
+                    ChartMetricParameter("release", "Release", defaultLabel = { "release $it" }),
+                    ChartMetricParameter("product", "Product", allLabel = "All products"),
+                ),
+                isPaidOnly = false, fractionDigits = 1,
+                metricTitle = { (release, product) -> "Unique downloads of $release in ${product ?: "all products"}" },
+                isValidValue = { index, value -> if (index == 0) value.toIntOrNull() != null else isProductCode(value) },
+                windows = UNIQUE_DOWNLOADS_WINDOWS,
+            )
+        )
+
+        /** The unique downloads of the plugin in a product, e.g. `product-unique-downloads.IIU`. */
+        val ProductUniqueDownloads = register(
+            ChartMetricFamily(
+                "product-unique-downloads", "Unique downloads in a product", ChartMeasure.Flow, ChartUnit.Count, "Downloads",
+                "The unique downloads of the plugin in a JetBrains product in the window: a day, a calendar week or a calendar month",
+                listOf(ChartMetricParameter("product", "Product")),
+                isPaidOnly = false, fractionDigits = 1,
+                metricTitle = { (product) -> "Unique downloads in $product" },
+                isValidValue = { _, value -> isProductCode(value) },
+                windows = UNIQUE_DOWNLOADS_WINDOWS,
             )
         )
 

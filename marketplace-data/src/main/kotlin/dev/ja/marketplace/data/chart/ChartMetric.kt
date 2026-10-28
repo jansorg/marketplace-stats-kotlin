@@ -61,6 +61,9 @@ class ChartMetric private constructor(
     val family: ChartMetricFamily? = null,
     val parameterValues: List<String?> = emptyList(),
 ) {
+    /** The windows, which have values, `null` for all windows, see [ChartMetricFamily.windows]. */
+    val windows: Set<ChartWindow>? get() = family?.windows
+
     /** The title, a metric of a family has the labels of its values, e.g. the version of a release. */
     val title: String get() = fixedTitle ?: family!!.title(parameterValues)
 

@@ -15,6 +15,9 @@ enum class DownloadRequestDimension(val requestPathSegment: String) {
     // downloads grouped by day
     Day("day"),
 
+    // downloads grouped by calendar week from Monday, named by its Monday, only whole weeks are counted
+    Week("week"),
+
     // downloads grouped by release of the plugin, the name of a group is the ID of the release
     Update("update"),
 }

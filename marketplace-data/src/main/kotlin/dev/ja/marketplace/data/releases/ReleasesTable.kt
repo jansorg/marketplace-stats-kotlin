@@ -8,6 +8,7 @@ package dev.ja.marketplace.data.releases
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.PluginReleaseInfo
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.chart.ChartMetric
 import dev.ja.marketplace.data.chart.ChartMetricFamily
 import dev.ja.marketplace.data.chart.ChartUnit
 import dev.ja.marketplace.data.format.Formatters
@@ -89,7 +90,11 @@ class ReleasesTable(
     // the header of the column is the title of the table, the name of the channel
     private val columnVersion = DataTableColumn("release-version", null, accessibleTitle = "Version")
     private val columnDate = DataTableColumn("release-date", "Published", preSorted = AriaSortOrder.Descending)
-    private val columnDownloads = DataTableColumn("release-downloads", "Downloads", "num")
+    // the header shows the chart of the downloads of the plugin, like the column of the overview, each row the chart of its release
+    private val columnDownloads = DataTableColumn(
+        "release-downloads", "Downloads", "num", chartTitle = "Downloads",
+        chartMetric = ChartMetric.Downloads.id, chartMeasure = ChartMeasure.Flow, showsMetricChart = true,
+    )
     private val columnSince = DataTableColumn("release-since", "From", tooltip = "The first build of the IDEs, which the release supports")
     private val columnUntil = DataTableColumn("release-until", "Until", tooltip = "The last build of the IDEs, which the release supports, e.g. 252.*")
     private val columnSize = DataTableColumn("release-size", "Size", "num")
@@ -115,6 +120,9 @@ class ReleasesTable(
 
     // the latest releases, the others are shown on demand
     override val collapsedRowCount: Int = SHOWN_ROWS
+
+    // the chart of the downloads of the column starts at the level of the overview, the calendar months
+    override val chartPeriod: ChartPeriod = ChartPeriod.Month
 
     override suspend fun init(data: PluginData) {
         super.init(data)
