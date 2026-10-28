@@ -7,11 +7,14 @@ package dev.ja.marketplace
 
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.data.chart.ChartDetail
+import dev.ja.marketplace.data.chart.ChartMetric
 import dev.ja.marketplace.data.chart.ChartWindow
 import dev.ja.marketplace.mcp.McpTestData
 import kotlinx.serialization.json.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -86,6 +89,15 @@ class ChartDataTest {
         // the tooltips of the menu to add metrics, each metric has its own
         assertTrue(metrics.all { it.description.isNotBlank() })
         assertEquals(metrics.size, metrics.map { it.description }.toSet().size)
+    }
+
+    @Test
+    suspend fun metricsOfFreePlugin() {
+        // a free plugin has no sales, licenses and trials, the menu only offers its downloads
+        val values = ChartData().values(McpTestData.pluginData(free = true))
+        assertEquals(listOf("downloads"), ChartData.metrics(values).map { it.id })
+        assertNotNull(values.series(ChartMetric.Downloads, ChartWindow.CalendarMonth))
+        assertNull(values.series(ChartMetric.Sales, ChartWindow.CalendarMonth))
     }
 
     @Test

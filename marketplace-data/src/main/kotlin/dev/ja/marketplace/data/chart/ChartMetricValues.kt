@@ -496,6 +496,8 @@ class ChartMetricValues private constructor(
         private val customerTypeShares = CustomerType.entries.associateBy(ChartMetric::customerTypeShare)
 
         /** The metrics of the summary of all plugins. */
+        private val freePluginMetrics = setOf(ChartMetric.Downloads)
+
         private val allPluginsMetrics = setOf(
             ChartMetric.Sales, ChartMetric.Fees, ChartMetric.Invoice, ChartMetric.Downloads, ChartMetric.Mrr, ChartMetric.Arr,
             ChartMetric.ChurnCombined, ChartMetric.NewCustomers, ChartMetric.NewLicenses,
@@ -530,6 +532,17 @@ class ChartMetricValues private constructor(
         ): ChartMetricValues {
             val metrics = ChartMetric.all.toSet() + discountMetrics(licenses)
             return create(sales, listOf(licenses), trials, downloads, revenue, exchangeRates, today, maxTrialDays, metrics)
+        }
+
+        /**
+         * @return The values of a free plugin, which has no sales, licenses and trials: only its downloads.
+         */
+        fun freePlugin(
+            downloads: List<DailyDownload>,
+            exchangeRates: ExchangeRates,
+            today: YearMonthDay = YearMonthDay.now(),
+        ): ChartMetricValues {
+            return create(emptyList(), emptyList(), emptyList(), downloads, null, exchangeRates, today, Marketplace.MAX_TRIAL_DAYS_DEFAULT, freePluginMetrics)
         }
 
         /**
