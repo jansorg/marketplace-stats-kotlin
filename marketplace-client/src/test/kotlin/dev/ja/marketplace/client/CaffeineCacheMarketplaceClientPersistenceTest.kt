@@ -6,13 +6,11 @@
 package dev.ja.marketplace.client
 
 import dev.ja.marketplace.client.persistentCache.PersistentCacheStore
-import io.ktor.client.*
 import io.ktor.client.engine.mock.*
-import io.ktor.client.plugins.*
-import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
-import kotlinx.serialization.json.Json
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -48,20 +46,7 @@ class CaffeineCacheMarketplaceClientPersistenceTest {
             respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
         }
 
-        val httpClient = HttpClient(engine) {
-            install(ContentNegotiation) {
-                json(Json {
-                    ignoreUnknownKeys = true
-                    isLenient = true
-                })
-            }
-            install(DefaultRequest) {
-                url("https://${Marketplace.HOSTNAME}")
-            }
-            expectSuccess = true
-        }
-
-        return CaffeineCacheMarketplaceClient(httpClient = httpClient, persistentCache = store)
+        return CaffeineCacheMarketplaceClient(httpClientBuilder = mockHttpClientBuilder(engine), persistentCache = store)
     }
 
     private fun saleJson(ref: String, date: YearMonthDay): String = """
@@ -107,6 +92,19 @@ class CaffeineCacheMarketplaceClientPersistenceTest {
         assertTrue(salesRequests.isNotEmpty() && trialRequests.isNotEmpty())
         assertTrue(salesRequests.size < initialSalesRequests, "$salesRequests")
         assertTrue(trialRequests.size < initialTrialRequests, "$trialRequests")
+    }
+
+    @Test
+    suspend fun concurrentRequestsShareTheFirstFetch() = coroutineScope {
+        createClient(PersistentCacheStore(tempDir.resolve("single")).accountStore(Marketplace.HOSTNAME, "key")).salesInfo(1)
+        val singleRequests = salesRequests.size
+        salesRequests.clear()
+
+        // e.g. the tables of a page, which are calculated at the same time
+        val client = createClient(PersistentCacheStore(tempDir.resolve("concurrent")).accountStore(Marketplace.HOSTNAME, "key"))
+        val results = (1..4).map { async { client.salesInfo(1) } }.awaitAll()
+        assertEquals(1, results.distinct().size)
+        assertEquals(singleRequests, salesRequests.size)
     }
 
     @Test

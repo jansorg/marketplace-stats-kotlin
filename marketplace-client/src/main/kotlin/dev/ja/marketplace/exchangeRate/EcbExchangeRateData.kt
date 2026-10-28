@@ -7,7 +7,14 @@
 
 package dev.ja.marketplace.exchangeRate
 
+import dev.ja.marketplace.client.HttpClientBuilder
+import dev.ja.marketplace.client.HttpClientFactory
 import dev.ja.marketplace.client.Marketplace
+import io.ktor.client.*
+import io.ktor.client.plugins.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import kotlinx.coroutines.runBlocking
 import dev.ja.marketplace.client.persistentCache.PersistentCacheStore
 import it.unimi.dsi.fastutil.objects.Object2IntMap
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
@@ -19,9 +26,6 @@ import org.slf4j.LoggerFactory
 import java.io.InputStream
 import java.math.BigDecimal
 import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -202,13 +206,13 @@ class EcbExchangeRateData(
     private val retryDelay: Duration = Duration.ofMinutes(10),
     private val clock: Clock = Clock.systemUTC(),
     private val downloader: (() -> EcbRateTable)? = null,
+    httpClientBuilder: HttpClientBuilder = HttpClientFactory.builder(),
 ) {
-    private val httpClient: HttpClient by lazy {
-        HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(30))
-            .followRedirects(HttpClient.Redirect.NORMAL)
-            .build()
-    }
+    // guarded by this
+    private var httpClientBuilder: HttpClientBuilder = httpClientBuilder
+
+    // created on the first download, guarded by this
+    private var httpClient: HttpClient? = null
 
     @Volatile
     private var cached: Pair<Instant, EcbRateTable>? = null
@@ -232,6 +236,21 @@ class EcbExchangeRateData(
             this.store = store
             isDiskChecked = false
         }
+    }
+
+    /**
+     * The settings of the HTTP client of the downloads, e.g. the user agent of the application.
+     */
+    fun useHttpClientBuilder(builder: HttpClientBuilder) {
+        synchronized(this) {
+            httpClientBuilder = builder
+            httpClient?.close()
+            httpClient = null
+        }
+    }
+
+    private fun httpClient(): HttpClient = synchronized(this) {
+        httpClient ?: httpClientBuilder.build().also { httpClient = it }
     }
 
     fun get(): EcbRateTable {
@@ -338,18 +357,14 @@ class EcbExchangeRateData(
     private fun download(): EcbRateTable {
         downloader?.let { return it() }
 
-        val request = HttpRequest.newBuilder(dataUrl)
-            .timeout(Duration.ofMinutes(1))
-            .GET()
-            .build()
-
-        val response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream())
-        if (response.statusCode() != 200) {
-            response.body().close()
-            throw IllegalStateException("Unable to load ECB exchange rates from $dataUrl: HTTP ${response.statusCode()}")
+        // the callers of get() don't suspend, the download blocks the calling thread like before
+        val archive = runBlocking {
+            httpClient().get(dataUrl.toString()) {
+                timeout { requestTimeoutMillis = DOWNLOAD_TIMEOUT.toMillis() }
+            }.readRawBytes()
         }
 
-        ZipInputStream(response.body()).use { zip ->
+        ZipInputStream(archive.inputStream()).use { zip ->
             zip.nextEntry ?: throw IllegalStateException("ECB exchange rate archive $dataUrl is empty")
             return EcbRateTable.parseCsv(zip, minDate)
         }
@@ -359,6 +374,8 @@ class EcbExchangeRateData(
         private val logger = LoggerFactory.getLogger(EcbExchangeRateData::class.java)
 
         private const val FILE_NAME = "ecb-exchange-rates"
+
+        private val DOWNLOAD_TIMEOUT: Duration = Duration.ofMinutes(1)
 
         // version of the stored data, increment it after incompatible changes of CachedEcbRates
         private const val DATA_VERSION = 1

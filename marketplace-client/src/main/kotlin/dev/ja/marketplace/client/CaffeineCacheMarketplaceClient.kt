@@ -11,7 +11,6 @@ import dev.hsbrysk.caffeine.buildCoroutine
 import dev.ja.marketplace.client.model.*
 import dev.ja.marketplace.client.persistentCache.*
 import dev.ja.marketplace.services.JetBrainsProductCode
-import io.ktor.client.*
 import io.ktor.client.plugins.*
 import io.ktor.http.*
 import kotlinx.coroutines.CancellationException
@@ -19,13 +18,13 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.serializer
 import org.slf4j.LoggerFactory
-import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 import dev.ja.marketplace.client.CachingStrategy.Category
 import kotlin.time.Duration
@@ -41,31 +40,14 @@ import kotlin.time.Duration.Companion.minutes
  * The store must only be used for the data of a single account, see [PersistentCacheStore.accountStore].
  */
 class CaffeineCacheMarketplaceClient(
+    apiKey: String? = null,
+    httpClientBuilder: HttpClientBuilder = HttpClientFactory.builder(),
     apiHost: String = Marketplace.HOSTNAME,
     apiPath: String = Marketplace.API_PATH,
-    dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2),
-    httpClient: HttpClient,
+    processingDispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2),
     private val persistentCache: PersistentCacheStore? = null,
     private val cachingStrategy: CachingStrategy = CachingStrategy(),
-) : KtorMarketplaceClient(apiHost, apiPath, dispatcher, httpClient), CacheAware {
-    constructor(
-        apiKey: String,
-        apiHost: String = Marketplace.HOSTNAME,
-        apiPath: String = Marketplace.API_PATH,
-        logLevel: ClientLogLevel = ClientLogLevel.None,
-        enableHttpCaching: Boolean = false,
-        dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2),
-        persistentCacheDirectory: Path? = null,
-        cachingStrategy: CachingStrategy = CachingStrategy(),
-    ) : this(
-        apiHost,
-        apiPath,
-        dispatcher,
-        KtorHttpClientFactory.createHttpClient(apiHost, apiKey, logLevel = logLevel, enableHttpCaching = enableHttpCaching),
-        persistentCache = persistentCacheDirectory?.let { PersistentCacheStore(it).accountStore(apiHost, apiKey) },
-        cachingStrategy = cachingStrategy,
-    )
-
+) : KtorMarketplaceClient(apiKey, httpClientBuilder, apiHost, apiPath, processingDispatcher), CacheAware {
     private val persistentHistorySettings = cachingStrategy.historySettings
 
     private val cache = Caffeine.newBuilder()
@@ -101,6 +83,15 @@ class CaffeineCacheMarketplaceClient(
         persistentTrials.values.forEach(PersistentHistoryCache<*, *>::invalidate)
         persistentPrices?.invalidate()
         persistentDownloads?.invalidate()
+    }
+
+    /**
+     * Cancels the background updates of the persistent cache and closes the HTTP clients.
+     * The files of the persistent cache are written atomically, a cancelled update doesn't leave a partial file.
+     */
+    override fun close() {
+        persistentCacheScope.cancel()
+        super.close()
     }
 
     /**
@@ -514,6 +505,43 @@ class CaffeineCacheMarketplaceClient(
         }
     }
 
+    override suspend fun pluginReleaseDependencies(pluginReleaseId: PluginReleaseId): List<PluginDependency> {
+        // the dependencies of a release don't change
+        return loadCached("pluginReleaseDependencies.$pluginReleaseId", Category.Static) {
+            super.pluginReleaseDependencies(pluginReleaseId)
+        }
+    }
+
+    override suspend fun unsupportedReleaseProducts(pluginReleaseId: PluginReleaseId): List<PluginUnsupportedProduct> {
+        return loadCached("unsupportedReleaseProducts.$pluginReleaseId", Category.Daily) {
+            super.unsupportedReleaseProducts(pluginReleaseId)
+        }
+    }
+
+    override suspend fun pluginDevelopers(plugin: PluginId): List<JetBrainsAccountInfo> {
+        return loadCached("pluginDevelopers.$plugin", Category.Daily) {
+            super.pluginDevelopers(plugin)
+        }
+    }
+
+    override suspend fun pluginFeatures(plugin: PluginId): List<PluginFeature> {
+        return loadCached("pluginFeatures.$plugin", Category.Daily) {
+            super.pluginFeatures(plugin)
+        }
+    }
+
+    override suspend fun marketplacePrograms(plugin: PluginId): List<MarketplaceProgram> {
+        return loadCached("marketplacePrograms.$plugin", Category.Daily) {
+            super.marketplacePrograms(plugin)
+        }
+    }
+
+    override suspend fun userVendors(userId: UserId): List<PluginVendor> {
+        return loadCached("userVendors.$userId", Category.Daily) {
+            super.userVendors(userId)
+        }
+    }
+
     override suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo {
         val loader: suspend (Boolean) -> Stored<PluginPriceInfo> = { forceFetch ->
             when (persistentPrices) {
@@ -574,6 +602,8 @@ class CaffeineCacheMarketplaceClient(
                 val age = (System.currentTimeMillis() - stored.fetchedMillis).coerceAtLeast(0).milliseconds
                 // a short minimum, so that outdated stored data isn't read again by every request
                 CacheValue(storedCategory, (cachingStrategy.expiry(storedCategory) - age).coerceAtLeast(1.minutes), stored.value, null, refreshValue, stored.fetchedMillis)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: ClientRequestException) {
                 // Only missing data is cached, briefly. Other errors, e.g. too many requests or a rejected API key,
                 // aren't cached, the next request tries again.
@@ -581,6 +611,13 @@ class CaffeineCacheMarketplaceClient(
                     throw e
                 }
                 CacheValue(category, minOf(expiry, NOT_FOUND_EXPIRY), null, e, refreshValue)
+            } catch (e: Exception) {
+                // Server errors and failed connections, after the retries of the HTTP client, are cached briefly,
+                // so that the following requests, e.g. of the other tables of a page, don't try again at once.
+                if (!e.isTemporaryFailure()) {
+                    throw e
+                }
+                CacheValue(category, minOf(expiry, FAILURE_EXPIRY), null, e, refreshValue)
             }
         } ?: throw IllegalStateException("Failed to compute cache value for $key")
 
@@ -600,7 +637,7 @@ private class CacheValue(
     val category: Category,
     val expireAfterWrite: Duration,
     val result: Any?,
-    val exception: ClientRequestException?,
+    val exception: Exception?,
     val refresh: suspend () -> Any?,
     val createdMillis: Long = System.currentTimeMillis(),
 ) {
@@ -628,3 +665,9 @@ private val logger = LoggerFactory.getLogger(CaffeineCacheMarketplaceClient::cla
 
 /** How long requests use the response, that data doesn't exist, e.g. of a removed plugin. */
 private val NOT_FOUND_EXPIRY: Duration = 5.minutes
+
+/** How long requests use a temporary failure, see [isTemporaryFailure]. */
+private val FAILURE_EXPIRY: Duration = 1.minutes
+
+/** A server error or a failed connection, e.g. a timeout, but not a rejected request. */
+private fun Exception.isTemporaryFailure(): Boolean = this is ServerResponseException || this is java.io.IOException

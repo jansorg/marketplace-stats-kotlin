@@ -13,14 +13,12 @@ import dev.ja.marketplace.client.model.TeamCityRecipesFamily
 import dev.ja.marketplace.client.model.PluginRatingCategory
 import dev.ja.marketplace.client.model.PluginVerificationType
 import dev.ja.marketplace.client.model.UnknownRatingCategory
-import io.ktor.client.*
 import io.ktor.client.engine.mock.*
-import io.ktor.client.plugins.*
-import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
-import kotlinx.serialization.json.Json
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
@@ -34,17 +32,7 @@ class MarketplaceClientRequestsTest {
             requests += request
             respond(respond(request), HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
         }
-        val httpClient = HttpClient(engine) {
-            install(ContentNegotiation) {
-                // like KtorHttpClientFactory
-                json(Json { ignoreUnknownKeys = true; isLenient = true })
-            }
-            install(DefaultRequest) {
-                url("https://${Marketplace.HOSTNAME}")
-            }
-            expectSuccess = true
-        }
-        return CaffeineCacheMarketplaceClient(httpClient = httpClient)
+        return CaffeineCacheMarketplaceClient(apiKey = API_KEY, httpClientBuilder = mockHttpClientBuilder(engine))
     }
 
     @Test
@@ -129,5 +117,49 @@ class MarketplaceClientRequestsTest {
         assertEquals("IDE_PERFORMANCE", requests.single().url.parameters["verificationType"])
         assertEquals("PROBLEMS", result.resultType)
         assertEquals("IU", result.product?.product)
+    }
+
+    @Test
+    suspend fun responsesAreCached() {
+        val client = createClient { "[]" }
+        repeat(2) {
+            client.pluginReleaseDependencies(10)
+            client.unsupportedReleaseProducts(10)
+            client.pluginDevelopers(1)
+            client.pluginFeatures(1)
+            client.marketplacePrograms(1)
+            client.userVendors("user")
+        }
+        assertEquals(6, requests.size, requests.joinToString { it.url.encodedPath })
+    }
+
+    @Test
+    suspend fun concurrentRequestsShareOneFetch() = coroutineScope {
+        val client = createClient { "[]" }
+        (1..5).map { async { client.pluginFeatures(1) } }.awaitAll()
+        assertEquals(1, requests.size)
+    }
+
+    @Test
+    suspend fun reportIsDownloadedWithoutApiKey() {
+        // a presigned address, its encoded parameters must be sent unchanged
+        val reportUrl = "https://reports.example.com/report.csv?X-Amz-Credential=a%2Fb%2Bc&X-Amz-Signature=d%3D"
+        val client = createClient { request ->
+            when (request.url.host) {
+                Marketplace.HOSTNAME -> reportUrl
+                else -> "code,processed_date,customer_type,license_type,billing_period,sum_quantity,revenue_usd\n" +
+                        "PCODE,2025-03-14,Organization,Commercial,Annual,2,199.80\n"
+            }
+        }
+        val rows = client.salesAnalyticsReport(1)
+
+        assertEquals(1, rows.size)
+        assertEquals("Bearer $API_KEY", requests[0].headers[HttpHeaders.Authorization])
+        assertEquals(reportUrl, requests[1].url.toString())
+        assertNull(requests[1].headers[HttpHeaders.Authorization])
+    }
+
+    private companion object {
+        const val API_KEY = "api-key"
     }
 }

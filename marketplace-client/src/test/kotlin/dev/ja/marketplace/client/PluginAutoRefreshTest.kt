@@ -5,7 +5,6 @@
 
 package dev.ja.marketplace.client
 
-import io.ktor.client.*
 import io.ktor.client.engine.mock.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -16,7 +15,7 @@ import kotlin.time.Duration.Companion.minutes
 
 class PluginAutoRefreshTest {
     private var nowMillis = 0L
-    private val client = CaffeineCacheMarketplaceClient(httpClient = HttpClient(MockEngine { error("unexpected request") }))
+    private val client = CaffeineCacheMarketplaceClient(httpClientBuilder = mockHttpClientBuilder(MockEngine { error("unexpected request") }))
 
     @Test
     suspend fun requestedPluginsAreRefreshedUntilTheyAreIdle() {

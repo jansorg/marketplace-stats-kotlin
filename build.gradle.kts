@@ -96,6 +96,8 @@ project("marketplace-client") {
         api("io.ktor:ktor-client-resources:$ktorVersion")
         api("io.ktor:ktor-client-content-negotiation:$ktorVersion")
         api("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
+        // the factory of the HTTP clients decompresses the responses, the plugin isn't part of the public API
+        implementation("io.ktor:ktor-client-encoding:$ktorVersion")
 
         // https://mvnrepository.com/artifact/org.jetbrains.kotlinx/kotlinx-serialization-protobuf-jvm
         // format of the persistent cache, must have the same version as kotlinx-serialization-json
@@ -111,6 +113,8 @@ project(":marketplace-data") {
     dependencies {
         // api: the public API of marketplace-data uses the types of marketplace-client
         api(project(":marketplace-client"))
+
+        testImplementation("io.ktor:ktor-client-mock:$ktorVersion")
     }
 }
 

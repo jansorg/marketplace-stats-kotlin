@@ -9,6 +9,7 @@ import dev.ja.marketplace.client.model.*
 import dev.ja.marketplace.services.JetBrainsProductCode
 import io.ktor.client.*
 import io.ktor.client.call.*
+import io.ktor.client.plugins.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -19,58 +20,58 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.future.await
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
-import java.net.URI
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import kotlin.math.min
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 
+/**
+ * Client of the API of the Marketplace.
+ *
+ * @param apiKey The key of the API, `null` to only use the public API.
+ * @param httpClientBuilder The settings of the HTTP clients, e.g. the log level and the user agent. The client adds the
+ *  URL of [apiHost] and the API key, and creates its own HTTP clients, which [close] closes.
+ * @param processingDispatcher Decodes the responses and writes the downloaded files. It doesn't limit the number of
+ *  concurrent requests, a request doesn't block its thread while it waits for the response, see
+ *  [HttpClientBuilder.withMaxConcurrentRequests] instead. Its few threads limit the CPU used for decoding.
+ */
 open class KtorMarketplaceClient(
+    apiKey: String? = null,
+    httpClientBuilder: HttpClientBuilder = HttpClientFactory.builder(),
     private val apiHost: String = Marketplace.HOSTNAME,
     private val apiPath: String = Marketplace.API_PATH,
-    private val dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2),
-    private val httpClient: HttpClient,
-    maxConcurrentChunkRequests: Int = 4,
+    private val processingDispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2),
 ) : MarketplaceClient {
-    // Limits the concurrent requests of sales, trials and prices, which are loaded in many small requests,
-    // to avoid a high load on the JetBrains API
-    private val chunkRequestLimiter = Semaphore(maxConcurrentChunkRequests)
+    internal val httpClient: HttpClient = httpClientBuilder
+        .withBaseUrl("https://$apiHost")
+        .withBearerAuth(apiKey)
+        .build()
 
-    // downloads the CSV files of the reports, without the default headers of httpClient, see downloadReport
-    private val reportHttpClient by lazy {
-        java.net.http.HttpClient.newBuilder()
-            .followRedirects(java.net.http.HttpClient.Redirect.NORMAL)
-            .connectTimeout(java.time.Duration.ofSeconds(30))
-            .build()
+    // downloads the CSV files of the reports without the API key, see downloadReport
+    private val reportHttpClientDelegate = lazy {
+        httpClientBuilder.withBaseUrl(null).withBearerAuth(null).build()
     }
+    private val reportHttpClient by reportHttpClientDelegate
 
-    @Suppress("unused")
-    constructor(
-        apiKey: String,
-        apiHost: String = Marketplace.HOSTNAME,
-        apiPath: String = Marketplace.API_PATH,
-        logLevel: ClientLogLevel = ClientLogLevel.None,
-        enableHttpCaching: Boolean = false,
-        dispatcher: CoroutineDispatcher = Dispatchers.IO.limitedParallelism(2),
-    ) : this(
-        apiHost,
-        apiPath,
-        dispatcher,
-        KtorHttpClientFactory.createHttpClient(apiHost, apiKey, logLevel = logLevel, enableHttpCaching = enableHttpCaching)
-    )
+    /**
+     * Closes the HTTP clients and their connections, requests fail afterward.
+     */
+    override fun close() {
+        httpClient.close()
+        if (reportHttpClientDelegate.isInitialized()) {
+            reportHttpClient.close()
+        }
+    }
 
     override fun assetUrl(path: String): String {
         return "https://$apiHost/${path.removePrefix("/")}"
     }
 
-    override suspend fun userInfo(): UserInfo = withContext(dispatcher) {
+    override suspend fun userInfo(): UserInfo = withContext(processingDispatcher) {
         httpClient.get("${apiPath}/users/me/full").body()
     }
 
@@ -79,7 +80,7 @@ open class KtorMarketplaceClient(
         family: List<ProductFamily>?,
         page: Int,
         maxResults: Int?
-    ): List<PluginInfoSummary> = withContext(dispatcher) {
+    ): List<PluginInfoSummary> = withContext(processingDispatcher) {
         httpClient.get("${apiPath}/users/$userId/plugins") {
             parameter("page", page)
 
@@ -95,11 +96,11 @@ open class KtorMarketplaceClient(
         }.body()
     }
 
-    override suspend fun vendors(): List<PluginVendor> = withContext(dispatcher) {
+    override suspend fun vendors(): List<PluginVendor> = withContext(processingDispatcher) {
         httpClient.get("${apiPath}/users/me/vendors").body()
     }
 
-    override suspend fun checkLicense(productCode: String, email: String): LicenseCheckResult = withContext(dispatcher) {
+    override suspend fun checkLicense(productCode: String, email: String): LicenseCheckResult = withContext(processingDispatcher) {
         httpClient.get("${apiPath}/marketplace/plugin/$productCode/license") {
             parameter("email", email)
         }.body()
@@ -118,53 +119,53 @@ open class KtorMarketplaceClient(
         }
     }
 
-    override suspend fun pluginInfo(plugin: PluginId): PluginInfo = withContext(dispatcher) {
+    override suspend fun pluginInfo(plugin: PluginId): PluginInfo = withContext(processingDispatcher) {
         httpClient.get("${apiPath}/plugins/$plugin").body()
     }
 
-    override suspend fun pluginRating(id: PluginId): PluginRating = withContext(dispatcher) {
+    override suspend fun pluginRating(id: PluginId): PluginRating = withContext(processingDispatcher) {
         httpClient.get("${apiPath}/plugins/$id/rating").body()
     }
 
-    override suspend fun pluginRatingByCategory(id: PluginId): Map<PluginRatingCategory, PluginCategoryRating> = withContext(dispatcher) {
+    override suspend fun pluginRatingByCategory(id: PluginId): Map<PluginRatingCategory, PluginCategoryRating> = withContext(processingDispatcher) {
         httpClient.get("${apiPath}/plugins/$id/rating-granular").body()
     }
 
     override suspend fun verificationResults(pluginReleaseId: PluginReleaseId, type: PluginVerificationType): List<PluginVerificationResult> {
-        return withContext(dispatcher) {
+        return withContext(processingDispatcher) {
             httpClient.get("${apiPath}/verifications/update/$pluginReleaseId") {
                 parameter("verificationType", type.requestParameter)
             }.body()
         }
     }
 
-    override suspend fun salesInfo(plugin: PluginId): List<PluginSale> = withContext(dispatcher) {
+    override suspend fun salesInfo(plugin: PluginId): List<PluginSale> = withContext(processingDispatcher) {
         salesInfo(plugin, Marketplace.Birthday rangeTo YearMonthDay.now())
     }
 
-    override suspend fun salesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> = withContext(dispatcher) {
+    override suspend fun salesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> = withContext(processingDispatcher) {
         // fetch in smaller chunks to avoid gateway timeouts and high load on the JetBrains sales API
         loadMonthlyChunks(range) { loadSalesInfo(plugin, it) }
     }
 
     override suspend fun licenseInfo(plugin: PluginId): SalesWithLicensesInfo {
         val sales = salesInfo(plugin)
-        // CPU work, the dispatcher of the requests has few threads, which other requests would wait for
+        // CPU work, the processing dispatcher has few threads, which the decoding of other responses would wait for
         return withContext(Dispatchers.Default) {
             SalesWithLicensesInfo(sales, LicenseInfo.createFrom(sales))
         }
     }
 
-    override suspend fun trialsInfo(plugin: PluginId): List<PluginTrial> = withContext(dispatcher) {
+    override suspend fun trialsInfo(plugin: PluginId): List<PluginTrial> = withContext(processingDispatcher) {
         trialsInfo(plugin, Marketplace.Birthday.rangeTo(YearMonthDay.now()))
     }
 
-    override suspend fun trialsInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginTrial> = withContext(dispatcher) {
+    override suspend fun trialsInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginTrial> = withContext(processingDispatcher) {
         // smaller chunk size because of gateway timeouts when a year was used
         loadMonthlyChunks(range) { loadTrialsInfo(plugin, it) }
     }
 
-    override suspend fun downloadsTotal(plugin: PluginId, vararg filters: DownloadFilter): Long = withContext(dispatcher) {
+    override suspend fun downloadsTotal(plugin: PluginId, vararg filters: DownloadFilter): Long = withContext(processingDispatcher) {
         val response = httpClient.get("/statistic/downloads-count/plugin") {
             parameter("plugin", plugin)
             addDownloadFilters(filters)
@@ -184,7 +185,7 @@ open class KtorMarketplaceClient(
         startDate: YearMonthDay?,
         vararg filters: DownloadFilter,
         endDate: YearMonthDay?,
-    ): DownloadResponse = withContext(dispatcher) {
+    ): DownloadResponse = withContext(processingDispatcher) {
         httpClient.get("/statistic/${countType.requestPathSegment}/${groupType.requestPathSegment}") {
             parameter("plugin", plugin)
             if (startDate != null) {
@@ -205,7 +206,7 @@ open class KtorMarketplaceClient(
         startDate: YearMonthDay?,
         vararg filters: DownloadFilter,
         endDate: YearMonthDay?,
-    ): GroupedDownloadResponse = withContext(dispatcher) {
+    ): GroupedDownloadResponse = withContext(processingDispatcher) {
         httpClient.get("/statistic/${countType.requestPathSegment}/${dimension.requestPathSegment}/${groupType.requestPathSegment}") {
             parameter("plugin", plugin)
             if (startDate != null) {
@@ -218,7 +219,7 @@ open class KtorMarketplaceClient(
         }.body<GroupedDownloadResponse>()
     }
 
-    override suspend fun pageAnalytics(plugin: PluginId, timeFrame: PageAnalyticsTimeFrame): PluginPageAnalytics = withContext(dispatcher) {
+    override suspend fun pageAnalytics(plugin: PluginId, timeFrame: PageAnalyticsTimeFrame): PluginPageAnalytics = withContext(processingDispatcher) {
         httpClient.get("${apiPath}/plugins/${plugin}/ga") {
             parameter("timeFrame", timeFrame.requestParameter)
         }.body<PluginPageAnalytics>()
@@ -229,7 +230,7 @@ open class KtorMarketplaceClient(
         countType: DownloadCountType,
         startDate: YearMonthDay?,
         productCode: JetBrainsProductCode?
-    ): List<MonthlyDownload> = withContext(dispatcher) {
+    ): List<MonthlyDownload> = withContext(processingDispatcher) {
         val filters = when {
             productCode != null -> arrayOf(DownloadFilter.productCode(productCode))
             else -> emptyArray()
@@ -249,7 +250,7 @@ open class KtorMarketplaceClient(
         countType: DownloadCountType,
         startDate: YearMonthDay?,
         productCode: JetBrainsProductCode?
-    ): List<DailyDownload> = withContext(dispatcher) {
+    ): List<DailyDownload> = withContext(processingDispatcher) {
         val filters = when {
             productCode != null -> arrayOf(DownloadFilter.productCode(productCode))
             else -> emptyArray()
@@ -265,7 +266,7 @@ open class KtorMarketplaceClient(
     }
 
     override suspend fun downloadsByProduct(plugin: PluginId, countType: DownloadCountType): List<ProductDownload> {
-        return withContext(dispatcher) {
+        return withContext(processingDispatcher) {
             val response = downloads(plugin, DownloadRequestDimension.ProductCode, countType)
             assert(response.dimension == DownloadDimension.ProductCode)
             assert(response.data.dimension == DownloadDimension.ProductCode)
@@ -276,22 +277,22 @@ open class KtorMarketplaceClient(
         }
     }
 
-    override suspend fun compatibleProducts(plugin: PluginId): List<JetBrainsProductId> = withContext(dispatcher) {
+    override suspend fun compatibleProducts(plugin: PluginId): List<JetBrainsProductId> = withContext(processingDispatcher) {
         httpClient.get("${apiPath}/plugins/${plugin}/compatible-products").body()
     }
 
-    override suspend fun volumeDiscounts(plugin: PluginId): VolumeDiscountResponse = withContext(dispatcher) {
+    override suspend fun volumeDiscounts(plugin: PluginId): VolumeDiscountResponse = withContext(processingDispatcher) {
         httpClient.get("${apiPath}/marketplace/plugin/${plugin}/volume-discounts").body()
     }
 
-    override suspend fun marketplacePluginInfo(plugin: PluginId, fullInfo: Boolean): MarketplacePluginInfo = withContext(dispatcher) {
+    override suspend fun marketplacePluginInfo(plugin: PluginId, fullInfo: Boolean): MarketplacePluginInfo = withContext(processingDispatcher) {
         httpClient.get("${apiPath}/marketplace/plugin/${plugin}") {
             parameter("fullInfo", fullInfo)
         }.body()
     }
 
     override suspend fun marketplacePluginsSearchSinglePage(request: MarketplacePluginSearchRequest): MarketplacePluginSearchResponse {
-        return withContext(dispatcher) {
+        return withContext(processingDispatcher) {
             httpClient.get("${apiPath}/searchPlugins") {
                 parameter("max", request.maxResults ?: Marketplace.MAX_SEARCH_RESULT_SIZE)
                 parameter("offset", request.offset)
@@ -337,7 +338,7 @@ open class KtorMarketplaceClient(
         request: MarketplacePluginSearchRequest,
         pageSize: Int
     ): List<MarketplacePluginSearchResultItem> {
-        return withContext(dispatcher) {
+        return withContext(processingDispatcher) {
             when (request.searchMode) {
                 PluginSearchMode.Marketplace -> searchWindow(request, pageSize)
                 PluginSearchMode.AnySizeWorkaround -> searchAnySize(request, pageSize)
@@ -407,7 +408,7 @@ open class KtorMarketplaceClient(
         return result.take(maxResults)
     }
 
-    override suspend fun marketplaceTags(): List<PluginTag> = withContext(dispatcher) {
+    override suspend fun marketplaceTags(): List<PluginTag> = withContext(processingDispatcher) {
         httpClient.get("${apiPath}/tags").body()
     }
 
@@ -466,7 +467,7 @@ open class KtorMarketplaceClient(
 
     private data class SearchPages(val items: List<MarketplacePluginSearchResultItem>, val isCapped: Boolean)
 
-    override suspend fun reviewComments(plugin: PluginId, pageSize: Int): List<PluginReviewComment> = withContext(dispatcher) {
+    override suspend fun reviewComments(plugin: PluginId, pageSize: Int): List<PluginReviewComment> = withContext(processingDispatcher) {
         val completeResult = mutableListOf<PluginReviewComment>()
         var page = 1
         do {
@@ -482,7 +483,7 @@ open class KtorMarketplaceClient(
     }
 
     override suspend fun reviewCommentsSinglePage(plugin: PluginId, size: Int, page: Int): List<PluginReviewComment> =
-        withContext(dispatcher) {
+        withContext(processingDispatcher) {
             assert(size >= 1)
             assert(page >= 1)
 
@@ -492,16 +493,16 @@ open class KtorMarketplaceClient(
             }.body()
         }
 
-    override suspend fun reviewReplies(comment: PluginReviewId): List<PluginReviewComment> = withContext(dispatcher) {
+    override suspend fun reviewReplies(comment: PluginReviewId): List<PluginReviewComment> = withContext(processingDispatcher) {
         httpClient.get("${apiPath}/comments/$comment/replies").body()
     }
 
-    override suspend fun channels(plugin: PluginId): List<PluginChannel> = withContext(dispatcher) {
+    override suspend fun channels(plugin: PluginId): List<PluginChannel> = withContext(processingDispatcher) {
         httpClient.get("${apiPath}/plugins/${plugin}/channels").body()
     }
 
     override suspend fun releases(plugin: PluginId, channel: PluginChannel, pageSize: Int): List<PluginReleaseInfo> {
-        return withContext(dispatcher) {
+        return withContext(processingDispatcher) {
             val completeResult = mutableListOf<PluginReleaseInfo>()
             var page = 1
             do {
@@ -519,7 +520,7 @@ open class KtorMarketplaceClient(
     }
 
     override suspend fun releasesSinglePage(plugin: PluginId, channel: PluginChannel, size: Int, page: Int): List<PluginReleaseInfo> {
-        return withContext(dispatcher) {
+        return withContext(processingDispatcher) {
             assert(size >= 1)
             assert(page >= 1)
 
@@ -531,24 +532,24 @@ open class KtorMarketplaceClient(
         }
     }
 
-    override suspend fun pluginReleaseDependencies(pluginReleaseId: PluginReleaseId): List<PluginDependency> = withContext(dispatcher) {
+    override suspend fun pluginReleaseDependencies(pluginReleaseId: PluginReleaseId): List<PluginDependency> = withContext(processingDispatcher) {
         httpClient.get("$apiPath/updates/$pluginReleaseId/dependencies").body()
     }
 
     override suspend fun unsupportedReleaseProducts(pluginReleaseId: PluginReleaseId): List<PluginUnsupportedProduct> =
-        withContext(dispatcher) {
+        withContext(processingDispatcher) {
             httpClient.get("$apiPath/products-dependencies/updates/$pluginReleaseId/unsupported").body()
         }
 
-    override suspend fun pluginDevelopers(plugin: PluginId): List<JetBrainsAccountInfo> = withContext(dispatcher) {
+    override suspend fun pluginDevelopers(plugin: PluginId): List<JetBrainsAccountInfo> = withContext(processingDispatcher) {
         httpClient.get("$apiPath/plugins/$plugin/developers").body()
     }
 
-    override suspend fun userVendors(userId: UserId): List<PluginVendor> = withContext(dispatcher) {
+    override suspend fun userVendors(userId: UserId): List<PluginVendor> = withContext(processingDispatcher) {
         httpClient.get("$apiPath/users/$userId/vendors").body()
     }
 
-    override suspend fun pluginFeatures(plugin: PluginId): List<PluginFeature> = withContext(dispatcher) {
+    override suspend fun pluginFeatures(plugin: PluginId): List<PluginFeature> = withContext(processingDispatcher) {
         httpClient.get("$apiPath/plugins/$plugin/features").body()
     }
 
@@ -572,35 +573,34 @@ open class KtorMarketplaceClient(
         }.build())
     }
 
-    override suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo = withContext(dispatcher) {
-        chunkRequestLimiter.withPermit {
-            httpClient.get("${apiPath}/marketplace/plugin/${plugin}/prices") {
-                parameter("countryCode", isoCountryCode)
-            }.body()
-        }
+    override suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo = withContext(processingDispatcher) {
+        httpClient.get("${apiPath}/marketplace/plugin/${plugin}/prices") {
+            chunkRequest()
+            parameter("countryCode", isoCountryCode)
+        }.body()
     }
 
-    override suspend fun marketplacePrograms(plugin: PluginId): List<MarketplaceProgram> = withContext(dispatcher) {
+    override suspend fun marketplacePrograms(plugin: PluginId): List<MarketplaceProgram> = withContext(processingDispatcher) {
         httpClient.get("$apiPath/marketplace/plugin/$plugin/programs").body()
     }
 
-    override suspend fun releaseDates(plugin: PluginId): List<PluginReleaseDate> = withContext(dispatcher) {
+    override suspend fun releaseDates(plugin: PluginId): List<PluginReleaseDate> = withContext(processingDispatcher) {
         httpClient.get("$apiPath/marketplace/plugin/$plugin/release-infos").body()
     }
 
-    override suspend fun offers(plugin: PluginId): List<PluginOffer> = withContext(dispatcher) {
+    override suspend fun offers(plugin: PluginId): List<PluginOffer> = withContext(processingDispatcher) {
         httpClient.get("$apiPath/marketplace/plugin/$plugin/offers").body()
     }
 
-    override suspend fun offer(plugin: PluginId, offer: PluginOfferId): PluginOffer = withContext(dispatcher) {
+    override suspend fun offer(plugin: PluginId, offer: PluginOfferId): PluginOffer = withContext(processingDispatcher) {
         httpClient.get("$apiPath/marketplace/plugin/$plugin/offers/$offer").body()
     }
 
-    override suspend fun offerCoupons(plugin: PluginId, offer: PluginOfferId): List<PluginOfferCoupon> = withContext(dispatcher) {
+    override suspend fun offerCoupons(plugin: PluginId, offer: PluginOfferId): List<PluginOfferCoupon> = withContext(processingDispatcher) {
         httpClient.get("$apiPath/marketplace/plugin/$plugin/offers/$offer/coupons").body()
     }
 
-    override suspend fun monetization(plugin: PluginId): PluginMonetization = withContext(dispatcher) {
+    override suspend fun monetization(plugin: PluginId): PluginMonetization = withContext(processingDispatcher) {
         httpClient.get("$apiPath/plugins/$plugin/monetization").body()
     }
 
@@ -616,17 +616,15 @@ open class KtorMarketplaceClient(
      * The API returns a temporary, presigned URL of the CSV file of a report. The file is downloaded without the
      * API key: the storage of the reports rejects requests with more than one kind of authentication.
      */
-    private suspend fun downloadReport(reportUrlPath: String): String = withContext(dispatcher) {
+    private suspend fun downloadReport(reportUrlPath: String): String = withContext(processingDispatcher) {
         val reportUrl = httpClient.get(reportUrlPath).bodyAsText().trim()
-        val request = HttpRequest.newBuilder(URI(reportUrl)).timeout(java.time.Duration.ofMinutes(5)).GET().build()
-        val response = reportHttpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString()).await()
-        if (response.statusCode() != 200) {
-            throw IllegalStateException("Unable to download the report, HTTP status ${response.statusCode()}")
-        }
-        response.body()
+        reportHttpClient.get(reportUrl) {
+            // reports of plugins with many sales are large
+            timeout { requestTimeoutMillis = REPORT_TIMEOUT.inWholeMilliseconds }
+        }.bodyAsText()
     }
 
-    private suspend fun Path.streamingDownload(url: Url): Unit = withContext(dispatcher) {
+    private suspend fun Path.streamingDownload(url: Url): Unit = withContext(processingDispatcher) {
         if (Files.exists(this@streamingDownload)) {
             throw IllegalArgumentException("File ${this@streamingDownload} already exists, unable to download $url.")
         }
@@ -636,7 +634,10 @@ open class KtorMarketplaceClient(
         val temporaryFile = Files.createTempFile(target.toAbsolutePath().parent, target.fileName.toString(), ".download")
         try {
             Files.newByteChannel(temporaryFile, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING).use { outputChannel ->
-                httpClient.prepareGet(url).execute { httpResponse ->
+                // the request timeout limits the whole download, large files take longer
+                httpClient.prepareGet(url) {
+                    timeout { requestTimeoutMillis = HttpTimeoutConfig.INFINITE_TIMEOUT_MS }
+                }.execute { httpResponse ->
                     httpResponse.body<ByteReadChannel>().copyTo(outputChannel)
                 }
             }
@@ -646,27 +647,25 @@ open class KtorMarketplaceClient(
         }
     }
 
-    protected open suspend fun loadSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> = withContext(dispatcher) {
-        chunkRequestLimiter.withPermit {
-            httpClient.get("$apiPath/marketplace/plugin/$plugin/sales-info") {
-                parameter("beginDate", range.start.asIsoString)
-                parameter("endDate", range.end.asIsoString)
-            }.body()
-        }
+    protected open suspend fun loadSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> = withContext(processingDispatcher) {
+        httpClient.get("$apiPath/marketplace/plugin/$plugin/sales-info") {
+            chunkRequest()
+            parameter("beginDate", range.start.asIsoString)
+            parameter("endDate", range.end.asIsoString)
+        }.body()
     }
 
-    protected open suspend fun loadTrialsInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginTrial> = withContext(dispatcher) {
-        chunkRequestLimiter.withPermit {
-            httpClient.get("$apiPath/marketplace/plugin/$plugin/trials-info") {
-                parameter("beginDate", range.start.asIsoString)
-                parameter("endDate", range.end.asIsoString)
-            }.body()
-        }
+    protected open suspend fun loadTrialsInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginTrial> = withContext(processingDispatcher) {
+        httpClient.get("$apiPath/marketplace/plugin/$plugin/trials-info") {
+            chunkRequest()
+            parameter("beginDate", range.start.asIsoString)
+            parameter("endDate", range.end.asIsoString)
+        }.body()
     }
 
     /**
      * Loads the data of a date range in chunks of one month. The chunks are loaded concurrently,
-     * the number of concurrent requests is limited by [chunkRequestLimiter].
+     * the number of concurrent requests is limited by [chunkRequest].
      */
     protected suspend fun <T : Comparable<T>> loadMonthlyChunks(
         range: YearMonthDayRange,
@@ -688,6 +687,9 @@ open class KtorMarketplaceClient(
         }
     }
 }
+
+/** The time of the download of a sales report. */
+private val REPORT_TIMEOUT: Duration = 5.minutes
 
 /** The number of slices of [KtorMarketplaceClient.marketplacePluginsSearch], which are loaded concurrently. */
 private const val MAX_CONCURRENT_SEARCH_SLICES: Int = 4

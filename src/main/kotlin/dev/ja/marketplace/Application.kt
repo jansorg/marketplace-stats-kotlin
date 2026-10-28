@@ -22,6 +22,8 @@ import com.github.ajalt.clikt.parameters.types.path
 import dev.ja.marketplace.client.CachingStrategy
 import dev.ja.marketplace.client.CaffeineCacheMarketplaceClient
 import dev.ja.marketplace.client.ClientLogLevel
+import dev.ja.marketplace.client.HttpClientFactory
+import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.PluginAutoRefresh
 import dev.ja.marketplace.client.persistentCache.PersistentCacheStore
 import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
@@ -34,6 +36,7 @@ import kotlinx.serialization.json.Json
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 class Application(version: String) : CliktCommand(name = "marketplace-stats") {
     override fun help(context: Context): String {
@@ -88,6 +91,14 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
         )
         .check("The interval of the automatic refresh must not be negative") { it >= 0 }
 
+    private val rateLimit: Int? by option("--rate-limit", envvar = "MARKETPLACE_RATE_LIMIT", metavar = "REQUESTS")
+        .int()
+        .help(
+            "The maximum number of requests per second to each server, e.g. the Marketplace, requests beyond it wait. " +
+                    "0 disables the limit. Default: $DEFAULT_RATE_LIMIT."
+        )
+        .check("The rate limit must not be negative") { it >= 0 }
+
     private val eventsFile: String? by option("--events", envvar = "MARKETPLACE_EVENTS_FILE", metavar = "FILE")
         .help(
             "YAML file with custom events, which the charts can show as vertical lines, e.g. blog posts or changes of the " +
@@ -140,8 +151,11 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
         if (cacheDir != null && Files.exists(cacheDir) && !Files.isDirectory(cacheDir)) {
             throw BadParameterValue("The cache directory $cacheDir is a file.")
         }
-        if (cacheDir != null) {
-            EcbExchangeRateData.Default.enablePersistentCache(PersistentCacheStore(cacheDir))
+        val rateLimit = this.rateLimit
+            ?: applicationConfig?.rateLimit
+            ?: DEFAULT_RATE_LIMIT
+        if (rateLimit < 0) {
+            throw BadParameterValue("The rate limit must not be negative: $rateLimit")
         }
 
         // like the cache directory, a relative path of the configuration file is relative to its directory
@@ -171,31 +185,55 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
             .distinct()
 
         val cachingStrategy = CachingStrategy(autoRefreshInterval = autoRefreshMinutes?.takeIf { it > 0 }?.minutes)
+        // the settings of all HTTP clients
+        val httpClientBuilder = HttpClientFactory.builder()
+            .withLogLevel(logging)
+            .withUserAgent("${HttpClientFactory.DEFAULT_USER_AGENT}/${AppInfo.version}")
+            // the Java engine doesn't support a socket timeout, a stalled request must not wait forever
+            .withRequestTimeout(2.minutes)
+            .let { if (rateLimit > 0) it.withRateLimit(rateLimit, 1.seconds) else it }
+        val cacheStore = cacheDir?.let(::PersistentCacheStore)
+        EcbExchangeRateData.Default.useHttpClientBuilder(httpClientBuilder)
+        cacheStore?.let(EcbExchangeRateData.Default::enablePersistentCache)
         val client = CaffeineCacheMarketplaceClient(
             apiKey = apiKey,
-            logLevel = logging,
-            persistentCacheDirectory = cacheDir,
+            httpClientBuilder = httpClientBuilder,
+            persistentCache = cacheStore?.accountStore(Marketplace.HOSTNAME, apiKey),
             cachingStrategy = cachingStrategy,
         )
+        // the products of JetBrains are the same for all accounts, they're stored outside the directory of the account.
+        // The services support conditional requests, the HTTP cache validates the stored responses after a day.
+        val servicesStore = cacheStore?.subStore("jetbrains")
+        val servicesClient = CachingJetBrainsServiceClient(
+            KtorJetBrainsServiceClient(httpClientBuilder.withHttpCacheDirectory(servicesStore?.directory?.resolve("http"))),
+            servicesStore,
+        )
 
-        runBlocking {
-            val server = MarketplaceStatsServer(
-                client,
-                // the products of JetBrains are the same for all accounts, they're stored outside the directory of the account
-                CachingJetBrainsServiceClient(KtorJetBrainsServiceClient(logLevel = logging), cacheDir?.let { PersistentCacheStore(it).subStore("jetbrains") }),
-                serverHostname,
-                serverPort,
-                ServerConfiguration(displayCurrencyCode, showResellerCharges, allPluginsSummary, customEvents),
-                mcpAllowedHosts.takeIf { mcpEnabled },
-                PluginAutoRefresh(client, cachingStrategy).takeIf { cachingStrategy.autoRefreshInterval != null },
-            )
+        // the clients and their connections are closed after the web server stopped
+        client.use {
+            servicesClient.use {
+                runBlocking {
+                    val server = MarketplaceStatsServer(
+                        client,
+                        servicesClient,
+                        serverHostname,
+                        serverPort,
+                        ServerConfiguration(displayCurrencyCode, showResellerCharges, allPluginsSummary, customEvents),
+                        mcpAllowedHosts.takeIf { mcpEnabled },
+                        PluginAutoRefresh(client, cachingStrategy).takeIf { cachingStrategy.autoRefreshInterval != null },
+                    )
 
-            server.start()
+                    server.start()
+                }
+            }
         }
     }
 }
 
 private const val DEFAULT_AUTO_REFRESH_MINUTES = 30
+
+/** The requests per second to each server, few enough to not burden the Marketplace, enough to load the history of a plugin quickly. */
+private const val DEFAULT_RATE_LIMIT = 20
 
 fun main(args: Array<String>) {
     // the chart images of the MCP server are drawn with AWT, the server never opens windows

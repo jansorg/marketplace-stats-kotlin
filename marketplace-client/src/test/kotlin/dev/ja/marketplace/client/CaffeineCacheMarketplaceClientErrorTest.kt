@@ -12,6 +12,7 @@ import io.ktor.http.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
 
 class CaffeineCacheMarketplaceClientErrorTest {
@@ -22,13 +23,7 @@ class CaffeineCacheMarketplaceClientErrorTest {
             requests.incrementAndGet()
             respondError(status)
         }
-        val httpClient = HttpClient(engine) {
-            install(DefaultRequest) {
-                url("https://${Marketplace.HOSTNAME}")
-            }
-            expectSuccess = true
-        }
-        return CaffeineCacheMarketplaceClient(httpClient = httpClient)
+        return CaffeineCacheMarketplaceClient(httpClientBuilder = mockHttpClientBuilder(engine))
     }
 
     @Test
@@ -47,5 +42,24 @@ class CaffeineCacheMarketplaceClientErrorTest {
             repeat(2) { assertThrows<ClientRequestException> { client.pluginInfo(1) } }
             assertEquals(2, requests.get(), "$status")
         }
+    }
+
+    @Test
+    suspend fun serverErrorsAreCachedBriefly() {
+        // after the retries of the HTTP client, the next requests, e.g. of the other tables of a page, don't try again
+        val client = createClient(HttpStatusCode.ServiceUnavailable)
+        repeat(2) { assertThrows<ServerResponseException> { client.pluginInfo(1) } }
+        assertEquals(1, requests.get())
+    }
+
+    @Test
+    suspend fun failedConnectionsAreCachedBriefly() {
+        val engine = MockEngine {
+            requests.incrementAndGet()
+            throw IOException("connection refused")
+        }
+        val client = CaffeineCacheMarketplaceClient(httpClientBuilder = mockHttpClientBuilder(engine))
+        repeat(2) { assertThrows<IOException> { client.pluginInfo(1) } }
+        assertEquals(1, requests.get())
     }
 }

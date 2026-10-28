@@ -8,7 +8,10 @@ package dev.ja.marketplace.client
 import dev.ja.marketplace.client.model.*
 import dev.ja.marketplace.services.JetBrainsProductCode
 
-interface MarketplaceClient : MarketplaceUrlSupport, MarketplaceClientPublic {
+/**
+ * Client of the API of the Marketplace. [close] closes its HTTP clients.
+ */
+interface MarketplaceClient : MarketplaceUrlSupport, MarketplaceClientPublic, AutoCloseable {
     suspend fun userInfo(): UserInfo
 
     suspend fun plugins(

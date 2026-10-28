@@ -16,6 +16,7 @@ import dev.ja.marketplace.client.persistentCache.Stored
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 import java.util.concurrent.TimeUnit
@@ -38,8 +39,15 @@ class CachingJetBrainsServiceClient(
         .expireAfter(StoredExpiry(maxAge))
         .buildCoroutine<String, Stored<Any>>()
 
+    private val persistentScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val persistent = store?.let {
-        PersistentResponseCache(it, CoroutineScope(SupervisorJob() + Dispatchers.IO), maxAge = maxAge)
+        PersistentResponseCache(it, persistentScope, maxAge = maxAge)
+    }
+
+    /** Cancels the writes of the persistent cache and closes the [delegate]. */
+    override fun close() {
+        persistentScope.cancel()
+        delegate.close()
     }
 
     override suspend fun countries(): Countries = delegate.countries()
