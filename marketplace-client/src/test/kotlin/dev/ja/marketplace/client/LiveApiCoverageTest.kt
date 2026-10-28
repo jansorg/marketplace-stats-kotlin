@@ -20,6 +20,7 @@ import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.json.*
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
@@ -58,6 +59,23 @@ class LiveApiCoverageTest {
     private val clientJson = Json {
         ignoreUnknownKeys = true
         isLenient = true
+    }
+
+    /**
+     * The downloads by month and product since the start of each plugin: the statistics service answers the whole
+     * history of a plugin with many downloads with 503, the client requests it by year.
+     */
+    @Test
+    suspend fun groupedDownloadsOfTheWholeHistory() {
+        KtorMarketplaceClient(apiKey).use { client ->
+            for (plugin in plugins) {
+                val response = client.groupedDownloads(plugin, DownloadRequestDimension.Month, DownloadRequestDimension.ProductCode, DownloadCountType.Downloads, null)
+                val months = response.groups.flatMap { group -> group.serie.map { it.name } }.toSet()
+                // each month is part of a single year, it's unique within a group
+                response.groups.forEach { group -> assertEquals(group.serie.map { it.name }.distinct(), group.serie.map { it.name }) }
+                assertTrue(months.isNotEmpty() || response.groups.isEmpty())
+            }
+        }
     }
 
     @Test
@@ -168,9 +186,13 @@ class LiveApiCoverageTest {
                 marketplace.get("/statistic/${DownloadCountType.Downloads.requestPathSegment}/${dimension.requestPathSegment}") { parameter("plugin", plugin) }
             }
         }
+        // the last 12 months like the MCP tool: the whole history of a plugin with many downloads takes too long, the
+        // statistics service answers with 503, the client requests it by year
+        val groupedStart = YearMonthDay.now().let { YearMonthDay(it.year, it.month, 1) }.add(0, -11, 0)
         check("statistic/downloads/{dimension}/{group}", GroupedDownloadResponse.serializer()) {
             marketplace.get("/statistic/${DownloadCountType.Downloads.requestPathSegment}/${DownloadRequestDimension.Month.requestPathSegment}/${DownloadRequestDimension.ProductCode.requestPathSegment}") {
                 parameter("plugin", plugin)
+                parameter("startDate", groupedStart.asIsoString)
             }
         }
 

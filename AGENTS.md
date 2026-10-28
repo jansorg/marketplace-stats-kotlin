@@ -107,6 +107,11 @@ The builder also limits the requests of each client (each client has its own lim
   background work have the context element `BackgroundRequests` (`persistentCacheScope`, `refreshPlugin`, the summary
   of all plugins at the start), so that pages wait at most for 2 background requests
 - after a response with 429 or 503, all requests wait until its `Retry-After` (`ServerBackoff`, at most 2 minutes)
+- the statistics service of the Marketplace answers requests, which take longer than about 30 seconds, with 503,
+  e.g. the downloads by month and product of the whole history of a plugin with many downloads. These requests are
+  marked with `slowRequest()`: their 503 isn't retried and doesn't pause the other requests. `groupedDownloads` of a
+  dimension by month or day requests long time ranges by calendar year and merges them (without a start date since
+  the first month of the monthly downloads)
 - requests per period (`withRateLimit`, `RequestRateLimit`, a sliding window, off by default, the application uses
   `--rate-limit`/`MARKETPLACE_RATE_LIMIT`/`rateLimit`, 10 per second, a little less than the concurrency limits
   allow for a single page, so the first load of a page with many requests is slower)

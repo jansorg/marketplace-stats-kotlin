@@ -86,4 +86,43 @@ class ServerBackoffTest {
         assertEquals(2, times.size)
         assertTrue(times[1] - times[0] >= 950.milliseconds, "request times: $times")
     }
+
+    @Test
+    suspend fun slowRequestIsNotRetriedAndDoesNotPause() = coroutineScope {
+        // e.g. the statistics service, which needs too long for the downloads of a long time range
+        val start = TimeSource.Monotonic.markNow()
+        val times = CopyOnWriteArrayList<Pair<String, Duration>>()
+        val engine = MockEngine { request ->
+            times += request.url.encodedPath to start.elapsedNow()
+            when (request.url.encodedPath) {
+                "/slow" -> respond("", HttpStatusCode.ServiceUnavailable)
+                else -> respond("ok", HttpStatusCode.OK)
+            }
+        }
+
+        // with the retries of the application
+        HttpClientFactory.builder().withEngine(engine).build().use { client ->
+            assertThrows<ServerResponseException> { client.get("/slow") { slowRequest() } }
+            assertEquals("ok", client.get("/other").bodyAsText())
+        }
+
+        assertEquals(listOf("/slow", "/other"), times.map { it.first })
+        assertTrue(times[1].second - times[0].second < 500.milliseconds, "request times: $times")
+    }
+
+    @Test
+    suspend fun otherServiceUnavailableIsRetried() {
+        val requests = CopyOnWriteArrayList<String>()
+        val engine = MockEngine { request ->
+            requests += request.url.encodedPath
+            when (requests.size) {
+                1 -> respond("", HttpStatusCode.ServiceUnavailable, headersOf(HttpHeaders.RetryAfter, "0"))
+                else -> respond("ok", HttpStatusCode.OK)
+            }
+        }
+        HttpClientFactory.builder().withEngine(engine).build().use { client ->
+            assertEquals("ok", client.get("/temporary").bodyAsText())
+        }
+        assertEquals(listOf("/temporary", "/temporary"), requests)
+    }
 }

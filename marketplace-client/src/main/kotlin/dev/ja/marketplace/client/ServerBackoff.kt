@@ -6,7 +6,9 @@
 package dev.ja.marketplace.client
 
 import io.ktor.client.plugins.api.*
+import io.ktor.client.request.*
 import io.ktor.http.*
+import io.ktor.util.*
 import kotlinx.coroutines.delay
 import kotlin.time.ComparableTimeMark
 import kotlin.time.Duration
@@ -14,6 +16,17 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+
+internal val SlowRequestKey = AttributeKey<Unit>("SlowRequest")
+
+/**
+ * Marks a request, which the server answers with 503 if it takes too long, e.g. a request of the downloads statistics
+ * of a long time range. The 503 isn't a temporary problem of the server: it isn't retried, see [HttpClientBuilder], and
+ * doesn't pause the other requests, see [ServerBackoff].
+ */
+fun HttpRequestBuilder.slowRequest() {
+    attributes.put(SlowRequestKey, Unit)
+}
 
 /**
  * The pause of all requests of a client after the server answered with too many requests (429) or service unavailable
@@ -70,7 +83,8 @@ internal val ServerBackoffPlugin = createClientPlugin("ServerBackoff") {
         delay(backoff.remainingPause())
         val call = proceed(request)
         val status = call.response.status
-        if (status == HttpStatusCode.TooManyRequests || status == HttpStatusCode.ServiceUnavailable) {
+        val isTooSlow = status == HttpStatusCode.ServiceUnavailable && request.attributes.contains(SlowRequestKey)
+        if (!isTooSlow && (status == HttpStatusCode.TooManyRequests || status == HttpStatusCode.ServiceUnavailable)) {
             backoff.pause(ServerBackoff.pauseOf(call.response.headers[HttpHeaders.RetryAfter]))
         }
         call
