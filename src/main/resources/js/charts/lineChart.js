@@ -1155,7 +1155,9 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         date: formatter.date(timestamps[index]),
         rows: chartSeries
             .map((s, seriesIndex) => ({s, seriesIndex}))
-            .filter(({seriesIndex}) => plot.series[seriesIndex + 1].show)
+            // lines without a value at the date aren't listed, like the trends, e.g. the unique downloads of a week
+            // at a day, which isn't a Sunday
+            .filter(({seriesIndex}) => plot.series[seriesIndex + 1].show && values[seriesIndex][index] !== null && values[seriesIndex][index] !== undefined)
             .map(({s, seriesIndex}) => {
                 const value = values[seriesIndex][index];
                 const incomplete = value !== null && s.incomplete.has(timestamps[index]);
