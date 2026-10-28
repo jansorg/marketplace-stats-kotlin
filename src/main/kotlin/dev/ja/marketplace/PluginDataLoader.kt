@@ -57,7 +57,7 @@ class PluginDataLoader(
                 downloadsTotal,
                 downloadsMonthly,
                 downloadsDaily,
-                PluginPricing.create(client, plugin.id, countries),
+                pricing(),
                 salesAndLicenses,
                 trials,
                 marketplacePluginInfo,
@@ -65,6 +65,14 @@ class PluginDataLoader(
 
             data
         }
+    }
+
+    /**
+     * @return The prices of the plugin, `null` for a free plugin: the Marketplace answers the requests of its prices of
+     *  each country with 404.
+     */
+    internal fun pricing(): PluginPricing? {
+        return PluginPricing.create(client, plugin.id, countries).takeIf { plugin.isPaidOrFreemium }
     }
 
     private fun <T> CoroutineScope.loadAsyncIfPaid(block: suspend () -> T): Deferred<T>? {

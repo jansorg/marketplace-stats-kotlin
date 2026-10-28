@@ -786,7 +786,7 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
 
     private suspend fun getPricing(arguments: JsonObject): JsonObject {
         val plugin = provider.findPlugin(arguments)
-        // the plugin data of free plugins has prices, too, but the API has no prices for them
+        // the API has no prices of free plugins, their plugin data has no pricing
         require(plugin.isPaidOrFreemium) { "Plugin ${plugin.id} has no prices, it's not a paid or freemium plugin" }
         val data = provider.pluginData(plugin)
         val pricing = data.pluginPricing
