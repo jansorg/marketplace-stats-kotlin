@@ -132,10 +132,15 @@ internal class PersistentResponseCache(
     }
 
     /**
-     * Writes pending changes immediately, for tests.
+     * Writes pending changes immediately, e.g. when the application stops, and in tests.
      */
     internal fun flush() {
-        files.forEach { (name, file) -> write(name, file) }
+        // unchanged files aren't written again, e.g. when the application stops
+        files.forEach { (name, file) ->
+            if (file.isWriteScheduled.getAndSet(false)) {
+                write(name, file)
+            }
+        }
     }
 
     private fun scheduleWrite(fileName: String, file: FileEntries) {

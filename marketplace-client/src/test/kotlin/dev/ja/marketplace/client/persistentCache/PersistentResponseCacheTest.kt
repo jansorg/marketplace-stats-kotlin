@@ -18,8 +18,10 @@ import kotlinx.coroutines.cancel
 import kotlinx.serialization.builtins.serializer
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.days
@@ -64,6 +66,20 @@ class PersistentResponseCacheTest {
 
         // a new instance reads the file
         assertEquals(response, createCache().load())
+        assertEquals(1, loads.get())
+    }
+
+    @Test
+    suspend fun unchangedFilesArentWrittenAgain() {
+        createCache().apply { load() }.flush()
+        val file = tempDir.resolve("plugin-1-downloads.bin")
+
+        // e.g. when the application stops after it only read the stored responses
+        val restarted = createCache()
+        restarted.load()
+        Files.delete(file)
+        restarted.flush()
+        assertFalse(Files.exists(file), "the file must not be written again")
         assertEquals(1, loads.get())
     }
 
