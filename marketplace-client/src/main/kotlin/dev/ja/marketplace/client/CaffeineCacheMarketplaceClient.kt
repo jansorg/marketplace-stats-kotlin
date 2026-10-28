@@ -31,6 +31,7 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
@@ -82,8 +83,8 @@ class CaffeineCacheMarketplaceClient(
     // the downloads of yesterday are published late, responses fetched before are cached briefly
     private val downloadsCompleteness = DownloadsCompleteness()
 
-    // the monthly, daily and per-product downloads are requested via downloads()
-    private val persistentDownloads = persistentCache?.let {
+    // the downloads, the monthly, daily and per-product downloads are requested via downloads(), and the releases
+    private val persistentResponses = persistentCache?.let {
         PersistentResponseCache(it, persistentCacheScope, maxAge = cachingStrategy.maxAge(Category.Daily))
     }
 
@@ -101,7 +102,7 @@ class CaffeineCacheMarketplaceClient(
         persistentSales.values.forEach(PersistentHistoryCache<*, *>::invalidate)
         persistentTrials.values.forEach(PersistentHistoryCache<*, *>::invalidate)
         persistentPrices?.invalidate()
-        persistentDownloads?.invalidate()
+        persistentResponses?.invalidate()
     }
 
     /**
@@ -112,7 +113,7 @@ class CaffeineCacheMarketplaceClient(
     override fun close() {
         // the changes, which are written with a delay, are written before the writes are cancelled
         persistentPrices?.flush()
-        persistentDownloads?.flush()
+        persistentResponses?.flush()
         persistentCacheScope.cancel()
         super.close()
     }
@@ -127,7 +128,8 @@ class CaffeineCacheMarketplaceClient(
         cache.synchronous().asMap().keys.removeIf { it.split('.').getOrNull(1) == segment }
         persistentSales[plugin]?.invalidate()
         persistentTrials[plugin]?.invalidate()
-        persistentDownloads?.invalidate(downloadsFileName(plugin))
+        persistentResponses?.invalidate(downloadsFileName(plugin))
+        persistentResponses?.invalidate(releasesFileName(plugin))
     }
 
     /**
@@ -477,20 +479,22 @@ class CaffeineCacheMarketplaceClient(
     }
 
     override suspend fun channels(plugin: PluginId): List<PluginChannel> {
-        return loadCached("channels.$plugin", Category.Daily) {
+        return loadCachedResponse("channels.$plugin", releasesFileName(plugin), ListSerializer(String.serializer()), Category.Daily) {
             super.channels(plugin)
         }
     }
 
     override suspend fun releasesSinglePage(plugin: PluginId, channel: PluginChannel, size: Int, page: Int): List<PluginReleaseInfo> {
-        return loadCached("releases.$plugin.$channel.$size.$page", Category.Daily) {
+        val key = "releases.$plugin.$channel.$size.$page"
+        return loadCachedResponse(key, releasesFileName(plugin), ListSerializer(PluginReleaseInfo.serializer()), Category.Daily) {
             super.releasesSinglePage(plugin, channel, size, page)
         }
     }
 
     override suspend fun pluginReleaseDependencies(pluginReleaseId: PluginReleaseId): List<PluginDependency> {
         // the dependencies of a release don't change
-        return loadCached("pluginReleaseDependencies.$pluginReleaseId", Category.Static) {
+        val key = "pluginReleaseDependencies.$pluginReleaseId"
+        return loadCachedResponse(key, RELEASE_DEPENDENCIES_FILE_NAME, ListSerializer(PluginDependency.serializer()), Category.Static) {
             super.pluginReleaseDependencies(pluginReleaseId)
         }
     }
@@ -652,7 +656,7 @@ class CaffeineCacheMarketplaceClient(
         endDate: YearMonthDay? = null,
         loader: suspend () -> T,
     ): Stored<T> {
-        val store = persistentDownloads ?: return Stored(loader(), System.currentTimeMillis())
+        val store = persistentResponses ?: return Stored(loader(), System.currentTimeMillis())
         // the downloads of the past don't change, they're stored longer than Static, which is the expiry in memory
         val maxAge = if (downloadsCompleteness.isComplete(endDate)) COMPLETE_DOWNLOADS_MAX_AGE else cachingStrategy.maxAge(Category.Daily)
         val stored = store.get(downloadsFileName(plugin), key, serializer, forceFetch, maxAge, loader)
@@ -669,7 +673,22 @@ class CaffeineCacheMarketplaceClient(
 
     private fun downloadsFileName(plugin: PluginId): String = "plugin-$plugin-downloads"
 
+    /** The channels and the releases of a plugin, e.g. a plugin with many releases needs many requests of them. */
+    private fun releasesFileName(plugin: PluginId): String = "plugin-$plugin-releases"
+
     private fun licenseInfoKey(plugin: PluginId): String = "licenseInfo.$plugin"
+
+    /**
+     * Like [loadCached], the response is also stored in the [fileName] of the persistent cache for the time of the
+     * [category], e.g. after a restart. The automatic refresh fetches it again.
+     */
+    private suspend fun <T> loadCachedResponse(key: String, fileName: String, serializer: KSerializer<T>, category: Category, loader: suspend () -> T): T {
+        val stored: suspend (Boolean) -> Stored<T> = { forceFetch ->
+            persistentResponses?.get(fileName, key, serializer, forceFetch, cachingStrategy.maxAge(category), loader)
+                ?: Stored(loader(), System.currentTimeMillis())
+        }
+        return loadCachedStored(key, category, refresh = { stored(true) }) { stored(false) }
+    }
 
     /**
      * @param refresh Fetches the data again for the automatic refresh, `null` to use the [loader].
@@ -828,6 +847,9 @@ private val FAILURE_EXPIRY: Duration = 1.minutes
 private val COMPLETE_DOWNLOADS_MAX_AGE: Duration = 90.days
 
 /** The prefixes of the keys of the cached downloads, the complete downloads aren't refreshed, see `refreshPlugin`. */
+/** The dependencies of the releases of all plugins, see [CaffeineCacheMarketplaceClient.pluginReleaseDependencies]. */
+private const val RELEASE_DEPENDENCIES_FILE_NAME = "release-dependencies"
+
 private val DOWNLOADS_KEYS = setOf("downloads", "downloadsPart", "groupedDownloads", "groupedDownloadsPart")
 
 /** How often a request loads a value again, whose shared load was cancelled by another request, see `loadShared`. */
