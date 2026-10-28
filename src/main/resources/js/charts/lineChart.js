@@ -560,6 +560,47 @@ function drawBars(plot, chartSeries, isBar, interval, theme) {
 }
 
 /**
+ * @param {number} seriesIndex The index of the series in the plot, 1 for the first series.
+ * @param {number} size The size of the point of a line at the cursor, CSS pixels.
+ * @return {{left: number, top: number, width: number, height: number}} The box of the point at the cursor in CSS
+ *  pixels of the plot area: the whole bar of a series with bars, which is highlighted instead of a point, and the
+ *  point of a line, see `cursor.points.bbox` of uPlot.
+ */
+function cursorPointBox(plot, chartSeries, isBar, interval, seriesIndex, size) {
+    const hidden = {left: -10, top: -10, width: 0, height: 0};
+    const index = plot.cursor.idxs?.[seriesIndex] ?? plot.cursor.idx;
+    const value = plot.data[seriesIndex]?.[index];
+    if (index === null || index === undefined || value === null || value === undefined) {
+        return hidden;
+    }
+    const timestamp = plot.data[0][index];
+    const scale = plot.series[seriesIndex].scale;
+    const series = chartSeries[seriesIndex - 1];
+    if (!series || !isBar(series)) {
+        const x = plot.valToPos(timestamp, "x");
+        const y = plot.valToPos(value, scale);
+        return {left: x - size / 2, top: y - size / 2, width: size, height: size};
+    }
+    // the bar of drawBars, in pixels of the canvas
+    const {visible, layoutAt} = barGeometry(plot, chartSeries, isBar, interval);
+    const position = visible.findIndex(entry => entry.index === seriesIndex - 1);
+    if (position === -1) {
+        return hidden;
+    }
+    const pixelRatio = uPlot.pxRatio;
+    const {width, offsets} = layoutAt(index);
+    const left = plot.valToPos(timestamp, "x", true) + offsets[position];
+    const valueY = plot.valToPos(value, scale, true);
+    const baseY = plot.scales[scale].distr === 3 ? plot.bbox.top + plot.bbox.height : plot.valToPos(0, scale, true);
+    return {
+        left: (left - plot.bbox.left) / pixelRatio,
+        top: (Math.min(valueY, baseY) - plot.bbox.top) / pixelRatio,
+        width: width / pixelRatio,
+        height: Math.abs(baseY - valueY) / pixelRatio,
+    };
+}
+
+/**
  * Shows a tooltip with the date and the values of all series at the cursor. The charts with synchronized cursors, e.g.
  * of the same detail level, show their tooltips together, at the values of their own dates.
  */
@@ -1175,6 +1216,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
 
     // a line has its own style, or the style of the chart
     const isBar = series => seriesStyle(series, chartStyle) === "bars";
+    /** @return {boolean} If the series of the plot has bars, overlays are lines. */
+    const isBarIndex = seriesIndex => seriesIndex > 0 && seriesIndex <= chartSeries.length && isBar(chartSeries[seriesIndex - 1]);
     const isBars = chartSeries.some(isBar);
     // bars at the first and last date need space beside the date
     // the usual distance of the dates, e.g. a week at the level Week, today after the last Sunday doesn't narrow all bars
@@ -1280,8 +1323,21 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
         // space for the labels of the vertical lines above the plot, and for points and tick labels at the right edge
         padding: [markers.length > 0 ? 20 : null, units.length > 1 ? null : 28, null, null],
         cursor: {
-            // the point at the cursor has the color of the axes around the color of its line, so that it's visible on the line
-            points: {size: 11, width: 2.5, stroke: () => theme.axisColor, fill: (plot, seriesIndex) => seriesColors[seriesIndex] ?? theme.surfaceColor},
+            // the point at the cursor has the color of the axes around the color of its line, so that it's visible on
+            // the line, the bar at the cursor has an outline in the color of the axes instead of a point
+            points: {
+                size: 11, width: 2.5, stroke: () => theme.axisColor,
+                fill: (plot, seriesIndex) => isBarIndex(seriesIndex) ? "transparent" : seriesColors[seriesIndex] ?? theme.surfaceColor,
+                show: (plot, seriesIndex) => {
+                    const point = document.createElement("div");
+                    point.style.borderWidth = (isBarIndex(seriesIndex) ? 2 : 2.5) + "px";
+                    if (isBarIndex(seriesIndex)) {
+                        point.classList.add("chart-bar-cursor");
+                    }
+                    return point;
+                },
+                bbox: (plot, seriesIndex) => cursorPointBox(plot, chartSeries, isBar, interval, seriesIndex, 11),
+            },
             sync: {key: syncKey},
             // a range selected with the mouse zooms in, see onZoom
             // uPlot stops the propagation of clicks by default, a click on the chart must close the open menus of the dialog
