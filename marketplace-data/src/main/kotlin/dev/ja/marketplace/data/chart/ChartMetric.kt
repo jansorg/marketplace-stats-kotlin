@@ -7,8 +7,6 @@ package dev.ja.marketplace.data.chart
 
 import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.data.ChartMeasure
-import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 
 /** The unit of the values of a [ChartMetric]. */
 enum class ChartUnit {
@@ -47,10 +45,12 @@ enum class ChartUnit {
  *  `/chart-data` and of the exports aren't rounded, only the charts round them.
  * @param isPaidOnly If the metric needs the sales, licenses or trials of a paid or freemium plugin. Free plugins don't
  *  have them, their charts only offer the other metrics, e.g. the downloads.
+ * @param family The family of a metric with parameters, e.g. the downloads of a release, see [ChartMetricFamily].
+ * @param parameterValues The values of the parameters of the [family], `null` for missing optional values.
  */
 class ChartMetric private constructor(
     val id: String,
-    val title: String,
+    private val fixedTitle: String?,
     val measure: ChartMeasure,
     val unit: ChartUnit,
     val usesWindow: Boolean,
@@ -58,9 +58,16 @@ class ChartMetric private constructor(
     val description: String,
     val fractionDigits: Int,
     val isPaidOnly: Boolean,
-    /** The name of the discount of a metric of [discount], `null` for the other metrics. */
-    val discountName: String? = null,
+    val family: ChartMetricFamily? = null,
+    val parameterValues: List<String?> = emptyList(),
 ) {
+    /** The title, a metric of a family has the labels of its values, e.g. the version of a release. */
+    val title: String get() = fixedTitle ?: family!!.title(parameterValues)
+
+    /** The name of the discount of a metric of [discount], `null` for the other metrics. */
+    val discountName: String?
+        get() = parameterValues.firstOrNull()?.takeIf { family == ChartMetricFamily.Discount }?.let(ChartMetricFamily::decodeName)
+
     override fun toString(): String = id
 
     companion object {
@@ -247,60 +254,32 @@ class ChartMetric private constructor(
          * The prefix of the shares of the sales of the customer types. The charts add the name of a row of the table,
          * e.g. `customer-type-share.Individual`, see [customerTypeShare].
          */
-        const val CUSTOMER_TYPE_SHARE = "customer-type-share"
-
-        private val customerTypeShares = CustomerType.entries.associateWith { type ->
-            register(
-                "$CUSTOMER_TYPE_SHARE.$type", "Share of sales: $type", ChartMeasure.Ratio, ChartUnit.Percentage, group = "Customer types",
-                description = "The share of the sales of the customer type $type in the sales of the window",
-            )
-        }
+        val CUSTOMER_TYPE_SHARE: String get() = ChartMetricFamily.CustomerTypeShare.id
 
         /** @return The share of the sales of the [type] of customers. */
-        fun customerTypeShare(type: CustomerType): ChartMetric = customerTypeShares.getValue(type)
-
-        /**
-         * The prefix of the discount amounts of the offers and discounts, the name of the discount follows as Base64
-         * (URL-safe, without padding), e.g. `discount.U3VtbWVy`, because the IDs of the charts must not contain e.g. `,`
-         * or `@`. See [discount].
-         */
-        const val DISCOUNT = "discount"
-
-        private val discounts = ConcurrentHashMap<String, ChartMetric>()
+        fun customerTypeShare(type: CustomerType): ChartMetric = ChartMetricFamily.CustomerTypeShare.metric(listOf(type.toString()))
 
         /**
          * @return The amount given away by a discount, by the name of the offer or the description of a discount
-         *  without an offer, see `OfferDiscounts.discountName`. Offers with the same name are one metric. These metrics
-         *  aren't part of [all], each plugin has the metrics of the discounts of its sales.
+         *  without an offer, see `OfferDiscounts.discountName`. Offers with the same name are one metric, see
+         *  [ChartMetricFamily.Discount].
          */
         fun discount(discountName: String): ChartMetric {
-            val name = discountName.trim()
-            val encoded = Base64.getUrlEncoder().withoutPadding().encodeToString(name.toByteArray(Charsets.UTF_8))
-            return discounts.computeIfAbsent("$DISCOUNT.$encoded") { id ->
-                ChartMetric(
-                    id, "Discount: $name", ChartMeasure.Flow, ChartUnit.Amount, usesWindow = true, group = "Discounts",
-                    description = "The amount given away by the discount \"$name\" in the sales of the window, " +
-                            "calculated from the paid amount and the percent of the discount of each sale",
-                    fractionDigits = defaultFractionDigits(ChartUnit.Amount, ChartMeasure.Flow),
-                    isPaidOnly = true,
-                    discountName = name,
-                )
-            }
+            return ChartMetricFamily.Discount.metric(listOf(ChartMetricFamily.encodeName(discountName.trim())))
         }
 
-        /** All metrics, without the metrics of the discounts, see [discount]. */
+        /** All metrics without parameters, the metrics with parameters belong to a [ChartMetricFamily]. */
         val all: Collection<ChartMetric> get() = registered.values
 
-        fun byId(id: String): ChartMetric? {
-            registered[id]?.let { return it }
-            val encoded = id.removePrefix("$DISCOUNT.").takeIf { it != id && it.isNotEmpty() } ?: return null
-            val name = try {
-                String(Base64.getUrlDecoder().decode(encoded), Charsets.UTF_8)
-            } catch (_: IllegalArgumentException) {
-                return null
-            }
-            // the ID of a name is unique, other encodings of the same name are invalid
-            return discount(name).takeIf { it.id == id }
+        /** @return The metric of the ID, also of a metric of a family, e.g. `release-downloads.1234`. */
+        fun byId(id: String): ChartMetric? = registered[id] ?: ChartMetricFamily.parseMetric(id)
+
+        /** @return A metric of the [family] with the [values] of its parameters, see [ChartMetricFamily.metric]. */
+        internal fun ofFamily(id: String, family: ChartMetricFamily, values: List<String?>): ChartMetric {
+            return ChartMetric(
+                id, null, family.measure, family.unit, family.usesWindow, family.group, family.description, family.fractionDigits,
+                family.isPaidOnly, family, values,
+            )
         }
     }
 }

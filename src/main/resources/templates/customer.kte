@@ -11,6 +11,7 @@
 @param rating: dev.ja.marketplace.client.model.PluginRating
 @param today: dev.ja.marketplace.client.YearMonthDay
 @param otherPlugins: List<dev.ja.marketplace.client.model.PluginInfoSummary>
+@param otherFreePlugins: List<dev.ja.marketplace.client.model.PluginInfoSummary> = emptyList()
 @param customer: CustomerInfo
 @param licenseTableMonthly: RenderedDataTable
 @param licenseTableAnnual: RenderedDataTable
@@ -34,7 +35,7 @@
 
 <body class="${cssClass}" data-plugin-name="${plugin.name}">
 <%-- the customer may not have bought the other plugins, the menu of the other plugins links to their overview --%>
-@template.pluginHeader(plugin = plugin, urls = urls, rating = rating, today = today, otherPlugins = otherPlugins, otherPluginPath = "/")
+@template.pluginHeader(plugin = plugin, urls = urls, rating = rating, today = today, otherPlugins = otherPlugins, otherFreePlugins = otherFreePlugins, otherPluginPath = "/")
 @template.navbar(plugin = plugin, showResellerCharges = settings.showResellerCharges)
 <main>
 

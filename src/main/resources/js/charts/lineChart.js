@@ -783,23 +783,29 @@ function seriesMenu(series, sections, onSelect) {
     summary.title = sections.map(section => section.title + ": " + section.items.find(item => item.isChecked)?.label).join("\n");
     summary.setAttribute("aria-label", "Options of " + series.label);
 
+    const radioButton = (section, item) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = item.label;
+        button.setAttribute("role", "menuitemradio");
+        button.setAttribute("aria-checked", String(item.isChecked));
+        button.addEventListener("click", () => {
+            menu.open = false;
+            onSelect(section.kind, item.value);
+        });
+        return button;
+    };
     for (const section of sections) {
+        // the values of a parameter, e.g. the releases, are a submenu, the list would make the menu very tall
+        if (section.kind.startsWith("parameter:")) {
+            items.append(...parameterSubmenu(section, radioButton));
+            continue;
+        }
         const heading = document.createElement("div");
         heading.className = "chart-menu-heading";
         heading.textContent = section.title;
         items.append(heading);
-        for (const item of section.items) {
-            const button = document.createElement("button");
-            button.type = "button";
-            button.textContent = item.label;
-            button.setAttribute("role", "menuitemradio");
-            button.setAttribute("aria-checked", String(item.isChecked));
-            button.addEventListener("click", () => {
-                menu.open = false;
-                onSelect(section.kind, item.value);
-            });
-            items.append(button);
-        }
+        section.items.forEach(item => items.append(radioButton(section, item)));
     }
     // the menu doesn't inherit the tooltip of the legend, which shows and hides the line
     menu.setAttribute("title", "");
@@ -807,6 +813,35 @@ function seriesMenu(series, sections, onSelect) {
     menu.addEventListener("click", event => event.stopPropagation());
     menu.addEventListener("keydown", event => event.stopPropagation());
     return menu;
+}
+
+/**
+ * @return {HTMLElement[]} The item of a parameter of a line of a metric of a family, e.g. "Release: 1.0", and its
+ *  submenu below it, which a click shows and hides. The submenu lists the values of the parameter and scrolls.
+ */
+function parameterSubmenu(section, radioButton) {
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "chart-series-parameter";
+    toggle.setAttribute("role", "menuitem");
+    toggle.setAttribute("aria-haspopup", "menu");
+    toggle.setAttribute("aria-expanded", "false");
+    const checked = section.items.find(item => item.isChecked)?.label ?? "";
+    toggle.append(`${section.title}: `, Object.assign(document.createElement("strong"), {textContent: checked}));
+    const submenu = document.createElement("div");
+    submenu.className = "chart-series-parameter-values";
+    submenu.setAttribute("role", "menu");
+    submenu.setAttribute("aria-label", section.title);
+    submenu.hidden = true;
+    section.items.forEach(item => submenu.append(radioButton(section, item)));
+    toggle.addEventListener("click", () => {
+        submenu.hidden = !submenu.hidden;
+        toggle.setAttribute("aria-expanded", String(!submenu.hidden));
+        if (!submenu.hidden) {
+            submenu.querySelector("[aria-checked=true]")?.scrollIntoView({block: "nearest"});
+        }
+    });
+    return [toggle, submenu];
 }
 
 /**
@@ -1056,6 +1091,9 @@ function yAxis(unit, scale, side, style) {
  * @param {((key: string, style: "lines"|"bars"|null) => void)|null} [options.onSeriesStyleChange] Called with the key
  *  of a line and its style, which is selected in the legend, `null` for the style of the chart. Without it, the legend
  *  has no menus of the lines.
+ * @param {((key: string, index: number, value: string|null) => void)|null} [options.onSeriesParameterChange] Called
+ *  with the key of a line of a metric of a family, the index of a parameter and its selected value, see
+ *  parameterSections in model.js.
  * @param {boolean} [options.hideAxisValues] If the y-axes have no values, e.g. to share the chart without numbers.
  * @param {boolean} [options.logScale] If the y-axes are logarithmic, e.g. to compare lines of very different values.
  *  Values of 0 and below aren't drawn, the ticks of two y-axes aren't aligned.
@@ -1078,7 +1116,7 @@ function yAxis(unit, scale, side, style) {
  * @param {"light"|"dark"} [options.theme] The colors of the chart, by default the color scheme of the browser.
  * @return {uPlot}
  */
-export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, comparisonLines = false, hideAxisValues = false, logScale = false, detail = null, onSeriesWindowChange = null, onSeriesStyleChange = null, onSeriesRemove = null, overlays = [], visibleRange = null, onZoom = null, hiddenSeries = new Set(), onSeriesVisibilityChange = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
+export function createLineChart({units, series, dateRange, markers, formatter, syncKey, chartStyle, granularity, extremes = [], valueTable = true, comparisonLines = false, hideAxisValues = false, logScale = false, detail = null, onSeriesWindowChange = null, onSeriesStyleChange = null, onSeriesParameterChange = null, onSeriesRemove = null, overlays = [], visibleRange = null, onZoom = null, hiddenSeries = new Set(), onSeriesVisibilityChange = null, fontFamily, width, height, container, theme: themeName = preferredChartTheme()}) {
     const theme = CHART_THEMES[themeName];
     const style = {formatter, fonts: fonts(fontFamily), theme, hideAxisValues};
     const scaleKeys = ["y", "y2"];
@@ -1360,13 +1398,22 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
 
     /** @return {(() => HTMLElement)|null} Creates the menu of the window and the style of a line, see seriesMenu. */
     function seriesMenuOf(series) {
-        const sections = seriesMenuSections(series, Boolean(detail && onSeriesWindowChange)).filter(section => section.kind !== "style" || onSeriesStyleChange);
+        const sections = seriesMenuSections(series, Boolean(detail && onSeriesWindowChange))
+            .filter(section => section.kind !== "style" || onSeriesStyleChange)
+            .filter(section => !section.kind.startsWith("parameter:") || onSeriesParameterChange);
         if (sections.length === 0) {
             return null;
         }
-        return () => seriesMenu(series, sections, (kind, value) => kind === "window"
-            ? onSeriesWindowChange(series.key, value)
-            : onSeriesStyleChange(series.key, value));
+        return () => seriesMenu(series, sections, (kind, value) => {
+            if (kind === "window") {
+                onSeriesWindowChange(series.key, value);
+            } else if (kind === "style") {
+                onSeriesStyleChange(series.key, value);
+            } else {
+                // the value of a parameter, e.g. another release, see parameterSections in model.js
+                onSeriesParameterChange(series.key, Number(kind.substring("parameter:".length)), value);
+            }
+        });
     }
 
     /** @return {(() => HTMLElement)|null} Creates the button, which removes a line from the chart. */

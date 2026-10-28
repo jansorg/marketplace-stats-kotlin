@@ -46,6 +46,8 @@ class DefaultPluginPageDefinition(
      * follow the tables of [factories]. Their data is loaded when the tables are created, pass `cacheTables = false`.
      */
     private val pluginFactories: (suspend (PluginData) -> List<MarketplaceDataTableFactory>)? = null,
+    /** If the page exists for free plugins, otherwise the menu of the other plugins links to the overview of a free plugin. */
+    private val isForFreePlugins: Boolean = false,
 ) : PluginPageDefinition {
     /** The calculated tables by the plugin and the maximum number of rows. */
     private val tableCache = VersionedCache<Pair<PluginId, Int?>, List<RenderedDataTable>>()
@@ -73,6 +75,8 @@ class DefaultPluginPageDefinition(
             "today" to YearMonthDay.now(),
             "plugin" to data.getPluginInfo(),
             "otherPlugins" to dataLoader.otherPaidPlugins,
+            "otherFreePlugins" to dataLoader.otherFreePlugins,
+            "freePluginPath" to if (isForFreePlugins) "" else "/",
             "rating" to data.getPluginRating(),
             "tables" to dataSinks,
             "cssClass" to pageCssClasses,

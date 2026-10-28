@@ -8,9 +8,14 @@ package dev.ja.marketplace
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.*
 import dev.ja.marketplace.data.*
+import dev.ja.marketplace.data.chart.ChartMetric
+import dev.ja.marketplace.data.chart.ChartMetricFamily
+import dev.ja.marketplace.data.chart.ChartUnit
+import dev.ja.marketplace.data.format.Formatters
 import dev.ja.marketplace.data.releases.PluginReleases
 import dev.ja.marketplace.mcp.McpReleasesJson
 import dev.ja.marketplace.services.JetBrainsServiceClient
+import dev.ja.marketplace.services.ProductWithReleases
 import dev.ja.marketplace.services.Products
 import io.ktor.http.*
 import kotlinx.coroutines.CancellationException
@@ -29,6 +34,10 @@ class ReleaseDetails(
     val release: PluginReleaseInfo,
     val channel: String,
     val published: YearMonthDay,
+    /** The badge of the plugin model of the release, e.g. `v2`, `null` if the dependencies are unknown, see [PluginReleases.pluginModel]. */
+    val pluginModel: Badge?,
+    /** The downloads of the release with a button, which shows them in a chart. */
+    val downloads: ChartMetricName,
     val states: List<String>,
     val marketplaceUrl: String,
     val downloadUrl: String,
@@ -38,9 +47,6 @@ class ReleaseDetails(
     val unavailable: List<String>,
 ) {
     companion object {
-        /** The prefix of the names of the optional dependencies of the API. */
-        private const val OPTIONAL_PREFIX = "(optional) "
-
         /**
          * @param servicesClient The products of JetBrains, the names of the products link to their pages.
          * @return The details of the release of the plugin, `null` if the plugin has no such release.
@@ -65,27 +71,28 @@ class ReleaseDetails(
             val byProduct = async {
                 optional { client.downloads(pluginId, DownloadRequestDimension.ProductCode, DownloadCountType.Downloads, null, DownloadFilter.update(releaseId)) }
             }
-            val byMonth = async {
-                optional { client.downloads(pluginId, DownloadRequestDimension.Month, DownloadCountType.Downloads, null, DownloadFilter.update(releaseId)) }
-            }
 
+            // the titles of the charts of the downloads of the release contain its version
+            ChartMetricFamily.ReleaseDownloads.parameters[0].registerLabel(release.id.toString(), release.version)
             val links = ProductLinks(products.await())
+            val loadedDependencies = dependencies.await().orUnavailable(unavailable, "the dependencies")
             val tables = listOfNotNull(
+                byProduct.await().orUnavailable(unavailable, "the downloads by product")?.let { downloadsByProductTable(it, links, release) },
                 compatibleProductsTable(release, links),
-                dependencies.await().orUnavailable(unavailable, "the dependencies")?.let(::dependenciesTable),
+                loadedDependencies?.let(::dependenciesTable),
                 unsupported.await().orUnavailable(unavailable, "the unsupported products")?.let { unsupportedProductsTable(it, links) },
                 compatibility.await().orUnavailable(unavailable, "the results of the Plugin Verifier")
                     ?.let { verificationTable("Plugin Verifier", "release-verification-compatibility", it, links) },
                 performance.await().orUnavailable(unavailable, "the results of the IDE performance verifier")
                     ?.let { verificationTable("IDE Performance", "release-verification-performance", it, links) },
-                byProduct.await().orUnavailable(unavailable, "the downloads by product")?.let { downloadsByProductTable(it, links) },
-                byMonth.await().orUnavailable(unavailable, "the downloads by month")?.let(::downloadsByMonthTable),
             ).map { it.renderTable() }.filterNot(RenderedDataTable::isEmpty)
 
             ReleaseDetails(
                 release,
                 PluginReleases.channelTitle(channel),
                 YearMonthDay.of(release.createdTimestamp),
+                loadedDependencies?.let { PluginReleases.pluginModel(it) }?.let { Badge(it, "badge-model", PluginReleases.pluginModelTooltip(it)) },
+                downloadsChart(release.downloads.toLong(), ChartMetricFamily.ReleaseDownloads.metric(listOf(release.id.toString(), null))),
                 PluginReleases.unusualStates(release),
                 release.getUpdateInfoPageUrl().toString(),
                 release.getMarketplaceDownloadLink().toString(),
@@ -112,6 +119,11 @@ class ReleaseDetails(
             }
         }
 
+        /** @return The number of downloads with a button, which shows the downloads of the metric in a chart. */
+        private fun downloadsChart(downloads: Long, metric: ChartMetric): ChartMetricName {
+            return ChartMetricName(Formatters.formatInteger(downloads), metric.id, metric.title, ChartUnit.Count.id(""))
+        }
+
         private fun marketplaceUrl(path: String): String = URLBuilder(Marketplace.MarketplaceFrontendUrl).takeFrom(path).buildString()
 
         private fun compatibleProductsTable(release: PluginReleaseInfo, links: ProductLinks): SimpleDataTable? {
@@ -130,11 +142,13 @@ class ReleaseDetails(
             return ListTable(
                 "Dependencies", "release-dependencies", listOf(name, plugin),
                 // the optional dependencies follow the required ones
-                dependencies.sortedWith(compareBy({ it.dependencyName.startsWith(OPTIONAL_PREFIX) }, { it.dependencyName.removePrefix(OPTIONAL_PREFIX) })).map { dependency ->
+                dependencies.sortedWith(compareBy({ it.isOptional }, { it.name })).map { dependency ->
                     val info = dependency.plugin
                     mapOf(
                         name to dependency.dependencyName,
-                        plugin to info?.let { ExternalLink(it.name, it.link?.let(::marketplaceUrl) ?: marketplaceUrl("/plugin/${it.id}")) },
+                        plugin to info?.let {
+                            ExternalLink(it.name, it.link?.let(::marketplaceUrl) ?: marketplaceUrl("/plugin/${it.id}"), "Open the page of ${it.name} on the JetBrains Marketplace")
+                        },
                     )
                 },
             )
@@ -146,10 +160,11 @@ class ReleaseDetails(
             return ListTable(
                 "Unsupported Products", "release-unsupported-products", listOf(product, dependencies),
                 products.sortedBy { it.productName }.map {
-                    mapOf(product to links.of(it.productName, it.productName), dependencies to ItemList(it.dependencies.sorted()))
+                    mapOf(product to links.of(it.productName, it.productName), dependencies to it.dependencies.sorted().joinToString(", "))
                 },
                 // the lists of the missing dependencies are long
                 cssClass = "table-column-wide",
+                collapsedRowCount = 2,
             )
         }
 
@@ -173,7 +188,7 @@ class ReleaseDetails(
                         verdict to it.verificationVerdict,
                         date to it.verificationDateMillis?.let { millis -> YearMonthDay.of(Instant.fromEpochMilliseconds(millis)) },
                         // the reports of the Plugin Verifier have a path of the Marketplace, those of the performance an address
-                        report to it.fullVerificationResultUrl?.let { url -> ExternalLink("Report", marketplaceUrl(url)) },
+                        report to it.fullVerificationResultUrl?.let { url -> ExternalLink("Report", marketplaceUrl(url), "Open the full report of the verification") },
                     )
                 },
                 // the verdicts are long texts, the latest results are shown until they're expanded
@@ -182,48 +197,46 @@ class ReleaseDetails(
             )
         }
 
-        private fun downloadsByProductTable(response: DownloadResponse, links: ProductLinks): SimpleDataTable {
+        /** The downloads have a button, which shows the downloads of the release in the product in a chart. */
+        private fun downloadsByProductTable(response: DownloadResponse, links: ProductLinks, release: PluginReleaseInfo): SimpleDataTable {
             val product = DataTableColumn("product", null, accessibleTitle = "Product")
             val downloads = DataTableColumn("downloads", "Downloads", "num", preSorted = AriaSortOrder.Descending)
             val items = response.data.serie.filter { it.value > 0 }.sortedByDescending { it.value }
+            val family = ChartMetricFamily.ReleaseDownloads
             return ListTable(
                 "Downloads by Product", "release-downloads-products", listOf(product, downloads),
-                items.map { mapOf(product to links.of(it.comment ?: it.name, it.name, it.comment), downloads to it.value.toBigInteger()) },
-                sortValues = { row -> mapOf(downloads to (row[downloads] as java.math.BigInteger).toLong()) },
+                items.map { item ->
+                    family.parameters[1].registerLabel(item.name, item.productLabel)
+                    val chart = family.parse("${family.id}.${release.id}.${item.name}")
+                    mapOf(
+                        product to links.of(item.productLabel, item.name, item.comment),
+                        downloads to (chart?.let { downloadsChart(item.value, it) } ?: Formatters.formatInteger(item.value)),
+                    )
+                },
+                sortValues = { index -> mapOf(downloads to items[index].value) },
                 footer = mapOf(downloads to items.sumOf { it.value }.toBigInteger()),
                 cssClass = "sortable",
-            )
-        }
-
-        private fun downloadsByMonthTable(response: DownloadResponse): SimpleDataTable {
-            val month = DataTableColumn("month", null, accessibleTitle = "Month")
-            val downloads = DataTableColumn("downloads", "Downloads", "num")
-            val items = response.data.serie.filter { it.value > 0 }.sortedByDescending { it.name }
-            return ListTable(
-                "Downloads by Month", "release-downloads-months", listOf(month, downloads),
-                // the names are the first days of the months, e.g. 2026-03-01
-                items.map { mapOf(month to it.name.take(7), downloads to it.value.toBigInteger()) },
-                footer = mapOf(downloads to items.sumOf { it.value }.toBigInteger()),
-                collapsedRowCount = 12,
             )
         }
     }
 
     /**
-     * The links to the pages of the products of JetBrains by their codes, names and alternative codes, e.g. `IU`,
-     * `IntelliJ IDEA` or `IIU`, case-insensitive.
+     * The links to the pages of the products of JetBrains by their codes, names and alternative codes, e.g. `IIU` or
+     * `IntelliJ IDEA`, case-insensitive.
      */
     private class ProductLinks(products: Products?) {
-        private val links: Map<String, String> = products?.productsWithReleases.orEmpty().flatMap { product ->
-            val link = product.link ?: return@flatMap emptyList()
+        private val products: Map<String, ProductWithReleases> = products?.productsWithReleases.orEmpty().filter { it.link != null }.flatMap { product ->
             (listOfNotNull(product.code.code, product.name, product.intellijProductCode, product.salesCode) + product.alternativeCodes.orEmpty())
-                .map { it.lowercase() to link }
+                .map { it.lowercase() to product }
         }.toMap()
 
-        /** @return The [text] linked to the page of the first product of the [keys], or the text without a known product. */
+        /**
+         * @return The [text] linked to the page of the first product of the [keys], with the name of the product as
+         *  tooltip, or the text without a known product.
+         */
         fun of(text: String, vararg keys: String?): Any {
-            val link = keys.firstNotNullOfOrNull { key -> key?.let { links[it.lowercase()] } } ?: return text
-            return ExternalLink(text, link)
+            val product = keys.firstNotNullOfOrNull { key -> key?.let { products[it.lowercase()] } } ?: return text
+            return ExternalLink(text, product.link!!, "Open the page of ${product.name}")
         }
     }
 
@@ -233,7 +246,8 @@ class ReleaseDetails(
         id: String,
         override val columns: List<DataTableColumn>,
         private val rows: List<Map<DataTableColumn, Any?>>,
-        private val sortValues: (Map<DataTableColumn, Any?>) -> Map<DataTableColumn, Long?> = { emptyMap() },
+        /** The values of the sortable table by the index of a row, e.g. of formatted numbers. */
+        private val sortValues: (Int) -> Map<DataTableColumn, Long?> = { emptyMap() },
         private val footer: Map<DataTableColumn, Any?>? = null,
         cssClass: String? = null,
         override val collapsedRowCount: Int? = null,
@@ -245,7 +259,7 @@ class ReleaseDetails(
         override suspend fun createSections(): List<DataTableSection> {
             return listOf(
                 SimpleTableSection(
-                    rows.map { SimpleDateTableRow(values = it, sortValues = sortValues(it)) },
+                    rows.mapIndexed { index, row -> SimpleDateTableRow(values = row, sortValues = sortValues(index)) },
                     footer = footer?.let { SimpleRowGroup(listOf(SimpleDateTableRow(values = it))) },
                 )
             )

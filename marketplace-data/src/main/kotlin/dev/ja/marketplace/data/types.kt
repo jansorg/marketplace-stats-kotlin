@@ -129,11 +129,11 @@ data class LinkedRefNum(val refNum: String, val pluginId: PluginId)
 /** The version of a release of a plugin, linked to the page of the release. */
 data class LinkedRelease(val id: PluginReleaseId, val version: String, val pluginId: PluginId)
 
-/** Values, which are rendered as a list in a cell, e.g. the missing dependencies of a product. */
-data class ItemList(val items: List<Any?>)
+/** A short label, e.g. the plugin model of a release, with the CSS class of the badge, e.g. `badge-model`, and a tooltip. */
+data class Badge(val text: String, val cssClass: String, val tooltip: String? = null)
 
-/** A link to another site, e.g. the Marketplace, which opens in a new tab. */
-data class ExternalLink(val text: String, val href: String)
+/** A link to another site, e.g. the Marketplace, which opens in a new tab, with an optional tooltip. */
+data class ExternalLink(val text: String, val href: String, val tooltip: String? = null)
 
 /**
  * The end of a purchase of an expired license, rendered with a symbol, so that expired licenses aren't only marked by

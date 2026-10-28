@@ -25,6 +25,8 @@ import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.javamoney.moneta.FastMoney
 import java.math.BigDecimal
 import java.math.RoundingMode
+import kotlinx.coroutines.CancellationException
+import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 import javax.money.MonetaryAmount
 
@@ -51,7 +53,10 @@ import javax.money.MonetaryAmount
  *
  * @param licensesOfPlugins The licenses of each plugin, several for the summary of all plugins.
  * @param revenue The recurring revenue of the customers of a single plugin, required for the subscription metrics.
- * @param metrics The metrics with values, e.g. only the metrics of the summary of all plugins.
+ * @param metrics The metrics with values, e.g. only the metrics of the summary of all plugins. The metrics of
+ *  [families] with values, which are known with the data, e.g. of the discounts of the sales, are part of it.
+ * @param families The families of metrics with parameters, see [ChartMetricFamily]. The metrics of the downloads of
+ *  releases and products are loaded with the [source] when they're requested, see [prepare].
  * @param dataStart The first day with data, sums and rates of windows, which start before it, are partial.
  */
 class ChartMetricValues private constructor(
@@ -64,6 +69,8 @@ class ChartMetricValues private constructor(
     private val exchangeRates: ExchangeRates,
     private val maxTrialDays: Int,
     val metrics: Set<ChartMetric>,
+    val families: Set<ChartMetricFamily>,
+    private val source: ChartDownloadsSource?,
     private val dataStart: YearMonthDay?,
 ) {
     val days: List<YearMonthDay> get() = windows.days
@@ -81,7 +88,7 @@ class ChartMetricValues private constructor(
      *  the metric, see [metrics]. The window is ignored by metrics, which don't use it, see [ChartMetric.usesWindow].
      */
     fun series(metric: ChartMetric, window: ChartWindow): DailySeries? {
-        if (metric !in metrics || days.isEmpty()) {
+        if (!isAvailable(metric) || days.isEmpty()) {
             return null
         }
         // values at each day are the same for all windows
@@ -97,6 +104,80 @@ class ChartMetricValues private constructor(
             }
             return cache[key]
         }
+    }
+
+    /**
+     * @return If the values of the metric can be calculated: a metric of [metrics] or a metric of the downloads of a
+     *  release or product, whose values are loaded by [prepare].
+     */
+    fun isAvailable(metric: ChartMetric): Boolean {
+        return metric in metrics || metric.family in families && metric.family in LOADED_FAMILIES
+    }
+
+    /** The downloads per day of the metrics of [LOADED_FAMILIES] by the ID of the metric, see [prepare]. */
+    private val loadedDownloads = ConcurrentHashMap<String, LongArray>()
+
+    /** The families and indexes of the parameters, whose labels were loaded, see [parameterValues]. */
+    private val loadedLabels = ConcurrentHashMap.newKeySet<Pair<ChartMetricFamily, Int>>()
+
+    /**
+     * Loads the data of the metrics, which aren't calculated from the data of the plugin, e.g. the downloads of a
+     * release, and the labels of their values, e.g. the version of a release. It must be called before the values of
+     * these metrics are requested, other metrics are ignored.
+     */
+    suspend fun prepare(metrics: Collection<ChartMetric>) {
+        val source = source ?: return
+        for (metric in metrics.distinct()) {
+            val family = metric.family
+            if (family !in LOADED_FAMILIES || family !in families || loadedDownloads.containsKey(metric.id)) {
+                continue
+            }
+            val values = metric.parameterValues
+            val (release, product) = when (family) {
+                ChartMetricFamily.ReleaseDownloads -> values[0]!!.toInt() to values[1]
+                else -> null to values[0]
+            }
+            // a line, whose downloads couldn't be loaded, has no values, the other lines are shown
+            val downloads = try {
+                source.downloads(release, product, windows.days.firstOrNull() ?: today)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn("Loading the downloads of the chart metric ${metric.id} failed", e)
+                continue
+            }
+            loadedDownloads[metric.id] = windows.countsPerDay(downloads.map { it.day to it.downloads })
+            // the titles of the metrics contain the labels of the values
+            family!!.parameters.indices.filter { values[it] != null }.forEach { index ->
+                if (Pair(family, index) !in loadedLabels) {
+                    parameterValues(family, index)
+                }
+            }
+        }
+    }
+
+    /**
+     * @return The values of a parameter of a family of metrics, e.g. the releases, and registers their labels, see
+     *  [ChartMetricParameter.registerLabel]. Families without values for the plugin have none.
+     */
+    suspend fun parameterValues(family: ChartMetricFamily, index: Int): List<ChartParameterValue> {
+        if (family !in families || index !in family.parameters.indices) {
+            return emptyList()
+        }
+        val values = when (family) {
+            // the share of unknown customer types is no row of the table
+            ChartMetricFamily.CustomerTypeShare -> CustomerType.entries.filter { it != CustomerType.Unknown }.map { ChartParameterValue(it.toString(), it.toString()) }
+            ChartMetricFamily.Discount -> metrics.mapNotNull { metric ->
+                metric.discountName?.let { ChartParameterValue(metric.parameterValues[0]!!, it) }
+            }
+
+            ChartMetricFamily.ReleaseDownloads -> if (index == 0) source?.releases() else source?.products()
+            ChartMetricFamily.ProductDownloads -> source?.products()
+            else -> null
+        } ?: emptyList()
+        values.forEach { family.parameters[index].registerLabel(it.value, it.label) }
+        loadedLabels += family to index
+        return values
     }
 
     private val averages = ConcurrentHashMap<Triple<ChartMetric, ChartWindow, Int>, DailySeries>()
@@ -215,6 +296,11 @@ class ChartMetricValues private constructor(
 
     private fun calculate(metric: ChartMetric, window: ChartWindow): Map<ChartMetric, DailySeries> {
         val starts = windows.starts(window)
+        if (metric.family in LOADED_FAMILIES) {
+            // without prepare, the downloads of the metric aren't known
+            val downloads = loadedDownloads[metric.id] ?: return emptyMap()
+            return mapOf(metric to countSeries(windows.windowSums(downloads, starts)))
+        }
         val series = when (metric) {
             ChartMetric.Sales -> amountSeries(windows.windowSums(salesAndFees.first, starts), windows.incompleteSums)
             ChartMetric.Fees -> amountSeries(windows.windowSums(salesAndFees.second, starts), windows.incompleteSums)
@@ -495,6 +581,9 @@ class ChartMetricValues private constructor(
 
         private val customerTypeShares = CustomerType.entries.associateBy(ChartMetric::customerTypeShare)
 
+        /** The families, whose data is loaded when their metrics are requested, see [prepare]. */
+        private val LOADED_FAMILIES = setOf(ChartMetricFamily.ReleaseDownloads, ChartMetricFamily.ProductDownloads)
+
         /** The metrics of the summary of all plugins. */
         private val allPluginsMetrics = setOf(
             ChartMetric.Sales, ChartMetric.Fees, ChartMetric.Invoice, ChartMetric.Downloads, ChartMetric.Mrr, ChartMetric.Arr,
@@ -527,9 +616,13 @@ class ChartMetricValues private constructor(
             today: YearMonthDay = YearMonthDay.now(),
             maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT,
             revenue: CustomerRecurringRevenue? = null,
+            source: ChartDownloadsSource? = null,
         ): ChartMetricValues {
-            val metrics = ChartMetric.all.toSet() + discountMetrics(licenses)
-            return create(sales, listOf(licenses), trials, downloads, revenue, exchangeRates, today, maxTrialDays, metrics)
+            val discounts = discountMetrics(licenses)
+            val metrics = ChartMetric.all.toSet() + customerTypeShares.keys + discounts
+            val families = setOfNotNull(ChartMetricFamily.CustomerTypeShare, ChartMetricFamily.Discount.takeIf { discounts.isNotEmpty() }) +
+                    if (source != null) LOADED_FAMILIES else emptySet()
+            return create(sales, listOf(licenses), trials, downloads, revenue, exchangeRates, today, maxTrialDays, metrics, families, source)
         }
 
         /**
@@ -540,9 +633,11 @@ class ChartMetricValues private constructor(
             downloads: List<DailyDownload>,
             exchangeRates: ExchangeRates,
             today: YearMonthDay = YearMonthDay.now(),
+            source: ChartDownloadsSource? = null,
         ): ChartMetricValues {
             val metrics = ChartMetric.all.filterNot(ChartMetric::isPaidOnly).toSet()
-            return create(emptyList(), emptyList(), emptyList(), downloads, null, exchangeRates, today, Marketplace.MAX_TRIAL_DAYS_DEFAULT, metrics)
+            val families = if (source != null) LOADED_FAMILIES.filterNot(ChartMetricFamily::isPaidOnly).toSet() else emptySet()
+            return create(emptyList(), emptyList(), emptyList(), downloads, null, exchangeRates, today, Marketplace.MAX_TRIAL_DAYS_DEFAULT, metrics, families, source)
         }
 
         /**
@@ -558,7 +653,10 @@ class ChartMetricValues private constructor(
             exchangeRates: ExchangeRates,
             today: YearMonthDay = YearMonthDay.now(),
         ): ChartMetricValues {
-            return create(sales, licensesOfPlugins, emptyList(), downloads, null, exchangeRates, today, Marketplace.MAX_TRIAL_DAYS_DEFAULT, allPluginsMetrics)
+            return create(
+                sales, licensesOfPlugins, emptyList(), downloads, null, exchangeRates, today, Marketplace.MAX_TRIAL_DAYS_DEFAULT, allPluginsMetrics,
+                emptySet(), null,
+            )
         }
 
         private fun create(
@@ -571,6 +669,8 @@ class ChartMetricValues private constructor(
             today: YearMonthDay,
             maxTrialDays: Int,
             metrics: Set<ChartMetric>,
+            families: Set<ChartMetricFamily>,
+            source: ChartDownloadsSource?,
         ): ChartMetricValues {
             val firstDate = listOfNotNull(
                 sales.minOfOrNull { it.date },
@@ -584,7 +684,7 @@ class ChartMetricValues private constructor(
                 else -> YearMonthDay(firstDate.year, 1, 1)
             }
             val windows = DailyWindows(first, today)
-            return ChartMetricValues(windows, sales, licensesOfPlugins, trials, downloads, revenue, exchangeRates, maxTrialDays, metrics, firstDate)
+            return ChartMetricValues(windows, sales, licensesOfPlugins, trials, downloads, revenue, exchangeRates, maxTrialDays, metrics, families, source, firstDate)
         }
 
         /**
@@ -651,3 +751,5 @@ class ChartMetricValues private constructor(
         }
     }
 }
+
+private val logger = LoggerFactory.getLogger(ChartMetricValues::class.java)

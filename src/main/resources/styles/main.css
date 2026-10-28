@@ -454,7 +454,7 @@ kbd {
     margin-bottom: 2.5rem;
 }
 
-/* the menu next to the name of a plugin, which shows the other paid plugins, see main.kte */
+/* the menu next to the name of a plugin, which shows the other plugins, see pluginHeader.kte */
 .plugin-switcher {
     position: relative;
     display: inline-block;
@@ -525,10 +525,12 @@ kbd {
     height: 1.25rem;
 }
 
-/* "All" links to the list of plugins */
-.plugin-switcher-all {
+/* the sections of the paid and the other plugins follow "All", the link to the list of plugins */
+.plugin-switcher-heading {
     margin-top: 0.3rem;
-    padding-top: 0.3rem;
+    padding: 0.5rem 0.9rem 0.2rem;
+    font-size: 0.85em;
+    font-weight: 700;
     border-top: 1px solid var(--separator-light-color);
 }
 
@@ -697,7 +699,7 @@ kbd {
     color: var(--separator-color);
 }
 
-.table-card button, footer.menu button {
+.table-card button, footer.menu button, .release-notes-more {
     padding: 0.2rem 0.75rem;
     color: var(--text-color);
     background-color: var(--button-bgcolor);
@@ -706,7 +708,7 @@ kbd {
     cursor: pointer;
 }
 
-.table-card button:hover, footer.menu button:hover {
+.table-card button:hover, footer.menu button:hover, .release-notes-more:hover {
     background-color: var(--button-hover-bgcolor);
 }
 
@@ -953,7 +955,7 @@ tr.disabled a:hover {
     color: var(--future-color);
 }
 
-.badge-new, .badge-churned, .badge-free {
+.badge-new, .badge-churned, .badge-free, .badge-model {
     font-size: .8em;
     line-height: 1.0;
     border-radius: 3px;
@@ -972,7 +974,7 @@ tr.disabled a:hover {
     color: var(--badge-churned-color);
 }
 
-.badge-free {
+.badge-free, .badge-model {
     background-color: var(--badge-free-bgcolor);
     color: var(--badge-free-color);
 }
@@ -1012,8 +1014,8 @@ tr.disabled a:hover {
 }
 
 /* the button next to the name of a row, which shows a metric of the row in a chart, see ChartMetricName.
-   A small icon, not like the other buttons of the tables. */
-.table-card .chart-row-button {
+   A small icon, not like the other buttons of the tables, also outside of tables, e.g. on the page of a release. */
+.chart-row-button, .table-card .chart-row-button {
     margin-left: 0.4em;
     padding: 0 0.15em;
     border: none;
@@ -1025,7 +1027,7 @@ tr.disabled a:hover {
     line-height: 1;
 }
 
-.table-card .chart-row-button svg {
+.chart-row-button svg {
     width: 1em;
     height: 1em;
     fill: none;
@@ -1035,6 +1037,7 @@ tr.disabled a:hover {
     stroke-linejoin: round;
 }
 
+.chart-row-button:hover, .chart-row-button:focus-visible,
 .table-card .chart-row-button:hover, .table-card .chart-row-button:focus-visible {
     background: none;
     color: var(--link-color-active);
@@ -1145,12 +1148,6 @@ th.highlighted, td.highlighted {
     width: 100%;
 }
 
-/* the lists in the cells of tables, e.g. the missing dependencies of a product */
-.cell-list {
-    margin: 0;
-    padding-left: 1.1em;
-}
-
 /* details in a grid of at most 4 columns, each with its label above its value, e.g. on the page of a sale */
 /* the release notes are text with the line breaks of their HTML, long notes are collapsed until they're expanded */
 .release-notes {
@@ -1161,6 +1158,12 @@ th.highlighted, td.highlighted {
     max-height: 8lh;
     overflow: hidden;
     mask-image: linear-gradient(to bottom, black 60%, transparent);
+}
+
+/* the button below the collapsed notes looks like the buttons, which expand the rows of tables */
+.release-notes-more {
+    display: block;
+    margin: 0.25rem auto 0;
 }
 
 dl.detail-grid {
@@ -1174,6 +1177,12 @@ dl.detail-grid {
 dl.detail-grid dt {
     color: var(--text-color-disabled);
     font-weight: 400;
+}
+
+/* the labels of the page of a release are bold, like those of the page of a customer */
+dl.detail-grid.release-details dt {
+    color: var(--text-color);
+    font-weight: 700;
 }
 
 dl.detail-grid dd {
@@ -1856,8 +1865,21 @@ dl.detail-grid dd {
     border-bottom: 1px solid var(--separator-light-color);
 }
 
-.chart-add-window select {
+.chart-add-window select, .chart-add-parameter select {
     font: inherit;
+}
+
+/* the selections of the values of the parameters of a family of metrics in its submenu, e.g. the release */
+.chart-add-parameter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.3rem 0.8rem 0.4rem;
+    border-bottom: 1px solid var(--separator-light-color);
+}
+
+.chart-add-parameter select {
+    max-width: 18rem;
 }
 
 /* the groups of the metrics, e.g. the trials */
@@ -1981,6 +2003,24 @@ dl.detail-grid dd {
     left: 0;
     right: auto;
     text-align: left;
+}
+
+/* the values of a parameter of a line, e.g. the releases, in a submenu below its item, see parameterSubmenu in lineChart.js */
+.chart-series-parameter::after {
+    content: " ▸";
+}
+
+.chart-series-parameter[aria-expanded="true"]::after {
+    content: " ▾";
+}
+
+.chart-series-parameter-values:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    max-height: 12rem;
+    overflow-y: auto;
+    margin-left: 0.8rem;
+    border-left: 1px solid var(--separator-light-color);
 }
 
 /* the events may have long labels, they wrap on small screens */

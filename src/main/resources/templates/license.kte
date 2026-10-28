@@ -12,6 +12,7 @@
 @param rating: dev.ja.marketplace.client.model.PluginRating
 @param today: dev.ja.marketplace.client.YearMonthDay
 @param otherPlugins: List<dev.ja.marketplace.client.model.PluginInfoSummary>
+@param otherFreePlugins: List<dev.ja.marketplace.client.model.PluginInfoSummary> = emptyList()
 @param licenseId: LicenseId
 @param licenseTable: RenderedDataTable
 @param fallbackVersion: FallbackVersion?
@@ -32,7 +33,7 @@
 
 <body class="${cssClass}" data-plugin-name="${plugin.name}">
 <%-- the page only exists for this plugin, the menu of the other plugins links to their overview --%>
-@template.pluginHeader(plugin = plugin, urls = urls, rating = rating, today = today, otherPlugins = otherPlugins, otherPluginPath = "/")
+@template.pluginHeader(plugin = plugin, urls = urls, rating = rating, today = today, otherPlugins = otherPlugins, otherFreePlugins = otherFreePlugins, otherPluginPath = "/")
 @template.navbar(plugin = plugin, showResellerCharges = settings.showResellerCharges)
 <main>
 

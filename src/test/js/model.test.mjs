@@ -7,7 +7,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
-    alignedRanges, chartExportUrl, exportLineId, niceStep, rangeTicks, seriesMenuSections, seriesStyle, SERIES_STYLES, WINDOWS, RANGE_PRESETS, rangeOfPreset,
+    alignedRanges, chartExportUrl, exportLineId, familyMetricId, familyOfMetric, niceStep, parameterSections, parameterValuesKey, rangeTicks, seriesMenuSections, seriesStyle, SERIES_STYLES, WINDOWS, RANGE_PRESETS, rangeOfPreset,
     pinchedRange, rangeLabel, rangeMenuItems, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, finestDetail, lineDetail, periodEnd, shownWindow, storedChartLevel, tableWindow, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, shownDateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
@@ -97,6 +97,9 @@ test("labels of metrics name the window of sums and rates", () => {
     assert.equal(metricLabel({label: "Trials", usesWindow: true}, "year"), "Trials, last 12 months");
     assert.equal(metricLabel({label: "Trials", usesWindow: true}, "calendar-month"), "Trials, calendar month");
     assert.equal(metricLabel({label: "MRR", usesWindow: false}, "year"), "MRR");
+    // the window of the level of the chart isn't part of the label, other windows are
+    assert.equal(metricLabel({label: "Trials", usesWindow: true}, "calendar-month", "calendar-month"), "Trials");
+    assert.equal(metricLabel({label: "Trials", usesWindow: true}, "day", "calendar-month"), "Trials, per day");
     assert.equal(detailPeriod("year"), "year");
     assert.equal(detailPeriod("day"), "month");
     assert.equal(detailGranularity("month"), "monthEnd");
@@ -540,6 +543,44 @@ test("two y-axes have their ticks at the same heights", () => {
     assert.deepEqual(rangeTicks(amounts), [-200, -100, 0, 100, 200, 300, 400]);
     assert.deepEqual(rangeTicks(rates), [-40, -20, 0, 20, 40, 60, 80]);
     assert.deepEqual(rangeTicks({min: 0, max: 0.6, step: 0.2}), [0, 0.2, 0.4, 0.6]);
+});
+
+const RELEASE_DOWNLOADS = {id: "release-downloads", title: "Downloads of a release", parameters: [
+    {id: "release", title: "Release"}, {id: "product", title: "Product", allLabel: "All products"},
+]};
+const FAMILIES = [{id: "sales", title: "Sales"}, RELEASE_DOWNLOADS, {id: "discount", parameters: [{id: "discount", title: "Discount"}]}];
+
+test("the IDs of the metrics of a family contain the values of its parameters", () => {
+    assert.deepEqual(familyOfMetric("release-downloads.1234.IIU", FAMILIES), {family: RELEASE_DOWNLOADS, values: ["1234", "IIU"]});
+    // a missing optional value
+    assert.deepEqual(familyOfMetric("release-downloads.1234", FAMILIES).values, ["1234", null]);
+    assert.equal(familyOfMetric("discount.U3VtbWVy", FAMILIES).family.id, "discount");
+    // other metrics and invalid IDs
+    assert.equal(familyOfMetric("sales", FAMILIES), null);
+    assert.equal(familyOfMetric("sales.1", FAMILIES), null);
+    assert.equal(familyOfMetric("release-downloads.1.IIU.x", FAMILIES), null);
+    assert.equal(familyOfMetric("release-downloads.", FAMILIES), null);
+
+    assert.equal(familyMetricId("release-downloads", ["1234", "IIU"]), "release-downloads.1234.IIU");
+    assert.equal(familyMetricId("release-downloads", ["1234", null]), "release-downloads.1234");
+});
+
+test("the menu of a line of a family selects the values of its parameters", () => {
+    const metric = familyOfMetric("release-downloads.1234", FAMILIES);
+    const values = {[parameterValuesKey("release-downloads", "release")]: [{value: "1235", label: "1.1"}, {value: "1234", label: "1.0"}]};
+    // the values of the products aren't loaded yet
+    const sections = parameterSections(metric, values);
+    assert.deepEqual(sections.map(section => [section.kind, section.title]), [["parameter:0", "Release"]]);
+    assert.deepEqual(sections[0].items.map(item => [item.value, item.isChecked]), [["1235", false], ["1234", true]]);
+
+    // an optional parameter starts with all values
+    values[parameterValuesKey("release-downloads", "product")] = [{value: "IIU", label: "IntelliJ IDEA"}];
+    const product = parameterSections(metric, values)[1];
+    assert.deepEqual(product.items.map(item => [item.value, item.label, item.isChecked]), [[null, "All products", true], ["IIU", "IntelliJ IDEA", false]]);
+
+    // the sections precede the window and the type of the line
+    const series = {usesWindow: true, window: "calendar-month", parameterSections: parameterSections(metric, values)};
+    assert.deepEqual(seriesMenuSections(series, true).map(section => section.kind), ["parameter:0", "parameter:1", "window", "style"]);
 });
 
 test("the menu of a line selects its window, if its values depend on the window, and its type", () => {

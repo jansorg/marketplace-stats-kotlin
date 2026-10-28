@@ -182,8 +182,9 @@ queries, and one which excludes all these tags. The results are in the order of 
   loaded lazily on the first request for a plugin and then cached in memory, so the first page load for a plugin is slow.
   For testing, prefer a plugin with few sales, because plugins with a long sales history take much longer to load.
 - Useful routes: `/` (plugin list with the summary of all paid plugins, `--no-all-plugins-summary` disables it, or report with `?pluginId=<id>`), `/licenses`, `/customers`, `/trials`, `/countries`,
-  `/pricing`, `/offers` (see "Offers"), `/releases` (a table of each release channel, the versions link to
-  `/release/<id>`, all data of a release, `ReleaseDetails`), `/downloads/monthly`, `/chart-data` (JSON), `/chart-export` (CSV or JSON of the lines of a chart, see "Charts"), all with `?pluginId=<id>`. `POST /refresh?pluginId=<id>&reload=true` drops cached data.
+  `/pricing`, `/offers` (see "Offers"), `/releases` (a table of each release channel, the downloads have a chart of
+  the release, the versions link to `/release/<id>`, all data of a release, `ReleaseDetails`, with charts of its
+  downloads and a badge of the plugin model, a heuristic by the dependencies, `PluginReleases.pluginModel`), `/downloads/monthly`, `/chart-data` (JSON), `/chart-export` (CSV or JSON of the lines of a chart, see "Charts"), all with `?pluginId=<id>`. `POST /refresh?pluginId=<id>&reload=true` drops cached data.
   See the routing in `MarketplaceStatsServer.kt`.
 - The MCP server is served at `/mcp` (Streamable HTTP, `src/main/kotlin/dev/ja/marketplace/mcp/`, see README.md).
   Tools return JSON (`McpToolDefinition.call`), tools with images also a `McpToolResult` with `McpContent`
@@ -275,7 +276,7 @@ queries, and one which excludes all these tags. The results are in the order of 
   the price before this discount, after the other discounts, minus the paid amount. Free licenses (100 %) and
   discounts without a percent have no lost amount, the API has no undiscounted amount.
 - The chart metrics `discount.<name of the discount as Base64 URL-safe without padding>` (`ChartMetric.discount`,
-  group "Discounts" of the "+" menu) are the discount amounts of the offers and discounts by their name in the sales:
+  the family `ChartMetricFamily.Discount`, see "Metrics with parameters" below) are the discount amounts of the offers and discounts by their name in the sales:
   the name of the offer, or the description of a discount without an offer (`OfferDiscounts.discountName`), calculated
   like the column "Discount Amount". Each plugin has the metrics of the discounts of its sales with a discount amount,
   they aren't part of `ChartMetric.all`, the summary of all plugins doesn't have them. The names of the rows with a
@@ -386,6 +387,25 @@ queries, and one which excludes all these tags. The results are in the order of 
     average of a window, which isn't shorter than the months, is its value.
   - New metrics are registered in `ChartMetric` and calculated in `ChartMetricValues.calculate`, new windows only need
     `ChartWindow.start` and `currentPeriodStart`.
+  - Metrics with parameters: a `ChartMetricFamily` has the same metric for each value of its parameters, so that the
+    charts don't need a metric of each release or discount. The ID of a line is the ID of the family followed by the
+    values, separated by `.`, e.g. `release-downloads.<release ID>[.<product code>]`, missing optional values are left
+    out (`ChartMetricFamily.parse`, `familyOfMetric`/`familyMetricId` in `model.js`). Families: the shares of the
+    customer types (`customer-type-share.<type>`), the discount amounts (`discount.<Base64 name>`), the downloads of a
+    release, of all products or of a product (`release-downloads`, the product is optional), and the downloads in a
+    product (`product-downloads.<code>`, the codes of the statistics, e.g. `IIU`). `/chart-metrics` lists a family
+    once with its `parameters`, `/chart-metric-parameters?family=<id>&parameter=<id>` returns the values of a
+    parameter with their labels (`ChartMetricValues.parameterValues`, which registers the labels for the titles of
+    the lines, `ChartMetricParameter.registerLabel`). The "+" menu shows a family with a selection of each parameter
+    in its submenu (`addFamilyItem` in `addMenu.js`, the values are loaded when the submenu opens), the gear of a line
+    in the legend has a submenu of each parameter (`parameterSections` in `model.js`, `parameterSubmenu` in
+    `lineChart.js`). The downloads of releases and products aren't part of the data of a plugin: they're loaded with
+    `ChartDownloadsSource` when a line is requested (`ChartMetricValues.prepare`, called by `/chart-data`,
+    `/chart-export` and `create_chart`), by day in halves of months (`halfMonthChunks`, the same boundaries for all
+    requests, so that the persistent cache of the downloads is used again), a release from its release date. The
+    statistics service answers longer requests with these filters with 503. The page of a release has the charts of
+    the other pages, its downloads have the buttons of `ChartMetricName`, the requests of the charts use
+    `data-plugin-id` of the `<body>` (`pageEndpoint` in `endpoints.js`), the page has the parameter `pId`.
   - Decimals: `ChartMetric.fractionDigits` is the maximum number of decimals of the shown values of a metric, e.g. of
     its moving averages. By default counts at a date (e.g. the active licenses) have none, counts of a window (e.g. the
     trials) one, the other metrics two. `/chart-data`, the JSON of `/chart-export` and the MCP chart images pass it on,

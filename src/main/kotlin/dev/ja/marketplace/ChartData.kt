@@ -7,9 +7,10 @@ package dev.ja.marketplace
 
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.YearMonthDay
-import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.data.PluginData
 import dev.ja.marketplace.data.chart.ChartDetail
+import dev.ja.marketplace.data.chart.ChartDownloadsSource
+import dev.ja.marketplace.data.chart.ChartMetricFamily
 import dev.ja.marketplace.data.chart.ChartMetric
 import dev.ja.marketplace.data.chart.ChartMetricValues
 import dev.ja.marketplace.data.chart.ChartWindow
@@ -36,8 +37,11 @@ import java.util.concurrent.ConcurrentHashMap
  * The values of a plugin are calculated for the loaded data of the plugin, the values of a metric and a window when
  * they're requested first. The client caches the loaded data, so the values are calculated again when the data is
  * reloaded or on the next day.
+ *
+ * @param downloadsSource The source of the downloads of the releases and products of a plugin, see
+ *  [ChartDownloadsSource], `null` without these metrics.
  */
-class ChartData {
+class ChartData(private val downloadsSource: ((PluginId) -> ChartDownloadsSource)? = null) {
     private class Entry(
         val sales: Any?,
         val trials: Any?,
@@ -71,7 +75,7 @@ class ChartData {
                 sales, trials, downloads, licenses, currency, today,
                 when {
                     // the menu of a free plugin only offers the metrics, which it has
-                    !data.pluginSummary.isPaidOrFreemium -> ChartMetricValues.freePlugin(downloads, data.exchangeRates, today)
+                    !data.pluginSummary.isPaidOrFreemium -> ChartMetricValues.freePlugin(downloads, data.exchangeRates, today, downloadsSource?.invoke(data.pluginId))
                     else -> ChartMetricValues.create(
                         sales ?: emptyList(),
                         licenses ?: emptyList(),
@@ -81,6 +85,7 @@ class ChartData {
                         today,
                         maxTrialDays,
                         revenue,
+                        downloadsSource?.invoke(data.pluginId),
                     )
                 },
             )
@@ -99,17 +104,46 @@ class ChartData {
          * @return The metrics with values, e.g. to add them to the charts, ordered like [ChartMetric.all].
          */
         fun metrics(values: ChartMetricValues): List<ChartMetricData> {
-            // the shares of unknown customer types are no row of the table
-            return values.metrics
-                .filterNot { it.id.endsWith(".${CustomerType.Unknown}") }
-                // the discounts of the offers follow the other metrics
-                .sortedBy { ChartMetric.all.indexOf(it).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }
+            // the metrics with parameters are a single entry of their family, e.g. the downloads of a release
+            val metrics = values.metrics
+                .filter { it.family == null }
+                .sortedBy { ChartMetric.all.indexOf(it) }
                 .map { metric ->
                     ChartMetricData(
                         metric.id, metric.title, metric.unit.id(values.currency), metric.measure.name.lowercase(), metric.usesWindow,
                         metric.group, metric.description,
                     )
                 }
+            val families = ChartMetricFamily.all.filter { it in values.families }.map { family ->
+                ChartMetricData(
+                    family.id, family.title, family.unit.id(values.currency), family.measure.name.lowercase(), family.usesWindow,
+                    family.group, family.description,
+                    family.parameters.map { ChartParameterData(it.id, it.title, it.allLabel) },
+                )
+            }
+            // the families follow the metrics of their group, e.g. the downloads of a release follow the downloads
+            val groups = (metrics + families).map { it.group }.distinct()
+            return (metrics + families).sortedBy { groups.indexOf(it.group) }
+        }
+
+        /**
+         * Loads the data of the metrics, which aren't calculated from the data of the plugin, see
+         * [ChartMetricValues.prepare].
+         *
+         * @param metrics The IDs of the metrics and of their moving averages, see [chartData].
+         */
+        suspend fun prepare(values: ChartMetricValues, metrics: List<String>) {
+            values.prepare(metrics.mapNotNull { ChartMetric.byId(it.substringBefore(AVERAGE_SEPARATOR)) })
+        }
+
+        /**
+         * @return The values of the parameter of a family of metrics, e.g. the releases of the downloads of a release,
+         *  `null` for an unknown family or parameter.
+         */
+        suspend fun parameterValues(values: ChartMetricValues, familyId: String, parameterId: String): List<ChartParameterValueData>? {
+            val family = ChartMetricFamily.byId(familyId) ?: return null
+            val index = family.parameters.indexOfFirst { it.id == parameterId }.takeIf { it >= 0 } ?: return null
+            return values.parameterValues(family, index).map { ChartParameterValueData(it.value, it.label) }
         }
 
         /** The separator of the ID of a metric and the months of its moving average, e.g. `sales@avg3`. */
@@ -190,7 +224,11 @@ class ChartSeriesData(
     val fractionDigits: Int,
 )
 
-/** A metric of `/chart-metrics`, which the charts can show, see [ChartMetric]. */
+/**
+ * A metric of `/chart-metrics`, which the charts can show, see [ChartMetric], or a family of metrics with parameters,
+ * see [ChartMetricFamily]. The ID of a metric of a family is the ID of the family followed by the values of the
+ * parameters, see `/chart-metric-parameters`.
+ */
 @Serializable
 class ChartMetricData(
     val id: String,
@@ -201,7 +239,21 @@ class ChartMetricData(
     val group: String,
     /** What the metric measures, the tooltip of the metric in the menu to add metrics. */
     val description: String,
+    /** The parameters of a family, `null` for a metric. */
+    val parameters: List<ChartParameterData>? = null,
 )
+
+/**
+ * A parameter of a family of metrics, see [dev.ja.marketplace.data.chart.ChartMetricParameter].
+ *
+ * @param allLabel The label of the missing value of an optional parameter, e.g. "All products".
+ */
+@Serializable
+class ChartParameterData(val id: String, val title: String, val allLabel: String? = null)
+
+/** A value of a parameter of `/chart-metric-parameters`, e.g. the ID and the version of a release. */
+@Serializable
+class ChartParameterValueData(val value: String, val label: String)
 
 /**
  * Writes decimals as JSON numbers with their scale, e.g. `12.50`, without a conversion to `Double`.

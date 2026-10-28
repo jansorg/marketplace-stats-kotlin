@@ -22,6 +22,8 @@
 @param priceChanges: List<dev.ja.marketplace.data.prices.PriceChange>
 @param continuityDiscountDisabledAt: dev.ja.marketplace.client.YearMonthDay? = null
 @param otherPlugins: List<dev.ja.marketplace.client.model.PluginInfoSummary> = emptyList()
+@param otherFreePlugins: List<dev.ja.marketplace.client.model.PluginInfoSummary> = emptyList()
+@param freePluginPath: String = "/"
 @param customEvents: List<dev.ja.marketplace.CustomEvent> = emptyList()
 
 <!DOCTYPE html>
@@ -43,7 +45,7 @@
     <script type="module" src="${dev.ja.marketplace.StaticAssets.url("/js/chunkedTables.min.js")}"></script>
 </head>
 <body class="${cssClass}" data-plugin-name="${plugin.name}" data-plugin-id="${plugin.id}"data-locale="${java.util.Locale.getDefault().toLanguageTag()}">
-@template.pluginHeader(plugin = plugin, urls = urls, rating = rating, today = today, otherPlugins = otherPlugins)
+@template.pluginHeader(plugin = plugin, urls = urls, rating = rating, today = today, otherPlugins = otherPlugins, otherFreePlugins = otherFreePlugins, freePluginPath = freePluginPath)
 
 @template.navbar(plugin = plugin, showResellerCharges = settings.showResellerCharges)
 <main>

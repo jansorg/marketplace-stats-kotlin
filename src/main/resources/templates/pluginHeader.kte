@@ -9,11 +9,14 @@
 @param rating: PluginRating
 @param today: YearMonthDay
 @param otherPlugins: List<PluginInfoSummary>
+@param otherFreePlugins: List<PluginInfoSummary> = emptyList()
 @param otherPluginPath: String = ""
+@param freePluginPath: String = "/"
 
 <%-- The icon, the name and the statistics of the plugin above the navigation of the pages of a plugin.
      The menu of the other plugins links to the same page of the other plugin, or to otherPluginPath, e.g. "/" for the
-     pages of a sale or of a license, which don't exist for other plugins. --%>
+     pages of a sale or of a license, which don't exist for other plugins. The free plugins link to freePluginPath,
+     e.g. to their overview from a page, which only exists for paid plugins. --%>
 !{val iconUrl = plugin.iconUrlPath?.let { urls.assetUrl(it) }}
 @if(iconUrl != null)
     <div class="centered">
@@ -21,15 +24,20 @@
     </div>
 @endif
 <h1>${plugin.name}<%--
-    the other paid plugins
---%>@if(otherPlugins.isNotEmpty())<details class="plugin-switcher noprint">
+    the other plugins: the list of all plugins, the paid plugins and the free plugins
+--%>@if(otherPlugins.isNotEmpty() || otherFreePlugins.isNotEmpty())<details class="plugin-switcher noprint">
         <summary title="Show another plugin" aria-label="Show another plugin"></summary>
         <ul>
-            @for(other in otherPlugins)
-                !{val otherIconUrl = other.iconUrlPath?.let { urls.assetUrl(it) }}
-                <li><a href="${otherPluginPath}?pluginId=${other.id}">@if(otherIconUrl != null)<img src="${otherIconUrl}" alt="" class="plugin-switcher-icon"/>@endif${other.name}</a></li>
+            <li><a href="/">All</a></li>
+            @for((title, plugins, path) in listOf(Triple("Paid plugins", otherPlugins, otherPluginPath), Triple("Other plugins", otherFreePlugins, freePluginPath)))
+                @if(plugins.isNotEmpty())
+                    <li class="plugin-switcher-heading">${title}</li>
+                    @for(other in plugins)
+                        !{val otherIconUrl = other.iconUrlPath?.let { urls.assetUrl(it) }}
+                        <li><a href="${path}?pluginId=${other.id}">@if(otherIconUrl != null)<img src="${otherIconUrl}" alt="" class="plugin-switcher-icon"/>@endif${other.name}</a></li>
+                    @endfor
+                @endif
             @endfor
-            <li class="plugin-switcher-all"><a href="/">All</a></li>
         </ul>
     </details>
     <script type="module">
