@@ -23,14 +23,6 @@ interface MarketplaceClientPublic {
     suspend fun pluginRatingByCategory(id: PluginId): Map<PluginRatingCategory, PluginCategoryRating>
 
     /**
-     * @return The results of the plugin verifier for a release of the plugin, one for each verified IDE.
-     */
-    suspend fun verificationResults(
-        pluginReleaseId: PluginReleaseId,
-        type: PluginVerificationType = PluginVerificationType.IntelliJCompatibility,
-    ): List<PluginVerificationResult>
-
-    /**
      * Fetches all available comments by executing several paged requests
      * @param pageSize Page size for a request for comments
      * @return Review comments about a plugin
