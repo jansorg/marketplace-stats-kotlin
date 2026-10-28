@@ -69,16 +69,20 @@ class ChartData {
         return entries.compute(data.pluginId) { _, cached ->
             cached?.takeIf { it.isValid() } ?: Entry(
                 sales, trials, downloads, licenses, currency, today,
-                ChartMetricValues.create(
-                    sales ?: emptyList(),
-                    licenses ?: emptyList(),
-                    trials ?: emptyList(),
-                    downloads,
-                    data.exchangeRates,
-                    today,
-                    maxTrialDays,
-                    revenue,
-                ),
+                when {
+                    // the menu of a free plugin only offers the metrics, which it has
+                    !data.pluginSummary.isPaidOrFreemium -> ChartMetricValues.freePlugin(downloads, data.exchangeRates, today)
+                    else -> ChartMetricValues.create(
+                        sales ?: emptyList(),
+                        licenses ?: emptyList(),
+                        trials ?: emptyList(),
+                        downloads,
+                        data.exchangeRates,
+                        today,
+                        maxTrialDays,
+                        revenue,
+                    )
+                },
             )
         }!!.values
     }
