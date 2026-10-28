@@ -5,7 +5,7 @@
 
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {metricDataId, metricEntry, metricSeries, MetricValueCache} from "../../main/resources/js/charts/metricValues.js";
+import {isAbortError, metricDataId, metricEntry, metricSeries, MetricValueCache} from "../../main/resources/js/charts/metricValues.js";
 
 /** @return A cache, whose requests are answered by `respond`, and the list of its requests. */
 function cache(respond) {
@@ -142,4 +142,25 @@ test("refresh skips levels without values", async () => {
     requests.length = 0;
     assert.deepEqual(await values.refresh(), {changed: false, responses: []});
     assert.equal(requests.length, 0);
+});
+
+test("aborted requests aren't failures, their values are requested again", async () => {
+    const requests = [];
+    const values = new MetricValueCache((window, detail, ids, signal) => new Promise((resolve, reject) => {
+        requests.push(ids);
+        // the values are only loaded, if the request isn't aborted
+        signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        setTimeout(() => resolve({dates: ["2026-01-31"], series: Object.fromEntries(ids.map(id => [id, {values: [1]}]))}), 20);
+    }));
+
+    const aborted = values.load("month", "month", ["sales"]);
+    values.abort();
+    await assert.rejects(aborted, error => isAbortError(error));
+    assert.equal(values.isLoading, false);
+
+    // the metric isn't failed, it's requested at once
+    const {requested} = await values.load("month", "month", ["sales"]);
+    assert.deepEqual(requested, ["sales"]);
+    assert.deepEqual(requests, [["sales"], ["sales"]]);
+    assert.deepEqual(values.data("month", "month").series.sales.values, [1]);
 });

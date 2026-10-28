@@ -428,6 +428,12 @@ queries, and one which excludes all these tags. The results are in the order of 
     new customers of each plugin. `new-licenses` (`newLicenseDays`) counts a license at its first purchase, if it's
     paid: renewals, period changes, free licenses paid later and the purchases after a transfer don't count.
     `new-trial-users` counts the first trial of each customer (only for single plugins).
+  - Cancellation: closing the chart dialog aborts the pending requests of values (`MetricValueCache.abort`, aborted
+    requests aren't failures). Ktor doesn't cancel a call, whose connection was closed: `/chart-data`, `/chart-export`
+    and `/chart-metric-parameters` run in `cancelOnDisconnect` (`ClientDisconnect.kt`, the close of the Netty channel),
+    which cancels the loads of the cached client and their requests to the Marketplace. Concurrent requests share the
+    load of a value in the coroutine of the first request, the others load again after its cancellation (`loadShared`
+    in `CaffeineCacheMarketplaceClient`).
   - Refresh: while the chart dialog is open and the page is visible, the loaded values of metrics are loaded again
     after 5 minutes (`refreshMetricValues` in `main.js`, `MetricValueCache.refresh`), also when the dialog is opened
     or the tab is shown again later. The charts are only drawn again if the values or dates changed, so that open

@@ -21,6 +21,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
@@ -692,11 +694,11 @@ class CaffeineCacheMarketplaceClient(
         val expiry = cachingStrategy.expiry(category)
         val refreshValue = refresh as suspend () -> Stored<Any?>
         val categoryOfValue = categoryOf as (Stored<Any?>) -> Category
-        val cachedValue = cache.get(key) {
+        val cachedValue = loadShared(key) {
             // e.g. a value, which expired while the automatic refresh fetches it
             awaitRefresh(key)?.let { refreshed ->
                 val refreshedCategory = categoryOfValue(refreshed)
-                return@get CacheValue(refreshedCategory, cachingStrategy.expiry(refreshedCategory), refreshed.value, null, refreshValue, categoryOfValue)
+                return@loadShared CacheValue(refreshedCategory, cachingStrategy.expiry(refreshedCategory), refreshed.value, null, refreshValue, categoryOfValue)
             }
 
             try {
@@ -729,6 +731,27 @@ class CaffeineCacheMarketplaceClient(
         }
 
         throw cachedValue.exception!!
+    }
+
+    /**
+     * @return The cached value of the key. Concurrent requests of a key share its load, which runs in the coroutine of
+     *  the first request. If that request is cancelled, e.g. because the browser aborted it, the other requests, which
+     *  are still active, load the value again.
+     */
+    private suspend fun loadShared(key: String, loader: suspend (String) -> CacheValue): CacheValue? {
+        var attempts = 0
+        while (true) {
+            try {
+                return cache.get(key, loader)
+            } catch (e: CancellationException) {
+                // the cancellation of this request
+                currentCoroutineContext().ensureActive()
+                // e.g. a cancellation within the load, which isn't the cancellation of another request
+                if (++attempts >= MAX_SHARED_LOAD_ATTEMPTS) {
+                    throw e
+                }
+            }
+        }
     }
 
     /**
@@ -789,6 +812,9 @@ private val NOT_FOUND_EXPIRY: Duration = 5.minutes
 
 /** How long requests use a temporary failure, see [isTemporaryFailure]. */
 private val FAILURE_EXPIRY: Duration = 1.minutes
+
+/** How often a request loads a value again, whose shared load was cancelled by another request, see `loadShared`. */
+private const val MAX_SHARED_LOAD_ATTEMPTS = 3
 
 /**
  * A server error or a failed connection, e.g. a timeout or an unknown host, but not a rejected request.

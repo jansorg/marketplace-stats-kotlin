@@ -21,7 +21,7 @@ import {fetchMetrics, fetchMetricValues, fetchParameterValues} from "./endpoints
 import {pieChartSvg, svgCanvas} from "./exportImage.js";
 import {createFormatter} from "./format.js";
 import {createLineChart} from "./lineChart.js";
-import {metricDataId, metricEntry, metricSeries, MetricValueCache} from "./metricValues.js";
+import {isAbortError, metricDataId, metricEntry, metricSeries, MetricValueCache} from "./metricValues.js";
 import {
     canCombineUnits, chartExportUrl, chartLevel, chartLevelKeys, dateRange, detailGranularity, detailPeriod, exportFileName, familyMetricId, familyOfMetric,
     finestDetail, groupCharts, groupUnits, parameterSections, parameterValuesKey,
@@ -593,6 +593,8 @@ class ChartController {
                 onIncompleteVisibilityChange: visible => this.setOption("showIncomplete", visible),
             }, MARKER_KINDS.filter(kind => this.markers.some(marker => marker.kind === kind)), this.hasLineCharts,
             this.markers.filter(marker => marker.kind === "custom"));
+            // the values aren't needed anymore, the server stops loading them, e.g. the downloads of a release
+            this.dialog.element.addEventListener("close", () => this.metricValues.abort());
         }
         return this.dialog;
     }
@@ -997,6 +999,11 @@ class ChartController {
                 this.clearLoadingMessage();
             })
             .catch(error => {
+                // the requests are aborted, when the dialog is closed
+                if (isAbortError(error)) {
+                    this.clearLoadingMessage();
+                    return;
+                }
                 console.error("Loading the values of metrics failed", error);
                 this.dialog?.showMessage("The values couldn't be loaded.");
             })
