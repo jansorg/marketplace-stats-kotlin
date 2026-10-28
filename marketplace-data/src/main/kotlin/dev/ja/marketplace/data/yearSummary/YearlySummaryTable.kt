@@ -18,15 +18,11 @@ import dev.ja.marketplace.data.chart.ChartMetric
 import dev.ja.marketplace.data.trackers.*
 import java.util.*
 
-class YearlySummaryTable : SimpleDataTable("Years", "years") {
+class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide") {
     private var pluginId: PluginId? = null
 
     /** Free plugins have no sales, licenses and trials, their table only has the downloads. */
     private var isPaidOrFreemium: Boolean = true
-
-    // the narrow table of a free plugin shares a row with the other table
-    override val cssClass: String?
-        get() = if (isPaidOrFreemium) "table-column-wide" else null
     private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
     private lateinit var churnValidities: ChurnValidities
 
@@ -81,7 +77,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years") {
         this.totalSales = PaymentAmountTracker(YearMonthDayRange.MAX, data.exchangeRates)
 
         val now = YearMonthDay.now()
-        for (year in Marketplace.Birthday.year..now.year) {
+        for (year in firstReportYear(downloads)..now.year) {
             val yearRange = YearMonthDayRange.ofYear(year)
             val untilToday = yearRange.copy(end = minOf(yearRange.end, now))
             this.data[year] = YearSummary(
