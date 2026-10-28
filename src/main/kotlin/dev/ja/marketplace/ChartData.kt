@@ -114,11 +114,13 @@ class ChartData(private val downloadsSource: ((PluginId) -> ChartDownloadsSource
                         metric.group, metric.description,
                     )
                 }
+            // a family without parameters is a single metric, e.g. the unique downloads of the plugin
             val families = ChartMetricFamily.all.filter { it in values.families }.map { family ->
                 ChartMetricData(
                     family.id, family.title, family.unit.id(values.currency), family.measure.name.lowercase(), family.usesWindow,
                     family.group, family.description,
-                    family.parameters.map { ChartParameterData(it.id, it.title, it.allLabel) },
+                    family.parameters.takeIf { it.isNotEmpty() }?.map { ChartParameterData(it.id, it.title, it.allLabel) },
+                    family.windows?.map(ChartWindow::id),
                 )
             }
             // the families follow the metrics of their group, e.g. the downloads of a release follow the downloads
@@ -144,7 +146,7 @@ class ChartData(private val downloadsSource: ((PluginId) -> ChartDownloadsSource
         ) {
             val months = metrics.mapNotNull { averageMonths[it.substringAfter(AVERAGE_SEPARATOR, "")] }.maxOrNull() ?: 0
             val metricsOfIds = metrics.mapNotNull { ChartMetric.byId(it.substringBefore(AVERAGE_SEPARATOR)) }
-            values.prepare(metricsOfIds, loadStart(from, listOf(window), months), isByMonth(detail, listOf(window), months))
+            values.prepare(metricsOfIds, loadStart(from, listOf(window), months), isByMonth(detail, listOf(window), months), listOf(window))
         }
 
         /**
@@ -220,6 +222,7 @@ class ChartData(private val downloadsSource: ((PluginId) -> ChartDownloadsSource
                     incompleteFrom = indices.indexOfFirst { it >= dailySeries.incompleteFrom }.takeIf { it >= 0 } ?: indices.size,
                     partialUntil = indices.count { it < dailySeries.partialUntil },
                     fractionDigits = metric.fractionDigits,
+                    windows = metric.windows?.map(ChartWindow::id),
                 )
             }
             return ChartDataResponse(indices.map { days[it].asIsoString }, series.toMap())
@@ -247,6 +250,7 @@ class ChartDataResponse(val dates: List<String>, val series: Map<String, ChartSe
  *  plugin, which started in February.
  * @param fractionDigits The maximum number of decimals of the shown values, see [ChartMetric.fractionDigits]. The
  *  values aren't rounded.
+ * @param windows The windows, which have values, `null` for all windows, see [ChartMetric.windows].
  */
 @Serializable
 class ChartSeriesData(
@@ -259,6 +263,7 @@ class ChartSeriesData(
     val incompleteFrom: Int,
     val partialUntil: Int,
     val fractionDigits: Int,
+    val windows: List<String>? = null,
 )
 
 /**
@@ -278,6 +283,8 @@ class ChartMetricData(
     val description: String,
     /** The parameters of a family, `null` for a metric. */
     val parameters: List<ChartParameterData>? = null,
+    /** The windows, which have values, `null` for all windows, e.g. the unique downloads, see [ChartMetric.windows]. */
+    val windows: List<String>? = null,
 )
 
 /**

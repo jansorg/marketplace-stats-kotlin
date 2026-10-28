@@ -16,6 +16,7 @@ import dev.ja.marketplace.client.model.DownloadFilter
 import dev.ja.marketplace.client.model.DownloadFilterType
 import dev.ja.marketplace.client.model.DownloadRequestDimension
 import dev.ja.marketplace.data.releases.PluginReleases
+import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -40,6 +41,15 @@ interface ChartDownloadsSource {
      * @return The downloads of each day, of a release and of a product, of all releases or products for `null`.
      */
     suspend fun downloads(release: PluginReleaseId?, product: String?, start: YearMonthDay, byMonth: Boolean = false): List<DailyDownload>
+
+    /**
+     * @param period The periods of the unique downloads: [DownloadRequestDimension.Day], [DownloadRequestDimension.Week]
+     *  (calendar weeks from Monday) or [DownloadRequestDimension.Month] (calendar months).
+     * @return The unique downloads of each period from [start], of the plugin, a release or a product, by the first day
+     *  of the period, e.g. the Monday of a week. They can't be summed: a user, who downloads in two periods, is counted
+     *  in each of them.
+     */
+    suspend fun uniqueDownloads(release: PluginReleaseId?, product: String?, start: YearMonthDay, period: DownloadRequestDimension): List<DailyDownload>
 
     companion object {
         fun of(client: MarketplaceClient, pluginId: PluginId): ChartDownloadsSource = object : ChartDownloadsSource {
@@ -100,6 +110,36 @@ interface ChartDownloadsSource {
                     .sortedBy { it.day }
             }
 
+            override suspend fun uniqueDownloads(
+                release: PluginReleaseId?,
+                product: String?,
+                start: YearMonthDay,
+                period: DownloadRequestDimension,
+            ): List<DailyDownload> = coroutineScope {
+                val filters = listOfNotNull(
+                    release?.let(DownloadFilter::update),
+                    product?.let { DownloadFilter(DownloadFilterType.ProductCode, it) },
+                ).toTypedArray()
+                val releaseDate = release?.let { id -> releasesById().get(id)?.let { YearMonthDay.of(it.createdTimestamp) } }
+                val first = maxOf(start, releaseDate ?: start)
+                val today = YearMonthDay.now()
+                // the statistics service only counts whole weeks and months, the requests start at their first days
+                val chunks = when (period) {
+                    DownloadRequestDimension.Week -> weekChunks(first, today)
+                    DownloadRequestDimension.Month -> yearChunks(first, today)
+                    else -> halfMonthChunks(first, today)
+                }
+                chunks
+                    .map { (chunkStart, chunkEnd) ->
+                        async { client.downloads(pluginId, period, DownloadCountType.DownloadsUnique, chunkStart, *filters, endDate = chunkEnd).data.serie }
+                    }
+                    .awaitAll()
+                    .flatten()
+                    .map { DailyDownload(YearMonthDay.parse(it.name), it.value) }
+                    .distinctBy { it.day }
+                    .sortedBy { it.day }
+            }
+
             private suspend fun releasesById() = PluginReleases.byChannel(client, pluginId).values.flatten().associateBy { it.id }
         }
     }
@@ -125,14 +165,36 @@ internal fun halfMonthChunks(start: YearMonthDay, today: YearMonthDay): List<Pai
 }
 
 /**
- * @return The calendar years from the year of [start] until [today], the requests of the downloads by month. The
- *  years start at January 1, the same for all requests, so that their cached downloads are used again. The current
- *  year ends with `null`, until today.
- *
- *  The statistics service groups the downloads by calendar month and only counts whole months: a start within a
- *  month leaves out the month, an end within a month is ignored, the month is counted until its end. The requests
- *  by month must therefore start at the first day of a month and end at the last day of a month or today.
+ * @return The calendar years from the year of [start] until [today], the requests of the downloads by month: whole
+ *  months from January 1, the same for all requests, so that their cached downloads are used again. The statistics
+ *  service only counts whole months, see [MarketplaceClient.downloads]. The current year ends with `null`, until today.
  */
 internal fun yearChunks(start: YearMonthDay, today: YearMonthDay): List<Pair<YearMonthDay, YearMonthDay?>> {
     return (start.year..today.year).map { year -> YearMonthDay(year, 1, 1) to YearMonthDay(year, 12, 31).takeIf { year < today.year } }
 }
+
+/**
+ * @return Blocks of [WEEK_CHUNK_WEEKS] calendar weeks from Monday to Sunday, from the block of the week of [start]
+ *  until [today], the requests of the unique downloads by week. The blocks start at the same Mondays for all requests,
+ *  so that their cached downloads are used again, the statistics service only counts whole weeks. The current block
+ *  ends with `null`, until today.
+ */
+internal fun weekChunks(start: YearMonthDay, today: YearMonthDay): List<Pair<YearMonthDay, YearMonthDay?>> {
+    val chunkDays = WEEK_CHUNK_WEEKS * 7L
+    val offset = Math.floorMod(ChronoUnit.DAYS.between(WEEKS_EPOCH.toLocalDate(), start.toLocalDate()), chunkDays)
+    var chunkStart = start.add(0, 0, -offset.toInt())
+    val chunks = mutableListOf<Pair<YearMonthDay, YearMonthDay?>>()
+    while (chunkStart <= today) {
+        val next = chunkStart.add(0, 0, chunkDays.toInt())
+        val chunkEnd = next.add(0, 0, -1)
+        chunks += chunkStart to chunkEnd.takeIf { it < today }
+        chunkStart = next
+    }
+    return chunks
+}
+
+/** The weeks of a request of the unique downloads by week, see [weekChunks]. */
+private const val WEEK_CHUNK_WEEKS = 26
+
+/** A Monday, the start of the blocks of [weekChunks]. */
+private val WEEKS_EPOCH = YearMonthDay(2018, 1, 1)

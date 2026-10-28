@@ -21,16 +21,16 @@
 <tr class="${cssClass}">
     @for((columnIndex, column) in columns.withIndex())
         <%-- the values of columns with a metric are loaded from /chart-data, the level of a new chart shows the values of the table --%>
-        !{val metric = if ((table.isChartable && columnIndex > 0) || column.rowHistoryPeriod != null) column.chartMetric else null}
+        !{val metric = if ((table.isChartable && columnIndex > 0) || column.rowHistoryPeriod != null || column.showsMetricChart) column.chartMetric else null}
         !{val metricLevel = if (metric == null) null else column.rowHistoryPeriod?.let(ChartLevel::of) ?: table.chartLevel}
         <th colspan="${column.columnSpan}" class="${column.cssClass}" style="${column.cssStyle}" title="${column.tooltip}" aria-sort="${column.preSorted?.attributeValue}"
-            data-chart-col="${if ((table.isChartable && columnIndex > 0) || column.isShareOfTotal || column.rowHistoryPeriod != null) columnIndex else null}" data-chart-label="${if ((table.isChartable && columnIndex > 0) || columns.any { it.isShareOfTotal || it.rowHistoryPeriod != null }) column.chartTitle else null}"
+            data-chart-col="${if ((table.isChartable && columnIndex > 0) || column.isShareOfTotal || column.rowHistoryPeriod != null || column.showsMetricChart) columnIndex else null}" data-chart-label="${if ((table.isChartable && columnIndex > 0) || columns.any { it.isShareOfTotal || it.rowHistoryPeriod != null } || column.showsMetricChart) column.chartTitle else null}"
             data-chart-pie="${if (column.isShareOfTotal) "true" else null}"
             data-chart-history="${column.rowHistoryPeriod?.name?.lowercase()}"
             data-chart-metric="${metric}" data-chart-unit="${if (metric != null) ChartValues.metricUnit(table, column) else null}"
             data-chart-window="${metricLevel?.window?.id}" data-chart-detail="${metricLevel?.detail?.id}"
             data-chart-uses-window="${if (metric != null) ChartValues.metricUsesWindow(metric).toString() else null}"
-            data-chart-measure="${if (table.isChartable || column.rowHistoryPeriod != null) column.chartMeasure?.name?.lowercase() else null}">
+            data-chart-measure="${if (table.isChartable || column.rowHistoryPeriod != null || column.showsMetricChart) column.chartMeasure?.name?.lowercase() else null}">
             @if(columnIndex == 0 && title != null && column.title == null && !hasTitleRow)
                 <h2>${title}</h2>
             @elseif(column.title != null)

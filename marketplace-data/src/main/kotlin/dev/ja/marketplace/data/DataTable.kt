@@ -175,6 +175,12 @@ data class DataTableColumn(
      * table. Without it, the cells of the column have no header.
      */
     val accessibleTitle: String? = chartTitle,
+    /**
+     * If the header shows the chart of the [chartMetric], also in a table without dates, e.g. the downloads of the
+     * plugin in the tables of the releases. In tables with dates, see [DataTable.isChartable], all columns with a
+     * metric show its chart.
+     */
+    val showsMetricChart: Boolean = false,
 )
 
 data class SimpleTableSection(

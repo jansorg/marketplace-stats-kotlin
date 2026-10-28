@@ -1206,13 +1206,25 @@ export function seriesMenuSections(series, canChangeWindow) {
     const sections = [...(series.parameterSections ?? [])];
     if (canChangeWindow && series.usesWindow && series.window) {
         const selected = series.selectedWindow ?? series.window;
-        sections.push({kind: "window", title: "Window", items: WINDOWS.map(window => ({value: window, label: WINDOW_LABELS[window], isChecked: window === selected}))});
+        // e.g. the unique downloads only have the windows of a day, a week and a calendar month
+        const windows = WINDOWS.filter(window => allowedWindow(window, series.windows) === window);
+        sections.push({kind: "window", title: "Window", items: windows.map(window => ({value: window, label: WINDOW_LABELS[window], isChecked: window === selected}))});
     }
     if (!series.average) {
         const style = series.style ?? null;
         sections.push({kind: "style", title: "Type", items: SERIES_STYLES.map(([value, label]) => ({value, label, isChecked: value === style}))});
     }
     return sections;
+}
+
+/**
+ * @param {string} window A window, see {@link WINDOWS}.
+ * @param {string[]|null|undefined} windows The windows, which a metric has values of, e.g. the unique downloads, null
+ *  for all windows.
+ * @return {string} The window, or the window, which follows the level, if the metric has no values of the window.
+ */
+export function allowedWindow(window, windows) {
+    return !windows || window === FOLLOW_WINDOW || windows.includes(window) ? window : FOLLOW_WINDOW;
 }
 
 /**

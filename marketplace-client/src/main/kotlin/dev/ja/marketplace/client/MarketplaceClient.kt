@@ -77,16 +77,24 @@ interface MarketplaceClient : MarketplaceUrlSupport, MarketplaceClientPublic, Au
 
     /**
      * @param plugin Download counts of this plugin will be requested
-     * @param filters fixme unclear what the API allows
-     * @return The total number of non-unique downloads of the given plugin.
+     * @param filters The filters of the downloads, see [downloads]
+     * @return The total number of non-unique downloads of the given plugin. A total of unique downloads is answered with 400.
      */
     suspend fun downloadsTotal(plugin: PluginId, vararg filters: DownloadFilter): Long
 
     /**
+     * Downloads of the statistics service:
+     * - Periods are days, calendar weeks from Monday and calendar months, named by their first day. Years and quarters
+     *   are answered with 400.
+     * - Weeks and months are only counted whole: a [startDate] within one leaves it out, an [endDate] within one is ignored.
+     * - Unique downloads are counted per period and can't be summed, e.g. a month has fewer than the sum of its days.
+     * - Long ranges by day, especially with filters, are answered with 503 after about 30 seconds, see
+     *   [KtorMarketplaceClient.loadStatisticsInChunks].
+     *
      * @param plugin Download counts of this plugin will be requested
-     * @param groupType How the results are grouped
+     * @param groupType How the results are grouped, a period or e.g. [DownloadRequestDimension.ProductCode]
      * @param countType If all or unique downloads are counted
-     * @param filters fixme unclear what the API allows
+     * @param filters The filters by release and by product, see [DownloadFilter]
      * @return Downloads for the given filter settings.
      */
     suspend fun downloads(

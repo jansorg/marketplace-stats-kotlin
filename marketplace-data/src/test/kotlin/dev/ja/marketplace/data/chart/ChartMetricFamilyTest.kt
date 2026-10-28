@@ -9,6 +9,7 @@ import dev.ja.marketplace.client.PluginReleaseId
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.client.model.DailyDownload
+import dev.ja.marketplace.client.model.DownloadRequestDimension
 import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.junit.jupiter.api.Assertions.*
@@ -38,6 +39,19 @@ class ChartMetricFamilyTest {
                 1002 to null -> listOf(DailyDownload(YearMonthDay(2025, 3, 1), 5), DailyDownload(YearMonthDay(2025, 8, 15), 10))
                 else -> emptyList()
             }.filter { it.day >= start }
+        }
+
+        val uniqueRequests = mutableListOf<Pair<String?, DownloadRequestDimension>>()
+
+        /** The unique downloads of the plugin in September 2025 by their period, e.g. less in the month than the sum of its days. */
+        override suspend fun uniqueDownloads(release: PluginReleaseId?, product: String?, start: YearMonthDay, period: DownloadRequestDimension): List<DailyDownload> {
+            uniqueRequests += product to period
+            return when (period) {
+                DownloadRequestDimension.Day -> listOf(DailyDownload(YearMonthDay(2025, 9, 1), 3), DailyDownload(YearMonthDay(2025, 9, 2), 4))
+                // the calendar week from Monday, September 1
+                DownloadRequestDimension.Week -> listOf(DailyDownload(YearMonthDay(2025, 9, 1), 6))
+                else -> listOf(DailyDownload(YearMonthDay(2025, 9, 1), 20))
+            }
         }
     }
 
@@ -156,9 +170,56 @@ class ChartMetricFamilyTest {
     }
 
     @Test
+    suspend fun uniqueDownloadsOfTheWindowsOfTheirPeriods() {
+        val values = ChartMetricValues.freePlugin(downloads, exchangeRates, today, source)
+        val metric = ChartMetric.byId("unique-downloads")!!
+        assertSame(ChartMetricFamily.UniqueDownloads, metric.family)
+        assertEquals(ChartMetricFamily.UNIQUE_DOWNLOADS_WINDOWS, metric.windows)
+        values.prepare(listOf(metric), windows = listOf(ChartWindow.Day, ChartWindow.Week, ChartWindow.CalendarMonth, ChartWindow.Year))
+        // the periods of the windows, the statistics service has no years
+        assertEquals(listOf(DownloadRequestDimension.Day, DownloadRequestDimension.Week, DownloadRequestDimension.Month).map { null to it }, source.uniqueRequests)
+
+        val day = { window: ChartWindow, date: YearMonthDay -> values.series(metric, window)?.values?.get(values.days.indexOf(date)) }
+        assertEquals(BigDecimal(4), day(ChartWindow.Day, YearMonthDay(2025, 9, 2)))
+        // the unique downloads of the week at its Sunday, of the month at its last day, the other days have no value
+        assertEquals(BigDecimal(6), day(ChartWindow.Week, YearMonthDay(2025, 9, 7)))
+        assertNull(day(ChartWindow.Week, YearMonthDay(2025, 9, 3)))
+        assertEquals(BigDecimal(20), day(ChartWindow.CalendarMonth, YearMonthDay(2025, 9, 30)))
+        assertNull(day(ChartWindow.CalendarMonth, YearMonthDay(2025, 9, 29)))
+        assertEquals(BigDecimal(0), day(ChartWindow.CalendarMonth, YearMonthDay(2025, 8, 31)))
+        // a window without a period of the statistics service
+        assertNull(values.series(metric, ChartWindow.CalendarYear))
+    }
+
+    @Test
+    fun idsOfTheUniqueDownloads() {
+        assertEquals(listOf("1001", "IIU"), ChartMetric.byId("release-unique-downloads.1001.IIU")!!.parameterValues)
+        assertEquals("Unique downloads in IIU", ChartMetric.byId("product-unique-downloads.IIU")!!.title)
+        // the family without parameters has a single metric
+        assertNull(ChartMetric.byId("unique-downloads.1"))
+    }
+
+    @Test
+    fun requestsOfTheWeeks() {
+        // blocks of 26 weeks from Monday, the same for all requests, the current one until today
+        val chunks = weekChunks(YearMonthDay(2026, 9, 9), YearMonthDay(2026, 10, 28))
+        assertEquals(java.time.DayOfWeek.MONDAY, chunks.first().first.toLocalDate().dayOfWeek)
+        assertTrue(chunks.first().first <= YearMonthDay(2026, 9, 9))
+        assertNull(chunks.last().second)
+        chunks.dropLast(1).forEach { (start, end) -> assertEquals(start.add(0, 0, 26 * 7 - 1), end) }
+        assertEquals(chunks, weekChunks(chunks.first().first, YearMonthDay(2026, 10, 28)))
+    }
+
+    @Test
     suspend fun valuesOfTheParameters() {
         val values = ChartMetricValues.freePlugin(downloads, exchangeRates, today, source)
-        assertEquals(setOf(ChartMetricFamily.ReleaseDownloads, ChartMetricFamily.ProductDownloads), values.families)
+        assertEquals(
+            setOf(
+                ChartMetricFamily.ReleaseDownloads, ChartMetricFamily.ProductDownloads,
+                ChartMetricFamily.UniqueDownloads, ChartMetricFamily.ReleaseUniqueDownloads, ChartMetricFamily.ProductUniqueDownloads,
+            ),
+            values.families,
+        )
         assertEquals(listOf("1.1", "1.0"), values.parameterValues(ChartMetricFamily.ReleaseDownloads, 0).map { it.label })
         assertEquals(listOf("IIU", "PCP"), values.parameterValues(ChartMetricFamily.ProductDownloads, 0).map { it.value })
         // a free plugin has no shares of the customer types

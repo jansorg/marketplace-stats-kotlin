@@ -7,7 +7,7 @@ import {test} from "node:test";
 import assert from "node:assert/strict";
 import {isoDateToTimestamp, SECONDS_PER_DAY} from "../../main/resources/js/charts/format.js";
 import {
-    alignedRanges, chartExportUrl, exportLineId, familyMetricId, familyOfMetric, loadedRangeStart, niceStep, parameterSections, parameterValuesKey, rangeTicks, seriesMenuSections, seriesStyle, SERIES_STYLES, WINDOWS, RANGE_PRESETS, rangeOfPreset,
+    allowedWindow, alignedRanges, chartExportUrl, exportLineId, familyMetricId, familyOfMetric, loadedRangeStart, niceStep, parameterSections, parameterValuesKey, rangeTicks, seriesMenuSections, seriesStyle, SERIES_STYLES, WINDOWS, RANGE_PRESETS, rangeOfPreset,
     pinchedRange, rangeLabel, rangeMenuItems, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, finestDetail, lineDetail, periodEnd, shownWindow, storedChartLevel, tableWindow, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, shownDateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
@@ -709,4 +709,16 @@ test("the values are loaded from the start of the range, a year earlier for the 
     assert.equal(loadedRangeStart({from: "2028-02-29", to: "2028-03-31"}, ["previousYear"]), "2027-02-28");
     // all dates
     assert.equal(loadedRangeStart(null, ["previousYear"]), null);
+});
+
+test("the unique downloads only offer the windows, which have values", () => {
+    const windows = ["day", "week", "calendar-month"];
+    assert.equal(allowedWindow("calendar-month", windows), "calendar-month");
+    assert.equal(allowedWindow("year", windows), "follow");
+    assert.equal(allowedWindow("follow", windows), "follow");
+    // other metrics have all windows
+    assert.equal(allowedWindow("year", null), "year");
+
+    const series = {usesWindow: true, window: "follow", windows};
+    assert.deepEqual(seriesMenuSections(series, true)[0].items.map(item => item.value), ["follow", "day", "week", "calendar-month"]);
 });

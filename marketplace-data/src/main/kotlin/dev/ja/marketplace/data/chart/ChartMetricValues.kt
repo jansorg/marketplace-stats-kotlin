@@ -10,6 +10,7 @@ import dev.ja.marketplace.churn.isCountedByChurn
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.client.model.CustomerType
 import dev.ja.marketplace.client.model.DailyDownload
+import dev.ja.marketplace.client.model.DownloadRequestDimension
 import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.client.model.PluginTrial
@@ -25,6 +26,7 @@ import dev.ja.marketplace.exchangeRate.ExchangeRates
 import org.javamoney.moneta.FastMoney
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.time.DayOfWeek
 import kotlinx.coroutines.CancellationException
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
@@ -111,7 +113,7 @@ class ChartMetricValues private constructor(
      *  release or product, whose values are loaded by [prepare].
      */
     fun isAvailable(metric: ChartMetric): Boolean {
-        return metric in metrics || metric.family in families && metric.family in LOADED_FAMILIES
+        return metric in metrics || metric.family in families && (metric.family in LOADED_FAMILIES || metric.family in UNIQUE_FAMILIES)
     }
 
     /**
@@ -122,6 +124,12 @@ class ChartMetricValues private constructor(
 
     /** The loaded downloads by the ID of the metric, see [prepare]. */
     private val loadedDownloads = ConcurrentHashMap<String, LoadedDownloads>()
+
+    /** The unique downloads of each period from [from] by its first day, see [ChartDownloadsSource.uniqueDownloads]. */
+    private class LoadedUniqueDownloads(val from: YearMonthDay, val values: Map<YearMonthDay, Long>)
+
+    /** The loaded unique downloads by the ID of the metric and the period, see [prepare]. */
+    private val loadedUnique = ConcurrentHashMap<Pair<String, DownloadRequestDimension>, LoadedUniqueDownloads>()
 
     /** The families and indexes of the parameters, whose labels were loaded, see [parameterValues]. */
     private val loadedLabels = ConcurrentHashMap.newKeySet<Pair<ChartMetricFamily, Int>>()
@@ -138,13 +146,24 @@ class ChartMetricValues private constructor(
      * @param byMonth If the downloads of each month are enough, which are faster to load, see
      *  [ChartDownloadsSource.downloads], e.g. for the calendar months of the level Month. Downloads, which were loaded
      *  by month, are loaded again by day, when they're needed by day.
+     * @param windows The windows of the values, the unique downloads are loaded for the periods of these windows, see
+     *  [ChartMetricFamily.UNIQUE_DOWNLOADS_WINDOWS].
      */
-    suspend fun prepare(metrics: Collection<ChartMetric>, from: YearMonthDay? = null, byMonth: Boolean = false) {
+    suspend fun prepare(
+        metrics: Collection<ChartMetric>,
+        from: YearMonthDay? = null,
+        byMonth: Boolean = false,
+        windows: Collection<ChartWindow> = ChartMetricFamily.UNIQUE_DOWNLOADS_WINDOWS,
+    ) {
         val source = source ?: return
-        val firstDay = windows.days.firstOrNull() ?: return
+        val firstDay = this.windows.days.firstOrNull() ?: return
         val start = maxOf(firstDay, from ?: firstDay)
         for (metric in metrics.distinct()) {
             val family = metric.family
+            if (family in UNIQUE_FAMILIES && family in families) {
+                windows.mapNotNull(::uniquePeriod).distinct().forEach { prepareUnique(source, metric, start, it) }
+                continue
+            }
             val loaded = loadedDownloads[metric.id]
             // the downloads of each day are exact for all requests
             if (family !in LOADED_FAMILIES || family !in families || (loaded != null && loaded.from <= start && (byMonth || !loaded.byMonth))) {
@@ -164,15 +183,46 @@ class ChartMetricValues private constructor(
                 logger.warn("Loading the downloads of the chart metric ${metric.id} failed", e)
                 continue
             }
-            loadedDownloads[metric.id] = LoadedDownloads(start, windows.countsPerDay(downloads.map { it.day to it.downloads }), byMonth)
+            loadedDownloads[metric.id] = LoadedDownloads(start, this.windows.countsPerDay(downloads.map { it.day to it.downloads }), byMonth)
             // the values of the downloads, which were loaded from a later day or by month before
             cache.keys.removeIf { it.first == metric }
             averages.keys.removeIf { it.first == metric }
-            // the titles of the metrics contain the labels of the values
-            family!!.parameters.indices.filter { values[it] != null }.forEach { index ->
-                if (Pair(family, index) !in loadedLabels) {
-                    parameterValues(family, index)
-                }
+            loadLabels(metric)
+        }
+    }
+
+    private suspend fun prepareUnique(source: ChartDownloadsSource, metric: ChartMetric, start: YearMonthDay, period: DownloadRequestDimension) {
+        val key = metric.id to period
+        if (loadedUnique[key]?.from?.let { it <= start } == true) {
+            return
+        }
+        val values = metric.parameterValues
+        val (release, product) = when (metric.family) {
+            ChartMetricFamily.ReleaseUniqueDownloads -> values[0]!!.toInt() to values[1]
+            ChartMetricFamily.ProductUniqueDownloads -> null to values[0]
+            else -> null to null
+        }
+        // a line, whose downloads couldn't be loaded, has no values, the other lines are shown
+        val downloads = try {
+            source.uniqueDownloads(release, product, start, period)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn("Loading the unique downloads of the chart metric ${metric.id} failed", e)
+            return
+        }
+        loadedUnique[key] = LoadedUniqueDownloads(start, downloads.associate { it.day to it.downloads })
+        cache.keys.removeIf { it.first == metric }
+        averages.keys.removeIf { it.first == metric }
+        loadLabels(metric)
+    }
+
+    /** Loads the labels of the values of a metric of a family, the title of the metric contains them. */
+    private suspend fun loadLabels(metric: ChartMetric) {
+        val family = metric.family ?: return
+        family.parameters.indices.filter { metric.parameterValues[it] != null }.forEach { index ->
+            if (Pair(family, index) !in loadedLabels) {
+                parameterValues(family, index)
             }
         }
     }
@@ -192,8 +242,8 @@ class ChartMetricValues private constructor(
                 metric.discountName?.let { ChartParameterValue(metric.parameterValues[0]!!, it) }
             }
 
-            ChartMetricFamily.ReleaseDownloads -> if (index == 0) source?.releases() else source?.products()
-            ChartMetricFamily.ProductDownloads -> source?.products()
+            ChartMetricFamily.ReleaseDownloads, ChartMetricFamily.ReleaseUniqueDownloads -> if (index == 0) source?.releases() else source?.products()
+            ChartMetricFamily.ProductDownloads, ChartMetricFamily.ProductUniqueDownloads -> source?.products()
             else -> null
         } ?: emptyList()
         values.forEach { family.parameters[index].registerLabel(it.value, it.label) }
@@ -317,6 +367,9 @@ class ChartMetricValues private constructor(
 
     private fun calculate(metric: ChartMetric, window: ChartWindow): Map<ChartMetric, DailySeries> {
         val starts = windows.starts(window)
+        if (metric.family in UNIQUE_FAMILIES) {
+            return uniqueSeries(metric, window)?.let { mapOf(metric to it) } ?: emptyMap()
+        }
         if (metric.family in LOADED_FAMILIES) {
             // without prepare, the downloads of the metric aren't known
             val loaded = loadedDownloads[metric.id] ?: return emptyMap()
@@ -355,6 +408,28 @@ class ChartMetricValues private constructor(
             else -> return SubscriptionDailyValues.create(days, allLicenses, revenue ?: return emptyMap(), today, window.takeIf { metric.usesWindow })
         }
         return mapOf(metric to series)
+    }
+
+    /**
+     * @return The unique downloads of the [window] at each day, `null` for a window, which the statistics service has
+     *  no period of: at each day for [ChartWindow.Day], at each Sunday and today for [ChartWindow.Week], the calendar
+     *  week from Monday, and at the last day of each month and today for [ChartWindow.CalendarMonth]. The other days
+     *  and the periods before the loaded downloads have no value, the unique downloads can't be summed.
+     */
+    private fun uniqueSeries(metric: ChartMetric, window: ChartWindow): DailySeries? {
+        val period = uniquePeriod(window) ?: return null
+        val loaded = loadedUnique[metric.id to period] ?: return null
+        val values = days.map { day ->
+            val periodStart = when (period) {
+                DownloadRequestDimension.Week -> day.takeIf { it == today || it.toLocalDate().dayOfWeek == DayOfWeek.SUNDAY }
+                    ?.let { it.add(0, 0, 1 - it.toLocalDate().dayOfWeek.value) }
+
+                DownloadRequestDimension.Month -> day.takeIf { it == today || it == YearMonthDay.lastOfMonth(it.year, it.month) }?.atFirstOfMonth()
+                else -> day
+            }
+            periodStart?.takeIf { day >= loaded.from }?.let { BigDecimal.valueOf(loaded.values[it] ?: 0) }
+        }
+        return DailySeries(ChartUnit.Count.id(currency), values, windows.incompleteSums)
     }
 
     /** The metrics of the discounts in the sales, see [ChartMetric.discount]. */
@@ -609,6 +684,17 @@ class ChartMetricValues private constructor(
         /** The families, whose data is loaded when their metrics are requested, see [prepare]. */
         private val LOADED_FAMILIES = setOf(ChartMetricFamily.ReleaseDownloads, ChartMetricFamily.ProductDownloads)
 
+        /** The families of the unique downloads, which are loaded for each period, see [uniqueSeries]. */
+        private val UNIQUE_FAMILIES = setOf(ChartMetricFamily.UniqueDownloads, ChartMetricFamily.ReleaseUniqueDownloads, ChartMetricFamily.ProductUniqueDownloads)
+
+        /** @return The period of the unique downloads of a window, `null` if the statistics service has no such period. */
+        private fun uniquePeriod(window: ChartWindow): DownloadRequestDimension? = when (window) {
+            ChartWindow.Day -> DownloadRequestDimension.Day
+            ChartWindow.Week -> DownloadRequestDimension.Week
+            ChartWindow.CalendarMonth -> DownloadRequestDimension.Month
+            else -> null
+        }
+
         /** The metrics of the summary of all plugins. */
         private val allPluginsMetrics = setOf(
             ChartMetric.Sales, ChartMetric.Fees, ChartMetric.Invoice, ChartMetric.Downloads, ChartMetric.Mrr, ChartMetric.Arr,
@@ -646,7 +732,7 @@ class ChartMetricValues private constructor(
             val discounts = discountMetrics(licenses)
             val metrics = ChartMetric.all.toSet() + customerTypeShares.keys + discounts
             val families = setOfNotNull(ChartMetricFamily.CustomerTypeShare, ChartMetricFamily.Discount.takeIf { discounts.isNotEmpty() }) +
-                    if (source != null) LOADED_FAMILIES else emptySet()
+                    if (source != null) LOADED_FAMILIES + UNIQUE_FAMILIES else emptySet()
             return create(sales, listOf(licenses), trials, downloads, revenue, exchangeRates, today, maxTrialDays, metrics, families, source)
         }
 
@@ -661,7 +747,7 @@ class ChartMetricValues private constructor(
             source: ChartDownloadsSource? = null,
         ): ChartMetricValues {
             val metrics = ChartMetric.all.filterNot(ChartMetric::isPaidOnly).toSet()
-            val families = if (source != null) LOADED_FAMILIES.filterNot(ChartMetricFamily::isPaidOnly).toSet() else emptySet()
+            val families = if (source != null) (LOADED_FAMILIES + UNIQUE_FAMILIES).filterNot(ChartMetricFamily::isPaidOnly).toSet() else emptySet()
             return create(emptyList(), emptyList(), emptyList(), downloads, null, exchangeRates, today, Marketplace.MAX_TRIAL_DAYS_DEFAULT, metrics, families, source)
         }
 
