@@ -121,7 +121,8 @@ class ReleaseDetails(
 
         /** @return The number of downloads with a button, which shows the downloads of the metric in a chart. */
         private fun downloadsChart(downloads: Long, metric: ChartMetric): ChartMetricName {
-            return ChartMetricName(Formatters.formatInteger(downloads), metric.id, metric.title, ChartUnit.Count.id(""))
+            // the downloads of a long time range take long to load, the chart shows the current year
+            return ChartMetricName(Formatters.formatInteger(downloads), metric.id, metric.title, ChartUnit.Count.id(""), ChartMetricName.THIS_YEAR)
         }
 
         private fun marketplaceUrl(path: String): String = URLBuilder(Marketplace.MarketplaceFrontendUrl).takeFrom(path).buildString()

@@ -39,13 +39,18 @@ export async function fetchJson(url, signal) {
  * @param {string} detail The detail level of the values, see DETAILS in model.js.
  * @param {string[]} ids The IDs of the metrics and of their averages, e.g. `sales@avg3`.
  * @param {AbortSignal} [signal] Aborts the request, the server stops loading the values, see cancelOnDisconnect.
+ * @param {string|null} [from] The first shown date, ISO, e.g. of the range of the charts. The server loads the
+ *  downloads of releases and products only from then on, earlier values are missing. Null for all dates.
  * @return {Promise<{dates: string[], series: Object<string, object>}>} The values of /chart-data.
  */
-export function fetchMetricValues(window, detail, ids, signal) {
+export function fetchMetricValues(window, detail, ids, signal, from = null) {
     const url = pageEndpoint("/chart-data");
     url.searchParams.set("metrics", ids.join(","));
     url.searchParams.set("window", window);
     url.searchParams.set("detail", detail);
+    if (from) {
+        url.searchParams.set("from", from);
+    }
     return fetchJson(url, signal);
 }
 

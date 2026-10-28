@@ -229,7 +229,7 @@ export function rangeYears(seriesList) {
 }
 
 /** The ranges of the menu "Range", which end today. They're stored with their name and get new dates each day. */
-export const RANGE_PRESETS = {"today": "Today", "past-7-days": "Past 7 days", "this-month": "This month"};
+export const RANGE_PRESETS = {"today": "Today", "past-7-days": "Past 7 days", "this-month": "This month", "this-year": "This year"};
 
 /**
  * @param {string} preset A key of {@link RANGE_PRESETS}.
@@ -246,6 +246,8 @@ export function rangeOfPreset(preset, now = new Date()) {
             return {from: day(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6)), to: today, preset};
         case "this-month":
             return {from: day(new Date(now.getFullYear(), now.getMonth(), 1)), to: today, preset};
+        case "this-year":
+            return {from: day(new Date(now.getFullYear(), 0, 1)), to: today, preset};
         default:
             return null;
     }

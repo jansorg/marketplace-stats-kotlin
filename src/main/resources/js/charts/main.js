@@ -287,9 +287,15 @@ class ChartController {
      * Shows the metric of a row of a table, e.g. the discount of an offer, in the chart of its unit, with the window of
      * the level of the chart. A metric, which is already shown, is only shown.
      *
-     * @param {{id: string, title: string, unit: string}} metric The metric of the button of the row.
+     * @param {{id: string, title: string, unit: string, range?: string}} metric The metric of the button of the row,
+     *  `range` is the preset of the range of the charts, e.g. `this-year` for the downloads of a release, which take
+     *  long to load, see RANGE_PRESETS.
      */
     showRowMetric(metric) {
+        const range = metric.range ? rangeOfPreset(metric.range) : null;
+        if (range !== null) {
+            this.dateRange = range;
+        }
         const uncolored = metricSeries({metric: metric.id, window: "follow", usesWindow: true, label: metric.title,
             unit: metric.unit, measure: "flow"});
         const rejection = this.rejectSeries(uncolored);
@@ -986,7 +992,8 @@ class ChartController {
      * @param {string[]} ids The IDs of the metrics and of their averages, e.g. `sales@avg3`.
      */
     loadMetrics(chartWindow, detail, ids) {
-        const request = this.metricValues.load(chartWindow, detail, ids);
+        // e.g. the downloads of a release are only loaded from the start of the shown range, they take long to load
+        const request = this.metricValues.load(chartWindow, detail, ids, this.dateRange?.from ?? null);
         if (request === null) {
             return;
         }

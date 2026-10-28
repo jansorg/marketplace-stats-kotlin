@@ -92,6 +92,17 @@ class ChartDataTest {
     }
 
     @Test
+    fun startOfTheLoadedData() {
+        val from = YearMonthDay(2026, 1, 1)
+        // the window of the first date, e.g. the 12 months before it
+        assertEquals(YearMonthDay(2026, 1, 1), ChartData.loadStart(from, listOf(ChartWindow.CalendarMonth), 0))
+        assertEquals(YearMonthDay(2025, 1, 2), ChartData.loadStart(from, listOf(ChartWindow.Year), 0))
+        // the 3 months of a moving average before the first date (from October 2), and the rolling month of their start
+        assertEquals(YearMonthDay(2025, 9, 3), ChartData.loadStart(from, listOf(ChartWindow.CalendarMonth), 3))
+        assertNull(ChartData.loadStart(null, listOf(ChartWindow.CalendarMonth), 3))
+    }
+
+    @Test
     suspend fun metricsOfFreePlugin() {
         // a free plugin has no sales, licenses and trials, the menu only offers its downloads
         val values = ChartData().values(McpTestData.pluginData(free = true))

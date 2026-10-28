@@ -22,6 +22,7 @@ class ChartMetricFamilyTest {
     /** The downloads of the release 1001 in IntelliJ IDEA and of the release 1002 in all products. */
     private val source = object : ChartDownloadsSource {
         val requests = mutableListOf<Pair<PluginReleaseId?, String?>>()
+        val starts = mutableListOf<YearMonthDay>()
 
         override suspend fun releases() = listOf(ChartParameterValue("1002", "1.1"), ChartParameterValue("1001", "1.0"))
 
@@ -29,11 +30,12 @@ class ChartMetricFamilyTest {
 
         override suspend fun downloads(release: PluginReleaseId?, product: String?, start: YearMonthDay): List<DailyDownload> {
             requests += release to product
+            starts += start
             return when (release to product) {
                 1001 to "IIU" -> listOf(DailyDownload(YearMonthDay(2025, 9, 1), 3), DailyDownload(YearMonthDay(2025, 9, 2), 4))
-                1002 to null -> listOf(DailyDownload(YearMonthDay(2025, 8, 15), 10))
+                1002 to null -> listOf(DailyDownload(YearMonthDay(2025, 3, 1), 5), DailyDownload(YearMonthDay(2025, 8, 15), 10))
                 else -> emptyList()
-            }
+            }.filter { it.day >= start }
         }
     }
 
@@ -85,8 +87,28 @@ class ChartMetricFamilyTest {
         val values = ChartMetricValues.freePlugin(downloads, exchangeRates, today, source)
         val metric = ChartMetric.byId("release-downloads.1002")!!
         values.prepare(listOf(metric))
-        assertEquals(BigDecimal(10), values.series(metric, ChartWindow.CalendarYear)!!.values[values.days.indexOf(today)])
+        assertEquals(BigDecimal(15), values.series(metric, ChartWindow.CalendarYear)!!.values[values.days.indexOf(today)])
         assertEquals("Downloads of 1.1 in all products", metric.title)
+    }
+
+    @Test
+    suspend fun downloadsFromTheStartOfTheShownDates() {
+        val values = ChartMetricValues.freePlugin(downloads, exchangeRates, today, source)
+        val metric = ChartMetric.byId("release-downloads.1002")!!
+        values.prepare(listOf(metric), YearMonthDay(2025, 7, 1))
+        assertEquals(listOf(YearMonthDay(2025, 7, 1)), source.starts)
+
+        // the windows, which start before the loaded downloads, have no value
+        val months = values.series(metric, ChartWindow.CalendarMonth)!!.values
+        assertEquals(BigDecimal(10), months[values.days.indexOf(YearMonthDay(2025, 8, 31))])
+        assertNull(months[values.days.indexOf(YearMonthDay(2025, 6, 30))])
+        assertNull(values.series(metric, ChartWindow.CalendarYear)!!.values[values.days.indexOf(today)])
+
+        // a later start uses the loaded downloads, an earlier one loads them again
+        values.prepare(listOf(metric), YearMonthDay(2025, 8, 1))
+        values.prepare(listOf(metric), YearMonthDay(2025, 1, 1))
+        assertEquals(listOf(YearMonthDay(2025, 7, 1), YearMonthDay(2025, 1, 1)), source.starts)
+        assertEquals(BigDecimal(15), values.series(metric, ChartWindow.CalendarYear)!!.values[values.days.indexOf(today)])
     }
 
     @Test

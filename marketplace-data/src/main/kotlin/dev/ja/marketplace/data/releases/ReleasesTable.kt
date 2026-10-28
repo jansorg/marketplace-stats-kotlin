@@ -137,8 +137,10 @@ class ReleasesTable(
                     columnVersion to LinkedRelease(release.id, release.version, pluginId),
                     columnDate to YearMonthDay.of(release.createdTimestamp),
                     // a click shows the downloads of the release in a chart, see ChartMetricFamily.ReleaseDownloads
+                    // the downloads of a long time range take long to load, the chart shows the current year
                     columnDownloads to ChartMetricName(
                         Formatters.formatInteger(release.downloads), downloadsMetric(release).id, "Downloads of ${release.version}", ChartUnit.Count.id(""),
+                        ChartMetricName.THIS_YEAR,
                     ),
                     columnSince to release.since?.toString(),
                     columnUntil to release.until?.toString(),

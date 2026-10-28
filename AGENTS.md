@@ -406,7 +406,12 @@ queries, and one which excludes all these tags. The results are in the order of 
     `ChartDownloadsSource` when a line is requested (`ChartMetricValues.prepare`, called by `/chart-data`,
     `/chart-export` and `create_chart`), by day in halves of months (`halfMonthChunks`, the same boundaries for all
     requests, so that the persistent cache of the downloads is used again), a release from its release date. The
-    statistics service answers longer requests with these filters with 503. The page of a release has the charts of
+    statistics service answers longer requests with these filters with 503. The requests of the charts pass the first shown
+    date of the range (`from` of `/chart-data`, `ChartData.loadStart` adds the window and the months of the averages
+    before it), these downloads are only loaded from then on, the windows before have no value. The cache of the values
+    in the browser keeps the start of each level (`MetricValueCache`, `coversStart`), an earlier start loads them again.
+    The charts started from the releases list and the page of a release show the range "This year"
+    (`ChartMetricName.range`). The page of a release has the charts of
     the other pages, its downloads have the buttons of `ChartMetricName`, the requests of the charts use
     `data-plugin-id` of the `<body>` (`pageEndpoint` in `endpoints.js`), the page has the parameter `pId`.
   - Decimals: `ChartMetric.fractionDigits` is the maximum number of decimals of the shown values of a metric, e.g. of
