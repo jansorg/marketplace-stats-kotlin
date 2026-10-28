@@ -2298,6 +2298,12 @@ dl.detail-grid dd {
    labels of lines, e.g. of a discount, would run out of the box and widen the dialog. The box has the width of its
    content, at most a part of the chart, only the labels wrap, see enableTooltip in lineChart.js. */
 /* more specific than .chart-tooltip, which follows */
+/* the bar at the cursor of a line chart has an outline instead of a point, see cursorPointBox in lineChart.js */
+.u-cursor-pt.chart-bar-cursor {
+    border-radius: 2px;
+    box-sizing: border-box;
+}
+
 .chart-tooltip.chart-line-tooltip {
     width: max-content;
     max-width: min(32rem, 90%);
