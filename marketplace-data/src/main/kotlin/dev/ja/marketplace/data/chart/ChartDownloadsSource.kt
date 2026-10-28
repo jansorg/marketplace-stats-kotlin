@@ -20,6 +20,8 @@ import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 /**
  * Loads the downloads of the releases and the products of a plugin for the metrics of
@@ -88,7 +90,7 @@ interface ChartDownloadsSource {
                 if (byMonth) {
                     return@coroutineScope yearChunks(first, today)
                         .map { (chunkStart, chunkEnd) ->
-                            async { client.downloads(pluginId, DownloadRequestDimension.Month, DownloadCountType.Downloads, chunkStart, *filters, endDate = chunkEnd).data.serie }
+                            async { chartRequests.withPermit { client.downloads(pluginId, DownloadRequestDimension.Month, DownloadCountType.Downloads, chunkStart, *filters, endDate = chunkEnd).data.serie } }
                         }
                         .awaitAll()
                         .flatten()
@@ -101,7 +103,7 @@ interface ChartDownloadsSource {
                 }
                 halfMonthChunks(first, today)
                     .map { (chunkStart, chunkEnd) ->
-                        async { client.downloads(pluginId, DownloadRequestDimension.Day, DownloadCountType.Downloads, chunkStart, *filters, endDate = chunkEnd).data.serie }
+                        async { chartRequests.withPermit { client.downloads(pluginId, DownloadRequestDimension.Day, DownloadCountType.Downloads, chunkStart, *filters, endDate = chunkEnd).data.serie } }
                     }
                     .awaitAll()
                     .flatten()
@@ -131,7 +133,7 @@ interface ChartDownloadsSource {
                 }
                 chunks
                     .map { (chunkStart, chunkEnd) ->
-                        async { client.downloads(pluginId, period, DownloadCountType.DownloadsUnique, chunkStart, *filters, endDate = chunkEnd).data.serie }
+                        async { chartRequests.withPermit { client.downloads(pluginId, period, DownloadCountType.DownloadsUnique, chunkStart, *filters, endDate = chunkEnd).data.serie } }
                     }
                     .awaitAll()
                     .flatten()
@@ -201,3 +203,10 @@ private const val WEEK_CHUNK_WEEKS = 4
 
 /** A Monday, the start of the blocks of [weekChunks]. */
 private val WEEKS_EPOCH = YearMonthDay(2018, 1, 1)
+
+/**
+ * The parts of the requests of the downloads of the charts, which run at the same time, e.g. the halves of the months
+ * of a release: like the chunk requests of the client, at most 4, so that the other requests of the pages don't wait
+ * for all connections, see `withMaxConcurrentChunkRequests`.
+ */
+private val chartRequests = Semaphore(4)

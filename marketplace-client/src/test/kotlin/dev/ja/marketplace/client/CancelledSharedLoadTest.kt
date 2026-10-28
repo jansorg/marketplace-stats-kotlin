@@ -48,4 +48,21 @@ class CancelledSharedLoadTest {
             assertEquals(2, requests.get())
         }
     }
+
+    @Test
+    suspend fun theLoadIsntCancelledByACancelledWaiter() = coroutineScope {
+        createClient().use { client ->
+            val first = async { client.channels(1) }
+            delay(100)
+            val second = async { client.channels(1) }
+            delay(100)
+            // e.g. the browser aborted the second request, which waits for the load of the first one
+            second.cancel()
+
+            assertEquals(listOf("", "eap"), first.await())
+            assertTrue(runCatching { second.await() }.exceptionOrNull() is CancellationException)
+            // the load of the first request wasn't restarted
+            assertEquals(1, requests.get())
+        }
+    }
 }

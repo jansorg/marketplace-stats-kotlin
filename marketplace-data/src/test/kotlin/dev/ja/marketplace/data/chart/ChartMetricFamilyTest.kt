@@ -62,7 +62,11 @@ class ChartMetricFamilyTest {
         val metric = ChartMetric.byId("release-downloads.1001.IIU")!!
         assertSame(ChartMetricFamily.ReleaseDownloads, metric.family)
         assertEquals(listOf("1001", "IIU"), metric.parameterValues)
-        assertSame(metric, ChartMetricFamily.ReleaseDownloads.metric(listOf("1001", "IIU")))
+        assertEquals(metric, ChartMetricFamily.ReleaseDownloads.metric(listOf("1001", "IIU")))
+        // the metrics of requests aren't kept, the metrics of the server are
+        assertNotSame(ChartMetric.byId("release-downloads.77777"), ChartMetric.byId("release-downloads.77777"))
+        assertEquals(ChartMetric.byId("release-downloads.77777"), ChartMetric.byId("release-downloads.77777"))
+        assertSame(ChartMetricFamily.ReleaseDownloads.metric(listOf("1001", "IIU")), ChartMetric.byId("release-downloads.1001.IIU"))
         // the product is optional
         assertEquals(listOf("1001", null), ChartMetric.byId("release-downloads.1001")!!.parameterValues)
         assertEquals("product-downloads.IIU", ChartMetric.byId("product-downloads.IIU")!!.id)

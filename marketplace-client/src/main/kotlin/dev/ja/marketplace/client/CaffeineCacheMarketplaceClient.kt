@@ -21,8 +21,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.future.asDeferred
+import kotlinx.coroutines.future.future
 import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
@@ -33,6 +36,7 @@ import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 import dev.ja.marketplace.client.CachingStrategy.Category
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 
@@ -158,7 +162,9 @@ class CaffeineCacheMarketplaceClient(
         // taken before the sales are updated, which drops the cached licenses of the plugin
         val entries = cache.synchronous().asMap().entries
             .filter { (key, value) ->
-                key.split('.').getOrNull(1) == segment && cachingStrategy.isRefreshDue(value.category, (now - value.createdMillis).milliseconds)
+                key.split('.').getOrNull(1) == segment && cachingStrategy.isRefreshDue(value.category, (now - value.createdMillis).milliseconds) &&
+                        // the downloads of the past don't change, see DownloadsCompleteness
+                        !(value.category == Category.Static && key.substringBefore('.') in DOWNLOADS_KEYS)
             }
             .map { it.key to it.value }
             .sortedBy { (key, _) -> refreshOrder(key) }
@@ -647,7 +653,8 @@ class CaffeineCacheMarketplaceClient(
         loader: suspend () -> T,
     ): Stored<T> {
         val store = persistentDownloads ?: return Stored(loader(), System.currentTimeMillis())
-        val maxAge = cachingStrategy.maxAge(if (downloadsCompleteness.isComplete(endDate)) Category.Static else Category.Daily)
+        // the downloads of the past don't change, they're stored longer than Static, which is the expiry in memory
+        val maxAge = if (downloadsCompleteness.isComplete(endDate)) COMPLETE_DOWNLOADS_MAX_AGE else cachingStrategy.maxAge(Category.Daily)
         val stored = store.get(downloadsFileName(plugin), key, serializer, forceFetch, maxAge, loader)
         val age = (System.currentTimeMillis() - stored.fetchedMillis).milliseconds
         return when {
@@ -735,14 +742,18 @@ class CaffeineCacheMarketplaceClient(
 
     /**
      * @return The cached value of the key. Concurrent requests of a key share its load, which runs in the coroutine of
-     *  the first request. If that request is cancelled, e.g. because the browser aborted it, the other requests, which
-     *  are still active, load the value again.
+     *  the first request. A request, which waits for the load of another request, only stops waiting, when it's
+     *  cancelled, e.g. because the browser aborted it: it awaits the future of the cache as a [kotlinx.coroutines.Deferred],
+     *  [kotlinx.coroutines.future.await] would cancel the future. If the first request is cancelled, the other
+     *  requests, which are still active, load the value again.
      */
     private suspend fun loadShared(key: String, loader: suspend (String) -> CacheValue): CacheValue? {
         var attempts = 0
         while (true) {
             try {
-                return cache.get(key, loader)
+                return coroutineScope {
+                    cache.asynchronous().get(key) { k, _ -> future { loader(k) } }.asDeferred().await()
+                }
             } catch (e: CancellationException) {
                 // the cancellation of this request
                 currentCoroutineContext().ensureActive()
@@ -812,6 +823,12 @@ private val NOT_FOUND_EXPIRY: Duration = 5.minutes
 
 /** How long requests use a temporary failure, see [isTemporaryFailure]. */
 private val FAILURE_EXPIRY: Duration = 1.minutes
+
+/** How long the complete downloads of the past are stored on disk, see [DownloadsCompleteness.isComplete]. */
+private val COMPLETE_DOWNLOADS_MAX_AGE: Duration = 90.days
+
+/** The prefixes of the keys of the cached downloads, the complete downloads aren't refreshed, see `refreshPlugin`. */
+private val DOWNLOADS_KEYS = setOf("downloads", "downloadsPart", "groupedDownloads", "groupedDownloadsPart")
 
 /** How often a request loads a value again, whose shared load was cancelled by another request, see `loadShared`. */
 private const val MAX_SHARED_LOAD_ATTEMPTS = 3

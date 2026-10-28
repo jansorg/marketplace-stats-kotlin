@@ -164,57 +164,117 @@ class ChartMetricValues private constructor(
                 windows.mapNotNull(::uniquePeriod).distinct().forEach { prepareUnique(source, metric, start, it) }
                 continue
             }
+            if (family in LOADED_FAMILIES && family in families) {
+                prepareDownloads(source, metric, start, byMonth)
+            }
+        }
+    }
+
+    /**
+     * Loads the downloads of a metric of [LOADED_FAMILIES], if the stored downloads don't cover the request. The loads
+     * of concurrent requests may finish in any order, e.g. of the levels of a chart: the stored downloads are only
+     * replaced by more complete downloads, see [storeDownloads], each request loads again until they cover it. Once
+     * the downloads of each day are loaded, they're loaded by day again.
+     */
+    private suspend fun prepareDownloads(source: ChartDownloadsSource, metric: ChartMetric, start: YearMonthDay, byMonth: Boolean) {
+        val (release, product) = releaseAndProduct(metric)
+        if (!isKnown(source, metric, release, product)) {
+            return
+        }
+        repeat(MAX_LOAD_ATTEMPTS) {
             val loaded = loadedDownloads[metric.id]
-            // the downloads of each day are exact for all requests
-            if (family !in LOADED_FAMILIES || family !in families || (loaded != null && loaded.from <= start && (byMonth || !loaded.byMonth))) {
-                continue
+            if (loaded != null && loaded.from <= start && (byMonth || !loaded.byMonth)) {
+                return
             }
-            val values = metric.parameterValues
-            val (release, product) = when (family) {
-                ChartMetricFamily.ReleaseDownloads -> values[0]!!.toInt() to values[1]
-                else -> null to values[0]
-            }
+            val loadByMonth = byMonth && (loaded == null || loaded.byMonth)
             // a line, whose downloads couldn't be loaded, has no values, the other lines are shown
             val downloads = try {
-                source.downloads(release, product, start, byMonth)
+                source.downloads(release, product, start, loadByMonth)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 logger.warn("Loading the downloads of the chart metric ${metric.id} failed", e)
-                continue
+                return
             }
-            loadedDownloads[metric.id] = LoadedDownloads(start, this.windows.countsPerDay(downloads.map { it.day to it.downloads }), byMonth)
-            // the values of the downloads, which were loaded from a later day or by month before
-            cache.keys.removeIf { it.first == metric }
-            averages.keys.removeIf { it.first == metric }
+            storeDownloads(metric, LoadedDownloads(start, this.windows.countsPerDay(downloads.map { it.day to it.downloads }), loadByMonth))
             loadLabels(metric)
         }
     }
 
+    /**
+     * Stores loaded downloads, if they're more complete than the stored downloads: by day instead of by month, or from
+     * an earlier day. The calculated values of the metric are removed then. It's synchronized like [series], so that no
+     * values of the replaced downloads are stored after the replacement.
+     */
+    private fun storeDownloads(metric: ChartMetric, downloads: LoadedDownloads) = synchronized(this) {
+        val existing = loadedDownloads[metric.id]
+        val isMoreComplete = existing == null || (existing.byMonth && !downloads.byMonth) ||
+                (existing.byMonth == downloads.byMonth && downloads.from < existing.from)
+        if (isMoreComplete) {
+            loadedDownloads[metric.id] = downloads
+            removeValues(metric)
+        }
+    }
+
     private suspend fun prepareUnique(source: ChartDownloadsSource, metric: ChartMetric, start: YearMonthDay, period: DownloadRequestDimension) {
+        val (release, product) = releaseAndProduct(metric)
+        if (!isKnown(source, metric, release, product)) {
+            return
+        }
         val key = metric.id to period
-        if (loadedUnique[key]?.from?.let { it <= start } == true) {
-            return
+        repeat(MAX_LOAD_ATTEMPTS) {
+            if (loadedUnique[key]?.from?.let { it <= start } == true) {
+                return
+            }
+            // a line, whose downloads couldn't be loaded, has no values, the other lines are shown
+            val downloads = try {
+                source.uniqueDownloads(release, product, start, period)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn("Loading the unique downloads of the chart metric ${metric.id} failed", e)
+                return
+            }
+            // like storeDownloads, only downloads from an earlier day replace the stored downloads
+            synchronized(this) {
+                val existing = loadedUnique[key]
+                if (existing == null || start < existing.from) {
+                    loadedUnique[key] = LoadedUniqueDownloads(start, downloads.associate { it.day to it.downloads })
+                    removeValues(metric)
+                }
+            }
+            loadLabels(metric)
         }
-        val values = metric.parameterValues
-        val (release, product) = when (metric.family) {
-            ChartMetricFamily.ReleaseUniqueDownloads -> values[0]!!.toInt() to values[1]
-            ChartMetricFamily.ProductUniqueDownloads -> null to values[0]
-            else -> null to null
-        }
-        // a line, whose downloads couldn't be loaded, has no values, the other lines are shown
-        val downloads = try {
-            source.uniqueDownloads(release, product, start, period)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn("Loading the unique downloads of the chart metric ${metric.id} failed", e)
-            return
-        }
-        loadedUnique[key] = LoadedUniqueDownloads(start, downloads.associate { it.day to it.downloads })
+    }
+
+    /** Removes the calculated values of a metric, e.g. after more complete downloads were loaded. */
+    private fun removeValues(metric: ChartMetric) {
         cache.keys.removeIf { it.first == metric }
         averages.keys.removeIf { it.first == metric }
-        loadLabels(metric)
+    }
+
+    /** @return The release and the product of a metric of the downloads of a release or a product, `null` for all. */
+    private fun releaseAndProduct(metric: ChartMetric): Pair<PluginReleaseId?, String?> {
+        val values = metric.parameterValues
+        return when (metric.family) {
+            ChartMetricFamily.ReleaseDownloads, ChartMetricFamily.ReleaseUniqueDownloads -> values[0]!!.toInt() to values[1]
+            ChartMetricFamily.ProductDownloads, ChartMetricFamily.ProductUniqueDownloads -> null to values[0]
+            else -> null to null
+        }
+    }
+
+    /**
+     * @return If the release and the product are those of the plugin, see [parameterValues]: the downloads of other
+     *  releases, e.g. of another plugin or of a made-up ID, aren't loaded, the statistics service would answer the
+     *  requests of the whole time range with 0.
+     */
+    private suspend fun isKnown(source: ChartDownloadsSource, metric: ChartMetric, release: PluginReleaseId?, product: String?): Boolean {
+        val isKnown = (release == null || source.releases().any { it.value == release.toString() }) &&
+                (product == null || source.products().any { it.value == product })
+        if (!isKnown) {
+            logger.debug("The release or the product of the chart metric ${metric.id} isn't one of the plugin")
+        }
+        return isKnown
     }
 
     /** Loads the labels of the values of a metric of a family, the title of the metric contains them. */
@@ -274,7 +334,8 @@ class ChartMetricValues private constructor(
             val key = Triple(metric, window, months)
             averages[key]?.let { return it }
             val base = series(metric, window) ?: return null
-            return uniqueAverage(window, months, base).also { averages[key] = it }
+            // the values of the metric weren't replaced meanwhile, see removeValues
+            return uniqueAverage(window, months, base).also { if (cache[metric to window] === base) averages[key] = it }
         }
         val tileWindow = if (metric.usesWindow) window.rolling else ChartWindow.Day
         val key = Triple(metric, tileWindow, months)
@@ -282,7 +343,12 @@ class ChartMetricValues private constructor(
         val base = series(metric, tileWindow) ?: return null
         synchronized(averages) {
             averages[key]?.let { return it }
-            return calculateAverage(metric, tileWindow, months, base).also { averages[key] = it }
+            val average = calculateAverage(metric, tileWindow, months, base)
+            // the values of the metric were replaced meanwhile, e.g. by more complete downloads, see removeValues
+            if (cache[metric to (if (metric.usesWindow) tileWindow else ChartWindow.CalendarMonth)] === base) {
+                averages[key] = average
+            }
+            return average
         }
     }
 
@@ -720,6 +786,9 @@ class ChartMetricValues private constructor(
 
         /** The families, whose data is loaded when their metrics are requested, see [prepare]. */
         private val LOADED_FAMILIES = setOf(ChartMetricFamily.ReleaseDownloads, ChartMetricFamily.ProductDownloads)
+
+        /** How often a request loads the downloads of a metric, which concurrent loads replaced, see [prepare]. */
+        private const val MAX_LOAD_ATTEMPTS = 3
 
         /** The families of the unique downloads, which are loaded for each period, see [uniqueSeries]. */
         private val UNIQUE_FAMILIES = setOf(ChartMetricFamily.UniqueDownloads, ChartMetricFamily.ReleaseUniqueDownloads, ChartMetricFamily.ProductUniqueDownloads)

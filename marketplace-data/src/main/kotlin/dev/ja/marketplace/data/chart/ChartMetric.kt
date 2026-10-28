@@ -73,6 +73,11 @@ class ChartMetric private constructor(
 
     override fun toString(): String = id
 
+    /** Metrics with the same ID are the same, e.g. a metric of a family, which was parsed from a request. */
+    override fun equals(other: Any?): Boolean = other is ChartMetric && other.id == id
+
+    override fun hashCode(): Int = id.hashCode()
+
     companion object {
         private val registered = LinkedHashMap<String, ChartMetric>()
 

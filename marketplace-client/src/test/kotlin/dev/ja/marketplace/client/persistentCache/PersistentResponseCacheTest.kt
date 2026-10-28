@@ -100,6 +100,24 @@ class PersistentResponseCacheTest {
     }
 
     @Test
+    suspend fun aResponseGetsTheLongerMaximumAgeOfALaterRequest() {
+        // stored with a day, e.g. a part of the downloads, which isn't complete yet
+        createCache().apply { load("part") }.flush()
+
+        // a day later, the part is complete, its request has a longer maximum age, which is stored
+        nowMillis += 20.hours.inWholeMilliseconds
+        val cache = createCache()
+        cache.get("plugin-1-downloads", "part", DownloadResponse.serializer(), maxAge = 7.days) { error("must not fetch") }
+        cache.flush()
+
+        // the file is written again later, the part isn't dropped after its first day
+        nowMillis += 3.days.inWholeMilliseconds
+        createCache().apply { load("other") }.flush()
+        createCache().get("plugin-1-downloads", "part", DownloadResponse.serializer(), maxAge = 7.days) { error("must not fetch") }
+        assertEquals(2, loads.get())
+    }
+
+    @Test
     suspend fun responsesAreFetchedAgainAfterADay() {
         val cache = createCache()
         cache.load()

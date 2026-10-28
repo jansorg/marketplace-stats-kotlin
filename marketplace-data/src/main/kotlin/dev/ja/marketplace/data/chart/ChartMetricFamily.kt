@@ -94,7 +94,10 @@ class ChartMetricFamily internal constructor(
         return metricTitle(parameters.mapIndexed { index, parameter -> values[index]?.let(parameter::label) })
     }
 
-    /** @return The metric of the ID, if it's a valid ID of the family, e.g. `release-downloads.1234`. */
+    /**
+     * @return The metric of the ID, if it's a valid ID of the family, e.g. `release-downloads.1234`. A metric, which
+     *  wasn't created by [metric] before, isn't kept: the IDs come from requests, e.g. of `/chart-data`.
+     */
     fun parse(metricId: String): ChartMetric? {
         if (parameters.isEmpty()) {
             return if (metricId == id) metric(emptyList()) else null
@@ -104,7 +107,8 @@ class ChartMetricFamily internal constructor(
         if (values.size !in required..parameters.size || values.withIndex().any { (index, value) -> value.isEmpty() || !isValidValue(index, value) }) {
             return null
         }
-        return metric(values + List(parameters.size - values.size) { null })
+        val allValues = values + List(parameters.size - values.size) { null }
+        return metrics[metricId] ?: ChartMetric.ofFamily(metricId, this, allValues)
     }
 
     override fun toString(): String = id
