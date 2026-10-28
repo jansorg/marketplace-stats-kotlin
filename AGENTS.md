@@ -109,9 +109,11 @@ The builder also limits the requests of each client (each client has its own lim
 - after a response with 429 or 503, all requests wait until its `Retry-After` (`ServerBackoff`, at most 2 minutes)
 - the statistics service of the Marketplace answers requests, which take longer than about 30 seconds, with 503,
   e.g. the downloads by month and product of the whole history of a plugin with many downloads. These requests are
-  marked with `slowRequest()`: their 503 isn't retried and doesn't pause the other requests. `groupedDownloads` of a
-  dimension by month or day requests long time ranges by calendar year and merges them (without a start date since
-  the first month of the monthly downloads)
+  marked with `slowRequest()`: their 503 isn't retried and doesn't pause the other requests.
+  `KtorMarketplaceClient.loadStatisticsByYear` loads statistics of months or days by calendar year
+  (`calendarYearRanges`, without a start date since the first month of the monthly downloads) and merges them
+  (`mergeSeries`): `groupedDownloads` always, `downloads` only after a 503 of the single request. The monthly
+  downloads without a start date can't be split, they're the first month
 - requests per period (`withRateLimit`, `RequestRateLimit`, a sliding window, off by default, the application uses
   `--rate-limit`/`MARKETPLACE_RATE_LIMIT`/`rateLimit`, 10 per second, a little less than the concurrency limits
   allow for a single page, so the first load of a page with many requests is slower)
@@ -539,6 +541,8 @@ queries, and one which excludes all these tags. The results are in the order of 
 - Every source file starts with the copyright/SPDX license header used in existing files
   (`Copyright (c) <years> Joachim Ansorg.` / `SPDX-License-Identifier: AGPL-3.0-or-later`).
 - Kotlin official code style (`kotlin.code.style=official`).
+- In classes, the public functions come first, then the protected (also `open protected`), then the private
+  functions.
 - Commit messages follow Conventional Commits (`feat:`, `fix:`, `chore:`).
 - New JetBrains product codes are registered in `marketplace-client/.../services/JetBrainsProductCode.kt`; unknown codes must not break at runtime.
 - Monetary amounts must keep their currency; use the existing Moneta-based helpers instead of raw `Double`/`BigDecimal` arithmetic.
