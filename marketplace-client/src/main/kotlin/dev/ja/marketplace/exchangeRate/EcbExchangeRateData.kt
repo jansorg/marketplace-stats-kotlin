@@ -208,8 +208,9 @@ class EcbExchangeRateData(
     private val downloader: (() -> EcbRateTable)? = null,
     private val httpClientBuilder: HttpClientBuilder = HttpClientFactory.builder(),
 ) : AutoCloseable {
-    // created on the first download
-    private val httpClientDelegate = lazy { httpClientBuilder.build() }
+    // created on the first download. Without retries: get() blocks the callers while it downloads the rates, the
+    // update in the background is tried again after the retryDelay.
+    private val httpClientDelegate = lazy { httpClientBuilder.withRequestRetry(false).build() }
     private val httpClient: HttpClient by httpClientDelegate
 
     @Volatile

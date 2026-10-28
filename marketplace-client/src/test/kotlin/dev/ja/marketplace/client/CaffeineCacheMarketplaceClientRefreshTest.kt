@@ -5,6 +5,8 @@
 
 package dev.ja.marketplace.client
 
+import dev.ja.marketplace.client.model.DownloadCountType
+import dev.ja.marketplace.client.model.DownloadRequestDimension
 import dev.ja.marketplace.client.model.PluginOffer
 import io.ktor.client.engine.mock.*
 import io.ktor.http.*
@@ -101,5 +103,30 @@ class CaffeineCacheMarketplaceClientRefreshTest {
         assertEquals(emptyList<PluginOffer>(), request.await())
         refresh.await()
         assertEquals(2, offerRequests.get())
+    }
+
+    @Test
+    suspend fun refreshedDownloadsHaveTheCategoryOfTheirData() {
+        // the downloads of yesterday are published during the day: 0 before, complete data after the refresh
+        val yesterday = YearMonthDay.now().add(0, 0, -1)
+        val downloadRequests = AtomicInteger()
+        val engine = MockEngine {
+            val value = if (downloadRequests.incrementAndGet() == 1) 0 else 5
+            val json = """{"measure": "downloads", "filters": [], "dim1": "day",
+                "data": {"dimension": "day", "serie": [{"name": "${yesterday.asIsoString}", "value": $value}]}}"""
+            respond(json, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+        val client = CaffeineCacheMarketplaceClient(
+            httpClientBuilder = mockHttpClientBuilder(engine),
+            cachingStrategy = CachingStrategy(autoRefreshInterval = 30.minutes),
+        )
+        client.downloads(1, DownloadRequestDimension.Day, DownloadCountType.Downloads, null)
+
+        // incomplete downloads are recent data, the refresh fetches them
+        client.refreshPlugin(1)
+        assertEquals(2, downloadRequests.get())
+        // the refreshed downloads are complete, they're cached for a day and aren't refreshed again
+        client.refreshPlugin(1)
+        assertEquals(2, downloadRequests.get())
     }
 }

@@ -13,6 +13,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -122,5 +123,39 @@ class ConcurrentRequestLimitTest {
         // a request of each month
         assertEquals(12, requests.get())
         assertEquals(3, maxActive.get())
+    }
+
+    @Test
+    suspend fun backgroundRequestsHaveALowerLimit() = coroutineScope {
+        mockHttpClientBuilder(engine).withMaxConcurrentChunkRequests(4).withMaxConcurrentBackgroundRequests(2).build().use { client ->
+            (1..8).map { async { client.get("/chunk") { chunkRequest(background = true) }.bodyAsText() } }.awaitAll()
+        }
+        assertEquals(2, maxActive.get())
+    }
+
+    @Test
+    suspend fun backgroundRequestsDontDelayOtherChunkRequests() = coroutineScope {
+        val start = TimeSource.Monotonic.markNow()
+        mockHttpClientBuilder(engine).withMaxConcurrentChunkRequests(3).withMaxConcurrentBackgroundRequests(2).build().use { client ->
+            // the background requests take 10 * 50 ms, two at a time, the third permit of chunk requests stays free
+            val background = (1..10).map { async { client.get("/chunk") { chunkRequest(background = true) }.bodyAsText() } }
+            delay(10)
+            client.get("/chunk") { chunkRequest() }.bodyAsText()
+            val foregroundDone = start.elapsedNow()
+            background.awaitAll()
+            assertTrue(foregroundDone < 150.milliseconds, "foreground request done after $foregroundDone")
+        }
+    }
+
+    @Test
+    suspend fun salesInTheBackgroundHaveTheLowerLimit() {
+        val builder = mockHttpClientBuilder(engine).withMaxConcurrentChunkRequests(4).withMaxConcurrentBackgroundRequests(2)
+        KtorMarketplaceClient(httpClientBuilder = builder).use { client ->
+            withContext(BackgroundRequests) {
+                client.salesInfo(1, YearMonthDayRange(YearMonthDay(2024, 1, 1), YearMonthDay(2024, 12, 31)))
+            }
+        }
+        assertEquals(12, requests.get())
+        assertEquals(2, maxActive.get())
     }
 }

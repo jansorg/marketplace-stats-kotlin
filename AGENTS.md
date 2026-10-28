@@ -89,6 +89,8 @@ data in the format of the real responses, e.g. `EcbTestData`. Don't commit copie
 real servers have the tag `live` (`@Tag("live")`), `test` and `build` exclude them, `liveTest` runs them.
 
 CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
+`.github/workflows/LiveTests.yaml` runs `./gradlew liveTest` every Monday and manually, without an API key: the
+repository is public, the report of `LiveApiCoverageTest` contains values of the responses, so it only runs locally.
 
 The HTTP clients are configured in one place: `HttpClientFactory.builder()` returns an immutable `HttpClientBuilder`
 (log level, user agent, retries, the engine for tests, ...), each `with` method returns a copy. `Application.kt`
@@ -101,19 +103,24 @@ pass a `MockEngine` with `mockHttpClientBuilder` (without retries).
 The builder also limits the requests of each client (each client has its own limits, e.g. per server):
 - concurrent requests (`withMaxConcurrentRequests`, 8, also the limit of the connections of the Java engine) and
   concurrent requests marked with `chunkRequest()` (sales, trials, prices, `withMaxConcurrentChunkRequests`, 4), both
-  in `ConcurrentRequestLimit`
+  in `ConcurrentRequestLimit`. Chunk requests in the background have a lower limit (2): the coroutines of
+  background work have the context element `BackgroundRequests` (`persistentCacheScope`, `refreshPlugin`, the summary
+  of all plugins at the start), so that pages wait at most for 2 background requests
 - after a response with 429 or 503, all requests wait until its `Retry-After` (`ServerBackoff`, at most 2 minutes)
 - requests per period (`withRateLimit`, `RequestRateLimit`, a sliding window, off by default, the application uses
   `--rate-limit`/`MARKETPLACE_RATE_LIMIT`/`rateLimit`, 10 per second, a little less than the concurrency limits
   allow for a single page, so the first load of a page with many requests is slower)
-- timeouts: the Java engine ignores the socket timeout, the application sets a request timeout of 2 minutes, release
+- timeouts: the Java engine has no socket timeout, the builder has a request timeout of 2 minutes by default, release
   downloads have none, the sales reports 5 minutes. A timeout is retried once, other failures 4 times.
+- engine: Ktor's Java engine (`java.net.http`, HTTP/2: one connection per host, no dependencies, few threads). CIO has
+  no HTTP/2, Apache5's HTTP version can't be set via Ktor, OkHttp adds Okio and more threads without a benefit here.
 The order of the plugins in `configure()` matters, the `Send` hooks of plugins installed later run within those
 installed earlier: retry, the concurrency limits, the backoff, the rate limit, then `HttpTimeout`, so that each attempt
 has its own timeout and the time waiting for a limit doesn't count.
 `withHttpCacheDirectory` stores the responses with Ktor's `HttpCache` (`FileStorage`) and validates them with
 conditional requests. Only the services of JetBrains support them (`Last-Modified`, a 304 only for the unchanged value),
-the application stores them in `jetbrains/http/` of the cache directory. The Marketplace sends `no-store` and no
+the application stores them in `jetbrains/http/` of the cache directory. The ECB answers its archive with 304, too
+(`ecb/http/`). `EcbExchangeRateData` downloads without retries, because `get()` blocks its callers. The Marketplace sends `no-store` and no
 validators, its responses are only cached by the application.
 
 The client decodes the API responses with `ignoreUnknownKeys`, so new properties of the API don't break it, but they

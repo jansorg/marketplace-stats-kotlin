@@ -50,9 +50,9 @@ class HttpClientBuilder private constructor(private val settings: Settings) {
         val enableRequestRetry: Boolean = true,
         val maxConcurrentRequests: Int = DEFAULT_MAX_CONCURRENT_REQUESTS,
         val maxConcurrentChunkRequests: Int = DEFAULT_MAX_CONCURRENT_CHUNK_REQUESTS,
+        val maxConcurrentBackgroundRequests: Int = DEFAULT_MAX_CONCURRENT_BACKGROUND_REQUESTS,
         val connectTimeout: Duration? = DEFAULT_CONNECT_TIMEOUT,
-        val socketTimeout: Duration? = DEFAULT_SOCKET_TIMEOUT,
-        val requestTimeout: Duration? = null,
+        val requestTimeout: Duration? = DEFAULT_REQUEST_TIMEOUT,
         val rateLimit: RateLimit? = null,
         val engine: HttpClientEngine? = null,
         val configurations: List<HttpClientConfig<*>.() -> Unit> = emptyList(),
@@ -97,20 +97,23 @@ class HttpClientBuilder private constructor(private val settings: Settings) {
         return HttpClientBuilder(settings.copy(maxConcurrentChunkRequests = max))
     }
 
+    /**
+     * The maximum number of concurrent chunk requests of a created client, which are made in the background, see
+     * [chunkRequest] and [BackgroundRequests]. Each client has its own limit.
+     */
+    fun withMaxConcurrentBackgroundRequests(max: Int): HttpClientBuilder {
+        require(max > 0) { "The maximum number of concurrent background requests must be positive" }
+        return HttpClientBuilder(settings.copy(maxConcurrentBackgroundRequests = max))
+    }
+
     /** The time to establish a connection, `null` for no limit. 30 seconds by default. */
     fun withConnectTimeout(timeout: Duration?): HttpClientBuilder = HttpClientBuilder(settings.copy(connectTimeout = timeout.checkTimeout()))
 
     /**
-     * The maximum time between two packets of a connection, `null` for no limit. 2 minutes by default.
-     * The Java engine, which is used without [withEngine], doesn't support it, only [withRequestTimeout] limits its
-     * requests.
-     */
-    fun withSocketTimeout(timeout: Duration?): HttpClientBuilder = HttpClientBuilder(settings.copy(socketTimeout = timeout.checkTimeout()))
-
-    /**
-     * The time of a whole request, from sending it until its response was received, `null` for no limit, the default.
-     * Downloads of large files may need more time, a request can override it with
-     * [io.ktor.client.plugins.timeout]. Each retry of a request has its own time.
+     * The time of a whole request, from sending it until its response was received, `null` for no limit. 2 minutes by
+     * default: the Java engine has no socket timeout, so that a stalled connection must not block a request forever.
+     * Downloads of large files may need more time, a request can override it with [io.ktor.client.plugins.timeout].
+     * Each retry of a request has its own time.
      */
     fun withRequestTimeout(timeout: Duration?): HttpClientBuilder = HttpClientBuilder(settings.copy(requestTimeout = timeout.checkTimeout()))
 
@@ -179,6 +182,8 @@ class HttpClientBuilder private constructor(private val settings: Settings) {
             deflate()
         }
 
+        // The cache answers in the send pipeline, within the limits of the Send hooks below: a cached response also
+        // takes a permit and a slot of the rate limit. Its clients, e.g. of the JetBrains services, send few requests.
         settings.httpCacheDirectory?.let { directory ->
             Files.createDirectories(directory)
             install(HttpCache) {
@@ -206,6 +211,7 @@ class HttpClientBuilder private constructor(private val settings: Settings) {
         install(ConcurrentRequestLimit) {
             maxConcurrentRequests = settings.maxConcurrentRequests
             maxConcurrentChunkRequests = settings.maxConcurrentChunkRequests
+            maxConcurrentBackgroundRequests = settings.maxConcurrentBackgroundRequests
         }
 
         // before the rate limit, so that the paused requests are sent at the rate of the limit afterward
@@ -224,7 +230,6 @@ class HttpClientBuilder private constructor(private val settings: Settings) {
         // doesn't count
         install(HttpTimeout) {
             connectTimeoutMillis = settings.connectTimeout?.inWholeMilliseconds
-            socketTimeoutMillis = settings.socketTimeout?.inWholeMilliseconds
             requestTimeoutMillis = settings.requestTimeout?.inWholeMilliseconds
         }
 
@@ -245,8 +250,9 @@ class HttpClientBuilder private constructor(private val settings: Settings) {
     companion object {
         const val DEFAULT_MAX_CONCURRENT_REQUESTS: Int = 8
         const val DEFAULT_MAX_CONCURRENT_CHUNK_REQUESTS: Int = 4
+        const val DEFAULT_MAX_CONCURRENT_BACKGROUND_REQUESTS: Int = 2
         val DEFAULT_CONNECT_TIMEOUT: Duration = 30.seconds
-        val DEFAULT_SOCKET_TIMEOUT: Duration = 2.minutes
+        val DEFAULT_REQUEST_TIMEOUT: Duration = 2.minutes
     }
 }
 

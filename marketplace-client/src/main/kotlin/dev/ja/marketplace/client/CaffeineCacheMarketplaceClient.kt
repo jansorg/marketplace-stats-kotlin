@@ -24,6 +24,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.serializer
 import org.slf4j.LoggerFactory
@@ -58,7 +59,8 @@ class CaffeineCacheMarketplaceClient(
         .buildCoroutine()
 
     // background updates of the persistent cache
-    private val persistentCacheScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // background work, its requests have a lower limit than the requests of pages
+    private val persistentCacheScope = CoroutineScope(SupervisorJob() + Dispatchers.IO + BackgroundRequests)
     private val persistentSales = ConcurrentHashMap<PluginId, PersistentHistoryCache<PluginSale, CachedSale>>()
     private val persistentTrials = ConcurrentHashMap<PluginId, PersistentHistoryCache<PluginTrial, CachedTrial>>()
     private val persistentPrices = persistentCache?.let {
@@ -74,7 +76,7 @@ class CaffeineCacheMarketplaceClient(
     }
 
     // the values, which refreshPlugin is fetching: a request of a missing value waits for it instead of fetching it again
-    private val refreshing = ConcurrentHashMap<String, Deferred<Any?>>()
+    private val refreshing = ConcurrentHashMap<String, Deferred<Stored<Any?>>>()
 
     // set after the cache was invalidated, data stored on disk is ignored afterward
     @Volatile
@@ -91,10 +93,14 @@ class CaffeineCacheMarketplaceClient(
     }
 
     /**
-     * Cancels the background updates of the persistent cache and closes the HTTP clients.
-     * The files of the persistent cache are written atomically, a cancelled update doesn't leave a partial file.
+     * Writes the pending changes of the prices and downloads, cancels the background updates of the persistent cache
+     * and closes the HTTP clients. The files of the persistent cache are written atomically, a cancelled update doesn't
+     * leave a partial file.
      */
     override fun close() {
+        // the changes, which are written with a delay, are written before the writes are cancelled
+        persistentPrices?.flush()
+        persistentDownloads?.flush()
         persistentCacheScope.cancel()
         super.close()
     }
@@ -134,9 +140,9 @@ class CaffeineCacheMarketplaceClient(
      * see [CachingStrategy.isRefreshDue]. Requests use the cached data, while it's fetched.
      * Failures are logged and the cached data is kept. Nothing is fetched without the automatic refresh.
      */
-    suspend fun refreshPlugin(plugin: PluginId) {
+    suspend fun refreshPlugin(plugin: PluginId): Unit = withContext(BackgroundRequests) {
         if (cachingStrategy.autoRefreshInterval == null) {
-            return
+            return@withContext
         }
 
         val now = System.currentTimeMillis()
@@ -152,13 +158,15 @@ class CaffeineCacheMarketplaceClient(
         persistentSales[plugin]?.refresh()
         persistentTrials[plugin]?.refresh()
         for ((key, value) in entries) {
-            val inFlight = CompletableDeferred<Any?>()
+            val inFlight = CompletableDeferred<Stored<Any?>>()
             refreshing[key] = inFlight
             try {
                 val refreshed = value.refresh()
                 inFlight.complete(refreshed)
-                refreshed ?: continue
-                cache.synchronous().put(key, CacheValue(value.category, cachingStrategy.expiry(value.category), refreshed, null, value.refresh))
+                val result = refreshed.value ?: continue
+                // the category of the refreshed data, e.g. downloads, which are complete now
+                val category = value.categoryOf(refreshed)
+                cache.synchronous().put(key, CacheValue(category, cachingStrategy.expiry(category), result, null, value.refresh, value.categoryOf))
             } catch (e: CancellationException) {
                 inFlight.cancel(e)
                 throw e
@@ -611,11 +619,13 @@ class CaffeineCacheMarketplaceClient(
         loader: suspend () -> Stored<T>,
     ): T {
         val expiry = cachingStrategy.expiry(category)
-        val refreshValue: suspend () -> Any? = { refresh().value }
+        val refreshValue = refresh as suspend () -> Stored<Any?>
+        val categoryOfValue = categoryOf as (Stored<Any?>) -> Category
         val cachedValue = cache.get(key) {
             // e.g. a value, which expired while the automatic refresh fetches it
             awaitRefresh(key)?.let { refreshed ->
-                return@get CacheValue(category, expiry, refreshed, null, refreshValue)
+                val refreshedCategory = categoryOfValue(refreshed)
+                return@get CacheValue(refreshedCategory, cachingStrategy.expiry(refreshedCategory), refreshed.value, null, refreshValue, categoryOfValue)
             }
 
             try {
@@ -623,7 +633,7 @@ class CaffeineCacheMarketplaceClient(
                 val storedCategory = categoryOf(stored)
                 val age = (System.currentTimeMillis() - stored.fetchedMillis).coerceAtLeast(0).milliseconds
                 // a short minimum, so that outdated stored data isn't read again by every request
-                CacheValue(storedCategory, (cachingStrategy.expiry(storedCategory) - age).coerceAtLeast(1.minutes), stored.value, null, refreshValue, stored.fetchedMillis)
+                CacheValue(storedCategory, (cachingStrategy.expiry(storedCategory) - age).coerceAtLeast(1.minutes), stored.value, null, refreshValue, categoryOfValue, stored.fetchedMillis)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: ClientRequestException) {
@@ -632,14 +642,14 @@ class CaffeineCacheMarketplaceClient(
                 if (e.response.status != HttpStatusCode.NotFound) {
                     throw e
                 }
-                CacheValue(category, minOf(expiry, NOT_FOUND_EXPIRY), null, e, refreshValue)
+                CacheValue(category, minOf(expiry, NOT_FOUND_EXPIRY), null, e, refreshValue, categoryOfValue)
             } catch (e: Exception) {
                 // Server errors and failed connections, after the retries of the HTTP client, are cached briefly,
                 // so that the following requests, e.g. of the other tables of a page, don't try again at once.
                 if (!e.isTemporaryFailure()) {
                     throw e
                 }
-                CacheValue(category, minOf(expiry, FAILURE_EXPIRY), null, e, refreshValue)
+                CacheValue(category, minOf(expiry, FAILURE_EXPIRY), null, e, refreshValue, categoryOfValue)
             }
         } ?: throw IllegalStateException("Failed to compute cache value for $key")
 
@@ -653,10 +663,10 @@ class CaffeineCacheMarketplaceClient(
     /**
      * @return The value, which [refreshPlugin] is fetching, `null` if it isn't fetching it or if it failed.
      */
-    private suspend fun awaitRefresh(key: String): Any? {
+    private suspend fun awaitRefresh(key: String): Stored<Any?>? {
         val inFlight = refreshing[key] ?: return null
         return try {
-            inFlight.await()
+            inFlight.await().takeIf { it.value != null }
         } catch (e: CancellationException) {
             // a cancelled refresh doesn't cancel the request
             if (!inFlight.isCancelled) throw e
@@ -670,13 +680,15 @@ class CaffeineCacheMarketplaceClient(
 /**
  * @param expireAfterWrite How long requests use the value, see [CachingStrategy.expiry].
  * @param refresh Fetches the value again, see [CaffeineCacheMarketplaceClient.refreshPlugin].
+ * @param categoryOf The category of a fetched value, e.g. by its content.
  */
 private class CacheValue(
     val category: Category,
     val expireAfterWrite: Duration,
     val result: Any?,
     val exception: Exception?,
-    val refresh: suspend () -> Any?,
+    val refresh: suspend () -> Stored<Any?>,
+    val categoryOf: (Stored<Any?>) -> Category,
     val createdMillis: Long = System.currentTimeMillis(),
 ) {
     init {
@@ -707,5 +719,10 @@ private val NOT_FOUND_EXPIRY: Duration = 5.minutes
 /** How long requests use a temporary failure, see [isTemporaryFailure]. */
 private val FAILURE_EXPIRY: Duration = 1.minutes
 
-/** A server error or a failed connection, e.g. a timeout, but not a rejected request. */
-private fun Exception.isTemporaryFailure(): Boolean = this is ServerResponseException || this is java.io.IOException
+/**
+ * A server error or a failed connection, e.g. a timeout or an unknown host, but not a rejected request.
+ * The Java engine throws [java.nio.channels.UnresolvedAddressException] for an unknown host, it isn't an IOException.
+ */
+private fun Exception.isTemporaryFailure(): Boolean {
+    return this is ServerResponseException || this is java.io.IOException || this is java.nio.channels.UnresolvedAddressException
+}

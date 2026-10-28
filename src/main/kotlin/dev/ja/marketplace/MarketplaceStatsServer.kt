@@ -674,8 +674,9 @@ class MarketplaceStatsServer(
         // stored data is updated after the start, also without a report being opened
         (client as? CaffeineCacheMarketplaceClient)?.updateStoredHistory(allPlugins.filter(PluginInfoSummary::isPaidOrFreemium).map(PluginInfoSummary::id))
         if (serverConfiguration.showAllPluginsSummary) {
-            // the summary of all paid plugins needs their data, it's loaded in the background, so that the list is fast
-            backgroundScope.launch {
+            // the summary of all paid plugins needs their data, it's loaded in the background, so that the list is fast.
+            // Its chunk requests have the lower limit of background requests, so that they don't delay pages.
+            backgroundScope.launch(BackgroundRequests) {
                 try {
                     loadAllPluginsData()
                 } catch (e: CancellationException) {

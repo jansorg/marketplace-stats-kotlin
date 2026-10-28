@@ -311,13 +311,16 @@ private fun createDefaultHttpClientBuilder(logLevel: ClientLogLevel, rateLimit: 
     return HttpClientFactory.builder()
         .withLogLevel(logLevel)
         .withUserAgent("${HttpClientFactory.DEFAULT_USER_AGENT}/${BuildConfig.APP_VERSION}")
-        .withRequestTimeout(2.minutes) // the Java engine doesn't support a socket timeout, a stalled request must not wait forever
         .let { if (rateLimit > 0) it.withRateLimit(rateLimit, 1.seconds) else it }
 }
 
-/** The exchange rates of all currencies, loaded once. */
+/**
+ * The exchange rates of all currencies, loaded once. The ECB answers unchanged rates with 304, the HTTP cache stores
+ * the archive and validates it with a conditional request.
+ */
 private fun createEcbRatesProvider(httpClientBuilder: HttpClientBuilder, cacheStore: PersistentCacheStore?): EcbExchangeRateData {
-    val ecbRates = EcbExchangeRateData(httpClientBuilder = httpClientBuilder)
+    val httpCacheDirectory = cacheStore?.subStore("ecb")?.directory?.resolve("http")
+    val ecbRates = EcbExchangeRateData(httpClientBuilder = httpClientBuilder.withHttpCacheDirectory(httpCacheDirectory))
     cacheStore?.let(ecbRates::enablePersistentCache)
     return ecbRates
 }

@@ -1,0 +1,32 @@
+name: Live tests
+
+# The tests with the tag "live" request the real servers of the ECB and of JetBrains, e.g. to find changes of their
+# responses. LiveApiCoverageTest of the Marketplace API isn't run here: it needs an API key and its report contains
+# values of the responses, e.g. data of customers, and the logs of this repository are public.
+
+on:
+  schedule:
+    # every Monday
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+jobs:
+  live-tests:
+    name: Live Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          java-version: '27'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Run the live tests
+        run: ./gradlew liveTest
