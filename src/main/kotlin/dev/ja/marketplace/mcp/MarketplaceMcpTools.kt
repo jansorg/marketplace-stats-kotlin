@@ -440,7 +440,7 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
                     "and the first release of each major version (majorReleases). With includeVerification, the " +
                     "$MAX_VERIFIED_RELEASES newest releases of the result have the results of the Plugin Verifier " +
                     "(verification.compatibility) and of the IDE performance verifier (verification.performance), " +
-                    "one per verified IDE: result type (e.g. OK, PROBLEMS), verdict and the address of the full report.",
+                    "one per verified IDE: result type (e.g. OK, WARNINGS for usages of deprecated API, PROBLEMS), verdict and the address of the full report.",
             buildJsonObject {
                 put("pluginId", pluginIdProperty)
                 put("channel", stringProperty("Release channel, e.g. eap. Default: stable"))

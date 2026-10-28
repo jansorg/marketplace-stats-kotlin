@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace.mcp
 
+import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.model.PluginReleaseInfo
 import dev.ja.marketplace.client.model.PluginVerificationResult
@@ -12,6 +13,7 @@ import dev.ja.marketplace.data.prices.PriceChange
 import dev.ja.marketplace.data.releases.MajorRelease
 import dev.ja.marketplace.services.ProductRelease
 import dev.ja.marketplace.services.ProductWithReleases
+import io.ktor.http.*
 import kotlinx.datetime.toJavaLocalDate
 import kotlinx.serialization.json.*
 import java.math.RoundingMode
@@ -45,12 +47,14 @@ object McpReleasesJson {
             result.product?.let { product ->
                 put("product", product.product)
                 product.productName?.let { put("productName", it) }
-                (product.fullPresentableVersion ?: product.ideVersion)?.let { put("ideVersion", it) }
+                // the full version repeats the product name
+                (product.shortPresentableVersion ?: product.ideVersion)?.let { put("ideVersion", it) }
             }
             put("resultType", result.resultType)
             result.verificationVerdict?.let { put("verdict", it) }
             result.verificationDateMillis?.let { put("date", YearMonthDay.of(Instant.fromEpochMilliseconds(it)).asIsoString) }
-            result.fullVerificationResultUrl?.let { put("reportUrl", it) }
+            // the reports of the Plugin Verifier have a path of the Marketplace, those of the performance an address
+            result.fullVerificationResultUrl?.let { put("reportUrl", URLBuilder(Marketplace.MarketplaceFrontendUrl).takeFrom(it).buildString()) }
         }
     }
 
