@@ -300,16 +300,18 @@ class MarketplaceMcpRecordToolsTest {
 
         val verification = releases.first()["verification"]!!.jsonObject
         val compatibility = verification["compatibility"]!!.jsonArray.single().jsonObject
-        assertEquals("IU", compatibility["product"]!!.jsonPrimitive.content)
-        assertEquals("2025.1.1", compatibility["ideVersion"]!!.jsonPrimitive.content)
-        assertEquals("PROBLEMS", compatibility["resultType"]!!.jsonPrimitive.content)
-        assertEquals("2 problems", compatibility["verdict"]!!.jsonPrimitive.content)
+        assertEquals("IDEA", compatibility["product"]!!.jsonPrimitive.content)
+        assertEquals("IntelliJ IDEA", compatibility["productName"]!!.jsonPrimitive.content)
+        assertEquals("2025.1.1 (251.25410.109)", compatibility["ideVersion"]!!.jsonPrimitive.content)
+        assertEquals("WARNINGS", compatibility["resultType"]!!.jsonPrimitive.content)
+        assertEquals("Compatible. 2 usages of deprecated API", compatibility["verdict"]!!.jsonPrimitive.content)
         assertEquals("2025-06-01", compatibility["date"]!!.jsonPrimitive.content)
-        assertEquals("https://example.com/report/3", compatibility["reportUrl"]!!.jsonPrimitive.content)
+        // the path of the Marketplace is returned as an address
+        assertEquals("https://plugins.jetbrains.com/files/1/3/verifier.json", compatibility["reportUrl"]!!.jsonPrimitive.content)
 
         val performance = verification["performance"]!!.jsonArray.single().jsonObject
         assertEquals("OK", performance["resultType"]!!.jsonPrimitive.content)
-        assertNull(performance["verdict"])
+        assertEquals("https://example.com/report/3", performance["reportUrl"]!!.jsonPrimitive.content)
     }
 
     @Test

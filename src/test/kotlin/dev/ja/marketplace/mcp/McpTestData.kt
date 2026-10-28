@@ -178,17 +178,25 @@ object McpTestData {
         override suspend fun pluginChannels(plugin: PluginInfoSummary): List<PluginChannel> = listOf("", "eap")
 
         override suspend fun verificationResults(release: PluginReleaseId, type: PluginVerificationType): List<PluginVerificationResult> {
-            val resultType = if (type == PluginVerificationType.IdePerformance) "OK" else "PROBLEMS"
+            // like the API, the reports of the Plugin Verifier have a path, those of the performance an address
+            val performance = type == PluginVerificationType.IdePerformance
+            val resultType = if (performance) "OK" else "WARNINGS"
             return listOf(
                 PluginVerificationResult(
                     resultId = release.toLong(),
                     pluginReleaseId = release,
                     verificationType = type.requestParameter,
                     resultType = resultType,
-                    verificationVerdict = "2 problems".takeIf { resultType == "PROBLEMS" },
+                    verificationVerdict = if (performance) "No issues" else "Compatible. 2 usages of deprecated API",
                     verificationDateMillis = 1748772000000,
-                    product = VerifiedProduct("IU", productName = "IntelliJ IDEA Ultimate", fullPresentableVersion = "2025.1.1"),
-                    fullVerificationResultUrl = "https://example.com/report/$release",
+                    product = VerifiedProduct(
+                        "IDEA",
+                        productName = "IntelliJ IDEA",
+                        ideVersion = "IU-251.25410.109",
+                        shortPresentableVersion = "2025.1.1 (251.25410.109)",
+                        fullPresentableVersion = "IntelliJ IDEA 2025.1.1 (251.25410.109)",
+                    ),
+                    fullVerificationResultUrl = if (performance) "https://example.com/report/$release" else "/files/1/$release/verifier.json",
                 )
             )
         }
