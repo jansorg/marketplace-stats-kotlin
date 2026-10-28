@@ -23,13 +23,18 @@ import kotlin.time.Duration.Companion.minutes
  *
  * @param autoRefreshInterval The interval of the automatic refresh, `null` if it's disabled.
  * @param autoRefreshIdleTime The automatic refresh of a plugin stops after this time without a request for the plugin.
+ * @param maxCachedValues The maximum number of values in the memory cache, e.g. the information of a plugin or its
+ *  ratings. Values beyond it are removed, the least recently used first. An application, which requests a value of
+ *  each plugin of the Marketplace, needs a cache of at least the number of plugins to request each value only once.
  */
 class CachingStrategy(
     val autoRefreshInterval: Duration? = null,
     val autoRefreshIdleTime: Duration = 1.days,
+    val maxCachedValues: Long = DEFAULT_MAX_CACHED_VALUES,
 ) {
     init {
         require(autoRefreshInterval == null || autoRefreshInterval.isPositive()) { "The interval of the automatic refresh must be positive" }
+        require(maxCachedValues >= 0) { "The maximum number of cached values must not be negative: $maxCachedValues" }
     }
 
     /**
@@ -102,5 +107,11 @@ class CachingStrategy(
     companion object {
         /** Sales and trials of this many recent days may still change, e.g. because of refunds. */
         const val UNSTABLE_HISTORY_DAYS: Int = 45
+
+        /**
+         * The default of [maxCachedValues]: the Marketplace has about 15,000 plugins, the cache keeps a value of
+         * each plugin, with room for the growth of the Marketplace.
+         */
+        const val DEFAULT_MAX_CACHED_VALUES: Long = 30_000
     }
 }
