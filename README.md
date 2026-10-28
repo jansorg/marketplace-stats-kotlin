@@ -331,7 +331,7 @@ claude mcp add --transport http marketplace-stats http://localhost:8080/mcp
 
 | Tool                               | Data                                                                                                    |
 |------------------------------------|---------------------------------------------------------------------------------------------------------|
-| `list_plugin_releases`             | Releases of a plugin and the first release of each major version                                        |
+| `list_plugin_releases`             | Releases of a plugin, the first release of each major version, optionally the results of the verifiers  |
 | `list_jetbrains_products`          | JetBrains products with their metadata                                                                  |
 | `list_jetbrains_product_releases`  | Versions of a JetBrains product with date and build, or its major releases                              |
 | `get_jetbrains_product_release`    | Metadata of a release of a JetBrains product, optionally with what's new, downloads and patches         |

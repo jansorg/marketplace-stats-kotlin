@@ -11,6 +11,7 @@ import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.client.PluginChannel
 import dev.ja.marketplace.client.PluginId
+import dev.ja.marketplace.client.PluginReleaseId
 import dev.ja.marketplace.client.SalesWithLicensesInfo
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.currency.CurrencyInfo
@@ -175,6 +176,22 @@ object McpTestData {
         }
 
         override suspend fun pluginChannels(plugin: PluginInfoSummary): List<PluginChannel> = listOf("", "eap")
+
+        override suspend fun verificationResults(release: PluginReleaseId, type: PluginVerificationType): List<PluginVerificationResult> {
+            val resultType = if (type == PluginVerificationType.IdePerformance) "OK" else "PROBLEMS"
+            return listOf(
+                PluginVerificationResult(
+                    resultId = release.toLong(),
+                    pluginReleaseId = release,
+                    verificationType = type.requestParameter,
+                    resultType = resultType,
+                    verificationVerdict = "2 problems".takeIf { resultType == "PROBLEMS" },
+                    verificationDateMillis = 1748772000000,
+                    product = VerifiedProduct("IU", productName = "IntelliJ IDEA Ultimate", fullPresentableVersion = "2025.1.1"),
+                    fullVerificationResultUrl = "https://example.com/report/$release",
+                )
+            )
+        }
 
         override suspend fun offers(plugin: PluginInfoSummary): List<PluginOffer> = offers
 

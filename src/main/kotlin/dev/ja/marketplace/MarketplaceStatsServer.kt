@@ -281,6 +281,10 @@ class MarketplaceStatsServer(
             return client.channels(plugin.id)
         }
 
+        override suspend fun verificationResults(release: PluginReleaseId, type: PluginVerificationType): List<PluginVerificationResult> {
+            return client.verificationResults(release, type)
+        }
+
         override suspend fun offers(plugin: PluginInfoSummary): List<PluginOffer> = client.offers(plugin.id)
 
         override suspend fun offerCoupons(plugin: PluginInfoSummary, offer: PluginOfferId): List<PluginOfferCoupon> {
