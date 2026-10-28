@@ -101,6 +101,15 @@ export class MetricValueCache {
     }
 
     /**
+     * @return {boolean} If the metric has no values: the server answered without its values, e.g. the trials on the
+     *  list of plugins, or the request failed. A metric, whose values aren't requested yet or are loading, isn't.
+     */
+    isKnownWithoutValues(window, detail, id) {
+        const entry = this.entries[window + "/" + detail];
+        return Boolean(entry && !entry.pending && (entry.data?.missing.has(id) || entry.failed.has(id)));
+    }
+
+    /**
      * Loads the values, which aren't loaded yet, of a window and a detail level. The values of other metrics of the
      * level are kept, if the loaded values have the same dates. Values, which failed to load, are requested again
      * after the current task, e.g. when the charts are drawn the next time.

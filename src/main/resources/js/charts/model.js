@@ -1090,6 +1090,26 @@ export function previousYear(series) {
     return {points, incomplete};
 }
 
+/**
+ * @param {{from: string}|null} range The shown dates of the charts, null for all dates.
+ * @param {string[]} shownOverlays The shown trends, see {@link OVERLAYS}.
+ * @return {string|null} The first date of the values, which are loaded, ISO: the start of the range, a year earlier
+ *  with the trend of the previous year, whose values are the values of the year before the range, see
+ *  {@link previousYear}. Null for all dates.
+ */
+export function loadedRangeStart(range, shownOverlays) {
+    if (!range?.from) {
+        return null;
+    }
+    if (!shownOverlays.includes("previousYear")) {
+        return range.from;
+    }
+    const [year, month, day] = range.from.split("-").map(Number);
+    // February 29 of the previous year is February 28
+    const lastDay = new Date(Date.UTC(year - 1, month, 0)).getUTCDate();
+    return [year - 1, month, Math.min(day, lastDay)].map((n, i) => String(n).padStart(i === 0 ? 4 : 2, "0")).join("-");
+}
+
 /** Kinds of vertical lines in the line charts. */
 export const MARKER_KINDS = ["release", "price", "continuity", "ide"];
 
