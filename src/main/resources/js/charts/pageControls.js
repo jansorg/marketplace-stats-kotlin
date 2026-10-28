@@ -115,7 +115,8 @@ export function makeRowChartButtons(show) {
         const {chartRowMetric: id, chartRowTitle: title, chartRowUnit: unit} = button.dataset;
         const showMetric = () => show({id, title, unit});
         button.addEventListener("click", showMetric);
-        const name = button.previousElementSibling;
+        // the name is in front of the button or, e.g. of a number, after it
+        const name = button.classList.contains("chart-row-button-first") ? button.nextElementSibling : button.previousElementSibling;
         if (name?.classList.contains("chart-row-name")) {
             name.classList.add("chartable");
             name.tabIndex = 0;
