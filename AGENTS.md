@@ -422,7 +422,9 @@ queries, and one which excludes all these tags. The results are in the order of 
     Per day, Week and Calendar month (`ChartMetricFamily.windows`, listed by `/chart-metrics` and `/chart-data`, the
     legend and the "+" menu only offer them): they can't be summed, the statistics service has them by day, calendar
     week and calendar month (`ChartDownloadsSource.uniqueDownloads`, `weekChunks`). The value of a week is at its
-    Sunday, the dates of the level Week, of a month at its last day, and today. The page of a release has the charts of
+    Sunday, the dates of the level Week, of a month at its last day, and today. They have no rolling windows: their moving
+    averages are the averages of their complete periods within the months (`uniqueAverage`), today's period isn't
+    part of them. The page of a release has the charts of
     the other pages, its downloads have the buttons of `ChartMetricName`, the requests of the charts use
     `data-plugin-id` of the `<body>` (`pageEndpoint` in `endpoints.js`), the page has the parameter `pId`.
   - Decimals: `ChartMetric.fractionDigits` is the maximum number of decimals of the shown values of a metric, e.g. of
