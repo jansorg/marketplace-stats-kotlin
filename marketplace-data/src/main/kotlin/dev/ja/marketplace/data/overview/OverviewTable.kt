@@ -19,7 +19,7 @@ import dev.ja.marketplace.data.overview.OverviewTable.CustomerSegment.*
 import dev.ja.marketplace.data.trackers.*
 import java.util.*
 
-class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tables-row") {
+class OverviewTable : SimpleDataTable("Overview", "overview") {
     private enum class CustomerSegment {
         PerpetualFree,
         PerpetualPaying,
@@ -64,10 +64,15 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         val mrrTracker: RecurringRevenueTracker,
         val arrTracker: RecurringRevenueTracker,
         val downloads: Long,
+        /** Free plugins have no sales, their months are empty without downloads. */
+        private val isPaidOrFreemium: Boolean,
     ) {
         val isEmpty: Boolean
             get() {
-                return amounts.isZero
+                return when {
+                    isPaidOrFreemium -> amounts.isZero
+                    else -> downloads == 0L
+                }
             }
     }
 
@@ -84,6 +89,13 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     }
 
     private var pluginId: PluginId? = null
+
+    /** Free plugins have no sales, licenses and trials, their table only has the downloads. */
+    private var isPaidOrFreemium: Boolean = true
+
+    // the narrow table of a free plugin shares a row with the other table
+    override val cssClass: String?
+        get() = if (isPaidOrFreemium) "table-striped tables-row" else null
 
     /** The first day with data of the plugin, the sums of the first month only cover a part of it. */
     private var pluginStart: YearMonthDay? = null
@@ -132,11 +144,15 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
         chartMeasure = ChartMeasure.Ratio,
         chartMetric = ChartMetric.ChurnMonthly.id,
     )
-    private val columnDownloads = DataTableColumn(
-        "downloads", "↓", "num col-symbol", chartTitle = "Downloads", tooltip = "Number of downloads in the month",
-        chartMetric = ChartMetric.Downloads.id,
-        chartMeasure = ChartMeasure.Flow,
-    )
+    // the only column of the values of a free plugin has a title instead of the symbol
+    private val columnDownloads by lazy {
+        DataTableColumn(
+            "downloads", if (isPaidOrFreemium) "↓" else "Downloads", if (isPaidOrFreemium) "num col-symbol" else "num",
+            chartTitle = "Downloads", tooltip = "Number of downloads in the month",
+            chartMetric = ChartMetric.Downloads.id,
+            chartMeasure = ChartMeasure.Flow,
+        )
+    }
     private val columnTrials = DataTableColumn(
         "trials", "Trials", "num", tooltip = "Number of new trials at the end of the month",
         chartMetric = ChartMetric.Trials.id,
@@ -154,26 +170,31 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     override val chartPeriod: ChartPeriod = ChartPeriod.Month
 
     override val columns: List<DataTableColumn> by lazy {
-        listOfNotNull(
-            columnYearMonth,
-            columnAmountTotal,
-            columnAmountPaid,
-            columnActiveLicenses,
-            columnActiveLicensesPaying,
-            columnMonthlyRecurringRevenue,
-            columnAnnualRecurringRevenue,
-            columnLicenseChurnAnnual,
-            columnLicenseChurnMonthly,
-            columnDownloads,
-            columnTrials.takeIf { maxTrialDays > 0 },
-            columnTrialsConverted.takeIf { maxTrialDays > 0 },
-        )
+        when {
+            isPaidOrFreemium -> listOfNotNull(
+                columnYearMonth,
+                columnAmountTotal,
+                columnAmountPaid,
+                columnActiveLicenses,
+                columnActiveLicensesPaying,
+                columnMonthlyRecurringRevenue,
+                columnAnnualRecurringRevenue,
+                columnLicenseChurnAnnual,
+                columnLicenseChurnMonthly,
+                columnDownloads,
+                columnTrials.takeIf { maxTrialDays > 0 },
+                columnTrialsConverted.takeIf { maxTrialDays > 0 },
+            )
+
+            else -> listOf(columnYearMonth, columnDownloads)
+        }
     }
 
     override suspend fun init(data: PluginData) {
         super.init(data)
 
         this.pluginId = data.pluginId
+        this.isPaidOrFreemium = data.pluginSummary.isPaidOrFreemium
         this.maxTrialDays = data.getPluginInfo().maxTrialDays
         this.pluginStart = data.getFirstActivityDate()
 
@@ -209,6 +230,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
                         .firstOrNull { it.firstOfMonth.year == year && it.firstOfMonth.month == month }
                         ?.downloads
                         ?: 0L,
+                    isPaidOrFreemium,
                 )
             }
 

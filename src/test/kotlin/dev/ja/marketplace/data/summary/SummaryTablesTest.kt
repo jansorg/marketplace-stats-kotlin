@@ -22,6 +22,7 @@ import dev.ja.marketplace.data.PluginData
 import dev.ja.marketplace.data.SimpleDataTable
 import dev.ja.marketplace.data.SimpleDateTableRow
 import dev.ja.marketplace.data.chargeOverview.ChargeOverviewTable
+import dev.ja.marketplace.data.overview.OverviewTable
 import dev.ja.marketplace.data.timeSpanSummary.TimeSpanSummaryTable
 import dev.ja.marketplace.data.yearSummary.YearlySummaryTable
 import dev.ja.marketplace.mcp.McpTestData
@@ -52,6 +53,34 @@ class SummaryTablesTest {
         val year2025 = rows.single { it.values[column(table, "year")] == 2025 }
         assertAmount(10, year2025.values[column(table, "sales")])
         assertAmount(0, year2025.values[column(table, "arr")])
+    }
+
+    @Test
+    suspend fun yearlySummaryOfFreePlugin() {
+        val table = YearlySummaryTable()
+        val rows = render(table, McpTestData.pluginData(free = true))
+
+        assertEquals(listOf("year", "downloads"), table.columns.map { it.id })
+        // the years since the first download
+        assertEquals(YearMonthDay.now().year - 2024 + 1, rows.size)
+        assertEquals(IncompleteValue(BigInteger.valueOf(40)), rows.single { it.values[column(table, "year")] == 2024 }.values[column(table, "downloads")])
+        assertEquals(BigInteger.valueOf(60), rows.single { it.values[column(table, "year")] == 2025 }.values[column(table, "downloads")])
+
+        val footer = table.renderTable().sections.single().footer!!.rows.single() as SimpleDateTableRow
+        assertEquals(BigInteger.valueOf(100), footer.values[column(table, "downloads")])
+    }
+
+    @Test
+    suspend fun monthlyOverviewOfFreePlugin() {
+        val table = OverviewTable()
+        table.init(McpTestData.pluginData(free = true))
+        val sections = table.renderTable().sections
+
+        assertEquals(listOf("month", "downloads"), table.columns.map { it.id })
+        // the years since the first download, the latest first
+        assertEquals((YearMonthDay.now().year downTo 2024).map(Int::toString), sections.map { it.title })
+        val march2024 = sections.last().rows.map { it as SimpleDateTableRow }.single { it.values[column(table, "month")] == "2024-03" }
+        assertEquals(BigInteger.valueOf(40), march2024.values[column(table, "downloads")])
     }
 
     @Test
@@ -98,8 +127,8 @@ class SummaryTablesTest {
 
     private suspend fun <T> render(table: T, data: PluginData): List<SimpleDateTableRow> where T : SimpleDataTable, T : MarketplaceDataSink {
         table.init(data)
-        data.getSales()!!.forEach { table.process(it) }
-        data.getLicenses()!!.forEach { table.process(it) }
+        data.getSales()?.forEach { table.process(it) }
+        data.getLicenses()?.forEach { table.process(it) }
         return table.renderTable().sections.first().rows.map { it as SimpleDateTableRow }
     }
 

@@ -144,9 +144,13 @@ class MarketplaceStatsServer(
         )
     )
 
+    // free plugins have no sales, licenses and trials, the tables only have their downloads
     private val indexPageDataFree: PluginPageDefinition = DefaultPluginPageDefinition(
         client,
-        listOf()
+        listOf(
+            YearlySummaryFactory(),
+            OverviewTableFactory(),
+        )
     )
 
     private val licensePageData: PluginPageDefinition = DefaultPluginPageDefinition(
