@@ -20,11 +20,14 @@
         <a href="/trials/funnel?pluginId=${plugin.id}">Trials (Funnel)</a>
         <a href="/subscriptions?pluginId=${plugin.id}">Subscriptions</a>
         <a href="/offers?pluginId=${plugin.id}">Offers</a>
+        <a href="/releases?pluginId=${plugin.id}">Releases</a>
         <a href="/resellers?pluginId=${plugin.id}">Resellers</a>
         <a href="/pricing?pluginId=${plugin.id}">Pricing</a>
         @if(showResellerCharges)
         <a href="/charges?pluginId=${plugin.id}">Charges</a>
         @endif
+    @else
+        <a href="/releases?pluginId=${plugin.id}">Releases</a>
     @endif
     <script>
         // marks the link of the current page, and the menu, which contains it

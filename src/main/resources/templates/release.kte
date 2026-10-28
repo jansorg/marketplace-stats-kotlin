@@ -1,0 +1,139 @@
+@import dev.ja.marketplace.ReleaseDetails
+@import dev.ja.marketplace.ServerConfiguration
+@import dev.ja.marketplace.client.YearMonthDay
+@import dev.ja.marketplace.client.model.PluginInfo
+@import dev.ja.marketplace.data.format.Formatters
+
+@param plugin: PluginInfo
+@param urls: dev.ja.marketplace.client.MarketplaceUrlSupport
+@param rating: dev.ja.marketplace.client.model.PluginRating
+@param today: YearMonthDay
+@param otherPlugins: List<dev.ja.marketplace.client.model.PluginInfoSummary>
+@param details: ReleaseDetails
+@param settings: ServerConfiguration
+
+!{val release = details.release}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Release ${release.version} of ${plugin.name}: downloads, compatibility, dependencies and verification results">
+    <title>Release ${release.version}</title>
+    @template.favicons()
+    @template.themeScript()
+    @template.fonts()
+    <link rel="stylesheet" type="text/css" href="${dev.ja.marketplace.StaticAssets.url("/styles/main.min.css")}"/>
+    <link rel="stylesheet" type="text/css" media="print" href="${dev.ja.marketplace.StaticAssets.url("/styles/print.min.css")}"/>
+    <script src="${dev.ja.marketplace.StaticAssets.url("/js/sortable.min.js")}" defer></script>
+    <script type="module" src="${dev.ja.marketplace.StaticAssets.url("/js/collapsibleTables.min.js")}"></script>
+</head>
+
+<body data-plugin-name="${plugin.name}">
+<%-- the page only exists for this plugin, the menu of the other plugins links to their overview --%>
+@template.pluginHeader(plugin = plugin, urls = urls, rating = rating, today = today, otherPlugins = otherPlugins, otherPluginPath = "/")
+@template.navbar(plugin = plugin, showResellerCharges = settings.showResellerCharges)
+<main>
+
+<h2 class="centered">Release ${release.version}</h2>
+
+<div class="sections">
+    <div class="section-wide">
+        <dl class="detail-grid">
+            <div>
+                <dt>Channel</dt>
+                <dd>${details.channel}</dd>
+            </div>
+            <div>
+                <dt>Published</dt>
+                <dd>@template.render(value = details.published)</dd>
+            </div>
+            <div>
+                <dt>Downloads</dt>
+                <dd>${Formatters.formatInteger(release.downloads)}</dd>
+            </div>
+            <div>
+                <dt>From Build</dt>
+                <dd>${release.since?.toString() ?: "—"}</dd>
+            </div>
+            <div>
+                <dt>Until Build</dt>
+                <dd>${release.until?.toString() ?: "—"}</dd>
+            </div>
+            @if(release.releaseVersion != null)
+                <div>
+                    <dt>Release Version</dt>
+                    <dd>${release.releaseVersion}</dd>
+                </div>
+            @endif
+            <div>
+                <dt>File</dt>
+                <dd><a href="${details.downloadUrl}" rel="noopener">${release.updateFilename}</a> (${Formatters.formatFileSize(release.fileSizeBytes)})</dd>
+            </div>
+            <div>
+                <dt>State</dt>
+                <dd>@if(details.states.isEmpty())Listed and approved@else${details.states.joinToString(", ")}@endif</dd>
+            </div>
+            @if(release.author?.name != null)
+                <div>
+                    <dt>Uploaded by</dt>
+                    <dd>${release.author?.name}</dd>
+                </div>
+            @endif
+            @if(!release.modules.isNullOrEmpty())
+                <div>
+                    <dt>Modules</dt>
+                    <dd>${release.modules?.joinToString(", ")}</dd>
+                </div>
+            @endif
+            <div>
+                <dt>Marketplace</dt>
+                <dd><a href="${details.marketplaceUrl}" target="_blank" rel="noopener">Release ${release.id}</a></dd>
+            </div>
+        </dl>
+    </div>
+
+    @if(details.unavailable.isNotEmpty())
+        <div class="section-wide">
+            <p class="em">Not available: ${details.unavailable.joinToString(", ")}.</p>
+        </div>
+    @endif
+
+</div>
+
+<section class="tables">
+    @for(table in details.tables)
+        @template.dataTable(plugin, table)
+    @endfor
+</section>
+
+@if(details.notes != null)
+    <div class="sections">
+        <div class="section-wide">
+            <h2>Release Notes</h2>
+            <p class="release-notes" id="release-notes">${details.notes}</p>
+            <button type="button" class="release-notes-more noprint" hidden>Show more ▾</button>
+            <script>
+                // the first lines of long notes are shown until the button shows all, without JavaScript all are shown
+                const notes = document.getElementById("release-notes");
+                const more = notes.nextElementSibling;
+                notes.classList.add("collapsed");
+                if (notes.scrollHeight > notes.clientHeight) {
+                    more.hidden = false;
+                    more.addEventListener("click", () => {
+                        notes.classList.remove("collapsed");
+                        more.remove();
+                    });
+                } else {
+                    notes.classList.remove("collapsed");
+                }
+            </script>
+        </div>
+    </div>
+@endif
+
+</main>
+
+@template.siteFooter(dropCachesPluginId = plugin.id)
+</body>
+</html>

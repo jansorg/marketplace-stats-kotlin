@@ -72,3 +72,8 @@ body.print-charts {
     size: A4 landscape;
     margin: 0.5cm;
 }
+/* printed release notes are complete, the screen shows the first lines until they're expanded */
+.release-notes.collapsed {
+    max-height: none;
+    mask-image: none;
+}
