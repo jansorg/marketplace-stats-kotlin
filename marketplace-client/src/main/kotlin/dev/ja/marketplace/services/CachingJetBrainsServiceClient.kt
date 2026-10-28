@@ -51,9 +51,4 @@ class CachingJetBrainsServiceClient(
     private suspend fun <T : Any> cached(key: String, loader: suspend () -> T): T {
         return memory.get(key) { loader() } as T
     }
-
-    companion object {
-        /** The files of the previous persistent cache of the services, the HTTP cache replaced it. */
-        val LEGACY_FILE_NAMES: List<String> = listOf("jetbrains-products", "jetbrains-product-releases")
-    }
 }
