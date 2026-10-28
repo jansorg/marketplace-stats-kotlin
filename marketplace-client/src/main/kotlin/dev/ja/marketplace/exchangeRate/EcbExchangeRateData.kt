@@ -201,15 +201,19 @@ internal class CachedEcbCurrencyRates(
  * If they're outdated, they're updated in the background and the downloaded rates are merged into the stored rates.
  */
 class EcbExchangeRateData(
-    private val dataUrl: URI = URI.create("https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.zip"),
+    private val dataUrl: URI = URI.create(DEFAULT_DATA_URL),
     private val maxAge: Duration = Duration.ofHours(6),
     private val retryDelay: Duration = Duration.ofMinutes(10),
     private val clock: Clock = Clock.systemUTC(),
     private val downloader: (() -> EcbRateTable)? = null,
     private val httpClientBuilder: HttpClientBuilder = HttpClientFactory.builder(),
 ) : AutoCloseable {
-    // created on the first download, guarded by this
-    private var httpClient: HttpClient? = null
+    // created on the first download
+    private val httpClientDelegate = lazy { httpClientBuilder.build() }
+    private val httpClient: HttpClient by httpClientDelegate
+
+    @Volatile
+    private var isClosed = false
 
     @Volatile
     private var cached: Pair<Instant, EcbRateTable>? = null
@@ -235,21 +239,20 @@ class EcbExchangeRateData(
         }
     }
 
-    /** Closes the HTTP client of the downloads, a running download in the background fails. */
+    /** Closes the HTTP client of the downloads, downloads fail afterward. */
     override fun close() {
-        synchronized(this) {
-            httpClient?.close()
-            httpClient = null
+        isClosed = true
+        if (httpClientDelegate.isInitialized()) {
+            httpClient.close()
         }
     }
 
-    /** If the HTTP client of the downloads was created and isn't closed, for tests. */
+    /**
+     * If the HTTP client of the downloads was created and isn't closed, for tests. The job of a closed client is still
+     * active while its coroutines finish, it can't tell if the client was closed.
+     */
     internal val isHttpClientOpen: Boolean
-        get() = synchronized(this) { httpClient != null }
-
-    private fun httpClient(): HttpClient = synchronized(this) {
-        httpClient ?: httpClientBuilder.build().also { httpClient = it }
-    }
+        get() = httpClientDelegate.isInitialized() && !isClosed
 
     fun get(): EcbRateTable {
         val current = cached
@@ -357,7 +360,7 @@ class EcbExchangeRateData(
 
         // the callers of get() don't suspend, the download blocks the calling thread like before
         val archive = runBlocking {
-            httpClient().get(dataUrl.toString()) {
+            httpClient.get(dataUrl.toString()) {
                 timeout { requestTimeoutMillis = DOWNLOAD_TIMEOUT.toMillis() }
             }.readRawBytes()
         }
@@ -374,6 +377,9 @@ class EcbExchangeRateData(
         private const val FILE_NAME = "ecb-exchange-rates"
 
         private val DOWNLOAD_TIMEOUT: Duration = Duration.ofMinutes(1)
+
+        /** The ZIP archive of the CSV file of all reference rates of the ECB since 1999. */
+        const val DEFAULT_DATA_URL: String = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.zip"
 
         // version of the stored data, increment it after incompatible changes of CachedEcbRates
         private const val DATA_VERSION = 1
