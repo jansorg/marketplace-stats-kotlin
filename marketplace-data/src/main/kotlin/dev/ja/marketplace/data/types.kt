@@ -186,15 +186,8 @@ data class LinkedChurnRate(
  * @param metric The ID of the metric, see [dev.ja.marketplace.data.chart.ChartMetric].
  * @param title The title of the metric in the charts.
  * @param unit The unit of the values, e.g. the currency code of amounts.
- * @param range The preset of the range of the charts, which the button selects, e.g. [THIS_YEAR] for the downloads of
- *  a release, which take long to load, `null` to keep the range, see `RANGE_PRESETS` in `model.js`.
  */
-data class ChartMetricName(val name: String, val metric: String, val title: String, val unit: String, val range: String? = null) {
-    companion object {
-        /** The range of the current year, the downloads of the charts are only loaded from its start. */
-        const val THIS_YEAR = "this-year"
-    }
-
+data class ChartMetricName(val name: String, val metric: String, val title: String, val unit: String) {
     override fun toString(): String = name
 }
 
