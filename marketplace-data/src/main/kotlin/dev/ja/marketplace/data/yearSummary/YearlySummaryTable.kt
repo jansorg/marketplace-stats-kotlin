@@ -18,8 +18,15 @@ import dev.ja.marketplace.data.chart.ChartMetric
 import dev.ja.marketplace.data.trackers.*
 import java.util.*
 
-class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide") {
+class YearlySummaryTable : SimpleDataTable("Years", "years") {
     private var pluginId: PluginId? = null
+
+    /** Free plugins have no sales, licenses and trials, their table only has the downloads. */
+    private var isPaidOrFreemium: Boolean = true
+
+    // the narrow table of a free plugin shares a row with the other table
+    override val cssClass: String?
+        get() = if (isPaidOrFreemium) "table-column-wide" else null
     private var maxTrialDays: Int = Marketplace.MAX_TRIAL_DAYS_DEFAULT
     private lateinit var churnValidities: ChurnValidities
 
@@ -40,10 +47,14 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
         "churn-combined-paid", "Churn (all)", "num num-percentage", tooltip = COMBINED_CHURN_TOOLTIP,
         chartMeasure = ChartMeasure.Ratio, chartMetric = ChartMetric.ChurnCombined.id,
     )
-    private val columnDownloads = DataTableColumn(
-        "downloads", "↓", "num col-symbol", chartTitle = "Downloads", tooltip = "Downloads",
-        chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Downloads.id,
-    )
+    // the only column of the values of a free plugin has a title instead of the symbol
+    private val columnDownloads by lazy {
+        DataTableColumn(
+            "downloads", if (isPaidOrFreemium) "↓" else "Downloads", if (isPaidOrFreemium) "num col-symbol" else "num",
+            chartTitle = "Downloads", tooltip = "Downloads",
+            chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Downloads.id,
+        )
+    }
     private val columnTrials = DataTableColumn("trials", "Trials", "num", chartMeasure = ChartMeasure.Flow, chartMetric = ChartMetric.Trials.id)
     // the values per day are the rates of the trials of the year before each day
     private val columnTrialsConverted = DataTableColumn(
@@ -62,6 +73,7 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
         super.init(data)
 
         this.pluginId = data.pluginId
+        this.isPaidOrFreemium = data.pluginSummary.isPaidOrFreemium
         this.maxTrialDays = data.getPluginInfo().maxTrialDays
         this.churnValidities = ChurnValidities(data.getLicenses() ?: emptyList())
         this.pluginStart = data.getFirstActivityDate()
@@ -88,17 +100,21 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
     override val chartPeriod: ChartPeriod = ChartPeriod.Year
 
     override val columns: List<DataTableColumn> by lazy {
-        listOfNotNull(
-            columnYear,
-            columnSalesTotal,
-            columnSalesFees,
-            columnSalesPaid,
-            columnARR,
-            columnChurn,
-            columnDownloads,
-            columnTrials.takeIf { maxTrialDays > 0 },
-            columnTrialsConverted.takeIf { maxTrialDays > 0 },
-        )
+        when {
+            isPaidOrFreemium -> listOfNotNull(
+                columnYear,
+                columnSalesTotal,
+                columnSalesFees,
+                columnSalesPaid,
+                columnARR,
+                columnChurn,
+                columnDownloads,
+                columnTrials.takeIf { maxTrialDays > 0 },
+                columnTrialsConverted.takeIf { maxTrialDays > 0 },
+            )
+
+            else -> listOf(columnYear, columnDownloads)
+        }
     }
 
     override suspend fun process(sale: PluginSale) {
@@ -128,7 +144,13 @@ class YearlySummaryTable : SimpleDataTable("Years", "years", "table-column-wide"
         val allTrialsTrialDuration = trialsTracker.getResultWithinConversionPeriod(YearMonthDayRange.MAX, maxTrialDays)
 
         val rows = data.entries.toList()
-            .dropLastWhile { it.value.sales.isZero }
+            // the years before the first sale, or before the first download of a free plugin
+            .dropLastWhile { (year, yearData) ->
+                when {
+                    isPaidOrFreemium -> yearData.sales.isZero
+                    else -> downloads.none { it.firstOfMonth.year == year && it.downloads > 0 }
+                }
+            }
             .map { (year, yearData) ->
                 val yearDateRange = YearMonthDayRange.ofYear(year)
                 val trialResultAnyDuration = trialsTracker.getResult(yearDateRange)

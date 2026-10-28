@@ -222,7 +222,7 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
             "get_yearly_summary",
             "Yearly summary",
             "Per year: sales, fees, paid amounts, ARR, the combined churn of all paid licenses, downloads, trials and trial conversion. " +
-                    "Values are always for whole years.",
+                    "Values are always for whole years. Free plugins only have the downloads.",
             DateRangeFilter.Rows,
         ) { _, _, _ -> YearlySummaryTable() },
         TableTool(
@@ -230,7 +230,7 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
             "Monthly overview",
             "Per month, one section per year: sales, invoiced amounts, licenses and paid licenses at the end of the month, MRR, ARR, " +
                     "churn of annual and monthly licenses, downloads, trials and trial conversion. Values are calculated with all earlier data. " +
-                    "The footer of a year has only its churn, downloads, trials and conversion, and only if all months of the year are in the range.",
+                    "The footer of a year has only its churn, downloads, trials and conversion, and only if all months of the year are in the range. Free plugins only have the downloads.",
             DateRangeFilter.Rows,
         ) { _, _, _ -> OverviewTable() },
         TableTool(

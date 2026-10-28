@@ -299,7 +299,10 @@ object McpTestData {
         marketplacePluginInfo: MarketplacePluginInfo? = null,
         /** If the prices have a 2nd and 3rd year, the prices of plugins without continuity discount haven't. */
         withRenewalPrices: Boolean = true,
+        /** A free plugin has no sales, licenses, trials and prices, like the data of [dev.ja.marketplace.PluginDataLoader]. */
+        free: Boolean = false,
     ): PluginData {
+        val pricingModel = if (free) PluginPricingModel.Free else PluginPricingModel.Paid
         val pluginInfo = PluginInfo(
             id = PLUGIN_ID,
             name = plugin.name,
@@ -311,14 +314,14 @@ object McpTestData {
             family = IntelliJFamily,
             downloads = 100,
             hasUnapprovedUpdate = false,
-            pricingModel = PluginPricingModel.Paid,
+            pricingModel = pricingModel,
             isHidden = false,
         )
 
         return PluginData(
             countries,
             ExchangeRates("USD", EcbExchangeRateData()),
-            plugin,
+            plugin.copy(pricingModel = pricingModel),
             CompletableDeferred(pluginInfo),
             CompletableDeferred(PluginRating(0, 0, 0.0, emptyMap())),
             CompletableDeferred(100L),
@@ -334,10 +337,10 @@ object McpTestData {
                     DailyDownload(YearMonthDay(2025, 1, 20), 60),
                 )
             ),
-            if (withPricing) PluginPricing.create(pricingClient(withRenewalPrices), PLUGIN_ID, countries) else null,
-            CompletableDeferred(SalesWithLicensesInfo(sales, LicenseInfo.createFrom(sales))),
-            CompletableDeferred(trials),
-            CompletableDeferred(marketplacePluginInfo),
+            if (withPricing && !free) PluginPricing.create(pricingClient(withRenewalPrices), PLUGIN_ID, countries) else null,
+            if (free) null else CompletableDeferred(SalesWithLicensesInfo(sales, LicenseInfo.createFrom(sales))),
+            if (free) null else CompletableDeferred(trials),
+            if (free) null else CompletableDeferred(marketplacePluginInfo),
         )
     }
 
