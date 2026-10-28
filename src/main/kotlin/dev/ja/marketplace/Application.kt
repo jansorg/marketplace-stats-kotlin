@@ -315,12 +315,10 @@ private fun createDefaultHttpClientBuilder(logLevel: ClientLogLevel, rateLimit: 
 }
 
 /**
- * The exchange rates of all currencies, loaded once. The ECB answers unchanged rates with 304, the HTTP cache stores
- * the archive and validates it with a conditional request.
+ * The exchange rates of all currencies, loaded once. The stored rates are validated with a conditional request.
  */
 private fun createEcbRatesProvider(httpClientBuilder: HttpClientBuilder, cacheStore: PersistentCacheStore?): EcbExchangeRateData {
-    val httpCacheDirectory = cacheStore?.subStore("ecb")?.directory?.resolve("http")
-    val ecbRates = EcbExchangeRateData(httpClientBuilder = httpClientBuilder.withHttpCacheDirectory(httpCacheDirectory))
+    val ecbRates = EcbExchangeRateData(httpClientBuilder = httpClientBuilder)
     cacheStore?.let(ecbRates::enablePersistentCache)
     return ecbRates
 }

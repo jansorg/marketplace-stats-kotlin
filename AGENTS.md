@@ -119,8 +119,10 @@ installed earlier: retry, the concurrency limits, the backoff, the rate limit, t
 has its own timeout and the time waiting for a limit doesn't count.
 `withHttpCacheDirectory` stores the responses with Ktor's `HttpCache` (`FileStorage`) and validates them with
 conditional requests. Only the services of JetBrains support them (`Last-Modified`, a 304 only for the unchanged value),
-the application stores them in `jetbrains/http/` of the cache directory. The ECB answers its archive with 304, too
-(`ecb/http/`). `EcbExchangeRateData` downloads without retries, because `get()` blocks its callers. The Marketplace sends `no-store` and no
+the application stores them in `jetbrains/http/` of the cache directory. The ECB answers its archive with 304, too:
+`EcbExchangeRateData` stores its `Last-Modified` with the rates (`CachedEcbRates.lastModified`) and sends it as
+`If-Modified-Since`, unchanged rates stay the same object. It downloads without retries, because `get()` blocks its
+callers. Each use of the HTTP cache sends a request, so the cache needs no exception from the limits. The Marketplace sends `no-store` and no
 validators, its responses are only cached by the application.
 
 The client decodes the API responses with `ignoreUnknownKeys`, so new properties of the API don't break it, but they

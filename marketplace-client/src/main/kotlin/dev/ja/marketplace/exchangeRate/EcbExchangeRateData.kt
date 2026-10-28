@@ -14,6 +14,7 @@ import io.ktor.client.*
 import io.ktor.client.plugins.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
+import io.ktor.http.*
 import kotlinx.coroutines.runBlocking
 import dev.ja.marketplace.client.persistentCache.PersistentCacheStore
 import it.unimi.dsi.fastutil.objects.Object2IntMap
@@ -129,8 +130,8 @@ class EcbRateTable internal constructor(
         return create(mergedDays, mergedCurrencies, mergedRates)
     }
 
-    internal fun toCached(fetchedMillis: Long): CachedEcbRates {
-        return CachedEcbRates(fetchedMillis, epochDays, currencies, rates.map(::CachedEcbCurrencyRates))
+    internal fun toCached(fetchedMillis: Long, lastModified: String? = null): CachedEcbRates {
+        return CachedEcbRates(fetchedMillis, epochDays, currencies, rates.map(::CachedEcbCurrencyRates), lastModified)
     }
 
     companion object {
@@ -186,6 +187,8 @@ internal class CachedEcbRates(
     @ProtoNumber(2) @ProtoPacked val epochDays: IntArray,
     @ProtoNumber(3) val currencies: List<String>,
     @ProtoNumber(4) val rates: List<CachedEcbCurrencyRates>,
+    /** The `Last-Modified` of the archive of the ECB, `null` if it's unknown, e.g. of files of older versions. */
+    @ProtoNumber(5) val lastModified: String? = null,
 )
 
 @Serializable
@@ -199,6 +202,8 @@ internal class CachedEcbCurrencyRates(
  *
  * If the persistent cache is enabled, the rates are also stored on disk. After a restart, the stored rates are used.
  * If they're outdated, they're updated in the background and the downloaded rates are merged into the stored rates.
+ * An update sends the `Last-Modified` of the previous download as `If-Modified-Since`, the ECB answers unchanged rates
+ * with 304 without the archive.
  */
 class EcbExchangeRateData(
     private val dataUrl: URI = URI.create(DEFAULT_DATA_URL),
@@ -218,6 +223,9 @@ class EcbExchangeRateData(
 
     @Volatile
     private var cached: Pair<Instant, EcbRateTable>? = null
+
+    // the Last-Modified of the archive of the cached rates, guarded by this
+    private var lastModified: String? = null
 
     @Volatile
     private var store: PersistentCacheStore? = null
@@ -280,11 +288,13 @@ class EcbExchangeRateData(
                 return latest.second
             }
 
-            val table = download()
+            // without cached rates, the archive is always downloaded
+            val download = download(ifModifiedSince = null) ?: throw IllegalStateException("No ECB exchange rates of $dataUrl")
             val now = clock.instant()
-            cached = now to table
-            writeStored(now, table)
-            return table
+            cached = now to download.table
+            lastModified = download.lastModified
+            writeStored(now, download.table)
+            return download.table
         }
     }
 
@@ -323,14 +333,24 @@ class EcbExchangeRateData(
         }
 
         lastRefreshStart = clock.instant()
+        val ifModifiedSince = lastModified
         Thread.ofVirtual().name("ecb-exchange-rates-update").start {
             try {
-                val table = download()
+                val download = download(ifModifiedSince)
                 synchronized(this) {
                     val now = clock.instant()
-                    val merged = cached?.second?.mergedWith(table) ?: table
-                    cached = now to merged
-                    writeStored(now, merged)
+                    // unchanged rates (304) keep the cached object, they're only fresh again
+                    val current = cached?.second
+                    val table = when {
+                        download == null -> current ?: return@synchronized
+                        current == null -> download.table
+                        else -> current.mergedWith(download.table)
+                    }
+                    if (download != null) {
+                        lastModified = download.lastModified
+                    }
+                    cached = now to table
+                    writeStored(now, table)
                 }
             } catch (e: Exception) {
                 logger.warn("Unable to update the ECB exchange rates, the cached rates are used: $e")
@@ -344,7 +364,9 @@ class EcbExchangeRateData(
         val store = store ?: return null
         val stored = store.read(FILE_NAME, DATA_VERSION, CachedEcbRates.serializer()) ?: return null
         return try {
-            Instant.ofEpochMilli(stored.fetchedMillis) to EcbRateTable.fromCached(stored)
+            val result = Instant.ofEpochMilli(stored.fetchedMillis) to EcbRateTable.fromCached(stored)
+            lastModified = stored.lastModified
+            result
         } catch (e: Exception) {
             logger.warn("Dropping invalid cached ECB exchange rates: $e")
             store.delete(FILE_NAME)
@@ -352,23 +374,42 @@ class EcbExchangeRateData(
         }
     }
 
+    // must be called with the lock held
     private fun writeStored(fetched: Instant, table: EcbRateTable) {
-        store?.write(FILE_NAME, DATA_VERSION, CachedEcbRates.serializer(), table.toCached(fetched.toEpochMilli()))
+        store?.write(FILE_NAME, DATA_VERSION, CachedEcbRates.serializer(), table.toCached(fetched.toEpochMilli(), lastModified))
     }
 
-    private fun download(): EcbRateTable {
-        downloader?.let { return it() }
+    private class Download(val table: EcbRateTable, val lastModified: String?)
+
+    /**
+     * @param ifModifiedSince The `Last-Modified` of the cached rates, `null` to download the archive in any case.
+     * @return The downloaded rates, `null` if they're unchanged since [ifModifiedSince].
+     */
+    private fun download(ifModifiedSince: String?): Download? {
+        downloader?.let { return Download(it(), null) }
 
         // the callers of get() don't suspend, the download blocks the calling thread like before
-        val archive = runBlocking {
-            httpClient.get(dataUrl.toString()) {
-                timeout { requestTimeoutMillis = DOWNLOAD_TIMEOUT.toMillis() }
-            }.readRawBytes()
-        }
+        val response = runBlocking {
+            try {
+                val response = httpClient.get(dataUrl.toString()) {
+                    timeout { requestTimeoutMillis = DOWNLOAD_TIMEOUT.toMillis() }
+                    // the ECB compares the date with the date of the archive, the value is sent unchanged
+                    ifModifiedSince?.let { header(HttpHeaders.IfModifiedSince, it) }
+                }
+                response.readRawBytes() to response.headers[HttpHeaders.LastModified]
+            } catch (e: RedirectResponseException) {
+                // with expectSuccess, the status 304 is a "redirect" of the client
+                if (e.response.status != HttpStatusCode.NotModified) {
+                    throw e
+                }
+                null
+            }
+        } ?: return null
 
+        val (archive, lastModified) = response
         ZipInputStream(archive.inputStream()).use { zip ->
             zip.nextEntry ?: throw IllegalStateException("ECB exchange rate archive $dataUrl is empty")
-            return EcbRateTable.parseCsv(zip, minDate)
+            return Download(EcbRateTable.parseCsv(zip, minDate), lastModified)
         }
     }
 
