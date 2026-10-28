@@ -185,7 +185,7 @@ open class KtorMarketplaceClient(
 
     /**
      * Downloads by month or day, which the statistics service answers with 503 because they take too long, are
-     * requested by calendar year, see [loadStatisticsByYear]. The monthly downloads without a start date can't be
+     * requested in parts, see [loadStatisticsInChunks]. The monthly downloads without a start date can't be
      * split: they're the first month of the downloads of the plugin.
      */
     override suspend fun downloads(
@@ -203,15 +203,15 @@ open class KtorMarketplaceClient(
         if (!canSplit) {
             return load(startDate, endDate, false)
         }
-        return loadStatisticsByYear(plugin, countType, startDate, endDate, trySingleRequest = true, load) { parts ->
+        return loadStatisticsInChunks(plugin, countType, startDate, endDate, groupType, chunked = false, load) { parts ->
             parts.first().copy(data = parts.first().data.copy(serie = mergeSeries(parts.map { it.data.serie })))
         }
     }
 
     /**
-     * Downloads by month or day of a long time range are requested by calendar year and merged, see
-     * [loadStatisticsByYear]: the statistics service answers e.g. the downloads by month and product of the whole
-     * history of a plugin with many downloads with 503, because it takes too long.
+     * Downloads by month or day are requested by week or month and merged, see [loadStatisticsInChunks]: the
+     * statistics service answers e.g. the downloads by day and product of a few weeks of a plugin with many
+     * downloads with 503, because it takes too long.
      */
     override suspend fun groupedDownloads(
         plugin: PluginId,
@@ -228,8 +228,9 @@ open class KtorMarketplaceClient(
         if (dimension !in DATE_DIMENSIONS && groupType !in DATE_DIMENSIONS) {
             return load(startDate, endDate, false)
         }
-        // the single request of a long time range is known to take too long for plugins with many downloads
-        return loadStatisticsByYear(plugin, countType, startDate, endDate, trySingleRequest = false, load) { parts ->
+        // the single request is known to take too long for plugins with many downloads, already for a few weeks
+        val granularity = if (DownloadRequestDimension.Day in setOf(dimension, groupType)) DownloadRequestDimension.Day else DownloadRequestDimension.Month
+        return loadStatisticsInChunks(plugin, countType, startDate, endDate, granularity, chunked = true, load) { parts ->
             val groups = LinkedHashMap<String, MutableList<DownloadResponseGroup>>()
             parts.flatMap { it.groups }.forEach { groups.getOrPut(it.name, ::mutableListOf) += it }
             parts.first().copy(groups = groups.map { (name, yearGroups) ->
@@ -526,48 +527,57 @@ open class KtorMarketplaceClient(
     }
 
     /**
-     * Loads statistics of a time range by calendar year, if it's longer than a year, and merges them. The statistics
-     * service of the Marketplace answers requests, which take longer than about 30 seconds, with 503.
-     * The values must be values of months or days: each value is part of a single year.
+     * Loads statistics of a time range in parts and merges them. The statistics service of the Marketplace answers
+     * requests, which take longer than about 30 seconds, with 503. The time grows with the number of values, e.g.
+     * the downloads by day and product of a few weeks of a plugin with many downloads take too long.
+     * A part, which is answered with 503, is split into halves until it's a single month or day
+     * ([splitStatisticsRange]). The values must be values of months or days: each value is part of a single chunk.
      *
      * @param startDate The start of the time range, `null` for the first month of the downloads of the plugin.
      * @param endDate The end of the time range, `null` until today.
-     * @param trySingleRequest If the time range is loaded with a single request first, and only by year if the
-     *  service answers with 503. Otherwise, it's always loaded by year.
+     * @param granularity The dates of the values, [DownloadRequestDimension.Month] or [DownloadRequestDimension.Day].
+     * @param chunked If the time range is always loaded by week or month ([statisticsChunks]). Otherwise, it's
+     *  loaded with a single request first, and only split if the service answers with 503.
      * @param load Loads a time range, with `true` for a part of a longer time range.
-     * @param merge Merges the values of the years.
+     * @param merge Merges the values of the parts.
      */
-    protected suspend fun <T> loadStatisticsByYear(
+    protected suspend fun <T> loadStatisticsInChunks(
         plugin: PluginId,
         countType: DownloadCountType,
         startDate: YearMonthDay?,
         endDate: YearMonthDay?,
-        trySingleRequest: Boolean,
+        granularity: DownloadRequestDimension,
+        chunked: Boolean,
         load: suspend (start: YearMonthDay?, end: YearMonthDay?, isPart: Boolean) -> T,
         merge: (List<T>) -> T,
     ): T {
-        if (trySingleRequest) {
+        var tooSlow: ServerResponseException? = null
+        if (!chunked) {
             try {
                 return load(startDate, endDate, false)
             } catch (e: ServerResponseException) {
                 if (e.response.status != HttpStatusCode.ServiceUnavailable) {
                     throw e
                 }
-                logger.info("The statistics of plugin $plugin took too long, they're requested by year")
+                logger.info("The statistics of plugin $plugin took too long, they're requested in parts")
+                tooSlow = e
             }
         }
 
         val start = startDate ?: firstDownloadMonth(plugin, countType)
-        val end = endDate ?: YearMonthDay.now()
-        if (start == null || start.year == end.year) {
+        if (start == null) {
+            // no downloads
+            if (tooSlow != null) throw tooSlow
             return load(startDate, endDate, false)
         }
-        val parts = coroutineScope {
-            calendarYearRanges(start, end, untilToday = endDate == null).map { (yearStart, yearEnd) ->
-                async { load(yearStart, yearEnd, true) }
-            }.awaitAll()
+        val ranges = when (tooSlow) {
+            null -> statisticsChunks(start, endDate ?: YearMonthDay.now(), granularity, untilToday = endDate == null)
+            else -> splitStatisticsRange(start, endDate, granularity)?.toList() ?: throw tooSlow
         }
-        return merge(parts)
+        val parts = coroutineScope {
+            ranges.map { (partStart, partEnd) -> async { loadSplitting(partStart, partEnd, granularity, load) } }.awaitAll()
+        }
+        return merge(parts.flatten())
     }
 
     protected open suspend fun loadSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> = withContext(processingDispatcher) {
@@ -628,6 +638,30 @@ open class KtorMarketplaceClient(
             }
             addDownloadFilters(filters)
         }.body<DownloadResponse>()
+    }
+
+    /**
+     * Loads a part of a time range, see [loadStatisticsInChunks]. If the service answers with 503, the part is split
+     * into halves, which are loaded the same way.
+     */
+    private suspend fun <T> loadSplitting(
+        start: YearMonthDay,
+        end: YearMonthDay?,
+        granularity: DownloadRequestDimension,
+        load: suspend (start: YearMonthDay?, end: YearMonthDay?, isPart: Boolean) -> T,
+    ): List<T> {
+        try {
+            return listOf(load(start, end, true))
+        } catch (e: ServerResponseException) {
+            if (e.response.status != HttpStatusCode.ServiceUnavailable) {
+                throw e
+            }
+            val halves = splitStatisticsRange(start, end, granularity) ?: throw e
+            logger.info("The statistics from $start until ${end ?: "today"} took too long, they're requested in halves")
+            return coroutineScope {
+                halves.toList().map { (halfStart, halfEnd) -> async { loadSplitting(halfStart, halfEnd, granularity, load) } }.awaitAll()
+            }.flatten()
+        }
     }
 
     /** @return The first month with downloads of the plugin, `null` without downloads. */
@@ -826,24 +860,67 @@ open class KtorMarketplaceClient(
 /** The time of the download of a sales report. */
 private val REPORT_TIMEOUT: Duration = 5.minutes
 
-/** The dimensions of downloads by date, they can be loaded by year, see [KtorMarketplaceClient.loadStatisticsByYear]. */
+/** The dimensions of downloads by date, they can be loaded in parts, see [KtorMarketplaceClient.loadStatisticsInChunks]. */
 private val DATE_DIMENSIONS = setOf(DownloadRequestDimension.Month, DownloadRequestDimension.Day)
 
+/** The days of a chunk of statistics by day, see [statisticsChunks]. */
+private const val DAILY_STATISTICS_CHUNK_DAYS: Int = 7
+
 /**
- * @param untilToday If the last range has no end date, i.e. it ends today.
- * @return The ranges of the calendar years from [start] to [end], the first starts at [start], the last ends at [end]
- *  or, with [untilToday], without an end date.
+ * @param granularity The dates of the values: [DownloadRequestDimension.Day] for chunks of a week, otherwise chunks of
+ *  a calendar month.
+ * @param untilToday If the last chunk has no end date, i.e. it ends today.
+ * @return The chunks of the time range from [start] to [end], the first starts at [start], the last ends at [end] or,
+ *  with [untilToday], without an end date.
  */
-internal fun calendarYearRanges(start: YearMonthDay, end: YearMonthDay, untilToday: Boolean): List<Pair<YearMonthDay, YearMonthDay?>> {
+internal fun statisticsChunks(
+    start: YearMonthDay,
+    end: YearMonthDay,
+    granularity: DownloadRequestDimension,
+    untilToday: Boolean,
+): List<Pair<YearMonthDay, YearMonthDay?>> {
     require(start <= end) { "The start $start is after the end $end" }
-    return (start.year..end.year).map { year ->
-        val yearStart = maxOf(start, YearMonthDay(year, 1, 1))
-        val yearEnd = when {
-            year == end.year && untilToday -> null
-            else -> minOf(end, YearMonthDay(year, 12, 31))
+    val chunks = mutableListOf<Pair<YearMonthDay, YearMonthDay?>>()
+    var chunkStart = start
+    while (chunkStart <= end) {
+        val next = when (granularity) {
+            DownloadRequestDimension.Day -> chunkStart.add(0, 0, DAILY_STATISTICS_CHUNK_DAYS)
+            else -> chunkStart.atFirstOfMonth().add(0, 1, 0)
         }
-        yearStart to yearEnd
+        val chunkEnd = minOf(end, next.add(0, 0, -1))
+        chunks += chunkStart to chunkEnd.takeUnless { untilToday && it == end }
+        chunkStart = next
     }
+    return chunks
+}
+
+/**
+ * Splits a time range of statistics into halves. Statistics by month are split at the first day of a month, so that
+ * each value of a month is part of a single half, e.g. the unique downloads of a month.
+ *
+ * @param end The end of the time range, `null` until today. The second half keeps it.
+ * @return The halves, `null` if the time range is a single day or, by month, a single month.
+ */
+internal fun splitStatisticsRange(
+    start: YearMonthDay,
+    end: YearMonthDay?,
+    granularity: DownloadRequestDimension,
+): Pair<Pair<YearMonthDay, YearMonthDay?>, Pair<YearMonthDay, YearMonthDay?>>? {
+    val last = end ?: YearMonthDay.now()
+    val secondStart = when (granularity) {
+        DownloadRequestDimension.Day -> {
+            val days = start daysUntil last
+            if (days < 1) return null
+            start.add(0, 0, ((days + 1) / 2).toInt())
+        }
+
+        else -> {
+            val months = start.atFirstOfMonth() monthsUntil last.atFirstOfMonth()
+            if (months < 1) return null
+            start.atFirstOfMonth().add(0, ((months + 1) / 2).toInt(), 0)
+        }
+    }
+    return (start to secondStart.add(0, 0, -1)) to (secondStart to end)
 }
 
 /**

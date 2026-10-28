@@ -108,12 +108,14 @@ The builder also limits the requests of each client (each client has its own lim
   of all plugins at the start), so that pages wait at most for 2 background requests
 - after a response with 429 or 503, all requests wait until its `Retry-After` (`ServerBackoff`, at most 2 minutes)
 - the statistics service of the Marketplace answers requests, which take longer than about 30 seconds, with 503,
-  e.g. the downloads by month and product of the whole history of a plugin with many downloads. These requests are
-  marked with `slowRequest()`: their 503 isn't retried and doesn't pause the other requests.
-  `KtorMarketplaceClient.loadStatisticsByYear` loads statistics of months or days by calendar year
-  (`calendarYearRanges`, without a start date since the first month of the monthly downloads) and merges them
-  (`mergeSeries`): `groupedDownloads` always, `downloads` only after a 503 of the single request. The monthly
-  downloads without a start date can't be split, they're the first month
+  e.g. the downloads by day and product of a few weeks of a plugin with many downloads (the time grows with the
+  number of values). These requests are marked with `slowRequest()`: their 503 isn't retried
+  and doesn't pause the other requests. `KtorMarketplaceClient.loadStatisticsInChunks` loads statistics of months or
+  days in parts and merges them (`mergeSeries`): `groupedDownloads` always by week (by day) or calendar month
+  (`statisticsChunks`, without a start date since the first month of the monthly downloads), `downloads` only after
+  a 503 of the single request. A part answered with 503 is split into halves (`splitStatisticsRange`, by month at the
+  first day of a month, so that unique downloads of a month aren't summed) until it's a single day or month. The
+  monthly downloads without a start date can't be split, they're the first month
 - requests per period (`withRateLimit`, `RequestRateLimit`, a sliding window, off by default, the application uses
   `--rate-limit`/`MARKETPLACE_RATE_LIMIT`/`rateLimit`, 10 per second, a little less than the concurrency limits
   allow for a single page, so the first load of a page with many requests is slower)
