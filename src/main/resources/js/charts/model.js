@@ -595,6 +595,29 @@ export function cursorPosition(index, positionOf, count, width, margin) {
 }
 
 /**
+ * @return {number} The usual distance between the sorted timestamps, the median, or the fallback if there's only one
+ *  timestamp. A few shorter distances, e.g. of today after the last Sunday at the level Week, don't change it.
+ */
+export function typicalInterval(timestamps, fallback) {
+    const distances = timestamps.slice(1).map((timestamp, i) => timestamp - timestamps[i]).sort((a, b) => a - b);
+    return distances.length === 0 ? fallback : distances[Math.floor(distances.length / 2)];
+}
+
+/**
+ * @param {number[]} timestamps The sorted dates of the bars.
+ * @param {number} index The index of a date.
+ * @param {number} interval The usual distance of the dates, see {@link typicalInterval}.
+ * @return {number} The width of the slot of the bars of the date, in seconds: the usual distance, at most the distance
+ *  to the previous and the next date, so that the bars of the dates don't overlap, e.g. of today after the last
+ *  Sunday at the level Week.
+ */
+export function barSlot(timestamps, index, interval) {
+    const previous = index > 0 ? timestamps[index] - timestamps[index - 1] : Infinity;
+    const next = index < timestamps.length - 1 ? timestamps[index + 1] - timestamps[index] : Infinity;
+    return Math.min(interval, previous, next);
+}
+
+/**
  * @return {number} The smallest distance between the sorted timestamps, or the fallback if there's only one timestamp.
  */
 export function smallestInterval(timestamps, fallback) {

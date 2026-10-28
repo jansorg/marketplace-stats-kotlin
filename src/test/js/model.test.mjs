@@ -11,7 +11,7 @@ import {
     pinchedRange, rangeLabel, rangeMenuItems, rangeOfTimestamps, rangeOfYear, rangeTimestamps, rangeYears,
     alignSeries, availableComparisons, cursorPosition, chartLevel, chartLevelKeys, finestDetail, lineDetail, periodEnd, shownWindow, storedChartLevel, tableWindow, windowApplies, withDetail, detailGranularity, detailPeriod, METRIC_PERIOD, metricLabel, yearEndTicks, DARK_INCOMPLETE_GREY, DARK_OTHER_SLICE_COLOR, DARK_SERIES_COLORS, displayColor, extremeIndices, INCOMPLETE_GREY, incompleteColor, overlayApplies, previousYear,
     seriesMeasure, trailingAverage, withoutIncomplete, barLayout, canCombineUnits, dateRange, shownDateRange, exportFileName, metricPoints, groupCharts, groupUnits, layoutLabels, layoutLegend, MAX_PIE_SLICES,
-    chartKey, colorDistance, lineChartKey, MIN_COLOR_DISTANCE, slicePath, eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, MARKER_KINDS, MARKER_LABELS, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, zeroBasedRange, shiftDate, valueChange, valueNear, logRange, logScaleValues,
+    chartKey, colorDistance, lineChartKey, MIN_COLOR_DISTANCE, slicePath, eventMenuItems, nextColor, OTHER_SLICE_COLOR, visibleMarkers, MARKER_KINDS, MARKER_LABELS, pieArcs, pieSlices, SERIES_COLORS, shortestPeriod, smallestInterval, typicalInterval, barSlot, zeroBasedRange, shiftDate, valueChange, valueNear, logRange, logScaleValues,
 } from "../../main/resources/js/charts/model.js";
 
 function series(period, unit, points) {
@@ -199,6 +199,16 @@ test("bars of a group are side by side, thin and centered", () => {
     assert.deepEqual(barLayout(0, 100, {maxBarWidth: 24, gap: 2}), {width: 0, offsets: []});
     assert.equal(smallestInterval([10, 40, 50], 1), 10);
     assert.equal(smallestInterval([10], 7), 7);
+    // the usual distance, e.g. of the Sundays of the level Week, today 3 days after the last Sunday doesn't change it
+    const week = 7;
+    const sundays = [0, week, 2 * week, 3 * week, 3 * week + 3];
+    assert.equal(typicalInterval(sundays, 1), week);
+    assert.equal(typicalInterval([10], 7), 7);
+    // the bars of a date don't overlap the bars of its neighbors
+    assert.equal(barSlot(sundays, 1, week), week);
+    assert.equal(barSlot(sundays, 3, week), 3);
+    assert.equal(barSlot(sundays, 4, week), 3);
+    assert.equal(barSlot([5], 0, week), week);
 });
 
 test("only the shown kinds of vertical lines are drawn, sorted by date", () => {

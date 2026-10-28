@@ -337,16 +337,22 @@ object ChartImageRenderer {
             return
         }
         val positions = barIndices.flatMap { visible[it] }.map { plot.x(it.date) }.distinct().sorted()
-        val slotWidth = positions.zipWithNext { a, b -> b - a }.minOrNull() ?: (plot.width / 4)
+        // the usual distance of the dates, the median, a date closer to its neighbors has narrower bars, e.g. today
+        // after the last Sunday at the detail week, like `typicalInterval` and `barSlot` of `model.js`
+        val distances = positions.zipWithNext { a, b -> b - a }
+        val typicalSlot = distances.sorted().getOrNull(distances.size / 2) ?: (plot.width / 4)
+        val slots = positions.indices.associate { i ->
+            positions[i] to minOf(typicalSlot, distances.getOrNull(i - 1) ?: Double.MAX_VALUE, distances.getOrNull(i) ?: Double.MAX_VALUE)
+        }
         val count = barIndices.size
-        val barWidth = max(1.0, min(MAX_BAR_WIDTH, (slotWidth * 0.7 - BAR_GAP * (count - 1)) / count))
-        val totalWidth = barWidth * count + BAR_GAP * (count - 1)
+        val barWidthOf = { slot: Double -> max(1.0, min(MAX_BAR_WIDTH, (slot * 0.7 - BAR_GAP * (count - 1)) / count)) }
 
         barIndices.forEachIndexed { position, index ->
             val series = chart.series[index]
-            val offset = -totalWidth / 2 + position * (barWidth + BAR_GAP)
             for (point in visible[index].filter { plot.isDrawn(it.value, series.unit) }) {
-                val x = plot.x(point.date) + offset
+                val barWidth = barWidthOf(slots[plot.x(point.date)] ?: typicalSlot)
+                val totalWidth = barWidth * count + BAR_GAP * (count - 1)
+                val x = plot.x(point.date) - totalWidth / 2 + position * (barWidth + BAR_GAP)
                 val base = plot.barBase(series.unit)
                 val end = plot.y(point.value, series.unit)
                 if (abs(end - base) < 0.5) {
