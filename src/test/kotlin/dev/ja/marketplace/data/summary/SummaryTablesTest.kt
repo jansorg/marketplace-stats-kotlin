@@ -89,23 +89,20 @@ class SummaryTablesTest {
 
         val overview = OverviewTable()
         overview.init(data)
-        val months = overview.renderTable().sections.single().rows.map { (it as SimpleDateTableRow).values[column(overview, "month")] }
-        assertEquals("2017-01", months.last())
+        assertEquals((YearMonthDay.now().year downTo 2017).map(Int::toString), overview.renderTable().sections.map { it.title })
     }
 
     @Test
     suspend fun monthlyOverviewOfFreePlugin() {
         val table = OverviewTable()
         table.init(McpTestData.pluginData(free = true))
-        val rows = table.renderTable().sections.single().rows.map { it as SimpleDateTableRow }
+        val sections = table.renderTable().sections
 
         assertEquals(listOf("month", "downloads"), table.columns.map { it.id })
-        // a single list of the months since the first year with downloads, the latest first, the past year is shown until it's expanded
-        val now = YearMonthDay.now()
-        assertEquals(String.format("%02d-%02d", now.year, now.month), rows.first().values[column(table, "month")])
-        assertEquals("2024-01", rows.last().values[column(table, "month")])
-        assertEquals(12, table.collapsedRowCount)
-        val march2024 = rows.single { it.values[column(table, "month")] == "2024-03" }
+        // a section of each year since the first download, the latest first, the latest two years are shown until it's expanded
+        assertEquals((YearMonthDay.now().year downTo 2024).map(Int::toString), sections.map { it.title })
+        assertEquals(2, table.collapsedSectionCount)
+        val march2024 = sections.last().rows.map { it as SimpleDateTableRow }.single { it.values[column(table, "month")] == "2024-03" }
         assertEquals(BigInteger.valueOf(40), march2024.values[column(table, "downloads")])
     }
 
