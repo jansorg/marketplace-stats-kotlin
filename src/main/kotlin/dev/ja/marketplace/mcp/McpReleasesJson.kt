@@ -7,6 +7,7 @@ package dev.ja.marketplace.mcp
 
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.model.PluginReleaseInfo
+import dev.ja.marketplace.client.model.PluginVerificationResult
 import dev.ja.marketplace.data.prices.PriceChange
 import dev.ja.marketplace.data.releases.MajorRelease
 import dev.ja.marketplace.services.ProductRelease
@@ -14,6 +15,7 @@ import dev.ja.marketplace.services.ProductWithReleases
 import kotlinx.datetime.toJavaLocalDate
 import kotlinx.serialization.json.*
 import java.math.RoundingMode
+import kotlin.time.Instant
 
 /**
  * Converts releases of plugins and JetBrains products, and price changes into JSON for the MCP tools.
@@ -32,6 +34,23 @@ object McpReleasesJson {
             if (!release.listed) put("listed", false)
             if (release.hidden) put("hidden", true)
             if (!release.approve) put("approved", false)
+        }
+    }
+
+    /**
+     * The result of a verifier for a single IDE, without the internal properties of the Marketplace.
+     */
+    fun verificationResult(result: PluginVerificationResult): JsonObject {
+        return buildJsonObject {
+            result.product?.let { product ->
+                put("product", product.product)
+                product.productName?.let { put("productName", it) }
+                (product.fullPresentableVersion ?: product.ideVersion)?.let { put("ideVersion", it) }
+            }
+            put("resultType", result.resultType)
+            result.verificationVerdict?.let { put("verdict", it) }
+            result.verificationDateMillis?.let { put("date", YearMonthDay.of(Instant.fromEpochMilliseconds(it)).asIsoString) }
+            result.fullVerificationResultUrl?.let { put("reportUrl", it) }
         }
     }
 

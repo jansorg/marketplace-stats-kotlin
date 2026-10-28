@@ -289,6 +289,27 @@ class MarketplaceMcpRecordToolsTest {
 
         val eap = tools.call("list_plugin_releases", arguments { put("channel", "eap") })
         assertEquals(0, eap["releaseCount"]!!.jsonPrimitive.int)
+        assertNull(release["verification"])
+    }
+
+    @Test
+    suspend fun pluginReleaseVerifications() {
+        val result = tools.call("list_plugin_releases", arguments { put("includeVerification", true) })
+        val releases = result["releases"]!!.jsonArray.map { it.jsonObject }
+        assertEquals(3, releases.count { it["verification"] != null })
+
+        val verification = releases.first()["verification"]!!.jsonObject
+        val compatibility = verification["compatibility"]!!.jsonArray.single().jsonObject
+        assertEquals("IU", compatibility["product"]!!.jsonPrimitive.content)
+        assertEquals("2025.1.1", compatibility["ideVersion"]!!.jsonPrimitive.content)
+        assertEquals("PROBLEMS", compatibility["resultType"]!!.jsonPrimitive.content)
+        assertEquals("2 problems", compatibility["verdict"]!!.jsonPrimitive.content)
+        assertEquals("2025-06-01", compatibility["date"]!!.jsonPrimitive.content)
+        assertEquals("https://example.com/report/3", compatibility["reportUrl"]!!.jsonPrimitive.content)
+
+        val performance = verification["performance"]!!.jsonArray.single().jsonObject
+        assertEquals("OK", performance["resultType"]!!.jsonPrimitive.content)
+        assertNull(performance["verdict"])
     }
 
     @Test

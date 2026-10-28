@@ -11,6 +11,7 @@ import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.PluginChannel
 import dev.ja.marketplace.client.PluginChannelNames
 import dev.ja.marketplace.client.PluginId
+import dev.ja.marketplace.client.PluginReleaseId
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.model.*
@@ -69,6 +70,11 @@ interface McpDataProvider {
      * @return The release channels of the plugin, e.g. the stable channel and eap.
      */
     suspend fun pluginChannels(plugin: PluginInfoSummary): List<PluginChannel>
+
+    /**
+     * @return The results of the verifications of a release of the plugin, one for each verified IDE.
+     */
+    suspend fun verificationResults(release: PluginReleaseId, type: PluginVerificationType): List<PluginVerificationResult>
 
     /**
      * @return The special offers of a paid or freemium plugin, which customers redeem with coupons.
@@ -431,12 +437,16 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
             "list_plugin_releases",
             "Plugin releases",
             "Releases of the plugin, newest first, with version, date, downloads and compatible builds, " +
-                    "and the first release of each major version (majorReleases).",
+                    "and the first release of each major version (majorReleases). With includeVerification, the " +
+                    "$MAX_VERIFIED_RELEASES newest releases of the result have the results of the Plugin Verifier " +
+                    "(verification.compatibility) and of the IDE performance verifier (verification.performance), " +
+                    "one per verified IDE: result type (e.g. OK, PROBLEMS), verdict and the address of the full report.",
             buildJsonObject {
                 put("pluginId", pluginIdProperty)
                 put("channel", stringProperty("Release channel, e.g. eap. Default: stable"))
                 put("startDate", startDateProperty)
                 put("endDate", endDateProperty)
+                put("includeVerification", booleanProperty("Include the results of the verifiers of the $MAX_VERIFIED_RELEASES newest releases"))
             },
             listOf("pluginId"),
         ) { arguments -> listPluginReleases(arguments) },
@@ -860,6 +870,10 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
         // major releases are found with all releases, a release of the range may belong to an earlier major version
         val majorReleases = MajorReleases.find(releases).filter { it.date in range }
         val releasesInRange = releases.filter { YearMonthDay.of(it.createdTimestamp) in range }
+        val verifications = when (arguments.booleanArgument("includeVerification") ?: false) {
+            true -> loadVerifications(releasesInRange.take(MAX_VERIFIED_RELEASES))
+            false -> emptyMap()
+        }
         return buildJsonObject {
             putPlugin(plugin)
             put("channel", channel.ifEmpty { "stable" })
@@ -867,8 +881,30 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
             put("endDate", dateRange.end?.asIsoString)
             put("majorReleases", JsonArray(majorReleases.map(McpReleasesJson::majorRelease)))
             put("releaseCount", releasesInRange.size)
-            put("releases", JsonArray(releasesInRange.map(McpReleasesJson::pluginRelease)))
+            put("releases", JsonArray(releasesInRange.map { release ->
+                val json = McpReleasesJson.pluginRelease(release)
+                when (val verification = verifications[release.id]) {
+                    null -> json
+                    else -> JsonObject(json + ("verification" to verification))
+                }
+            }))
         }
+    }
+
+    /**
+     * @return The results of the compatibility and the performance verification of each release.
+     */
+    private suspend fun loadVerifications(releases: List<PluginReleaseInfo>): Map<PluginReleaseId, JsonObject> = coroutineScope {
+        val types = mapOf("compatibility" to PluginVerificationType.IntelliJCompatibility, "performance" to PluginVerificationType.IdePerformance)
+        releases.map { release ->
+            async {
+                release.id to buildJsonObject {
+                    for ((key, type) in types) {
+                        put(key, JsonArray(provider.verificationResults(release.id, type).map(McpReleasesJson::verificationResult)))
+                    }
+                }
+            }
+        }.awaitAll().toMap()
     }
 
     private suspend fun getOfferUsage(arguments: JsonObject): JsonObject {
@@ -1084,6 +1120,8 @@ class MarketplaceMcpTools(private val provider: McpDataProvider) {
 
     internal companion object {
         const val MAX_RATE_DATE_DISTANCE_DAYS = 7L
+
+        const val MAX_VERIFIED_RELEASES = 10
 
         val RATE_PRECISION = MathContext(10)
 
