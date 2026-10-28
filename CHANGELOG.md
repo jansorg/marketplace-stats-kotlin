@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.53.0
+
+- Marketplace client: the memory cache keeps up to 30,000 values, e.g. a value of each plugin of the Marketplace. The
+  size is configurable with `CachingStrategy.maxCachedValues`.
+
 ## 0.52.0
 
 - Releases:
