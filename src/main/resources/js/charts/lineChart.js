@@ -9,7 +9,7 @@
 
 import {formatDate, SECONDS_PER_DAY, unitTitle} from "./format.js";
 import {createMenu} from "./menu.js";
-import {alignSeries, availableComparisons, barLayout, cursorPosition, periodEnd, displayColor, extremeIndices, incompleteColor, pinchedRange, layoutLabels, logRange, logScaleValues, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, valueChange, valueNear, yearEndTicks, zeroBasedRange, alignedRanges, niceStep, rangeTicks, seriesMenuSections, seriesStyle, shownDateRange} from "./model.js";
+import {alignSeries, availableComparisons, barLayout, cursorPosition, periodEnd, displayColor, extremeIndices, incompleteColor, pinchedRange, layoutLabels, logRange, logScaleValues, MARKER_LABELS, shortestPeriod, shiftDate, smallestInterval, typicalInterval, barSlot, valueChange, valueNear, yearEndTicks, zeroBasedRange, alignedRanges, niceStep, rangeTicks, seriesMenuSections, seriesStyle, shownDateRange} from "./model.js";
 
 /**
  * The colors of the charts in the light and the dark mode. The surface is the background of the charts in the chart
@@ -399,21 +399,30 @@ function drawBar(context, left, width, valueY, baseY, radius) {
 }
 
 /**
- * @return {{visible: {series: object, index: number}[], width: number, offsets: number[]}} The shown series, the width
- *  of a bar and the offset of the left edge of the bar of each shown series to the date, in pixels of the canvas.
+ * @return {{visible: {series: object, index: number}[], layoutAt: (i: number) => {width: number, offsets: number[]}}}
+ *  The shown series, and the width of a bar and the offset of the left edge of the bar of each shown series to the
+ *  date of the index, in pixels of the canvas. The bars have the width of the usual distance of the dates, a date,
+ *  which is closer to its neighbors, has narrower bars, see barSlot.
  */
 function barGeometry(plot, chartSeries, isBar, interval) {
     const timestamps = plot.data[0];
     const visible = chartSeries.map((series, index) => ({series, index})).filter(({series, index}) => plot.series[index + 1].show && isBar(series));
     if (visible.length === 0 || timestamps.length === 0) {
-        return {visible, width: 0, offsets: []};
+        return {visible, layoutAt: () => ({width: 0, offsets: []})};
     }
-    const slotWidth = Math.abs(plot.valToPos(timestamps[0] + interval, "x", true) - plot.valToPos(timestamps[0], "x", true));
-    const {width, offsets} = barLayout(visible.length, slotWidth, {
-        maxBarWidth: CHART_STYLE.maxBarWidth * uPlot.pxRatio,
-        gap: CHART_STYLE.barGap * uPlot.pxRatio,
-    });
-    return {visible, width, offsets};
+    const layouts = new Map();
+    const layoutAt = i => {
+        const slot = barSlot(timestamps, i, interval);
+        if (!layouts.has(slot)) {
+            const slotWidth = Math.abs(plot.valToPos(timestamps[i] + slot, "x", true) - plot.valToPos(timestamps[i], "x", true));
+            layouts.set(slot, barLayout(visible.length, slotWidth, {
+                maxBarWidth: CHART_STYLE.maxBarWidth * uPlot.pxRatio,
+                gap: CHART_STYLE.barGap * uPlot.pxRatio,
+            }));
+        }
+        return layouts.get(slot);
+    };
+    return {visible, layoutAt};
 }
 
 /** @return {string} The key of an overlay in `hiddenSeries`, e.g. `metric:sales:previousYear`. */
@@ -434,7 +443,7 @@ function drawExtremes(plot, chartSeries, {kinds, isBar, interval, formatter, fon
     const context = plot.ctx;
     const pixelRatio = uPlot.pxRatio;
     const timestamps = plot.data[0];
-    const {visible, width, offsets} = barGeometry(plot, chartSeries, isBar, interval);
+    const {visible, layoutAt} = barGeometry(plot, chartSeries, isBar, interval);
 
     context.save();
     context.font = scaledFont(font, pixelRatio);
@@ -462,6 +471,7 @@ function drawExtremes(plot, chartSeries, {kinds, isBar, interval, formatter, fon
 
         for (const kind of ["max", "min"].filter(kind => kinds.includes(kind))) {
             const i = extremes[kind];
+            const {width, offsets} = layoutAt(i);
             const x = plot.valToPos(timestamps[i], "x", true) + (series.isBar ? offsets[barPosition] + width / 2 : 0);
             const y = plot.valToPos(values[i], plotSeries.scale, true);
             // only the value, the position at the highest or lowest point shows the kind
@@ -512,7 +522,7 @@ function drawBars(plot, chartSeries, isBar, interval, theme) {
     const context = plot.ctx;
     const pixelRatio = uPlot.pxRatio;
     const timestamps = plot.data[0];
-    const {visible, width, offsets} = barGeometry(plot, chartSeries, isBar, interval);
+    const {visible, layoutAt} = barGeometry(plot, chartSeries, isBar, interval);
     if (visible.length === 0 || timestamps.length === 0) {
         return;
     }
@@ -530,6 +540,7 @@ function drawBars(plot, chartSeries, isBar, interval, theme) {
                 return;
             }
             const x = plot.valToPos(timestamps[i], "x", true);
+            const {width, offsets} = layoutAt(i);
             const isIncomplete = series.incomplete.has(timestamps[i]);
             // a partial period, e.g. the first year of a plugin, is a translucent bar in the color of the series,
             // wide bars have an outline
@@ -1146,7 +1157,8 @@ export function createLineChart({units, series, dateRange, markers, formatter, s
     const isBar = series => seriesStyle(series, chartStyle) === "bars";
     const isBars = chartSeries.some(isBar);
     // bars at the first and last date need space beside the date
-    const interval = smallestInterval(timestamps, SECONDS_PER_DAY);
+    // the usual distance of the dates, e.g. a week at the level Week, today after the last Sunday doesn't narrow all bars
+    const interval = typicalInterval(timestamps, SECONDS_PER_DAY);
     const xPadding = isBars ? interval / 2 : 0;
     // the tooltip lists the series, which are shown, series can be hidden by a click on the legend.
     // The values of months and years are at the last day of their window, e.g. 2025-12-31 or today for the current
