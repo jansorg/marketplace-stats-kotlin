@@ -1820,6 +1820,15 @@ dl.detail-grid dd {
     background-color: var(--button-bgcolor);
 }
 
+/* the items of the submenu, which add a line, e.g. "Values", have a "+" */
+.chart-add-submenu > button::before {
+    content: "+";
+    display: inline-block;
+    width: 1em;
+    color: var(--text-color-disabled);
+    font-weight: 700;
+}
+
 .chart-add-submenu {
     position: fixed;
     z-index: 3;
@@ -1870,16 +1879,19 @@ dl.detail-grid dd {
 }
 
 /* the selections of the values of the parameters of a family of metrics in its submenu, e.g. the release */
-.chart-add-parameter {
+.chart-menu-items .chart-add-parameter {
     display: flex;
     flex-direction: column;
+    align-items: stretch;
     gap: 0.2rem;
     padding: 0.3rem 0.8rem 0.4rem;
     border-bottom: 1px solid var(--separator-light-color);
 }
 
+/* the selection fills the width of the submenu, long values, e.g. of releases, don't widen it */
 .chart-add-parameter select {
-    max-width: 18rem;
+    width: 0;
+    min-width: 100%;
 }
 
 /* the groups of the metrics, e.g. the trials */
