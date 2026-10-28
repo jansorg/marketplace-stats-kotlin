@@ -47,8 +47,23 @@ allprojects {
     }
 
     tasks {
+        // tests with the tag "live" request the real servers, e.g. of the ECB and of JetBrains, they're run by liveTest
         test {
-            useJUnitPlatform()
+            useJUnitPlatform {
+                excludeTags("live")
+            }
+        }
+
+        register<Test>("liveTest") {
+            description = "Runs the tests with the tag live, which request the real servers."
+            group = "verification"
+            testClassesDirs = project.the<SourceSetContainer>()["test"].output.classesDirs
+            classpath = project.the<SourceSetContainer>()["test"].runtimeClasspath
+            useJUnitPlatform {
+                includeTags("live")
+            }
+            // the results depend on the servers, not only on the code
+            outputs.upToDateWhen { false }
         }
     }
 

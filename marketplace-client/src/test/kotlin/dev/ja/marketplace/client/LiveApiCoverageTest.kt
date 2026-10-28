@@ -21,6 +21,7 @@ import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.json.*
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
 import java.nio.file.Files
@@ -36,8 +37,9 @@ import java.nio.file.Path
  * - `MARKETPLACE_COVERAGE_PLUGIN_IDS`: comma-separated IDs of plugins of the account, paid and free ones
  * - `MARKETPLACE_COVERAGE_REPORT` (optional): file for the report
  *
- * Example: `MARKETPLACE_API_KEY=... MARKETPLACE_COVERAGE_PLUGIN_IDS=1,2 ./gradlew :marketplace-client:test --tests '*LiveApiCoverageTest'`
+ * Example: `MARKETPLACE_API_KEY=... MARKETPLACE_COVERAGE_PLUGIN_IDS=1,2 ./gradlew :marketplace-client:liveTest --tests '*LiveApiCoverageTest'`
  */
+@Tag("live")
 @EnabledIfEnvironmentVariable(named = "MARKETPLACE_COVERAGE_PLUGIN_IDS", matches = ".+")
 class LiveApiCoverageTest {
     private val apiKey = System.getenv("MARKETPLACE_API_KEY")?.takeIf(String::isNotBlank)
