@@ -13,18 +13,22 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import dev.ja.marketplace.client.persistentCache.PersistentCacheStore
+import org.junit.jupiter.api.io.TempDir
 import java.io.IOException
+import java.nio.channels.UnresolvedAddressException
+import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
 
 class CaffeineCacheMarketplaceClientErrorTest {
     private val requests = AtomicInteger()
 
-    private fun createClient(status: HttpStatusCode): CaffeineCacheMarketplaceClient {
+    private fun createClient(status: HttpStatusCode, store: PersistentCacheStore? = null): CaffeineCacheMarketplaceClient {
         val engine = MockEngine {
             requests.incrementAndGet()
             respondError(status)
         }
-        return CaffeineCacheMarketplaceClient(httpClientBuilder = mockHttpClientBuilder(engine))
+        return CaffeineCacheMarketplaceClient(httpClientBuilder = mockHttpClientBuilder(engine), persistentCache = store)
     }
 
     @Test
@@ -69,6 +73,28 @@ class CaffeineCacheMarketplaceClientErrorTest {
         // the Marketplace has no prices of the plugin in the country, it's cached like prices
         val client = createClient(HttpStatusCode.NotFound)
         repeat(2) { assertNull(client.priceInfo(1, "AT")) }
+        assertEquals(1, requests.get())
+    }
+
+    @Test
+    suspend fun unknownHostIsCachedBriefly() {
+        // the Java engine fails with UnresolvedAddressException, which isn't an IOException
+        val engine = MockEngine {
+            requests.incrementAndGet()
+            throw UnresolvedAddressException()
+        }
+        val client = CaffeineCacheMarketplaceClient(httpClientBuilder = mockHttpClientBuilder(engine))
+        repeat(2) { assertThrows<UnresolvedAddressException> { client.pluginInfo(1) } }
+        assertEquals(1, requests.get())
+    }
+
+    @Test
+    suspend fun closeWritesThePendingPrices(@TempDir dir: Path) {
+        val store = PersistentCacheStore(dir).accountStore(Marketplace.HOSTNAME, "key")
+        createClient(HttpStatusCode.NotFound, store).use { client -> assertNull(client.priceInfo(1, "AT")) }
+
+        // the prices are written with a delay, close writes them before it cancels the writes
+        createClient(HttpStatusCode.NotFound, store).use { restarted -> assertNull(restarted.priceInfo(1, "AT")) }
         assertEquals(1, requests.get())
     }
 }

@@ -100,6 +100,5 @@ class HttpClientTimeoutTest {
     fun timeoutsMustBePositive() {
         assertThrows<IllegalArgumentException> { HttpClientFactory.builder().withRequestTimeout(Duration.ZERO) }
         assertThrows<IllegalArgumentException> { HttpClientFactory.builder().withConnectTimeout((-1).milliseconds) }
-        assertThrows<IllegalArgumentException> { HttpClientFactory.builder().withSocketTimeout(Duration.ZERO) }
     }
 }

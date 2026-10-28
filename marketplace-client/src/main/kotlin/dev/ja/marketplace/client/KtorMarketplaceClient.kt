@@ -574,9 +574,10 @@ open class KtorMarketplaceClient(
     }
 
     override suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo? = withContext(processingDispatcher) {
+        val background = BackgroundRequests.isActive()
         try {
             httpClient.get("${apiPath}/marketplace/plugin/${plugin}/prices") {
-                chunkRequest()
+                chunkRequest(background)
                 parameter("countryCode", isoCountryCode)
             }.body<PluginPriceInfo>()
         } catch (e: ClientRequestException) {
@@ -656,16 +657,18 @@ open class KtorMarketplaceClient(
     }
 
     protected open suspend fun loadSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> = withContext(processingDispatcher) {
+        val background = BackgroundRequests.isActive()
         httpClient.get("$apiPath/marketplace/plugin/$plugin/sales-info") {
-            chunkRequest()
+            chunkRequest(background)
             parameter("beginDate", range.start.asIsoString)
             parameter("endDate", range.end.asIsoString)
         }.body()
     }
 
     protected open suspend fun loadTrialsInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginTrial> = withContext(processingDispatcher) {
+        val background = BackgroundRequests.isActive()
         httpClient.get("$apiPath/marketplace/plugin/$plugin/trials-info") {
-            chunkRequest()
+            chunkRequest(background)
             parameter("beginDate", range.start.asIsoString)
             parameter("endDate", range.end.asIsoString)
         }.body()
