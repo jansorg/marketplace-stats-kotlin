@@ -85,6 +85,31 @@ Version constraints to keep in mind when upgrading:
 
 CI (`.github/workflows/CI.yaml`) runs `./gradlew build` with Temurin JDK 27.
 
+The HTTP clients are configured in one place: `HttpClientFactory.builder()` returns an immutable `HttpClientBuilder`
+(log level, user agent, retries, the engine for tests, ...), each `with` method returns a copy. `Application.kt`
+configures one builder and passes it to `CaffeineCacheMarketplaceClient`, `KtorJetBrainsServiceClient` and
+`EcbExchangeRateData.Default` (`useHttpClientBuilder`), which add their URL and API key and create and close their own
+`HttpClient`, also the client of the downloads of the sales reports. `MarketplaceClient` and `JetBrainsServiceClient`
+are `AutoCloseable`. The services client and the report downloads never send the API key of the Marketplace. Tests
+pass a `MockEngine` with `mockHttpClientBuilder` (without retries).
+The builder also limits the requests of each client (each client has its own limits, e.g. per server):
+- concurrent requests (`withMaxConcurrentRequests`, 8, also the limit of the connections of the Java engine) and
+  concurrent requests marked with `chunkRequest()` (sales, trials, prices, `withMaxConcurrentChunkRequests`, 4), both
+  in `ConcurrentRequestLimit`
+- after a response with 429 or 503, all requests wait until its `Retry-After` (`ServerBackoff`, at most 2 minutes)
+- requests per period (`withRateLimit`, `RequestRateLimit`, a sliding window, off by default, the application uses
+  `--rate-limit`/`MARKETPLACE_RATE_LIMIT`/`rateLimit`, 20 per second, slightly more than the concurrency limits
+  allow for a single page, a lower limit makes the first load of a page much slower)
+- timeouts: the Java engine ignores the socket timeout, the application sets a request timeout of 2 minutes, release
+  downloads have none, the sales reports 5 minutes. A timeout is retried once, other failures 4 times.
+The order of the plugins in `configure()` matters, the `Send` hooks of plugins installed later run within those
+installed earlier: retry, the concurrency limits, the backoff, the rate limit, then `HttpTimeout`, so that each attempt
+has its own timeout and the time waiting for a limit doesn't count.
+`withHttpCacheDirectory` stores the responses with Ktor's `HttpCache` (`FileStorage`) and validates them with
+conditional requests. Only the services of JetBrains support them (`Last-Modified`, a 304 only for the unchanged value),
+the application stores them in `jetbrains/http/` of the cache directory. The Marketplace sends `no-store` and no
+validators, its responses are only cached by the application.
+
 The client decodes the API responses with `ignoreUnknownKeys`, so new properties of the API don't break it, but they
 would go unnoticed. `LiveApiCoverageTest` (`marketplace-client`) requests all GET endpoints of the Marketplace and the
 JetBrains services, and fails for properties of the responses and columns of the sales reports, which the models don't
@@ -122,7 +147,7 @@ queries, and one which excludes all these tags. The results are in the order of 
 ```
 
 - `config.json` (git-ignored) holds the API key. Its supported keys are `apiKey`, `displayedCurrency`,
-  `showResellerCharges`, `cacheDir` and `eventsFile` (see `ApplicationConfig.kt`). The host and port can't be set in the config file. They come from
+  `showResellerCharges`, `cacheDir`, `eventsFile` and `rateLimit` (see `ApplicationConfig.kt`). The host and port can't be set in the config file. They come from
   `--host`/`--port` or `MARKETPLACE_SERVER_HOSTNAME`/`MARKETPLACE_SERVER_PORT`, and default to `0.0.0.0:8080`.
 - Pass `--port` explicitly and use a port other than 8080, so the server doesn't collide with an instance the user
   is already running. Bind to `127.0.0.1`.
@@ -174,7 +199,9 @@ queries, and one which excludes all these tags. The results are in the order of 
   plugin prices by country (`PersistentPriceCache`), the ECB exchange rates (`EcbExchangeRateData`), downloads
   (`PersistentResponseCache`, responses of `downloads`, `downloadsTotal` and `groupedDownloads` as JSON, fetched again after
   a day, see `DownloadsCompleteness`) and the products and releases of JetBrains (`CachingJetBrainsServiceClient`, in `jetbrains/`, shared by all
-  accounts, fetched again after a day).
+  accounts, fetched again after a day, a conditional request with the HTTP cache in `jetbrains/http/`).
+- Failures are cached briefly in memory (`CaffeineCacheMarketplaceClient.loadCachedStored`): 404 for 5 minutes,
+  server errors and failed connections for a minute, other errors not at all.
   The data of an account is stored in `accounts/account-<hash of API host and key>/`.
 - The stored classes (`CachedSalesModel.kt`, `CachedEcbRates`) are separate from the API model. After incompatible
   changes, increment the data version (`HistoryKind`, `DATA_VERSION`). `CachedSalesModelCoverageTest` fails if a

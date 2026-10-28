@@ -9,12 +9,8 @@ import dev.ja.marketplace.client.model.MarketplacePluginSearchRequest
 import dev.ja.marketplace.client.model.PluginSearchMode
 import io.ktor.client.*
 import io.ktor.client.engine.mock.*
-import io.ktor.client.plugins.*
-import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonArray
@@ -83,16 +79,7 @@ class PluginSearchWindowTest {
                 else -> respondError(HttpStatusCode.NotFound)
             }
         }
-        val httpClient = HttpClient(engine) {
-            install(ContentNegotiation) {
-                json(Json { ignoreUnknownKeys = true; isLenient = true })
-            }
-            install(DefaultRequest) {
-                url("https://${Marketplace.HOSTNAME}")
-            }
-            expectSuccess = true
-        }
-        return KtorMarketplaceClient(httpClient = httpClient)
+        return KtorMarketplaceClient(httpClientBuilder = mockHttpClientBuilder(engine))
     }
 
     private fun matches(requiredTags: Set<String>, excludedTags: Set<String>): List<Plugin> {

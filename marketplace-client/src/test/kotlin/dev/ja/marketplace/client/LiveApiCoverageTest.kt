@@ -7,6 +7,7 @@ package dev.ja.marketplace.client
 
 import dev.ja.marketplace.client.model.*
 import dev.ja.marketplace.services.CountryWithCurrency
+import dev.ja.marketplace.services.JetBrainsServiceClient
 import dev.ja.marketplace.services.ProductRelease
 import dev.ja.marketplace.services.ProductWithReleases
 import io.ktor.client.*
@@ -42,12 +43,8 @@ class LiveApiCoverageTest {
     private val apiKey = System.getenv("MARKETPLACE_API_KEY")?.takeIf(String::isNotBlank)
     private val plugins = System.getenv("MARKETPLACE_COVERAGE_PLUGIN_IDS").split(",").map { it.trim().toInt() }
 
-    private val marketplace = KtorHttpClientFactory.createHttpClient(Marketplace.HOSTNAME, apiKey, logLevel = ClientLogLevel.None) {
-        expectSuccess = true
-    }
-    private val services = KtorHttpClientFactory.createHttpClient(logLevel = ClientLogLevel.None) {
-        expectSuccess = true
-    }
+    private val marketplace = HttpClientFactory.builder().withBaseUrl("https://${Marketplace.HOSTNAME}").withBearerAuth(apiKey).build()
+    private val services = HttpClientFactory.builder().build()
 
     /** The unknown keys of each endpoint with the JSON values, which were found for them. */
     private val unknownKeys = sortedMapOf<String, MutableMap<String, MutableList<JsonElement>>>()
@@ -55,7 +52,7 @@ class LiveApiCoverageTest {
     private val failed = sortedMapOf<String, String>()
     private val decodingErrors = sortedMapOf<String, String>()
 
-    /** Like the JSON configuration of [KtorHttpClientFactory]. */
+    /** Like the JSON configuration of [HttpClientBuilder]. */
     private val clientJson = Json {
         ignoreUnknownKeys = true
         isLenient = true
@@ -64,13 +61,13 @@ class LiveApiCoverageTest {
     @Test
     suspend fun responsesHaveNoUnknownProperties() {
         check("countries", ListSerializer(CountryWithCurrency.serializer())) {
-            services.get("https://account.jetbrains.com/services/countries.json")
+            services.get("${JetBrainsServiceClient.ACCOUNT_SERVICES_URL}/services/countries.json")
         }
         check("products", ListSerializer(ProductWithReleases.serializer())) {
-            services.get("https://data.services.jetbrains.com/products")
+            services.get("${JetBrainsServiceClient.DATA_SERVICES_URL}/products")
         }
         check("products/releases", MapSerializer(String.serializer(), ListSerializer(ProductRelease.serializer()))) {
-            services.get("https://data.services.jetbrains.com/products/releases") {
+            services.get("${JetBrainsServiceClient.DATA_SERVICES_URL}/products/releases") {
                 parameter("code", "IIU")
                 parameter("type", "release")
             }

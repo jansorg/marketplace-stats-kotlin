@@ -9,6 +9,7 @@ import dev.ja.marketplace.client.persistentCache.PersistentCacheStore
 import kotlinx.coroutines.delay
 import kotlinx.datetime.LocalDate
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
@@ -20,6 +21,7 @@ class CachingJetBrainsServiceClientTest {
     lateinit var tempDir: Path
 
     private val requests = AtomicInteger()
+    private var closed = false
 
     private val release = ProductRelease(
         date = LocalDate(2025, 4, 16),
@@ -50,6 +52,10 @@ class CachingJetBrainsServiceClientTest {
         override suspend fun productReleases(product: JetBrainsProductCode, type: ProductReleaseType): List<ProductRelease> {
             requests.incrementAndGet()
             return listOf(release)
+        }
+
+        override fun close() {
+            closed = true
         }
     }
 
@@ -85,5 +91,11 @@ class CachingJetBrainsServiceClientTest {
         client.products()
         client.products()
         assertEquals(1, requests.get())
+    }
+
+    @Test
+    fun closeClosesTheDelegate() {
+        CachingJetBrainsServiceClient(delegate, PersistentCacheStore(tempDir)).close()
+        assertTrue(closed)
     }
 }

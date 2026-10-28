@@ -21,4 +21,7 @@ data class ApplicationConfig(
     /** The YAML file of the custom events of the charts, relative to the directory of the configuration file. */
     @SerialName("eventsFile")
     val eventsFile: String? = null,
+    /** The maximum number of requests per second to each server, 0 disables the limit, see `--rate-limit`. */
+    @SerialName("rateLimit")
+    val rateLimit: Int? = null,
 )

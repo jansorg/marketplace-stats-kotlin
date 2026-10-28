@@ -5,13 +5,8 @@
 
 package dev.ja.marketplace.client
 
-import io.ktor.client.*
 import io.ktor.client.engine.mock.*
-import io.ktor.client.plugins.*
-import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
-import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -30,16 +25,7 @@ class CaffeineCacheMarketplaceClientRefreshTest {
             val body = range.days().filter { it.day == 1 }.joinToString(",", "[", "]") { saleJson("$plugin-${it.asIsoString}", it) }
             respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
         }
-        val httpClient = HttpClient(engine) {
-            install(ContentNegotiation) {
-                json(Json { ignoreUnknownKeys = true })
-            }
-            install(DefaultRequest) {
-                url("https://${Marketplace.HOSTNAME}")
-            }
-            expectSuccess = true
-        }
-        return CaffeineCacheMarketplaceClient(httpClient = httpClient, cachingStrategy = strategy)
+        return CaffeineCacheMarketplaceClient(httpClientBuilder = mockHttpClientBuilder(engine), cachingStrategy = strategy)
     }
 
     private fun saleJson(ref: String, date: YearMonthDay): String = """
