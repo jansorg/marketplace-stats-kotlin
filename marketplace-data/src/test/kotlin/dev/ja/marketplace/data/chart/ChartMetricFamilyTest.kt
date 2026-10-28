@@ -192,6 +192,24 @@ class ChartMetricFamilyTest {
     }
 
     @Test
+    suspend fun averagesOfTheUniqueDownloadsOfTheirPeriods() {
+        val values = ChartMetricValues.freePlugin(downloads, exchangeRates, YearMonthDay(2025, 10, 15), source)
+        val metric = ChartMetric.byId("unique-downloads")!!
+        values.prepare(listOf(metric), windows = listOf(ChartWindow.Day, ChartWindow.CalendarMonth))
+        val at = { window: ChartWindow, months: Int, date: YearMonthDay -> values.average(metric, window, months)?.values?.get(values.days.indexOf(date)) }
+
+        // the average month of the 12 months before the end of September: only September has unique downloads, the
+        // other months have 0 (from January 2025, the first year of the values)
+        assertEquals(BigDecimal("20").divide(BigDecimal(9), 2, java.math.RoundingMode.HALF_UP), at(ChartWindow.CalendarMonth, 12, YearMonthDay(2025, 9, 30)))
+        // the average of the days of the past month, the current day is incomplete
+        assertEquals(BigDecimal("0.23"), at(ChartWindow.Day, 1, YearMonthDay(2025, 9, 30)))
+        // today's month isn't over, the average is that of the complete months
+        assertEquals(BigDecimal("2.22"), at(ChartWindow.CalendarMonth, 12, YearMonthDay(2025, 10, 15)))
+        // only at the dates of the periods
+        assertNull(at(ChartWindow.CalendarMonth, 12, YearMonthDay(2025, 9, 29)))
+    }
+
+    @Test
     fun idsOfTheUniqueDownloads() {
         assertEquals(listOf("1001", "IIU"), ChartMetric.byId("release-unique-downloads.1001.IIU")!!.parameterValues)
         assertEquals("Unique downloads in IIU", ChartMetric.byId("product-unique-downloads.IIU")!!.title)

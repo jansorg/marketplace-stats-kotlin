@@ -269,6 +269,13 @@ class ChartMetricValues private constructor(
         if (!averageApplies(metric, window, months)) {
             return null
         }
+        // the unique downloads have no rolling windows, their averages are those of their periods
+        if (metric.family in UNIQUE_FAMILIES) {
+            val key = Triple(metric, window, months)
+            averages[key]?.let { return it }
+            val base = series(metric, window) ?: return null
+            return uniqueAverage(window, months, base).also { averages[key] = it }
+        }
         val tileWindow = if (metric.usesWindow) window.rolling else ChartWindow.Day
         val key = Triple(metric, tileWindow, months)
         averages[key]?.let { return it }
@@ -408,6 +415,36 @@ class ChartMetricValues private constructor(
             else -> return SubscriptionDailyValues.create(days, allLicenses, revenue ?: return emptyMap(), today, window.takeIf { metric.usesWindow })
         }
         return mapOf(metric to series)
+    }
+
+    /**
+     * @return The moving average of the unique downloads of the periods of the [window], e.g. of the calendar months:
+     *  at the dates of the periods, the average of the complete periods, which are within the [months] before the
+     *  date. The current period at today is incomplete and isn't part of it. The unique downloads can't be summed,
+     *  the average is the average unique downloads of a period, e.g. of a month.
+     */
+    private fun uniqueAverage(window: ChartWindow, months: Int, base: DailySeries): DailySeries {
+        // the complete periods by their last day, the windows of the dates of the values
+        val isPeriodEnd = { day: YearMonthDay ->
+            when (window) {
+                ChartWindow.Week -> day.toLocalDate().dayOfWeek == DayOfWeek.SUNDAY
+                ChartWindow.CalendarMonth -> day == YearMonthDay.lastOfMonth(day.year, day.month)
+                else -> true
+            }
+        }
+        // today's period isn't over yet, e.g. the current month
+        val periods = days.indices.filter { base.values[it] != null && isPeriodEnd(days[it]) && it < dayCount - 1 }
+        val values = days.indices.map { index ->
+            if (base.values[index] == null) {
+                return@map null
+            }
+            val spanStart = ChartWindow.monthsBefore(days[index], months)
+            val within = periods.filter { it <= index && window.start(days[it]) >= spanStart }.mapNotNull { base.values[it] }
+            within.takeIf { it.isNotEmpty() }?.let { values ->
+                values.fold(BigDecimal.ZERO, BigDecimal::add).divide(BigDecimal.valueOf(values.size.toLong()), 2, RoundingMode.HALF_UP)
+            }
+        }
+        return DailySeries(base.unit, values, base.incompleteFrom)
     }
 
     /**
