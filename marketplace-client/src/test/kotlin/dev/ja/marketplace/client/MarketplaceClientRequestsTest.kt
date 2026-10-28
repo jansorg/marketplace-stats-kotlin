@@ -162,4 +162,61 @@ class MarketplaceClientRequestsTest {
     private companion object {
         const val API_KEY = "api-key"
     }
+
+    /** Downloads since March 2024: the first month of the monthly downloads, a group of each product by month. */
+    private fun downloadsResponse(request: HttpRequestData): String {
+        val start = request.url.parameters["startDate"]?.let(YearMonthDay::parse) ?: YearMonthDay(2024, 3, 1)
+        return when (request.url.encodedPath) {
+            "/statistic/downloads-count/month" ->
+                """{"measure": "downloads-count", "filters": [], "dim1": "month", "data": {"dimension": "month", "serie": [
+                    {"name": "2024-03-01", "value": 3}, {"name": "2024-04-01", "value": 4}]}}"""
+
+            else -> {
+                val month = YearMonthDay(start.year, start.month, 1).asIsoString
+                // a product, which only had downloads in 2025
+                val other = if (start.year == 2025) """, {"dimension": "PC", "serie": [{"name": "$month", "value": 1}]}""" else ""
+                """{"measure": "downloads-count", "filters": [], "dim1": "month", "dim2": "product_code",
+                    "data": [{"dimension": "IU", "dimensionComment": "IntelliJ IDEA", "serie": [{"name": "$month", "value": 2}]}$other]}"""
+            }
+        }
+    }
+
+    @Test
+    suspend fun groupedDownloadsSinceTheStartAreRequestedByYear() {
+        val client = createClient(::downloadsResponse)
+        val response = client.groupedDownloads(1, DownloadRequestDimension.Month, DownloadRequestDimension.ProductCode, DownloadCountType.Downloads, null)
+
+        // the first month of the monthly downloads is the start, the last year has no end date
+        val thisYear = YearMonthDay.now().year
+        val grouped = requests.filter { it.url.encodedPath == "/statistic/downloads-count/month/product_code" }
+            .map { it.url.parameters["startDate"] to it.url.parameters["endDate"] }
+            .sortedBy { it.first }
+        val expected = (2024..thisYear).map { year ->
+            val start = if (year == 2024) "2024-03-01" else "$year-01-01"
+            start to (if (year == thisYear) null else "$year-12-31")
+        }
+        assertEquals(expected, grouped)
+
+        // the groups of each year are merged
+        val iu = response.groups.single { it.name == "IU" }
+        assertEquals("IntelliJ IDEA", iu.comment)
+        assertEquals(expected.map { it.first.take(7) + "-01" }, iu.serie.map { it.name })
+        assertEquals(listOf("2025-01-01"), response.groups.single { it.name == "PC" }.serie.map { it.name })
+    }
+
+    @Test
+    suspend fun groupedDownloadsOfAYearAreASingleRequest() {
+        val client = createClient(::downloadsResponse)
+        client.groupedDownloads(1, DownloadRequestDimension.Month, DownloadRequestDimension.ProductCode, DownloadCountType.Downloads,
+            YearMonthDay(2025, 2, 1), endDate = YearMonthDay(2025, 6, 30))
+        assertEquals(listOf("2025-02-01" to "2025-06-30"), requests.map { it.url.parameters["startDate"] to it.url.parameters["endDate"] })
+    }
+
+    @Test
+    suspend fun groupedDownloadsWithoutDatesAreASingleRequest() {
+        // the downloads of each release by product aren't values of months or days, they can't be split by year
+        val client = createClient { """{"measure": "downloads-count", "filters": [], "dim1": "update", "dim2": "product_code", "data": []}""" }
+        client.groupedDownloads(1, DownloadRequestDimension.Update, DownloadRequestDimension.ProductCode, DownloadCountType.Downloads, null)
+        assertEquals(listOf("/statistic/downloads-count/update/product_code"), requests.map { it.url.encodedPath })
+    }
 }

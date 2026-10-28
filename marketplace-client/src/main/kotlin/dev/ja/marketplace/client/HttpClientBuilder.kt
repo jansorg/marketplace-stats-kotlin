@@ -197,7 +197,13 @@ class HttpClientBuilder private constructor(private val settings: Settings) {
         if (settings.enableRequestRetry) {
             install(HttpRequestRetry) {
                 // server errors and too many requests, e.g. of the many requests of the sales and the prices
-                retryIf(4) { _, response -> response.status.value >= 500 || response.status == HttpStatusCode.TooManyRequests }
+                retryIf(4) { request, response ->
+                    when {
+                        // the server needs too long for the request, it would need too long again
+                        response.status == HttpStatusCode.ServiceUnavailable && request.attributes.contains(SlowRequestKey) -> false
+                        else -> response.status.value >= 500 || response.status == HttpStatusCode.TooManyRequests
+                    }
+                }
                 // a timeout is retried once, a server, which didn't answer in time, is unlikely to answer the next retries
                 retryOnExceptionIf(4) { _, cause ->
                     when {

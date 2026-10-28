@@ -167,6 +167,7 @@ open class KtorMarketplaceClient(
 
     override suspend fun downloadsTotal(plugin: PluginId, vararg filters: DownloadFilter): Long = withContext(processingDispatcher) {
         val response = httpClient.get("/statistic/downloads-count/plugin") {
+            slowRequest()
             parameter("plugin", plugin)
             addDownloadFilters(filters)
         }.body<DownloadResponse>()
@@ -187,6 +188,7 @@ open class KtorMarketplaceClient(
         endDate: YearMonthDay?,
     ): DownloadResponse = withContext(processingDispatcher) {
         httpClient.get("/statistic/${countType.requestPathSegment}/${groupType.requestPathSegment}") {
+            slowRequest()
             parameter("plugin", plugin)
             if (startDate != null) {
                 parameter("startDate", startDate.asIsoString)
@@ -198,6 +200,11 @@ open class KtorMarketplaceClient(
         }.body<DownloadResponse>()
     }
 
+    /**
+     * The statistics service of the Marketplace answers with 503, if a request takes too long, e.g. the downloads of a
+     * plugin with many downloads by month and product since its start. Long time ranges of downloads by month or day
+     * are requested in calendar years and merged, see [groupedDownloadsByYear].
+     */
     override suspend fun groupedDownloads(
         plugin: PluginId,
         dimension: DownloadRequestDimension,
@@ -206,8 +213,78 @@ open class KtorMarketplaceClient(
         startDate: YearMonthDay?,
         vararg filters: DownloadFilter,
         endDate: YearMonthDay?,
+    ): GroupedDownloadResponse {
+        val isByDate = dimension in DATE_DIMENSIONS || groupType in DATE_DIMENSIONS
+        if (!isByDate) {
+            return loadGroupedDownloads(plugin, dimension, groupType, countType, startDate, filters, endDate)
+        }
+
+        // without a start date, the downloads since the first month with downloads of the plugin
+        val start = startDate ?: downloads(plugin, DownloadRequestDimension.Month, countType, null).data.serie
+            .mapNotNull { runCatching { YearMonthDay.parse(it.name) }.getOrNull() }
+            .minOrNull()
+        val end = endDate ?: YearMonthDay.now()
+        if (start == null || start.year == end.year) {
+            return loadGroupedDownloads(plugin, dimension, groupType, countType, startDate, filters, endDate)
+        }
+        return groupedDownloadsByYear(plugin, dimension, groupType, countType, start, end, filters, endDate == null)
+    }
+
+    /**
+     * Requests the downloads of each calendar year from [start] to [end] concurrently and merges them. A month or day
+     * is part of a single year, a group or a value of each year has the same name in the merged response.
+     *
+     * @param untilToday If the last year is requested without an end date, i.e. until today.
+     */
+    private suspend fun groupedDownloadsByYear(
+        plugin: PluginId,
+        dimension: DownloadRequestDimension,
+        groupType: DownloadRequestDimension,
+        countType: DownloadCountType,
+        start: YearMonthDay,
+        end: YearMonthDay,
+        filters: Array<out DownloadFilter>,
+        untilToday: Boolean,
+    ): GroupedDownloadResponse = coroutineScope {
+        val responses = (start.year..end.year).map { year ->
+            val yearStart = maxOf(start, YearMonthDay(year, 1, 1))
+            val yearEnd = when {
+                year == end.year && untilToday -> null
+                else -> minOf(end, YearMonthDay(year, 12, 31))
+            }
+            async { loadGroupedDownloads(plugin, dimension, groupType, countType, yearStart, filters, yearEnd, chunk = true) }
+        }.awaitAll()
+
+        val groups = LinkedHashMap<String, Pair<String?, MutableMap<String, DownloadResponseItem>>>()
+        for (group in responses.flatMap { it.groups }) {
+            val (_, items) = groups.getOrPut(group.name) { group.comment to LinkedHashMap() }
+            for (item in group.serie) {
+                items.merge(item.name, item) { old, new -> old.copy(value = old.value + new.value) }
+            }
+        }
+        responses.first().copy(
+            groups = groups.map { (name, value) ->
+                DownloadResponseGroup(name, value.first, value.second.values.sortedBy(DownloadResponseItem::name))
+            },
+        )
+    }
+
+    private suspend fun loadGroupedDownloads(
+        plugin: PluginId,
+        dimension: DownloadRequestDimension,
+        groupType: DownloadRequestDimension,
+        countType: DownloadCountType,
+        startDate: YearMonthDay?,
+        filters: Array<out DownloadFilter>,
+        endDate: YearMonthDay?,
+        chunk: Boolean = false,
     ): GroupedDownloadResponse = withContext(processingDispatcher) {
+        val background = BackgroundRequests.isActive()
         httpClient.get("/statistic/${countType.requestPathSegment}/${dimension.requestPathSegment}/${groupType.requestPathSegment}") {
+            slowRequest()
+            if (chunk) {
+                chunkRequest(background)
+            }
             parameter("plugin", plugin)
             if (startDate != null) {
                 parameter("startDate", startDate.asIsoString)
@@ -701,6 +778,9 @@ open class KtorMarketplaceClient(
 
 /** The time of the download of a sales report. */
 private val REPORT_TIMEOUT: Duration = 5.minutes
+
+/** The dimensions of downloads by date, see [KtorMarketplaceClient.groupedDownloads]. */
+private val DATE_DIMENSIONS = setOf(DownloadRequestDimension.Month, DownloadRequestDimension.Day)
 
 /** The number of slices of [KtorMarketplaceClient.marketplacePluginsSearch], which are loaded concurrently. */
 private const val MAX_CONCURRENT_SEARCH_SLICES: Int = 4
