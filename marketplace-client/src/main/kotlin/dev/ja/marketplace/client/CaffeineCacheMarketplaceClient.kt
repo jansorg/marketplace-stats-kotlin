@@ -64,7 +64,9 @@ class CaffeineCacheMarketplaceClient(
 
         .expireAfter(CacheExpiry())
 
-        .maximumSize(10_000)
+        // the Marketplace has about 15,000 plugins, the cache keeps a value of each plugin, e.g. the info of each plugin
+        // while a snapshot of all plugins is downloaded, with room for the growth of the Marketplace
+        .maximumSize(30_000)
 
         .buildCoroutine()
 
