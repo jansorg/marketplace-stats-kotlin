@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2023-2025 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 package dev.ja.marketplace
 
 import com.github.ajalt.clikt.core.*
+import com.github.ajalt.clikt.output.HelpFormatter
 import com.github.ajalt.clikt.output.MordantHelpFormatter
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.convert
@@ -26,10 +27,22 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
-class Application(version: String) : CliktCommand(name = "marketplace-stats") {
+/**
+ * The command line of the application. The options override the environment variables, which override the
+ * configuration file, which overrides the defaults.
+ *
+ * @param startServer Starts the server with the resolved settings, tests only check the settings.
+ */
+class Application internal constructor(
+    version: String,
+    private val startServer: (ApplicationSettings) -> Unit,
+) : CliktCommand(name = "marketplace-stats") {
+    constructor(version: String) : this(version, ::startServer)
+
     override fun help(context: Context): String {
         return "Marketplace Stats provides reports for plugins hosted on the JetBrains Marketplace."
     }
@@ -62,35 +75,61 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
         .default(8080)
         .help("Port used by the integrated webserver.")
 
-    private val displayCurrency: String? by option("-c", "--currency", envvar = "MARKETPLACE_DISPLAY_CURRENCY")
+    // the options with a fallback to the configuration file have no default value, but the help shows the default
+    private val displayCurrency: String? by option(
+        "-c",
+        "--currency",
+        envvar = "MARKETPLACE_DISPLAY_CURRENCY",
+        helpTags = mapOf(HelpFormatter.Tags.DEFAULT to DEFAULT_DISPLAY_CURRENCY),
+    )
         .help("Currency for the displayed monetary amounts.")
 
-    private val showResellerCharges: Boolean? by option("--show-reseller-charges", envvar = "MARKETPLACE_SHOW_RESELLER_CHARGES")
+    private val showResellerCharges: Boolean? by option(
+        "--show-reseller-charges",
+        envvar = "MARKETPLACE_SHOW_RESELLER_CHARGES",
+        helpTags = mapOf(HelpFormatter.Tags.DEFAULT to "disabled"),
+    )
         .nullableFlag()
         .help("Show incorrect charges for sales through resellers.")
 
-    private val cacheDir: String? by option("--cache-dir", envvar = "MARKETPLACE_CACHE_DIR")
+    private val cacheDir: String? by option(
+        "--cache-dir",
+        envvar = "MARKETPLACE_CACHE_DIR",
+        helpTags = mapOf(HelpFormatter.Tags.DEFAULT to "none"),
+    )
         .help("Directory of the persistent cache. Sales, trials, prices and exchange rates are stored there to speed up restarts. The data is kept in memory only if no directory is set or if it's empty. A leading ~ is the home directory.")
 
-    private val autoRefreshMinutes: Int? by option("--auto-refresh", envvar = "MARKETPLACE_AUTO_REFRESH", metavar = "MINUTES")
+    private val autoRefreshMinutes: Int? by option(
+        "--auto-refresh",
+        envvar = "MARKETPLACE_AUTO_REFRESH",
+        metavar = "MINUTES",
+        helpTags = mapOf(HelpFormatter.Tags.DEFAULT to "disabled"),
+    )
         .int()
         .optionalValue(DEFAULT_AUTO_REFRESH_MINUTES, acceptsUnattachedValue = false)
         .help(
             "Refreshes the data of the plugins, which were requested in the last 24 hours, in the background every MINUTES " +
                     "(default: $DEFAULT_AUTO_REFRESH_MINUTES), so that the pages don't wait for the Marketplace. " +
-                    "Use --auto-refresh or --auto-refresh=MINUTES, 0 disables it. Disabled by default."
+                    "Use --auto-refresh or --auto-refresh=MINUTES, 0 disables it."
         )
         .check("The interval of the automatic refresh must not be negative") { it >= 0 }
 
-    private val rateLimit: Int? by option("--rate-limit", envvar = "MARKETPLACE_RATE_LIMIT", metavar = "REQUESTS")
+    private val rateLimit: Int? by option(
+        "--rate-limit",
+        envvar = "MARKETPLACE_RATE_LIMIT",
+        metavar = "REQUESTS",
+        helpTags = mapOf(HelpFormatter.Tags.DEFAULT to DEFAULT_RATE_LIMIT.toString()),
+    )
         .int()
-        .help(
-            "The maximum number of requests per second to each server, e.g. the Marketplace, requests beyond it wait. " +
-                    "0 disables the limit. Default: $DEFAULT_RATE_LIMIT."
-        )
+        .help("The maximum number of requests per second to each server, e.g. the Marketplace, requests beyond it wait. 0 disables the limit.")
         .check("The rate limit must not be negative") { it >= 0 }
 
-    private val eventsFile: String? by option("--events", envvar = "MARKETPLACE_EVENTS_FILE", metavar = "FILE")
+    private val eventsFile: String? by option(
+        "--events",
+        envvar = "MARKETPLACE_EVENTS_FILE",
+        metavar = "FILE",
+        helpTags = mapOf(HelpFormatter.Tags.DEFAULT to "none"),
+    )
         .help(
             "YAML file with custom events, which the charts can show as vertical lines, e.g. blog posts or changes of the " +
                     "trial period. The file is read again when it's modified. See README.md for the format."
@@ -118,13 +157,20 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
         .help("The log level used for the server and the API requests to the marketplace")
 
     override fun run() {
+        startServer(settings())
+    }
+
+    /**
+     * @return The settings of the options, of the environment variables and of the configuration file.
+     */
+    internal fun settings(): ApplicationSettings {
         val apiKey = this.apiKey
             ?: applicationConfig?.marketplaceApiKey
             ?: throw BadParameterValue("No API key provided. Please refer to --help how to provide it.")
 
         val displayCurrencyCode = this.displayCurrency
             ?: applicationConfig?.displayedCurrency
-            ?: "USD"
+            ?: DEFAULT_DISPLAY_CURRENCY
 
         val showResellerCharges = this.showResellerCharges
             ?: applicationConfig?.showResellerCharges
@@ -143,36 +189,20 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
             throw BadParameterValue("The cache directory $cacheDir is a file.")
         }
 
-        val customEvents = loadEventsConfiguration()
-        val mcpAllowedHosts = createMcpAllowedHosts()
-        val httpClientBuilder = createDefaultHttpClientBuilder(findRateLimit())
-        val cachingStrategy = CachingStrategy(autoRefreshInterval = autoRefreshMinutes?.takeIf { it > 0 }?.minutes)
-        val cacheStore = cacheDir?.let(::PersistentCacheStore)
-        val ecbRates = createEcbRatesProvider(httpClientBuilder, cacheStore)
-        val client = createMarketplaceClient(apiKey, httpClientBuilder, cacheStore, cachingStrategy)
-        val servicesClient = createJetBrainsServiceClient(cacheStore, httpClientBuilder)
-
-        // the clients and their connections are closed after the web server stopped
-        client.use {
-            servicesClient.use {
-                ecbRates.use {
-                    runBlocking {
-                        val server = MarketplaceStatsServer(
-                            client,
-                            servicesClient,
-                            serverHostname,
-                            serverPort,
-                            ServerConfiguration(displayCurrencyCode, showResellerCharges, allPluginsSummary, customEvents),
-                            mcpAllowedHosts.takeIf { mcpEnabled },
-                            PluginAutoRefresh(client, cachingStrategy).takeIf { cachingStrategy.autoRefreshInterval != null },
-                            ecbRates,
-                        )
-
-                        server.start()
-                    }
-                }
-            }
-        }
+        return ApplicationSettings(
+            apiKey = apiKey,
+            serverHostname = serverHostname,
+            serverPort = serverPort,
+            displayCurrencyCode = displayCurrencyCode,
+            showResellerCharges = showResellerCharges,
+            cacheDir = cacheDir,
+            autoRefreshInterval = autoRefreshMinutes?.takeIf { it > 0 }?.minutes,
+            rateLimit = findRateLimit(),
+            customEvents = loadEventsConfiguration(),
+            mcpAllowedHosts = createMcpAllowedHosts().takeIf { mcpEnabled },
+            allPluginsSummary = allPluginsSummary,
+            logLevel = logging,
+        )
     }
 
     private fun createMcpAllowedHosts(): List<String> {
@@ -220,54 +250,111 @@ class Application(version: String) : CliktCommand(name = "marketplace-stats") {
         }
         return rateLimit
     }
+}
 
-    private fun createDefaultHttpClientBuilder(rateLimit: Int): HttpClientBuilder {
-        return HttpClientFactory.builder()
-            .withLogLevel(logging)
-            .withUserAgent("${HttpClientFactory.DEFAULT_USER_AGENT}/${BuildConfig.APP_VERSION}")
-            .withRequestTimeout(2.minutes) // the Java engine doesn't support a socket timeout, a stalled request must not wait forever
-            .let { if (rateLimit > 0) it.withRateLimit(rateLimit, 1.seconds) else it }
-    }
+/**
+ * The settings of the application, see [Application.settings].
+ *
+ * @param rateLimit The maximum number of requests per second to each server, 0 without a limit.
+ * @param mcpAllowedHosts The hostnames of the MCP server, `null` if it's disabled.
+ */
+internal data class ApplicationSettings(
+    val apiKey: String,
+    val serverHostname: String,
+    val serverPort: Int,
+    val displayCurrencyCode: String,
+    val showResellerCharges: Boolean,
+    val cacheDir: Path?,
+    val autoRefreshInterval: Duration?,
+    val rateLimit: Int,
+    val customEvents: CustomEventsFile?,
+    val mcpAllowedHosts: List<String>?,
+    val allPluginsSummary: Boolean,
+    val logLevel: ClientLogLevel,
+)
 
-    /** The exchange rates of all currencies, loaded once. */
-    private fun createEcbRatesProvider(httpClientBuilder: HttpClientBuilder, cacheStore: PersistentCacheStore?): EcbExchangeRateData {
-        val ecbRates = EcbExchangeRateData(httpClientBuilder = httpClientBuilder)
-        cacheStore?.let(ecbRates::enablePersistentCache)
-        return ecbRates
-    }
+/**
+ * Starts the server with the [settings] and waits until it stopped.
+ */
+internal fun startServer(settings: ApplicationSettings) {
+    val httpClientBuilder = createDefaultHttpClientBuilder(settings.logLevel, settings.rateLimit)
+    val cachingStrategy = CachingStrategy(autoRefreshInterval = settings.autoRefreshInterval)
+    val cacheStore = settings.cacheDir?.let(::PersistentCacheStore)
+    val ecbRates = createEcbRatesProvider(httpClientBuilder, cacheStore)
+    val client = createMarketplaceClient(settings.apiKey, httpClientBuilder, cacheStore, cachingStrategy)
+    val servicesClient = createJetBrainsServiceClient(cacheStore, httpClientBuilder)
 
-    private fun createMarketplaceClient(
-        apiKey: String,
-        httpClientBuilder: HttpClientBuilder,
-        cacheStore: PersistentCacheStore?,
-        cachingStrategy: CachingStrategy
-    ): CaffeineCacheMarketplaceClient {
-        return CaffeineCacheMarketplaceClient(
-            apiKey = apiKey,
-            httpClientBuilder = httpClientBuilder,
-            persistentCache = cacheStore?.accountStore(Marketplace.HOSTNAME, apiKey),
-            cachingStrategy = cachingStrategy,
-        )
-    }
+    // the clients and their connections are closed after the web server stopped
+    client.use {
+        servicesClient.use {
+            ecbRates.use {
+                runBlocking {
+                    val server = MarketplaceStatsServer(
+                        client,
+                        servicesClient,
+                        settings.serverHostname,
+                        settings.serverPort,
+                        ServerConfiguration(settings.displayCurrencyCode, settings.showResellerCharges, settings.allPluginsSummary, settings.customEvents),
+                        settings.mcpAllowedHosts,
+                        PluginAutoRefresh(client, cachingStrategy).takeIf { cachingStrategy.autoRefreshInterval != null },
+                        ecbRates,
+                    )
 
-    private fun createJetBrainsServiceClient(
-        cacheStore: PersistentCacheStore?,
-        httpClientBuilder: HttpClientBuilder
-    ): CachingJetBrainsServiceClient {
-        // the products of JetBrains are the same for all accounts, they're stored outside the directory of the account.
-        // The services support conditional requests, the HTTP cache validates the stored responses after a day.
-        val servicesStore = cacheStore?.subStore("jetbrains")
-        return CachingJetBrainsServiceClient(
-            KtorJetBrainsServiceClient(httpClientBuilder.withHttpCacheDirectory(servicesStore?.directory?.resolve("http"))),
-            servicesStore,
-        )
+                    server.start()
+                }
+            }
+        }
     }
+}
+
+private fun createDefaultHttpClientBuilder(logLevel: ClientLogLevel, rateLimit: Int): HttpClientBuilder {
+    return HttpClientFactory.builder()
+        .withLogLevel(logLevel)
+        .withUserAgent("${HttpClientFactory.DEFAULT_USER_AGENT}/${BuildConfig.APP_VERSION}")
+        .withRequestTimeout(2.minutes) // the Java engine doesn't support a socket timeout, a stalled request must not wait forever
+        .let { if (rateLimit > 0) it.withRateLimit(rateLimit, 1.seconds) else it }
+}
+
+/** The exchange rates of all currencies, loaded once. */
+private fun createEcbRatesProvider(httpClientBuilder: HttpClientBuilder, cacheStore: PersistentCacheStore?): EcbExchangeRateData {
+    val ecbRates = EcbExchangeRateData(httpClientBuilder = httpClientBuilder)
+    cacheStore?.let(ecbRates::enablePersistentCache)
+    return ecbRates
+}
+
+private fun createMarketplaceClient(
+    apiKey: String,
+    httpClientBuilder: HttpClientBuilder,
+    cacheStore: PersistentCacheStore?,
+    cachingStrategy: CachingStrategy
+): CaffeineCacheMarketplaceClient {
+    return CaffeineCacheMarketplaceClient(
+        apiKey = apiKey,
+        httpClientBuilder = httpClientBuilder,
+        persistentCache = cacheStore?.accountStore(Marketplace.HOSTNAME, apiKey),
+        cachingStrategy = cachingStrategy,
+    )
+}
+
+private fun createJetBrainsServiceClient(
+    cacheStore: PersistentCacheStore?,
+    httpClientBuilder: HttpClientBuilder
+): CachingJetBrainsServiceClient {
+    // the products of JetBrains are the same for all accounts, they're stored outside the directory of the account.
+    // The services support conditional requests, the HTTP cache validates the stored responses after a day.
+    val servicesStore = cacheStore?.subStore("jetbrains")
+    return CachingJetBrainsServiceClient(
+        KtorJetBrainsServiceClient(httpClientBuilder.withHttpCacheDirectory(servicesStore?.directory?.resolve("http"))),
+        servicesStore,
+    )
 }
 
 private const val DEFAULT_AUTO_REFRESH_MINUTES = 30
 
+private const val DEFAULT_DISPLAY_CURRENCY = "USD"
+
 /** The requests per second to each server, few enough to not burden the Marketplace, enough to load the history of a plugin quickly. */
-private const val DEFAULT_RATE_LIMIT = 20
+private const val DEFAULT_RATE_LIMIT = 10
 
 fun main(args: Array<String>) {
     // the chart images of the MCP server are drawn with AWT, the server never opens windows

@@ -99,8 +99,8 @@ The builder also limits the requests of each client (each client has its own lim
   in `ConcurrentRequestLimit`
 - after a response with 429 or 503, all requests wait until its `Retry-After` (`ServerBackoff`, at most 2 minutes)
 - requests per period (`withRateLimit`, `RequestRateLimit`, a sliding window, off by default, the application uses
-  `--rate-limit`/`MARKETPLACE_RATE_LIMIT`/`rateLimit`, 20 per second, slightly more than the concurrency limits
-  allow for a single page, a lower limit makes the first load of a page much slower)
+  `--rate-limit`/`MARKETPLACE_RATE_LIMIT`/`rateLimit`, 10 per second, a little less than the concurrency limits
+  allow for a single page, so the first load of a page with many requests is slower)
 - timeouts: the Java engine ignores the socket timeout, the application sets a request timeout of 2 minutes, release
   downloads have none, the sales reports 5 minutes. A timeout is retried once, other failures 4 times.
 The order of the plugins in `configure()` matters, the `Send` hooks of plugins installed later run within those

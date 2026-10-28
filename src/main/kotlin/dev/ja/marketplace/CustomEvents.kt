@@ -43,7 +43,7 @@ data class CustomEvent(val id: String, val date: YearMonthDay, val label: String
  * date and the label. Instead of `id`, the ID can be a key without value, e.g. `- price-announcement:`.
  * The file is read again when it was modified, so that events can be changed without a restart.
  */
-class CustomEventsFile(private val path: Path) {
+class CustomEventsFile(val path: Path) {
     @Volatile
     private var cached: Pair<FileTime, List<CustomEvent>>? = null
 
