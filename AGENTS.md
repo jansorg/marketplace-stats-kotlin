@@ -197,13 +197,17 @@ queries, and one which excludes all these tags. The results are in the order of 
 - Stored: sales and trials (`PersistentHistoryCache`, incremental fetches with an overlap of 45 days after each start,
   for all plugins with stored data via `CaffeineCacheMarketplaceClient.updateStoredHistory`, and when a report needs
   data older than 30 minutes, complete fetch weekly),
-  plugin prices by country (`PersistentPriceCache`), the ECB exchange rates (`EcbExchangeRateData`), downloads
+  plugin prices by country (`PersistentPriceCache`, also the countries without prices of a plugin, which the API
+  answers with 404, `priceInfo` returns `null` for them), the ECB exchange rates (`EcbExchangeRateData`), downloads
   (`PersistentResponseCache`, responses of `downloads`, `downloadsTotal` and `groupedDownloads` as JSON, fetched again after
-  a day, see `DownloadsCompleteness`) and the products and releases of JetBrains (`CachingJetBrainsServiceClient`, in `jetbrains/`, shared by all
-  accounts, fetched again after a day, a conditional request with the HTTP cache in `jetbrains/http/`).
+  a day, see `DownloadsCompleteness`) and the products and releases of JetBrains (Ktor's HTTP cache in
+  `jetbrains/http/`, shared by all accounts, `CachingJetBrainsServiceClient` keeps them in memory for a day and then
+  sends a conditional request, which the services answer with 304 if the data is unchanged).
+- `refreshPlugin` of the automatic refresh fetches cached values outside the cache, a request of a value, which is
+  missing meanwhile, e.g. expired, waits for the refresh instead of fetching it again (`awaitRefresh`).
 - Failures are cached briefly in memory (`CaffeineCacheMarketplaceClient.loadCachedStored`): 404 for 5 minutes,
   server errors and failed connections for a minute, other errors not at all.
-  The data of an account is stored in `accounts/account-<hash of API host and key>/`.
+- The data of an account is stored in `accounts/account-<hash of API host and key>/`.
 - The stored classes (`CachedSalesModel.kt`, `CachedEcbRates`) are separate from the API model. After incompatible
   changes, increment the data version (`HistoryKind`, `DATA_VERSION`). `CachedSalesModelCoverageTest` fails if a
   property of the API model isn't stored.

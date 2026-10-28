@@ -5,12 +5,18 @@
 
 package dev.ja.marketplace.client
 
+import dev.ja.marketplace.client.model.PluginOffer
 import io.ktor.client.engine.mock.*
 import io.ktor.http.*
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.minutes
 
 class CaffeineCacheMarketplaceClientRefreshTest {
@@ -63,5 +69,37 @@ class CaffeineCacheMarketplaceClientRefreshTest {
         requests.clear()
         client.refreshPlugin(1)
         assertEquals(emptyList<Pair<String, YearMonthDayRange>>(), requests)
+    }
+
+    @Test
+    suspend fun requestWaitsForTheRefreshOfAMissingValue() = coroutineScope {
+        val offerRequests = AtomicInteger()
+        val refreshStarted = CompletableDeferred<Unit>()
+        val releaseRefresh = CompletableDeferred<Unit>()
+        val engine = MockEngine {
+            // the 2nd request is the refresh, it waits until the test releases it
+            if (offerRequests.incrementAndGet() == 2) {
+                refreshStarted.complete(Unit)
+                releaseRefresh.await()
+            }
+            respond("[]", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+        val client = CaffeineCacheMarketplaceClient(
+            httpClientBuilder = mockHttpClientBuilder(engine),
+            cachingStrategy = CachingStrategy(autoRefreshInterval = 30.minutes),
+        )
+        client.offers(1)
+
+        val refresh = async { client.refreshPlugin(1) }
+        refreshStarted.await()
+        // e.g. the value expired, while the refresh is fetching it
+        client.invalidatePlugin(1)
+        val request = async { client.offers(1) }
+        delay(50)
+        releaseRefresh.complete(Unit)
+
+        assertEquals(emptyList<PluginOffer>(), request.await())
+        refresh.await()
+        assertEquals(2, offerRequests.get())
     }
 }

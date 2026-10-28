@@ -14,6 +14,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.math.BigDecimal
@@ -49,7 +50,7 @@ class PersistentPriceCacheTest {
 
     private fun createCache() = PersistentPriceCache(PersistentCacheStore(tempDir), scope, currentTimeMillis = { nowMillis })
 
-    private suspend fun PersistentPriceCache.load(country: String, value: PluginPriceInfo): PluginPriceInfo {
+    private suspend fun PersistentPriceCache.load(country: String, value: PluginPriceInfo?): PluginPriceInfo? {
         return get(1, country) {
             loads.incrementAndGet()
             value
@@ -68,6 +69,20 @@ class PersistentPriceCacheTest {
         assertEquals(price("100.0"), restarted.load("DE", price("200.0")))
         assertEquals(price("300.0"), restarted.load("FR", price("300.0")))
         assertEquals(2, loads.get())
+    }
+
+    @Test
+    suspend fun countriesWithoutPricesAreStored() {
+        val cache = createCache()
+        assertNull(cache.load("AT", null))
+        assertNull(cache.load("AT", price("100.0")))
+        assertEquals(1, loads.get())
+        cache.flush()
+
+        // also after a restart, the country isn't requested again
+        val restarted = createCache()
+        assertNull(restarted.load("AT", price("100.0")))
+        assertEquals(1, loads.get())
     }
 
     @Test

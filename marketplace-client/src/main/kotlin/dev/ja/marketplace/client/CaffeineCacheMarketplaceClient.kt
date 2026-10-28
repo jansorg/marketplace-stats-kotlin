@@ -14,6 +14,8 @@ import dev.ja.marketplace.services.JetBrainsProductCode
 import io.ktor.client.plugins.*
 import io.ktor.http.*
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -70,6 +72,9 @@ class CaffeineCacheMarketplaceClient(
     private val persistentDownloads = persistentCache?.let {
         PersistentResponseCache(it, persistentCacheScope, maxAge = cachingStrategy.maxAge(Category.Daily))
     }
+
+    // the values, which refreshPlugin is fetching: a request of a missing value waits for it instead of fetching it again
+    private val refreshing = ConcurrentHashMap<String, Deferred<Any?>>()
 
     // set after the cache was invalidated, data stored on disk is ignored afterward
     @Volatile
@@ -147,13 +152,21 @@ class CaffeineCacheMarketplaceClient(
         persistentSales[plugin]?.refresh()
         persistentTrials[plugin]?.refresh()
         for ((key, value) in entries) {
+            val inFlight = CompletableDeferred<Any?>()
+            refreshing[key] = inFlight
             try {
-                val refreshed = value.refresh() ?: continue
+                val refreshed = value.refresh()
+                inFlight.complete(refreshed)
+                refreshed ?: continue
                 cache.synchronous().put(key, CacheValue(value.category, cachingStrategy.expiry(value.category), refreshed, null, value.refresh))
             } catch (e: CancellationException) {
+                inFlight.cancel(e)
                 throw e
             } catch (e: Exception) {
+                inFlight.completeExceptionally(e)
                 logger.warn("Unable to refresh the cached data $key of plugin $plugin, the cached data is kept: $e")
+            } finally {
+                refreshing.remove(key, inFlight)
             }
         }
     }
@@ -542,15 +555,19 @@ class CaffeineCacheMarketplaceClient(
         }
     }
 
-    override suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo {
-        val loader: suspend (Boolean) -> Stored<PluginPriceInfo> = { forceFetch ->
-            when (persistentPrices) {
+    override suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo? {
+        // a country without prices is cached like prices, the cache can't store null
+        val loader: suspend (Boolean) -> Stored<CountryPrices> = { forceFetch ->
+            val stored = when (persistentPrices) {
                 null -> Stored(super.priceInfo(plugin, isoCountryCode), System.currentTimeMillis())
                 else -> persistentPrices.get(plugin, isoCountryCode, forceFetch) { super.priceInfo(plugin, isoCountryCode) }
             }
+            Stored(CountryPrices(stored.value), stored.fetchedMillis)
         }
-        return loadCachedStored("priceInfo.$plugin.$isoCountryCode", Category.Static, refresh = { loader(true) }) { loader(false) }
+        return loadCachedStored("priceInfo.$plugin.$isoCountryCode", Category.Static, refresh = { loader(true) }) { loader(false) }.prices
     }
+
+    private class CountryPrices(val prices: PluginPriceInfo?)
 
     override suspend fun loadSalesInfo(plugin: PluginId, range: YearMonthDayRange): List<PluginSale> {
         return loadCached("loadSalesInfo.$plugin.$range", cachingStrategy.historyCategory(range)) {
@@ -596,6 +613,11 @@ class CaffeineCacheMarketplaceClient(
         val expiry = cachingStrategy.expiry(category)
         val refreshValue: suspend () -> Any? = { refresh().value }
         val cachedValue = cache.get(key) {
+            // e.g. a value, which expired while the automatic refresh fetches it
+            awaitRefresh(key)?.let { refreshed ->
+                return@get CacheValue(category, expiry, refreshed, null, refreshValue)
+            }
+
             try {
                 val stored = loader()
                 val storedCategory = categoryOf(stored)
@@ -626,6 +648,22 @@ class CaffeineCacheMarketplaceClient(
         }
 
         throw cachedValue.exception!!
+    }
+
+    /**
+     * @return The value, which [refreshPlugin] is fetching, `null` if it isn't fetching it or if it failed.
+     */
+    private suspend fun awaitRefresh(key: String): Any? {
+        val inFlight = refreshing[key] ?: return null
+        return try {
+            inFlight.await()
+        } catch (e: CancellationException) {
+            // a cancelled refresh doesn't cancel the request
+            if (!inFlight.isCancelled) throw e
+            null
+        } catch (_: Exception) {
+            null
+        }
     }
 }
 

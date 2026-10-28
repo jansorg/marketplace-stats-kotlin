@@ -90,9 +90,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationStrategy
@@ -743,26 +741,24 @@ class MarketplaceStatsServer(
      * are left out.
      */
     private suspend fun loadAllPluginsData(): List<AllPluginsData> {
-        val requests = Semaphore(4)
+        // the plugins are loaded concurrently, the client limits the concurrent requests and the requests per second
         return coroutineScope {
             allPlugins.filter(PluginInfoSummary::isPaidOrFreemium).map { plugin ->
                 async(Dispatchers.IO) {
-                    requests.withPermit {
-                        try {
-                            val salesAndLicenses = client.licenseInfo(plugin.id)
-                            AllPluginsData(
-                                salesAndLicenses.sales,
-                                salesAndLicenses.licenses,
-                                client.downloadsMonthly(plugin.id, DownloadCountType.Downloads),
-                                client.downloadsDaily(plugin.id, DownloadCountType.Downloads),
-                            )
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            // the summary is shown without the plugin, the list of plugins is more important
-                            logger.warn("Unable to load the data of plugin ${plugin.id} for the summary of all plugins", e)
-                            null
-                        }
+                    try {
+                        val salesAndLicenses = client.licenseInfo(plugin.id)
+                        AllPluginsData(
+                            salesAndLicenses.sales,
+                            salesAndLicenses.licenses,
+                            client.downloadsMonthly(plugin.id, DownloadCountType.Downloads),
+                            client.downloadsDaily(plugin.id, DownloadCountType.Downloads),
+                        )
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        // the summary is shown without the plugin, the list of plugins is more important
+                        logger.warn("Unable to load the data of plugin ${plugin.id} for the summary of all plugins", e)
+                        null
                     }
                 }
             }.awaitAll().filterNotNull()

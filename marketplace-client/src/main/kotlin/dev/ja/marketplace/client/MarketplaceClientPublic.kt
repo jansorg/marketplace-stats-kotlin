@@ -146,6 +146,9 @@ interface MarketplaceClientPublic {
     @PaidPluginAPI
     suspend fun marketplacePrograms(plugin: PluginId): List<MarketplaceProgram>
 
+    /**
+     * @return The prices of the plugin in the country, `null` if the plugin has no prices there, e.g. a free plugin.
+     */
     @PaidPluginAPI
-    suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo
+    suspend fun priceInfo(plugin: PluginId, isoCountryCode: String): PluginPriceInfo?
 }
