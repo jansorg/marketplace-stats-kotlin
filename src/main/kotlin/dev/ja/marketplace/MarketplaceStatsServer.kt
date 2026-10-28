@@ -484,15 +484,17 @@ class MarketplaceStatsServer(
                 val window = ChartWindow.byId(parameters["window"] ?: ChartWindow.Month.id)
                 val detail = ChartDetail.byId(parameters["detail"] ?: ChartDetail.Month.id)
                 val metrics = parameters["metrics"]?.split(',')?.map(String::trim)?.filter(String::isNotEmpty) ?: emptyList()
-                if (window == null || detail == null || metrics.size > ChartData.MAX_METRICS) {
-                    call.respondText("Invalid window, detail or metrics", status = HttpStatusCode.BadRequest)
+                // the first shown date of a chart, e.g. the downloads of a release are only loaded from then
+                val from = parameters["from"]?.let { runCatching { YearMonthDay.parse(it) }.getOrNull() ?: YearMonthDay.MIN }
+                if (window == null || detail == null || metrics.size > ChartData.MAX_METRICS || from == YearMonthDay.MIN) {
+                    call.respondText("Invalid window, detail, metrics or from", status = HttpStatusCode.BadRequest)
                     return@get
                 }
 
                 // closing the chart dialog aborts the request, e.g. the downloads of a release aren't loaded anymore
                 val response = call.cancelOnDisconnect {
                     val values = chartMetricValues() ?: return@cancelOnDisconnect null
-                    ChartData.prepare(values, metrics)
+                    ChartData.prepare(values, metrics, from, window)
                     withContext(Dispatchers.Default) { ChartData.chartData(values, metrics, window, detail) }
                 } ?: return@get
                 call.respondJsonStream(ChartDataResponse.serializer(), response)
@@ -510,7 +512,9 @@ class MarketplaceStatsServer(
 
                 val table = call.cancelOnDisconnect {
                     val (plugin, values) = chartSource() ?: return@cancelOnDisconnect null
-                    values.prepare(request.lines.map { it.metric })
+                    // the previous year needs the year before the dates
+                    val months = request.lines.maxOfOrNull { (it.averageMonths ?: 0) + if (it.previousYear) 12 else 0 } ?: 0
+                    values.prepare(request.lines.map { it.metric }, ChartData.loadStart(request.from, request.lines.map { it.window }, months))
                     withContext(Dispatchers.Default) { ChartExport.table(values, request, plugin?.let { it.id to it.name }) }
                 } ?: return@get
                 // the values are calculated with the current data

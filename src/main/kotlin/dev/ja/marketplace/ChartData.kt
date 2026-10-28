@@ -131,9 +131,25 @@ class ChartData(private val downloadsSource: ((PluginId) -> ChartDownloadsSource
          * [ChartMetricValues.prepare].
          *
          * @param metrics The IDs of the metrics and of their moving averages, see [chartData].
+         * @param from The first shown date, e.g. of the range of a chart, `null` for all dates, see [loadStart].
          */
-        suspend fun prepare(values: ChartMetricValues, metrics: List<String>) {
-            values.prepare(metrics.mapNotNull { ChartMetric.byId(it.substringBefore(AVERAGE_SEPARATOR)) })
+        suspend fun prepare(values: ChartMetricValues, metrics: List<String>, from: YearMonthDay? = null, window: ChartWindow = ChartWindow.Day) {
+            val months = metrics.mapNotNull { averageMonths[it.substringAfter(AVERAGE_SEPARATOR, "")] }.maxOrNull() ?: 0
+            values.prepare(metrics.mapNotNull { ChartMetric.byId(it.substringBefore(AVERAGE_SEPARATOR)) }, loadStart(from, listOf(window), months))
+        }
+
+        /**
+         * @param from The first shown date, `null` for all dates.
+         * @param windows The windows of the values.
+         * @param months The months before the dates, which the values need, e.g. of a moving average or the previous year.
+         * @return The first day, whose data the values of the dates from [from] need: the start of the window, which
+         *  ends at the first day of the months before [from], with months also of its rolling window, which the moving
+         *  averages use, see [ChartMetricValues.average].
+         */
+        fun loadStart(from: YearMonthDay?, windows: Collection<ChartWindow>, months: Int): YearMonthDay? {
+            from ?: return null
+            val day = if (months > 0) ChartWindow.monthsBefore(from, months) else from
+            return windows.flatMap { listOfNotNull(it.start(day), it.rolling.start(day).takeIf { months > 0 }) }.minOrNull() ?: day
         }
 
         /**

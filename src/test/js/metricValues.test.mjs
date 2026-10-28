@@ -5,7 +5,7 @@
 
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {isAbortError, metricDataId, metricEntry, metricSeries, MetricValueCache} from "../../main/resources/js/charts/metricValues.js";
+import {coversStart, isAbortError, metricDataId, metricEntry, metricSeries, MetricValueCache} from "../../main/resources/js/charts/metricValues.js";
 
 /** @return A cache, whose requests are answered by `respond`, and the list of its requests. */
 function cache(respond) {
@@ -163,4 +163,26 @@ test("aborted requests aren't failures, their values are requested again", async
     assert.deepEqual(requested, ["sales"]);
     assert.deepEqual(requests, [["sales"], ["sales"]]);
     assert.deepEqual(values.data("month", "month").series.sales.values, [1]);
+});
+
+test("loaded values from a start are used for later starts, an earlier start loads them again", async () => {
+    const requests = [];
+    const values = new MetricValueCache(async (window, detail, ids, signal, from) => {
+        requests.push([ids.join(), from]);
+        return {dates: ["2026-01-31"], series: Object.fromEntries(ids.map(id => [id, {values: [from]}]))};
+    });
+
+    await values.load("month", "month", ["release-downloads.1"], "2026-01-01");
+    // a later start, e.g. a zoom into the year, uses the loaded values
+    assert.equal(values.load("month", "month", ["release-downloads.1"], "2026-03-01"), null);
+    // an earlier start and all dates load the values again
+    await values.load("month", "month", ["release-downloads.1"], "2025-06-01");
+    await values.load("month", "month", ["release-downloads.1"], null);
+    assert.equal(values.load("month", "month", ["release-downloads.1"], "2024-01-01"), null);
+    assert.deepEqual(requests, [["release-downloads.1", "2026-01-01"], ["release-downloads.1", "2025-06-01"], ["release-downloads.1", null]]);
+    assert.deepEqual(values.data("month", "month").series["release-downloads.1"].values, [null]);
+
+    assert.equal(coversStart(null, "2026-01-01"), true);
+    assert.equal(coversStart("2026-01-01", null), false);
+    assert.equal(coversStart("2026-01-01", "2026-01-01"), true);
 });

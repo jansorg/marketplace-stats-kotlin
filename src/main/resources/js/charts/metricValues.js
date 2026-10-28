@@ -55,12 +55,15 @@ export function metricEntry(s) {
  */
 export class MetricValueCache {
     /**
-     * @param {(window: string, detail: string, ids: string[], signal: AbortSignal) => Promise<{dates: string[], series: Object<string, object>}>} fetchValues
+     * @param {(window: string, detail: string, ids: string[], signal: AbortSignal, from: string|null) => Promise<{dates: string[], series: Object<string, object>}>} fetchValues
      *  Loads the values of metrics from /chart-data.
      */
     constructor(fetchValues) {
         this.fetchValues = fetchValues;
-        /** @type {Object<string, {window: string, detail: string, data: MetricData|null, pending: boolean, failed: Set<string>}>} */
+        /**
+         * The values of each level, `from` is the first date of the loaded values, null for all dates, see {@link load}.
+         * @type {Object<string, {window: string, detail: string, from: string|null, data: MetricData|null, pending: boolean, failed: Set<string>}>}
+         */
         this.entries = {};
         /** The pending requests, see {@link abort}. */
         this.requests = new Set();
@@ -76,11 +79,11 @@ export class MetricValueCache {
     }
 
     /** @return {Promise<object>} The values of /chart-data, a request, which {@link abort} can abort. */
-    async fetchAbortable(window, detail, ids) {
+    async fetchAbortable(window, detail, ids, from) {
         const controller = new AbortController();
         this.requests.add(controller);
         try {
-            return await this.fetchValues(window, detail, ids, controller.signal);
+            return await this.fetchValues(window, detail, ids, controller.signal, from);
         } finally {
             this.requests.delete(controller);
         }
@@ -102,18 +105,25 @@ export class MetricValueCache {
      * after the current task, e.g. when the charts are drawn the next time.
      *
      * @param {string[]} ids The IDs of the metrics and of their averages, see {@link metricDataId}.
+     * @param {string|null} [from] The first shown date, ISO, null for all dates. The server loads some values only
+     *  from then on, e.g. the downloads of a release. Loaded values with the same or an earlier start are used, an
+     *  earlier start loads the values of the level again.
      * @return {Promise<{data: object, requested: string[]}>|null} The response and the requested IDs, null if no values
      *  are requested: all values are loaded, or values of the level are loading. The missing values are requested
      *  again, when the current request is done.
      */
-    load(window, detail, ids) {
-        const entry = this.entries[window + "/" + detail] ??= {window, detail, data: null, pending: false, failed: new Set()};
+    load(window, detail, ids, from = null) {
+        const entry = this.entries[window + "/" + detail] ??= {window, detail, from, data: null, pending: false, failed: new Set()};
+        if (!entry.pending && !coversStart(entry.from, from)) {
+            entry.data = null;
+            entry.from = from;
+        }
         const requested = [...new Set(ids)].filter(id => !entry.failed.has(id) && !(entry.data?.series[id] || entry.data?.missing.has(id)));
         if (requested.length === 0 || entry.pending) {
             return null;
         }
         entry.pending = true;
-        return this.fetchAbortable(window, detail, requested)
+        return this.fetchAbortable(window, detail, requested, entry.from)
             .then(data => {
                 const series = data.dates.join() === entry.data?.dates.join() ? {...entry.data.series, ...data.series} : data.series;
                 const missing = new Set([...(entry.data?.missing ?? []), ...requested.filter(id => !data.series[id])]);
@@ -145,7 +155,7 @@ export class MetricValueCache {
             const requested = Object.keys(previous.series);
             entry.pending = true;
             try {
-                const data = await this.fetchAbortable(entry.window, entry.detail, requested);
+                const data = await this.fetchAbortable(entry.window, entry.detail, requested, entry.from);
                 const missing = new Set([...previous.missing, ...requested.filter(id => !data.series[id])]);
                 entry.data = {dates: data.dates, series: data.series, missing};
                 const changed = data.dates.join() !== previous.dates.join()
@@ -167,4 +177,13 @@ export class MetricValueCache {
 /** @return {boolean} If the error is of an aborted request, see {@link MetricValueCache#abort}. */
 export function isAbortError(error) {
     return error?.name === "AbortError";
+}
+
+/**
+ * @param {string|null} loaded The first date of loaded values, ISO, null for all dates.
+ * @param {string|null} shown The first shown date, null for all dates.
+ * @return {boolean} If the loaded values cover the shown dates, e.g. the values of the whole year for a month.
+ */
+export function coversStart(loaded, shown) {
+    return loaded === null || (shown !== null && shown >= loaded);
 }

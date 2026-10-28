@@ -114,8 +114,11 @@ class ChartMetricValues private constructor(
         return metric in metrics || metric.family in families && metric.family in LOADED_FAMILIES
     }
 
-    /** The downloads per day of the metrics of [LOADED_FAMILIES] by the ID of the metric, see [prepare]. */
-    private val loadedDownloads = ConcurrentHashMap<String, LongArray>()
+    /** The downloads of each day from [from] of a metric of [LOADED_FAMILIES], see [prepare]. */
+    private class LoadedDownloads(val from: YearMonthDay, val perDay: LongArray)
+
+    /** The loaded downloads by the ID of the metric, see [prepare]. */
+    private val loadedDownloads = ConcurrentHashMap<String, LoadedDownloads>()
 
     /** The families and indexes of the parameters, whose labels were loaded, see [parameterValues]. */
     private val loadedLabels = ConcurrentHashMap.newKeySet<Pair<ChartMetricFamily, Int>>()
@@ -124,12 +127,19 @@ class ChartMetricValues private constructor(
      * Loads the data of the metrics, which aren't calculated from the data of the plugin, e.g. the downloads of a
      * release, and the labels of their values, e.g. the version of a release. It must be called before the values of
      * these metrics are requested, other metrics are ignored.
+     *
+     * @param from The first day, whose data is loaded, e.g. of the shown dates of a chart, see `ChartData.loadStart`.
+     *  The windows, which start before it, have no values. The downloads of a release in a product take long to load.
+     *  An earlier day than before loads the data again from this day, the parts, which were loaded before, are cached
+     *  by the client. `null` for all days.
      */
-    suspend fun prepare(metrics: Collection<ChartMetric>) {
+    suspend fun prepare(metrics: Collection<ChartMetric>, from: YearMonthDay? = null) {
         val source = source ?: return
+        val firstDay = windows.days.firstOrNull() ?: return
+        val start = maxOf(firstDay, from ?: firstDay)
         for (metric in metrics.distinct()) {
             val family = metric.family
-            if (family !in LOADED_FAMILIES || family !in families || loadedDownloads.containsKey(metric.id)) {
+            if (family !in LOADED_FAMILIES || family !in families || (loadedDownloads[metric.id]?.from?.let { it <= start } == true)) {
                 continue
             }
             val values = metric.parameterValues
@@ -139,14 +149,17 @@ class ChartMetricValues private constructor(
             }
             // a line, whose downloads couldn't be loaded, has no values, the other lines are shown
             val downloads = try {
-                source.downloads(release, product, windows.days.firstOrNull() ?: today)
+                source.downloads(release, product, start)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 logger.warn("Loading the downloads of the chart metric ${metric.id} failed", e)
                 continue
             }
-            loadedDownloads[metric.id] = windows.countsPerDay(downloads.map { it.day to it.downloads })
+            loadedDownloads[metric.id] = LoadedDownloads(start, windows.countsPerDay(downloads.map { it.day to it.downloads }))
+            // the values of the downloads, which were loaded from a later day before
+            cache.keys.removeIf { it.first == metric }
+            averages.keys.removeIf { it.first == metric }
             // the titles of the metrics contain the labels of the values
             family!!.parameters.indices.filter { values[it] != null }.forEach { index ->
                 if (Pair(family, index) !in loadedLabels) {
@@ -298,8 +311,12 @@ class ChartMetricValues private constructor(
         val starts = windows.starts(window)
         if (metric.family in LOADED_FAMILIES) {
             // without prepare, the downloads of the metric aren't known
-            val downloads = loadedDownloads[metric.id] ?: return emptyMap()
-            return mapOf(metric to countSeries(windows.windowSums(downloads, starts)))
+            val loaded = loadedDownloads[metric.id] ?: return emptyMap()
+            val sums = windows.windowSums(loaded.perDay, starts)
+            // the windows, which start before the loaded downloads, have no value
+            val firstIndex = windows.index(loaded.from)
+            val values = sums.mapIndexed { index, sum -> if (starts[index] < firstIndex) null else BigDecimal.valueOf(sum) }
+            return mapOf(metric to DailySeries(ChartUnit.Count.id(currency), values, windows.incompleteSums))
         }
         val series = when (metric) {
             ChartMetric.Sales -> amountSeries(windows.windowSums(salesAndFees.first, starts), windows.incompleteSums)
