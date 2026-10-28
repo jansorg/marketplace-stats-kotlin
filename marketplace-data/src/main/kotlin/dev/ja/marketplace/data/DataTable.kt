@@ -49,6 +49,12 @@ interface DataTable : MarketplaceDataSink {
     val collapsedRowCount: Int? get() = null
 
     /**
+     * If set, only this number of sections is shown, e.g. the latest years, until the sections are expanded in the
+     * browser. All sections are rendered, e.g. for the charts, see `js/collapsibleTables.js`.
+     */
+    val collapsedSectionCount: Int? get() = null
+
+    /**
      * If `true`, the numeric columns of the table can be shown in a chart.
      * The first column of each row must contain its date, e.g. a [dev.ja.marketplace.client.YearMonthDay].
      */

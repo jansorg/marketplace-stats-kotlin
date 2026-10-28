@@ -20,7 +20,7 @@
 @if(cellStyles != null)
 <style>$unsafe{cellStyles}</style>
 @endif
-<table class="${tableClasses}" data-cells="${if (cellStyles != null) cellsKey else null}" data-row-chunks="${chunkRows}" data-collapsed-rows="${table.collapsedRowCount}" data-chart-title="${if (table.isChartable || table.columns.any { it.isShareOfTotal || it.rowHistoryPeriod != null }) table.title else null}"
+<table class="${tableClasses}" data-cells="${if (cellStyles != null) cellsKey else null}" data-row-chunks="${chunkRows}" data-collapsed-rows="${table.collapsedRowCount}" data-collapsed-sections="${table.collapsedSectionCount}" data-chart-title="${if (table.isChartable || table.columns.any { it.isShareOfTotal || it.rowHistoryPeriod != null }) table.title else null}"
        data-chart-period="${if (table.isChartable) table.chartPeriod.name.lowercase() else null}"
        data-chart-from="${table.chartDateRange?.start?.asIsoString}" data-chart-to="${table.chartDateRange?.end?.asIsoString}">
     @if(renderTableHeader || table.alwaysShowMainColumns)
