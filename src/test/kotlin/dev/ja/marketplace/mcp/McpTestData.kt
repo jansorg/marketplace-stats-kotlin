@@ -301,6 +301,14 @@ object McpTestData {
         withRenewalPrices: Boolean = true,
         /** A free plugin has no sales, licenses, trials and prices, like the data of [dev.ja.marketplace.PluginDataLoader]. */
         free: Boolean = false,
+        downloadsMonthly: List<MonthlyDownload> = listOf(
+            MonthlyDownload(YearMonthDay(2024, 3, 1), 40),
+            MonthlyDownload(YearMonthDay(2025, 1, 1), 60),
+        ),
+        downloadsDaily: List<DailyDownload> = listOf(
+            DailyDownload(YearMonthDay(2024, 3, 1), 40),
+            DailyDownload(YearMonthDay(2025, 1, 20), 60),
+        ),
     ): PluginData {
         val pricingModel = if (free) PluginPricingModel.Free else PluginPricingModel.Paid
         val pluginInfo = PluginInfo(
@@ -325,18 +333,8 @@ object McpTestData {
             CompletableDeferred(pluginInfo),
             CompletableDeferred(PluginRating(0, 0, 0.0, emptyMap())),
             CompletableDeferred(100L),
-            CompletableDeferred(
-                listOf(
-                    MonthlyDownload(YearMonthDay(2024, 3, 1), 40),
-                    MonthlyDownload(YearMonthDay(2025, 1, 1), 60),
-                )
-            ),
-            CompletableDeferred(
-                listOf(
-                    DailyDownload(YearMonthDay(2024, 3, 1), 40),
-                    DailyDownload(YearMonthDay(2025, 1, 20), 60),
-                )
-            ),
+            CompletableDeferred(downloadsMonthly),
+            CompletableDeferred(downloadsDaily),
             if (withPricing && !free) PluginPricing.create(pricingClient(withRenewalPrices), PLUGIN_ID, countries) else null,
             if (free) null else CompletableDeferred(SalesWithLicensesInfo(sales, LicenseInfo.createFrom(sales))),
             if (free) null else CompletableDeferred(trials),

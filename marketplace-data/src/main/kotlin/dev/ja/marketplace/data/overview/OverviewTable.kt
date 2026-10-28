@@ -19,7 +19,7 @@ import dev.ja.marketplace.data.overview.OverviewTable.CustomerSegment.*
 import dev.ja.marketplace.data.trackers.*
 import java.util.*
 
-class OverviewTable : SimpleDataTable("Overview", "overview") {
+class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tables-row") {
     private enum class CustomerSegment {
         PerpetualFree,
         PerpetualPaying,
@@ -92,10 +92,6 @@ class OverviewTable : SimpleDataTable("Overview", "overview") {
 
     /** Free plugins have no sales, licenses and trials, their table only has the downloads. */
     private var isPaidOrFreemium: Boolean = true
-
-    // the narrow table of a free plugin shares a row with the other table
-    override val cssClass: String?
-        get() = if (isPaidOrFreemium) "table-striped tables-row" else null
 
     /** The first day with data of the plugin, the sums of the first month only cover a part of it. */
     private var pluginStart: YearMonthDay? = null
@@ -202,7 +198,7 @@ class OverviewTable : SimpleDataTable("Overview", "overview") {
         this.downloadsMonthly = data.getDownloadsMonthly()
         this.downloadsTotal = data.getTotalDownloads()
 
-        for (year in Marketplace.Birthday.year..now.year) {
+        for (year in firstReportYear(downloadsMonthly)..now.year) {
             val monthRange = when (year) {
                 now.year -> 1..now.month
                 else -> 1..12

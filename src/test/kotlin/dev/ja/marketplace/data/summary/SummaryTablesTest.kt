@@ -10,7 +10,9 @@ import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.CustomerInfo
 import dev.ja.marketplace.client.model.CustomerType
+import dev.ja.marketplace.client.model.DailyDownload
 import dev.ja.marketplace.client.model.LicensePeriod
+import dev.ja.marketplace.client.model.MonthlyDownload
 import dev.ja.marketplace.client.model.PluginSale
 import dev.ja.marketplace.client.model.PluginSaleItemDiscount
 import dev.ja.marketplace.client.model.PluginSaleItemType
@@ -68,6 +70,26 @@ class SummaryTablesTest {
 
         val footer = table.renderTable().sections.single().footer!!.rows.single() as SimpleDateTableRow
         assertEquals(BigInteger.valueOf(100), footer.values[column(table, "downloads")])
+    }
+
+    @Test
+    suspend fun yearsOfFreePluginBeforePaidPlugins() {
+        // free plugins existed before the paid plugins of the Marketplace
+        val data = McpTestData.pluginData(
+            free = true,
+            downloadsMonthly = listOf(MonthlyDownload(YearMonthDay(2017, 5, 1), 10), MonthlyDownload(YearMonthDay(2024, 3, 1), 40)),
+            downloadsDaily = listOf(DailyDownload(YearMonthDay(2017, 5, 1), 10), DailyDownload(YearMonthDay(2024, 3, 1), 40)),
+        )
+
+        val years = YearlySummaryTable()
+        val rows = render(years, data)
+        assertEquals(YearMonthDay.now().year - 2017 + 1, rows.size)
+        assertEquals(IncompleteValue(BigInteger.TEN), rows.last().values[column(years, "downloads")])
+        assertEquals(BigInteger.ZERO, rows.single { it.values[column(years, "year")] == 2018 }.values[column(years, "downloads")])
+
+        val overview = OverviewTable()
+        overview.init(data)
+        assertEquals((YearMonthDay.now().year downTo 2017).map(Int::toString), overview.renderTable().sections.map { it.title })
     }
 
     @Test

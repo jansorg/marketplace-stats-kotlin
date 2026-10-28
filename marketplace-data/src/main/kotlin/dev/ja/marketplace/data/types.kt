@@ -7,9 +7,11 @@ package dev.ja.marketplace.data
 
 import dev.ja.marketplace.client.CustomerId
 import dev.ja.marketplace.client.LicenseId
+import dev.ja.marketplace.client.Marketplace
 import dev.ja.marketplace.client.PluginId
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.model.LicensePeriod
+import dev.ja.marketplace.client.model.MonthlyDownload
 import dev.ja.marketplace.data.format.Formatters
 import dev.ja.marketplace.util.isZero
 import java.math.BigDecimal
@@ -97,6 +99,16 @@ fun incompleteIf(value: Any, isIncomplete: Boolean): Any = when {
  *  within the period at [pluginStart], see [PluginData.getFirstActivityDate].
  */
 fun isPartialPeriod(periodStart: YearMonthDay, pluginStart: YearMonthDay?): Boolean = pluginStart != null && pluginStart > periodStart
+
+/**
+ * @return The first year of the tables by year: the year of the first paid plugins, or the year of the first downloads
+ *  of a plugin, which existed before, e.g. a free plugin.
+ */
+fun firstReportYear(downloads: List<MonthlyDownload>): Int {
+    return downloads.filter { it.downloads > 0 }.minOfOrNull { it.firstOfMonth.year }
+        ?.coerceAtMost(Marketplace.Birthday.year)
+        ?: Marketplace.Birthday.year
+}
 
 /** @return The tooltip of the first period of a plugin, which started within the period. */
 fun partialPeriodTooltip(pluginStart: YearMonthDay): String = "Incomplete: the first data of the plugin is of ${pluginStart.asIsoString}"
