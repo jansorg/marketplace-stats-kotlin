@@ -165,6 +165,10 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     override val isChartable: Boolean = true
     override val chartPeriod: ChartPeriod = ChartPeriod.Month
 
+    // the months of a free plugin are a single list, the past year is shown until it's expanded
+    override val collapsedRowCount: Int?
+        get() = if (isPaidOrFreemium) null else 12
+
     override val columns: List<DataTableColumn> by lazy {
         when {
             isPaidOrFreemium -> listOfNotNull(
@@ -306,6 +310,15 @@ class OverviewTable : SimpleDataTable("Overview", "overview", "table-striped tab
     }
 
     override suspend fun createSections(): List<DataTableSection> {
+        val sections = yearSections()
+        return when {
+            isPaidOrFreemium -> sections
+            // the sums of the years are in the table of the years
+            else -> listOf(SimpleTableSection(sections.flatMap { it.rows }))
+        }
+    }
+
+    private suspend fun yearSections(): List<SimpleTableSection> {
         val now = YearMonthDay.now()
         val pluginId = pluginId!!
         return years.entries
