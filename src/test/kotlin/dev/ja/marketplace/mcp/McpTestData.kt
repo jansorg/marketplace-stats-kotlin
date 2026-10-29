@@ -448,7 +448,7 @@ object McpTestData {
             id = id,
             createdTimestamp = Instant.parse(timestamp),
             comment = "Review $id",
-            plugin = PluginInfoShort(PLUGIN_ID, plugin.name),
+            pluginId = PLUGIN_ID,
             rating = rating.toShort(),
             repliesCount = 0,
             vendor = false,

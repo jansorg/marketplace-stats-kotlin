@@ -9,6 +9,7 @@ import dev.ja.marketplace.client.currency.MarketplaceCurrencies
 import dev.ja.marketplace.client.model.*
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.IntArraySerializer
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.nullable
@@ -208,5 +209,29 @@ object PluginSaleSerializer : KSerializer<PluginSale> {
 
     override fun serialize(encoder: Encoder, value: PluginSale) {
         TODO("not yet implemented")
+    }
+}
+/**
+ * The ID of a plugin, which is stored as number, e.g. `"pluginId": 123`. The API and older stored data have the plugin
+ * as object with its ID, name and link, e.g. `"plugin": {"id": 123, "name": "Plugin", "link": "/plugin/123"}`, only
+ * its ID is decoded. The property needs the alternative name of the object, e.g. `@JsonNames("plugin")`.
+ */
+object PluginIdOrInfoSerializer : KSerializer<PluginId> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("marketplace.pluginIdOrInfo", PrimitiveKind.INT)
+
+    override fun deserialize(decoder: Decoder): PluginId {
+        if (decoder !is JsonDecoder) {
+            return decoder.decodeInt()
+        }
+
+        return when (val element = decoder.decodeJsonElement()) {
+            is JsonPrimitive -> element.int
+            is JsonObject -> element["id"]?.jsonPrimitive?.int ?: throw SerializationException("Plugin without ID: $element")
+            else -> throw SerializationException("Unexpected plugin: $element")
+        }
+    }
+
+    override fun serialize(encoder: Encoder, value: PluginId) {
+        encoder.encodeInt(value)
     }
 }

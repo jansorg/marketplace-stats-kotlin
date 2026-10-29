@@ -20,6 +20,7 @@ import dev.ja.marketplace.services.Products
 import io.ktor.http.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlin.time.Instant
 
@@ -76,10 +77,14 @@ class ReleaseDetails(
             ChartMetricFamily.ReleaseDownloads.parameters[0].registerLabel(release.id.toString(), release.version)
             val links = ProductLinks(products.await())
             val loadedDependencies = dependencies.await().orUnavailable(unavailable, "the dependencies")
+            // the names of the plugins of the dependencies, the client caches them
+            val dependencyPlugins = loadedDependencies.orEmpty().mapNotNull { it.pluginId }.distinct()
+                .map { id -> async { optional { client.pluginInfo(id) }.getOrNull() } }
+                .awaitAll().filterNotNull().associateBy { it.id }
             val tables = listOfNotNull(
                 byProduct.await().orUnavailable(unavailable, "the downloads by product")?.let { downloadsByProductTable(it, links, release) },
                 compatibleProductsTable(release, links),
-                loadedDependencies?.let(::dependenciesTable),
+                loadedDependencies?.let { dependenciesTable(it, dependencyPlugins) },
                 unsupported.await().orUnavailable(unavailable, "the unsupported products")?.let { unsupportedProductsTable(it, links) },
                 compatibility.await().orUnavailable(unavailable, "the results of the Plugin Verifier")
                     ?.let { verificationTable("Plugin Verifier", "release-verification-compatibility", it, links) },
@@ -144,18 +149,22 @@ class ReleaseDetails(
             )
         }
 
-        private fun dependenciesTable(dependencies: List<PluginDependency>): SimpleDataTable {
+        /**
+         * @param plugins The plugins of the dependencies, a plugin, which couldn't be loaded, is shown with the name of its dependency.
+         */
+        private fun dependenciesTable(dependencies: List<PluginDependency>, plugins: Map<PluginId, PluginInfo>): SimpleDataTable {
             val name = DataTableColumn("dependency", null, accessibleTitle = "Dependency")
             val plugin = DataTableColumn("plugin", "Plugin")
             return ListTable(
                 "Dependencies", "release-dependencies", listOf(name, plugin),
                 // the optional dependencies follow the required ones
                 dependencies.sortedWith(compareBy({ it.isOptional }, { it.name })).map { dependency ->
-                    val info = dependency.plugin
                     mapOf(
                         name to dependency.dependencyName,
-                        plugin to info?.let {
-                            ExternalLink(it.name, it.link?.let(::marketplaceUrl) ?: marketplaceUrl("/plugin/${it.id}"), "Open the page of ${it.name} on the JetBrains Marketplace")
+                        plugin to dependency.pluginId?.let { id ->
+                            val info = plugins[id]
+                            val pluginName = info?.name ?: dependency.name
+                            ExternalLink(pluginName, marketplaceUrl(info?.link ?: "/plugin/$id"), "Open the page of $pluginName on the JetBrains Marketplace")
                         },
                     )
                 },

@@ -6,14 +6,18 @@
 package dev.ja.marketplace.client.model
 
 import dev.ja.marketplace.client.CDateSerializer
+import dev.ja.marketplace.client.PluginId
+import dev.ja.marketplace.client.PluginIdOrInfoSerializer
 import dev.ja.marketplace.client.PluginReleaseId
 import dev.ja.marketplace.client.PluginReviewId
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNames
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
-@OptIn(ExperimentalTime::class)
+@OptIn(ExperimentalTime::class, ExperimentalSerializationApi::class)
 @Serializable
 data class PluginReviewComment(
     @SerialName("id")
@@ -23,8 +27,11 @@ data class PluginReviewComment(
     val createdTimestamp: Instant? = null,
     @SerialName("comment")
     val comment: String,
-    @SerialName("plugin")
-    val plugin: PluginInfoShort,
+    /** The API returns the plugin with its name and link, only its ID is kept, see [PluginIdOrInfoSerializer]. */
+    @SerialName("pluginId")
+    @JsonNames("plugin")
+    @Serializable(PluginIdOrInfoSerializer::class)
+    val pluginId: PluginId,
     @SerialName("rating")
     val rating: Short,
     @SerialName("repliesCount")
