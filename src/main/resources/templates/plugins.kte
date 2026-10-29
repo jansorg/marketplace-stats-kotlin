@@ -62,7 +62,7 @@
     @endfor
 </ul>
 @if(summaryTables.isNotEmpty())
-    <p class="summary-description">The sales and downloads of all paid and freemium plugins.</p>
+    <p class="summary-description">The sales, trials and downloads of all paid and freemium plugins.</p>
     <section class="tables">
         @for(table in summaryTables)
             @template.dataTable(null, table)
