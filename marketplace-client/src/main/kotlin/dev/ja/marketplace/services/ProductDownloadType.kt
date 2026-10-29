@@ -1,15 +1,21 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 package dev.ja.marketplace.services
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
-@Serializable(ProductDownloadTypeSerializer::class)
+@Serializable(ProductDownloadType.Serializer::class)
 sealed interface ProductDownloadType {
     val id: String
     val displayName: String?
@@ -32,6 +38,18 @@ sealed interface ProductDownloadType {
             return typeMapping.computeIfAbsent(id) {
                 KNOWN_TYPES.firstOrNull { it.id == id } ?: UnknownDownloadType(id)
             }
+        }
+    }
+
+    object Serializer : KSerializer<ProductDownloadType> {
+        override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("productDownloadType", PrimitiveKind.STRING)
+
+        override fun deserialize(decoder: Decoder): ProductDownloadType {
+            return ProductDownloadType.findById(decoder.decodeString())
+        }
+
+        override fun serialize(encoder: Encoder, value: ProductDownloadType) {
+            encoder.encodeString(value.id)
         }
     }
 }
