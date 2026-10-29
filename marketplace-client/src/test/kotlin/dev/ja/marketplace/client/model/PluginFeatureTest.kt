@@ -30,6 +30,22 @@ class PluginFeatureTest {
 
         assertEquals(listOf("*.sh", ".bashrc"), features.filter(PluginFeature::isFileType).map(PluginFeature::implementationName))
         assertEquals(PluginFeature.CONFIGURATION_TYPE, features.first().featureType)
-        assertEquals(13841, features.first().plugin.id)
+        assertEquals(13841, features.first().pluginId)
+    }
+
+    @Test
+    fun featureTypes() {
+        val features = json.decodeFromString<List<PluginFeature>>(
+            """
+            [
+                {"id": 1, "pluginId": 2, "implName": "executable:docker", "featureTypeName": "dependencySupport"},
+                {"id": 2, "pluginId": 2, "implName": "war", "featureTypeName": "com.intellij.packaging.artifacts.ArtifactType"},
+                {"id": 3, "pluginId": 2, "implName": "new", "featureTypeName": "com.intellij.newFeatureType"}
+            ]
+            """
+        )
+        assertEquals(listOf(true, false, false), features.map(PluginFeature::isDependencySupport))
+        assertEquals(listOf(true, true, false), features.map { it.featureType in PluginFeature.FEATURE_TYPES })
+        assertEquals(6, PluginFeature.FEATURE_TYPES.toSet().size)
     }
 }
