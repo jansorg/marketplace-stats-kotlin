@@ -453,6 +453,10 @@ open class KtorMarketplaceClient(
         httpClient.get("$apiPath/plugins/$plugin/developers").body()
     }
 
+    override suspend fun userAccount(userId: UserId): JetBrainsAccountInfo = withContext(processingDispatcher) {
+        httpClient.get("$apiPath/users/$userId").body()
+    }
+
     override suspend fun userVendors(userId: UserId): List<PluginVendor> = withContext(processingDispatcher) {
         httpClient.get("$apiPath/users/$userId/vendors").body()
     }

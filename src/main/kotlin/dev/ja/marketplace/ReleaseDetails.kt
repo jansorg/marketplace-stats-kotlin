@@ -37,6 +37,8 @@ class ReleaseDetails(
     val published: YearMonthDay,
     /** The badge of the plugin model of the release, e.g. `v2`, `null` if the dependencies are unknown, see [PluginReleases.pluginModel]. */
     val pluginModel: Badge?,
+    /** The name of the account, which uploaded the release, `null` if it's unknown or couldn't be loaded. */
+    val authorName: String?,
     /** The downloads of the release with a button, which shows them in a chart. */
     val downloads: ChartMetricName,
     val states: List<String>,
@@ -69,6 +71,8 @@ class ReleaseDetails(
             val unsupported = async { optional { client.unsupportedReleaseProducts(releaseId) } }
             val compatibility = async { optional { client.verificationResults(releaseId, PluginVerificationType.IntelliJCompatibility) } }
             val performance = async { optional { client.verificationResults(releaseId, PluginVerificationType.IdePerformance) } }
+            // the author is optional, the page leaves it out
+            val author = async { release.authorId?.let { id -> optional { client.userAccount(id) }.getOrNull() } }
             val byProduct = async {
                 optional { client.downloads(pluginId, DownloadRequestDimension.ProductCode, DownloadCountType.Downloads, null, DownloadFilter.update(releaseId)) }
             }
@@ -97,6 +101,7 @@ class ReleaseDetails(
                 PluginReleases.channelTitle(channel),
                 YearMonthDay.of(release.createdTimestamp),
                 loadedDependencies?.let { PluginReleases.pluginModel(it) }?.let { Badge(it, "badge-model", PluginReleases.pluginModelTooltip(it)) },
+                author.await()?.name,
                 downloadsChart(release.downloads.toLong(), ChartMetricFamily.ReleaseDownloads.metric(listOf(release.id.toString(), null))),
                 PluginReleases.unusualStates(release),
                 release.getUpdateInfoPageUrl().toString(),

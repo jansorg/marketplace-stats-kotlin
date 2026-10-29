@@ -78,10 +78,10 @@
                 <dt>State</dt>
                 <dd>@if(details.states.isEmpty())Listed and approved@else${details.states.joinToString(", ")}@endif</dd>
             </div>
-            @if(release.author?.name != null)
+            @if(details.authorName != null)
                 <div>
                     <dt>Uploaded by</dt>
-                    <dd>${release.author?.name}</dd>
+                    <dd>${details.authorName}</dd>
                 </div>
             @endif
             <div>

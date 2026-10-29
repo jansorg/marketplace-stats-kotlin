@@ -244,6 +244,31 @@ object PluginIdOrInfoSerializer : KSerializer<PluginId> {
 }
 
 /**
+ * The ID of an account, which is stored as string, e.g. `"authorId": "a1b2"`. The API and older stored data have the
+ * account as object with its ID, name and link, e.g. `"author": {"id": "a1b2", "name": "User", "link": "/author/a1b2"}`,
+ * only its ID is decoded. The property needs the alternative name of the object, e.g. `@JsonNames("author")`.
+ */
+object UserIdOrInfoSerializer : KSerializer<UserId> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("marketplace.userIdOrInfo", PrimitiveKind.STRING)
+
+    override fun deserialize(decoder: Decoder): UserId {
+        if (decoder !is JsonDecoder) {
+            return decoder.decodeString()
+        }
+
+        return when (val element = decoder.decodeJsonElement()) {
+            is JsonPrimitive -> element.content
+            is JsonObject -> element["id"]?.jsonPrimitive?.content ?: throw SerializationException("Account without ID: $element")
+            else -> throw SerializationException("Unexpected account: $element")
+        }
+    }
+
+    override fun serialize(encoder: Encoder, value: UserId) {
+        encoder.encodeString(value)
+    }
+}
+
+/**
  * An immutable list of plugin IDs, an [IntImmutableList], which doesn't box the IDs. The elements are decoded with [PluginIdOrInfoSerializer],
  * so the plugins of the API with their names and links are read as their IDs.
  */
