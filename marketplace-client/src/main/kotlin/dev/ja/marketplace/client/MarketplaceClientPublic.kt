@@ -109,6 +109,12 @@ interface MarketplaceClientPublic {
     suspend fun pluginDevelopers(plugin: PluginId): List<JetBrainsAccountInfo>
 
     /**
+     * The accounts are public, they don't need an API key.
+     * @return The account with the ID, e.g. the author of a release, see [PluginReleaseInfo.authorId].
+     */
+    suspend fun userAccount(userId: UserId): JetBrainsAccountInfo
+
+    /**
      * The vendors are public, they don't need an API key.
      * @return The vendors, which the user is a member of, e.g. organizations and the personal vendor of the user,
      * like the page of an author at the Marketplace. A user may be a member of a vendor without developing one of its plugins.

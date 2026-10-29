@@ -120,6 +120,16 @@ class MarketplaceClientRequestsTest {
     }
 
     @Test
+    suspend fun userAccount() {
+        val client = createClient { """{"id": "user-1", "name": "User", "link": "/author/user-1", "isJetBrains": false}""" }
+        repeat(2) {
+            assertEquals("User", client.userAccount("user-1").name)
+        }
+        // the account is cached
+        assertEquals("/api/users/user-1", requests.single().url.encodedPath)
+    }
+
+    @Test
     suspend fun responsesAreCached() {
         val client = createClient { "[]" }
         repeat(2) {

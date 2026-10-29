@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -8,12 +8,14 @@ package dev.ja.marketplace.client.model
 import dev.ja.marketplace.client.*
 import dev.ja.marketplace.services.BuildNumberRef
 import io.ktor.http.*
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNames
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
-@OptIn(ExperimentalTime::class)
+@OptIn(ExperimentalTime::class, ExperimentalSerializationApi::class)
 @Serializable
 data class PluginReleaseInfo(
     @SerialName("id")
@@ -54,8 +56,14 @@ data class PluginReleaseInfo(
     val downloads: Int,
     @SerialName("compatibleVersions")
     val compatibleVersions: Map<JetBrainsProductId, String>? = null,
-    @SerialName("author")
-    val author: JetBrainsAccountInfo? = null,
+    /**
+     * The ID of the account, which uploaded the release, see [dev.ja.marketplace.client.MarketplaceClientPublic.userAccount].
+     * The API returns the account with its name and link, only its ID is kept, see [UserIdOrInfoSerializer].
+     */
+    @SerialName("authorId")
+    @JsonNames("author")
+    @Serializable(UserIdOrInfoSerializer::class)
+    val authorId: UserId? = null,
     @SerialName("modules")
     val modules: List<PluginModuleName>? = null,
     /** Release version of a paid or freemium plugin */

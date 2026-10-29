@@ -511,6 +511,12 @@ class CaffeineCacheMarketplaceClient(
         }
     }
 
+    override suspend fun userAccount(userId: UserId): JetBrainsAccountInfo {
+        return loadCached("userAccount.$userId", Category.Daily) {
+            super.userAccount(userId)
+        }
+    }
+
     override suspend fun pluginFeatures(plugin: PluginId): List<PluginFeature> {
         return loadCached("pluginFeatures.$plugin", Category.Daily) {
             super.pluginFeatures(plugin)
