@@ -9,6 +9,7 @@ import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.PluginSale
+import dev.ja.marketplace.client.model.PluginTrial
 import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.IncompleteValue
 import dev.ja.marketplace.data.SimpleDateTableRow
@@ -66,6 +67,24 @@ class AllPluginsTablesTest {
         assertEquals(usd(20), value(table, day, "sales"))
         assertEquals(usd(40), value(table, day, "mrr"))
         assertEquals(usd(480), value(table, day, "arr"))
+    }
+
+    @Test
+    suspend fun salesAndTrialsOfEachPluginToday() {
+        val today = YearMonthDay(2024, 12, 15)
+        val table = AllPluginsDayTable(exchangeRates, today)
+        table.add("Plugin A", pluginSales(), listOf(PluginTrial("t1", today, customer(1)), PluginTrial("t2", YearMonthDay(2024, 12, 14), customer(2))))
+        table.add("Plugin B", emptyList(), listOf(PluginTrial("t3", today, customer(3))))
+
+        val section = table.renderTable().sections.single()
+        val rows = section.rows.map { it as SimpleDateTableRow }
+        assertEquals(listOf("Plugin A", "Plugin B"), rows.map { value(table, it, "plugin") })
+        assertEquals(listOf(usd(10), usd(0)), rows.map { value(table, it, "sales") })
+        assertEquals(listOf(1.toBigInteger(), 1.toBigInteger()), rows.map { value(table, it, "trials") })
+
+        val total = section.footer!!.rows.single() as SimpleDateTableRow
+        assertEquals(usd(10), value(table, total, "sales"))
+        assertEquals(2.toBigInteger(), value(table, total, "trials"))
     }
 
     private suspend fun rows(table: DataTable): List<SimpleDateTableRow> {

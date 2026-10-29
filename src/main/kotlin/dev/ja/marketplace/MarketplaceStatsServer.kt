@@ -54,6 +54,7 @@ import dev.ja.marketplace.data.topCountries.TopCountriesFactory
 import dev.ja.marketplace.data.topTrialCountries.TopTrialCountriesFactory
 import dev.ja.marketplace.data.trials.TrialsTable
 import dev.ja.marketplace.data.trials.TrialsTableFactory
+import dev.ja.marketplace.data.yearSummary.AllPluginsDayTable
 import dev.ja.marketplace.data.yearSummary.AllPluginsMonthTable
 import dev.ja.marketplace.data.yearSummary.AllPluginsSummaryTable
 import dev.ja.marketplace.data.yearSummary.YearlySummaryFactory
@@ -782,14 +783,16 @@ class MarketplaceStatsServer(
     }
 
     private class AllPluginsData(
+        val plugin: PluginInfoSummary,
         val sales: List<PluginSale>,
+        val trials: List<PluginTrial>,
         val licenses: List<LicenseInfo>,
         val monthlyDownloads: List<MonthlyDownload>,
         val dailyDownloads: List<DailyDownload>,
     ) {
         /** The client returns the same lists, until it loads the data again. */
         fun isSameData(other: AllPluginsData): Boolean {
-            return sales === other.sales && licenses === other.licenses
+            return sales === other.sales && trials === other.trials && licenses === other.licenses
                     && monthlyDownloads === other.monthlyDownloads && dailyDownloads === other.dailyDownloads
         }
     }
@@ -813,7 +816,7 @@ class MarketplaceStatsServer(
     private val allPluginsChartValuesLock = Mutex()
 
     /**
-     * The sales and downloads of all paid and freemium plugins for their summary. Free plugins are left out.
+     * The sales, trials and downloads of all paid and freemium plugins for their summary. Free plugins are left out.
      * The client caches the data of the plugins, also in the persistent cache. Plugins, whose data can't be loaded,
      * are left out.
      */
@@ -825,7 +828,9 @@ class MarketplaceStatsServer(
                     try {
                         val salesAndLicenses = client.licenseInfo(plugin.id)
                         AllPluginsData(
+                            plugin,
                             salesAndLicenses.sales,
+                            client.trialsInfo(plugin.id),
                             salesAndLicenses.licenses,
                             client.downloadsMonthly(plugin.id, DownloadCountType.Downloads),
                             client.downloadsDaily(plugin.id, DownloadCountType.Downloads),
@@ -843,8 +848,8 @@ class MarketplaceStatsServer(
     }
 
     /**
-     * The sales and downloads of all paid and freemium plugins by year and the sales of the current month,
-     * shown above the list of plugins.
+     * The sales and trials of all paid and freemium plugins of today, their sales and downloads by year and the sales
+     * of the current month, shown below the list of paid plugins.
      *
      * @return The tables, empty if the summary is disabled or there are no paid plugins.
      */
@@ -858,13 +863,15 @@ class MarketplaceStatsServer(
         val today = YearMonthDay.now()
         allPluginsSummaryCache?.takeIf { it.isValid(allData, today) }?.let { return it.value }
 
+        val day = AllPluginsDayTable(exchangeRates, today)
         val years = AllPluginsSummaryTable(exchangeRates)
         val month = AllPluginsMonthTable(exchangeRates, today)
         for (data in allData) {
+            day.add(data.plugin.name, data.sales, data.trials)
             years.add(data.sales, data.licenses, data.monthlyDownloads, data.dailyDownloads)
             month.add(data.sales, data.licenses, data.dailyDownloads)
         }
-        val tables = listOf(years.renderTable(), month.renderTable()).filterNot(RenderedDataTable::isEmpty)
+        val tables = listOf(day.renderTable(), years.renderTable(), month.renderTable()).filterNot(RenderedDataTable::isEmpty)
         allPluginsSummaryCache = AllPluginsCache(allData, today, tables)
         return tables
     }
