@@ -75,7 +75,7 @@ class ResponsePropertiesTest {
             """
         )
         assertEquals("user@example.com", user.email)
-        assertEquals(listOf(2), user.plugins.map { it.id })
+        assertEquals(listOf(2), user.pluginIds)
         // the comments of the account have no vendor and spam flags
         assertFalse(user.comments.single().vendor)
         assertEquals(2, user.comments.single().pluginId)

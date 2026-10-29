@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 /**
- * The plugin of a dependency, of a review and of a feature is kept as its ID. The API and older stored data have the plugin
+ * The plugin of a dependency, of a review and of a feature and the plugins of an account are kept as their IDs. The API and older stored data have the plugin
  * with its name and link, which are read as the ID. The ID is written as `pluginId`.
  */
 class PluginIdOrInfoTest {
@@ -144,5 +144,24 @@ class PluginIdOrInfoTest {
     @Test
     fun featureWithoutPluginFails() {
         assertThrows<SerializationException> { strictJson.decodeFromString<PluginFeature>("""{$featureJson}""") }
+    }
+
+    @Test
+    fun userWithPluginsOfTheApiOrOlderData() {
+        val user = strictJson.decodeFromString<UserInfo>(
+            """{"id": "user-1", "name": "User", "plugins": [{"id": 2, "name": "Plugin", "link": "/plugin/2"}, {"id": 3, "name": "Other"}]}"""
+        )
+        assertEquals(listOf(2, 3), user.pluginIds)
+
+        val encoded = strictJson.parseToJsonElement(strictJson.encodeToString(user)).jsonObject
+        assertEquals("[2,3]", encoded["pluginIds"].toString())
+        assertFalse("plugins" in encoded)
+        assertEquals(user, strictJson.decodeFromString<UserInfo>(encoded.toString()))
+    }
+
+    @Test
+    fun userWithPluginIds() {
+        assertEquals(listOf(2, 3), strictJson.decodeFromString<UserInfo>("""{"id": "user-1", "name": "User", "pluginIds": [2, 3]}""").pluginIds)
+        assertEquals(emptyList<PluginId>(), strictJson.decodeFromString<UserInfo>("""{"id": "user-1", "name": "User"}""").pluginIds)
     }
 }
