@@ -30,7 +30,8 @@ class StoredReleasesTest {
             requests += path
             val body = when {
                 path.endsWith("/channels") -> """["", "eap"]"""
-                path.endsWith("/dependencies") -> """[{"name": "com.intellij.modules.platform"}, {"name": "(optional) Docker"}]"""
+                // the API returns the plugin of a dependency with its name and link
+                path.endsWith("/dependencies") -> """[{"name": "com.intellij.modules.platform"}, {"name": "(optional) Docker", "plugin": {"id": 7724, "name": "Docker", "link": "/plugin/7724-docker"}}]"""
                 else -> error("Unexpected request $path")
             }
             respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
@@ -52,6 +53,8 @@ class StoredReleasesTest {
         createClient().use { client ->
             assertEquals(listOf("", "eap"), client.channels(1))
             assertEquals(listOf("com.intellij.modules.platform", "Docker"), client.pluginReleaseDependencies(10).map { it.name })
+            // the stored dependencies keep the ID of the plugin
+            assertEquals(listOf(null, 7724), client.pluginReleaseDependencies(10).map { it.pluginId })
         }
         assertEquals(emptyList<String>(), requests)
     }

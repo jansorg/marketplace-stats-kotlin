@@ -33,6 +33,7 @@ class ResponsePropertiesTest {
             }
             """
         )
+        assertEquals(2, review.pluginId)
         assertTrue(review.isResolved)
         assertTrue(review.isResolveRequested)
         assertTrue(review.isDeleted)
@@ -77,6 +78,7 @@ class ResponsePropertiesTest {
         assertEquals(listOf(2), user.plugins.map { it.id })
         // the comments of the account have no vendor and spam flags
         assertFalse(user.comments.single().vendor)
+        assertEquals(2, user.comments.single().pluginId)
         assertEquals(listOf(3), user.releases.map { it.id })
     }
 

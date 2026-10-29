@@ -5,15 +5,26 @@
 
 package dev.ja.marketplace.client.model
 
+import dev.ja.marketplace.client.PluginId
+import dev.ja.marketplace.client.PluginIdOrInfoSerializer
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNames
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class PluginDependency(
     @SerialName("name")
     val dependencyName: String,
-    @SerialName("plugin")
-    val plugin: PluginInfoShort? = null,
+    /**
+     * The ID of the plugin, which provides the dependency, `null` for a module of the platform, which isn't a plugin.
+     * The API returns the plugin with its name and link, only its ID is kept, see [PluginIdOrInfoSerializer].
+     */
+    @SerialName("pluginId")
+    @JsonNames("plugin")
+    @Serializable(PluginIdOrInfoSerializer::class)
+    val pluginId: PluginId? = null,
 ) {
     /** If the dependency is optional, the API adds [OPTIONAL_PREFIX] to its name. */
     val isOptional: Boolean get() = dependencyName.startsWith(OPTIONAL_PREFIX)

@@ -11,6 +11,7 @@ import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.encoding.CompositeDecoder
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNames
 import kotlinx.serialization.json.JsonObject
 
 /**
@@ -43,7 +44,7 @@ object UnknownJsonKeys {
                 val jsonObject = json as? JsonObject ?: return
                 for ((key, value) in jsonObject) {
                     val keyPath = if (path.isEmpty()) key else "$path.$key"
-                    when (val index = descriptor.getElementIndex(key)) {
+                    when (val index = elementIndex(descriptor, key)) {
                         CompositeDecoder.UNKNOWN_NAME -> result += keyPath
                         else -> find(value, descriptor.getElementDescriptor(index), keyPath, result)
                     }
@@ -63,5 +64,17 @@ object UnknownJsonKeys {
             // primitives, enums, polymorphic and contextual values have no properties, which could be checked
             else -> Unit
         }
+    }
+
+    /** @return The index of the property, also of an alternative name of [JsonNames], e.g. of the format of older data. */
+    @OptIn(ExperimentalSerializationApi::class)
+    private fun elementIndex(descriptor: SerialDescriptor, key: String): Int {
+        val index = descriptor.getElementIndex(key)
+        if (index != CompositeDecoder.UNKNOWN_NAME) {
+            return index
+        }
+        return (0 until descriptor.elementsCount).firstOrNull { element ->
+            descriptor.getElementAnnotations(element).any { it is JsonNames && key in it.names }
+        } ?: CompositeDecoder.UNKNOWN_NAME
     }
 }

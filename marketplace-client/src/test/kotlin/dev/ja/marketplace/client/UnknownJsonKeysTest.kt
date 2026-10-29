@@ -6,6 +6,7 @@
 package dev.ja.marketplace.client
 
 import dev.ja.marketplace.client.model.GroupedDownloadResponse
+import dev.ja.marketplace.client.model.PluginDependency
 import dev.ja.marketplace.client.model.PluginReviewComment
 import dev.ja.marketplace.client.model.PluginSale
 import kotlinx.serialization.builtins.ListSerializer
@@ -40,10 +41,22 @@ class UnknownJsonKeysTest {
             }]
             """
         )
+        // the plugin is decoded as its ID, the other properties of the plugin aren't used
         assertEquals(
-            setOf("[].newProperty", "[].plugin.newNestedProperty", "[].votes.newVoteProperty"),
+            setOf("[].newProperty", "[].votes.newVoteProperty"),
             UnknownJsonKeys.find(json, ListSerializer(PluginReviewComment.serializer()).descriptor),
         )
+    }
+
+    @Test
+    fun alternativeNamesAreKnownProperties() {
+        // the stored format has the ID of the plugin, the API has the plugin
+        val json = Json.parseToJsonElement(
+            """
+            [{"name": "Docker", "plugin": {"id": 2, "name": "Docker"}}, {"name": "Git", "pluginId": 3}, {"name": "Other", "unknown": 1}]
+            """
+        )
+        assertEquals(setOf("[].unknown"), UnknownJsonKeys.find(json, ListSerializer(PluginDependency.serializer()).descriptor))
     }
 
     @Test
