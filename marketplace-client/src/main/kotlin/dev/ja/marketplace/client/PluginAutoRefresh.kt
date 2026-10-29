@@ -5,6 +5,9 @@
 
 package dev.ja.marketplace.client
 
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet
+import it.unimi.dsi.fastutil.ints.IntSet
+import it.unimi.dsi.fastutil.ints.IntSets
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -30,8 +33,8 @@ class PluginAutoRefresh(
     private val lastRequests = ConcurrentHashMap<PluginId, Long>()
 
     /** The plugins, which are refreshed. */
-    val refreshedPlugins: Set<PluginId>
-        get() = lastRequests.keys.toSet()
+    val refreshedPlugins: IntSet
+        get() = IntSets.unmodifiable(IntOpenHashSet(lastRequests.keys))
 
     /**
      * A request needs the data of the plugin, its data is refreshed until [CachingStrategy.autoRefreshIdleTime] after

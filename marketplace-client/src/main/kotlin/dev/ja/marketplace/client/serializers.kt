@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025 Joachim Ansorg.
+ * Copyright (c) 2023-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -12,6 +12,7 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.IntArraySerializer
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.nullable
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.descriptors.*
@@ -20,6 +21,11 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.encoding.decodeStructure
 import kotlinx.serialization.json.*
+import it.unimi.dsi.fastutil.ints.Int2IntArrayMap
+import it.unimi.dsi.fastutil.ints.Int2IntMap
+import it.unimi.dsi.fastutil.ints.Int2IntMaps
+import it.unimi.dsi.fastutil.ints.IntImmutableList
+import it.unimi.dsi.fastutil.ints.IntList
 import java.math.BigDecimal
 import javax.money.MonetaryAmount
 import kotlin.time.ExperimentalTime
@@ -211,6 +217,7 @@ object PluginSaleSerializer : KSerializer<PluginSale> {
         TODO("not yet implemented")
     }
 }
+
 /**
  * The ID of a plugin, which is stored as number, e.g. `"pluginId": 123`. The API and older stored data have the plugin
  * as object with its ID, name and link, e.g. `"plugin": {"id": 123, "name": "Plugin", "link": "/plugin/123"}`, only
@@ -233,5 +240,44 @@ object PluginIdOrInfoSerializer : KSerializer<PluginId> {
 
     override fun serialize(encoder: Encoder, value: PluginId) {
         encoder.encodeInt(value)
+    }
+}
+
+/**
+ * An immutable list of plugin IDs, an [IntImmutableList], which doesn't box the IDs. The elements are decoded with [PluginIdOrInfoSerializer],
+ * so the plugins of the API with their names and links are read as their IDs.
+ */
+@OptIn(ExperimentalSerializationApi::class)
+object PluginIdListSerializer : KSerializer<IntList> {
+    private val delegate = ListSerializer(PluginIdOrInfoSerializer)
+
+    override val descriptor: SerialDescriptor = SerialDescriptor("marketplace.pluginIdList", delegate.descriptor)
+
+    override fun deserialize(decoder: Decoder): IntList {
+        return IntImmutableList(decoder.decodeSerializableValue(delegate).toIntArray())
+    }
+
+    override fun serialize(encoder: Encoder, value: IntList) {
+        encoder.encodeSerializableValue(delegate, value)
+    }
+}
+
+/**
+ * An unmodifiable map of [Int] keys and values, an [Int2IntArrayMap], which doesn't box them. The map searches its keys
+ * linearly, it's meant for small maps, e.g. the votes of each rating.
+ */
+@OptIn(ExperimentalSerializationApi::class)
+object Int2IntArrayMapSerializer : KSerializer<Int2IntMap> {
+    private val delegate = MapSerializer(Int.serializer(), Int.serializer())
+
+    override val descriptor: SerialDescriptor = SerialDescriptor("marketplace.int2IntMap", delegate.descriptor)
+
+    override fun deserialize(decoder: Decoder): Int2IntMap {
+        val map = decoder.decodeSerializableValue(delegate)
+        return Int2IntMaps.unmodifiable(Int2IntArrayMap(map.keys.toIntArray(), map.values.toIntArray()))
+    }
+
+    override fun serialize(encoder: Encoder, value: Int2IntMap) {
+        encoder.encodeSerializableValue(delegate, value)
     }
 }

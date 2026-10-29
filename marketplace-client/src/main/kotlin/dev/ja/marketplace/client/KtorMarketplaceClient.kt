@@ -15,6 +15,7 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.utils.io.*
 import io.ktor.utils.io.jvm.nio.*
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -740,7 +741,7 @@ open class KtorMarketplaceClient(
         }
 
         var skippedResults = request.offset
-        val seenIds = HashSet<PluginId>()
+        val seenIds = IntOpenHashSet()
         val result = mutableListOf<MarketplacePluginSearchResultItem>()
         for (slices in searchSlices(request).chunked(MAX_CONCURRENT_SEARCH_SLICES)) {
             if (result.size >= maxResults) {
