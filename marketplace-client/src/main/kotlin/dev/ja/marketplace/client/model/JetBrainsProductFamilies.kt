@@ -7,8 +7,9 @@ package dev.ja.marketplace.client.model
 
 import dev.ja.marketplace.client.JetBrainsProductId
 
+@Suppress("unused")
 object JetBrainsProductFamilies {
-    val IntelliJPlatform = setOf<JetBrainsProductId>(
+    val IntelliJPlatform: Set<JetBrainsProductId> = setOf(
         "ANDROID_STUDIO",
         "APPCODE",
         "AQUA",
@@ -32,7 +33,7 @@ object JetBrainsProductFamilies {
 
     val IntelliJPlatformWithRider = IntelliJPlatform + "RIDER"
 
-    val Fleet = setOf<JetBrainsProductId>("FLEET")
+    val Fleet: Set<JetBrainsProductId> = setOf("FLEET")
 
-    val Resharper = setOf<JetBrainsProductId>("RESHARPER")
+    val Resharper: Set<JetBrainsProductId> = setOf("RESHARPER")
 }

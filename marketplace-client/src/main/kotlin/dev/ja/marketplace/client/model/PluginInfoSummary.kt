@@ -11,10 +11,8 @@ import dev.ja.marketplace.client.PluginTagName
 import dev.ja.marketplace.client.PluginXmlId
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
-@OptIn(ExperimentalTime::class)
 @Serializable
 data class PluginInfoSummary(
     @SerialName("id")
@@ -48,5 +46,4 @@ data class PluginInfoSummary(
     val organizationName: String? = null,
     @SerialName("target")
     val target: String? = null,
-) : PluginInfoExtended {
-}
+) : PluginInfoExtended
