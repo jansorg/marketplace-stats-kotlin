@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.54.0
+
+- Marketplace client, breaking changes of the API:
+  - Dependencies, reviews and features keep the ID of their plugin (`pluginId`), the account the IDs of its plugins
+    (`UserInfo.pluginIds`) and releases the ID of their author (`PluginReleaseInfo.authorId`), instead of the plugins
+    and accounts with their names and links. The data of the API and older stored data are read in both formats.
+    `PluginInfoShort` was removed.
+  - `userAccount(userId)` loads an account, the page of a release loads the name of its author with it.
+  - `PluginFeature` defines all feature types of the Marketplace (`FEATURE_TYPES`).
+  - Collections of `Int` values are unmodifiable fastutil collections, e.g. `PluginRating.votes` and
+    `PluginAutoRefresh.refreshedPlugins`.
+  - The serializers of the services package are nested objects of their classes, e.g. `BuildNumber.Serializer`.
+
 ## 0.53.0
 
 - Marketplace client: the memory cache keeps up to 30,000 values, e.g. a value of each plugin of the Marketplace. The
