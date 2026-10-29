@@ -444,8 +444,8 @@ class McpAnalysisTools(private val provider: McpDataProvider) {
                 put("rating", BigDecimal(rating.calculatedRatingValue).setScale(2, RoundingMode.HALF_UP))
                 put("votes", rating.votesCount)
                 put("votesByRating", buildJsonObject {
-                    for ((stars, count) in rating.votes.entries.sortedBy { it.key }) {
-                        put(stars.toString(), count)
+                    for (stars in rating.votes.keys.toIntArray().sortedArray()) {
+                        put(stars.toString(), rating.votes.get(stars))
                     }
                 })
             })

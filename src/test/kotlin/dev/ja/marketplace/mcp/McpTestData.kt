@@ -24,6 +24,7 @@ import dev.ja.marketplace.exchangeRate.EcbExchangeRateData
 import dev.ja.marketplace.exchangeRate.EcbRateTable
 import dev.ja.marketplace.exchangeRate.ExchangeRates
 import dev.ja.marketplace.services.*
+import it.unimi.dsi.fastutil.ints.Int2IntMaps
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.datetime.LocalDate
 import org.javamoney.moneta.FastMoney
@@ -331,7 +332,7 @@ object McpTestData {
             ExchangeRates("USD", EcbExchangeRateData()),
             plugin.copy(pricingModel = pricingModel),
             CompletableDeferred(pluginInfo),
-            CompletableDeferred(PluginRating(0, 0, 0.0, emptyMap())),
+            CompletableDeferred(PluginRating(0, 0, 0.0, Int2IntMaps.EMPTY_MAP)),
             CompletableDeferred(100L),
             CompletableDeferred(downloadsMonthly),
             CompletableDeferred(downloadsDaily),

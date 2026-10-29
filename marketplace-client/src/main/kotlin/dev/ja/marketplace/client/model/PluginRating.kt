@@ -1,10 +1,12 @@
 /*
- * Copyright (c) 2024 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 package dev.ja.marketplace.client.model
 
+import dev.ja.marketplace.client.Int2IntArrayMapSerializer
+import it.unimi.dsi.fastutil.ints.Int2IntMap
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -16,8 +18,10 @@ data class PluginRating(
     val meanVotes: Int,
     @SerialName("meanRating")
     val meanRating: Double,
+    /** The number of votes of each rating, e.g. 5 for five stars. */
     @SerialName("votes")
-    val votes: Map<Int, Int>,
+    @Serializable(Int2IntArrayMapSerializer::class)
+    val votes: Int2IntMap,
 ) {
     val calculatedRatingValue: Double
         get() {
@@ -26,11 +30,11 @@ data class PluginRating(
 
     val votesCount: Int
         get() {
-            return votes.values.sum()
+            return votes.values.intStream().sum()
         }
 
     private val weightedVotesSum: Int
         get() {
-            return votes.entries.sumOf { (weight, value) -> weight * value }
+            return votes.int2IntEntrySet().sumOf { it.intKey * it.intValue }
         }
 }

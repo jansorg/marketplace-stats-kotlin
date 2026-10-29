@@ -5,9 +5,11 @@
 
 package dev.ja.marketplace.client.model
 
-import dev.ja.marketplace.client.PluginId
+import dev.ja.marketplace.client.PluginIdListSerializer
 import dev.ja.marketplace.client.PluginIdOrInfoSerializer
 import dev.ja.marketplace.client.UserId
+import it.unimi.dsi.fastutil.ints.IntList
+import it.unimi.dsi.fastutil.ints.IntLists
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -39,7 +41,8 @@ data class UserInfo(
      */
     @SerialName("pluginIds")
     @JsonNames("plugins")
-    val pluginIds: List<@Serializable(PluginIdOrInfoSerializer::class) PluginId> = emptyList(),
+    @Serializable(PluginIdListSerializer::class)
+    val pluginIds: IntList = IntLists.emptyList(),
     /** The reviews and replies of the account. */
     @SerialName("comments")
     val comments: List<PluginReviewComment> = emptyList(),
