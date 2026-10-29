@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 /**
- * The plugin of a dependency and of a review is kept as its ID. The API and older stored data have the plugin
+ * The plugin of a dependency, of a review and of a feature is kept as its ID. The API and older stored data have the plugin
  * with its name and link, which are read as the ID. The ID is written as `pluginId`.
  */
 class PluginIdOrInfoTest {
@@ -27,6 +27,8 @@ class PluginIdOrInfoTest {
     private val strictJson = Json
 
     private val reviewJson = """"id": 1, "cdate": "1700000000000", "comment": "text", "rating": 5, "repliesCount": 0"""
+
+    private val featureJson = """"id": 1, "implName": "*.sh", "featureTypeName": "com.intellij.fileTypeFactory", "priority": 0, "approved": true, "blacklisted": false"""
 
     @Test
     fun dependencyWithPluginOfTheApiOrOlderData() {
@@ -111,5 +113,36 @@ class PluginIdOrInfoTest {
         assertEquals(2, review.pluginId)
         val dependency = snapshotJson.decodeFromString<PluginDependency>("""{"name": "Docker", "plugin": {"id": 7724, "name": "Docker"}}""")
         assertEquals(7724, dependency.pluginId)
+    }
+
+    @Test
+    fun featureWithPluginOfTheApiOrOlderData() {
+        val feature = strictJson.decodeFromString<PluginFeature>("""{$featureJson, "plugin": {"id": 2, "name": "Plugin", "link": "/plugin/2"}}""")
+        assertEquals(PluginFeature(1, 2, "*.sh", PluginFeature.FILE_TYPE), feature)
+
+        val encoded = strictJson.parseToJsonElement(strictJson.encodeToString(feature)).jsonObject
+        assertEquals("2", encoded["pluginId"].toString())
+        assertFalse("plugin" in encoded)
+        assertEquals(feature, strictJson.decodeFromString<PluginFeature>(encoded.toString()))
+    }
+
+    @Test
+    fun featureWithPluginId() {
+        val feature = strictJson.decodeFromString<PluginFeature>("""{$featureJson, "pluginId": 2}""")
+        assertEquals(2, feature.pluginId)
+    }
+
+    @Test
+    fun storedFeaturesInBothFormats() {
+        val serializer = ListSerializer(PluginFeature.serializer())
+        val older = """[{$featureJson, "plugin": {"id": 2, "name": "Plugin"}}, {$featureJson, "pluginId": 3}]"""
+        val features = strictJson.decodeFromString(serializer, older)
+        assertEquals(listOf(2, 3), features.map(PluginFeature::pluginId))
+        assertEquals(features, strictJson.decodeFromString(serializer, strictJson.encodeToString(serializer, features)))
+    }
+
+    @Test
+    fun featureWithoutPluginFails() {
+        assertThrows<SerializationException> { strictJson.decodeFromString<PluginFeature>("""{$featureJson}""") }
     }
 }
