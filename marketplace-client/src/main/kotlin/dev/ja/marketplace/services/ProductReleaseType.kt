@@ -12,7 +12,7 @@ import kotlinx.serialization.Serializable
  * The type of a release of a JetBrains product. Types, which the client doesn't know, are [Unknown].
  * [Unknown] can't be requested.
  */
-@Serializable(ProductReleaseTypeSerializer::class)
+@Serializable(ProductReleaseType.Serializer::class)
 enum class ProductReleaseType(val jsonId: String) {
     Release("release"),
     ReleaseCandidate("rc"),
@@ -26,8 +26,8 @@ enum class ProductReleaseType(val jsonId: String) {
         /** The types, which can be requested. */
         val requestable: List<ProductReleaseType> = entries - Unknown
     }
-}
 
-object ProductReleaseTypeSerializer : TolerantEnumSerializer<ProductReleaseType>(
-    "ProductReleaseType", ProductReleaseType.entries, ProductReleaseType.Unknown, ProductReleaseType::jsonId,
-)
+    object Serializer : TolerantEnumSerializer<ProductReleaseType>(
+        "ProductReleaseType", entries, Unknown, ProductReleaseType::jsonId,
+    )
+}

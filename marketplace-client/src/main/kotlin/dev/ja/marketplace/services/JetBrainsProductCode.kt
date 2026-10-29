@@ -1,15 +1,21 @@
 /*
- * Copyright (c) 2024-2025 Joachim Ansorg.
+ * Copyright (c) 2024-2026 Joachim Ansorg.
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 package dev.ja.marketplace.services
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import java.util.concurrent.ConcurrentHashMap
 
 @Suppress("unused")
-@Serializable(JetBrainsProductCodeSerializer::class)
+@Serializable(JetBrainsProductCode.Serializer::class)
 sealed interface JetBrainsProductCode {
     val code: String
 
@@ -119,4 +125,16 @@ sealed interface JetBrainsProductCode {
 
     data class RegisteredCode(override val code: String, val displayName: String? = null) : JetBrainsProductCode
     data class UnknownCode(override val code: String) : JetBrainsProductCode
+
+    object Serializer : KSerializer<JetBrainsProductCode> {
+        override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("productDownloadType", PrimitiveKind.STRING)
+
+        override fun deserialize(decoder: Decoder): JetBrainsProductCode {
+            return JetBrainsProductCode.byProductCode(decoder.decodeString())
+        }
+
+        override fun serialize(encoder: Encoder, value: JetBrainsProductCode) {
+            encoder.encodeString(value.code)
+        }
+    }
 }
