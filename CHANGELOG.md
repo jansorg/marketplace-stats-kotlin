@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.55.0
+
+- The page of all plugins has a table "Today" with the sales and trials of each paid plugin of the current day and
+  their totals, above the summary of the years and of the current month.
+
 ## 0.54.0
 
 - Marketplace client, breaking changes of the API:
