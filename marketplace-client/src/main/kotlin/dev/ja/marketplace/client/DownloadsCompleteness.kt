@@ -7,6 +7,7 @@ package dev.ja.marketplace.client
 
 import dev.ja.marketplace.client.CachingStrategy.Category
 import dev.ja.marketplace.client.model.DownloadResponseItem
+import kotlinx.datetime.toJavaZoneId
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -17,6 +18,10 @@ import java.util.concurrent.ConcurrentHashMap
  * The downloads of yesterday are published, if a response grouped by day contains them with a value. Responses of
  * the plugin, which were fetched at that time or later, are complete. A plugin without downloads yesterday is fetched
  * again like recent data until the end of the day.
+ *
+ * The category of a response with the downloads of today changes with the day: at the start of the next day, its
+ * last day is yesterday, whose downloads aren't published yet. A response cached for a day ([Category.Daily]) is
+ * only cached until then, see [validUntilMillis].
  *
  * Responses, which end at least [COMPLETE_AFTER_DAYS] days before today, e.g. the parts of long time ranges, are
  * complete and cached like rarely changing data ([Category.Static]), in memory and on disk.
@@ -66,6 +71,21 @@ internal class DownloadsCompleteness(private val today: () -> YearMonthDay = Yea
             day >= yesterday && fetchedMillis >= publishedMillis -> Category.Daily
             else -> Category.Recent
         }
+    }
+
+    /**
+     * @param category The category of a response, which was fetched today, see [category].
+     * @param endDate The last day of the downloads of the response, `null` if it ends today.
+     * @return When the [category] of the response is outdated: the start of the next day in the time zone of the
+     *  Marketplace, if it's cached for a day and contains the downloads of today, which are published during the next
+     *  day. `null` if the category doesn't change with the day, e.g. recent responses are fetched again earlier.
+     */
+    fun validUntilMillis(category: Category, endDate: YearMonthDay? = null): Long? {
+        val today = today()
+        if (category != Category.Daily || endDate != null && endDate < today) {
+            return null
+        }
+        return today.add(0, 0, 1).toLocalDate().atStartOfDay(MarketplaceTimeZone.toJavaZoneId()).toInstant().toEpochMilli()
     }
 
     /**
