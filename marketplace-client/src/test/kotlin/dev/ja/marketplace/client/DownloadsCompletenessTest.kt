@@ -7,8 +7,11 @@ package dev.ja.marketplace.client
 
 import dev.ja.marketplace.client.CachingStrategy.Category
 import dev.ja.marketplace.client.model.DownloadResponseItem
+import kotlinx.datetime.toJavaZoneId
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
+import java.time.LocalDate
 
 class DownloadsCompletenessTest {
     private val today = YearMonthDay(2026, 3, 10)
@@ -67,6 +70,19 @@ class DownloadsCompletenessTest {
         assertEquals(false, completeness.isComplete(YearMonthDay(2026, 3, 4)))
         // until today
         assertEquals(false, completeness.isComplete(null))
+    }
+
+    @Test
+    fun dailyResponsesOfTodayAreOutdatedAtTheNextDay() {
+        // at midnight in the time zone of the Marketplace, today becomes yesterday, whose downloads are published late
+        val nextDay = LocalDate.of(2026, 3, 11).atStartOfDay(MarketplaceTimeZone.toJavaZoneId()).toInstant().toEpochMilli()
+        assertEquals(nextDay, completeness.validUntilMillis(Category.Daily))
+        assertEquals(nextDay, completeness.validUntilMillis(Category.Daily, endDate = today))
+
+        // the category of recent and complete responses and of responses of the past doesn't change with the day
+        assertNull(completeness.validUntilMillis(Category.Recent))
+        assertNull(completeness.validUntilMillis(Category.Static, endDate = YearMonthDay(2026, 3, 3)))
+        assertNull(completeness.validUntilMillis(Category.Daily, endDate = yesterday))
     }
 
     @Test

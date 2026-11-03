@@ -207,7 +207,10 @@ queries, and one which excludes all these tags. The results are in the order of 
   45 days, the weekly complete fetch of the history). Use these categories for new cached requests.
 - The Marketplace publishes the downloads of a day late, during the next day, until then they're 0. Downloads, which
   were fetched before a response grouped by day contained the downloads of yesterday, are `Recent`, in memory and on
-  disk (`DownloadsCompleteness`). `downloadsMonthly`, `downloadsDaily` and `downloadsByProduct` aren't cached
+  disk (`DownloadsCompleteness`). Responses with the downloads of today, which are cached for a day, expire at the next
+  midnight of the Marketplace's time zone (`DownloadsCompleteness.validUntilMillis`, `CacheValue.validUntilMillis`,
+  with `--auto-refresh` two intervals later, the refresh fetches them after midnight), because today then becomes
+  the yesterday, whose downloads aren't published yet. `downloadsMonthly`, `downloadsDaily` and `downloadsByProduct` aren't cached
   themselves, they use the cached `downloads()`.
 - With `--auto-refresh[=<minutes>]`/`MARKETPLACE_AUTO_REFRESH` (off by default, 30 minutes), `PluginAutoRefresh` refreshes
   the plugins, which were requested in the last 24 hours (`MarketplaceStatsServer.getDataLoader`, the summary of all

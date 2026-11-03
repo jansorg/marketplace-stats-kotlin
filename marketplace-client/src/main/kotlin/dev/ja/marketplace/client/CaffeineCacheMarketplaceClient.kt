@@ -164,7 +164,8 @@ class CaffeineCacheMarketplaceClient(
         // taken before the sales are updated, which drops the cached licenses of the plugin
         val entries = cache.synchronous().asMap().entries
             .filter { (key, value) ->
-                key.split('.').getOrNull(1) == segment && cachingStrategy.isRefreshDue(value.category, (now - value.createdMillis).milliseconds) &&
+                key.split('.').getOrNull(1) == segment &&
+                        (cachingStrategy.isRefreshDue(value.category, (now - value.createdMillis).milliseconds) || value.isOutdatedAt(now)) &&
                         // the downloads of the past don't change, see DownloadsCompleteness
                         !(value.category == Category.Static && key.substringBefore('.') in DOWNLOADS_KEYS)
             }
@@ -182,7 +183,11 @@ class CaffeineCacheMarketplaceClient(
                 val result = refreshed.value ?: continue
                 // the category of the refreshed data, e.g. downloads, which are complete now
                 val category = value.categoryOf(refreshed)
-                cache.synchronous().put(key, CacheValue(category, cachingStrategy.expiry(category), result, null, value.refresh, value.categoryOf))
+                val validUntil = value.validUntilOf(category)
+                cache.synchronous().put(
+                    key,
+                    CacheValue(category, expiryOf(category, refreshed.fetchedMillis, validUntil), result, null, value.refresh, value.categoryOf, value.validUntilOf, validUntil),
+                )
             } catch (e: CancellationException) {
                 inFlight.cancel(e)
                 throw e
@@ -298,7 +303,8 @@ class CaffeineCacheMarketplaceClient(
         val loader: suspend (Boolean) -> Stored<Long> = { forceFetch ->
             storedDownloads(plugin, key, Long.serializer(), forceFetch, category) { super.downloadsTotal(plugin, *filters) }
         }
-        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }, categoryOf = category) { loader(false) }
+        val validUntil: (Category) -> Long? = { downloadsCompleteness.validUntilMillis(it) }
+        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }, categoryOf = category, validUntilOf = validUntil) { loader(false) }
     }
 
     override suspend fun downloads(
@@ -321,7 +327,8 @@ class CaffeineCacheMarketplaceClient(
                 super.downloads(plugin, groupType, countType, startDate, *filters, endDate = endDate)
             }
         }
-        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }, categoryOf = category) { loader(false) }
+        val validUntil: (Category) -> Long? = { downloadsCompleteness.validUntilMillis(it, endDate) }
+        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }, categoryOf = category, validUntilOf = validUntil) { loader(false) }
     }
 
     override suspend fun groupedDownloads(
@@ -345,7 +352,8 @@ class CaffeineCacheMarketplaceClient(
                 super.groupedDownloads(plugin, dimension, groupType, countType, startDate, *filters, endDate = endDate)
             }
         }
-        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }, categoryOf = category) { loader(false) }
+        val validUntil: (Category) -> Long? = { downloadsCompleteness.validUntilMillis(it, endDate) }
+        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }, categoryOf = category, validUntilOf = validUntil) { loader(false) }
     }
 
     override suspend fun pageAnalytics(plugin: PluginId, timeFrame: PageAnalyticsTimeFrame): PluginPageAnalytics {
@@ -589,7 +597,8 @@ class CaffeineCacheMarketplaceClient(
                 super.loadDownloads(plugin, groupType, countType, startDate, filters, endDate, true)
             }
         }
-        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }, categoryOf = category) { loader(false) }
+        val validUntil: (Category) -> Long? = { downloadsCompleteness.validUntilMillis(it, endDate) }
+        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }, categoryOf = category, validUntilOf = validUntil) { loader(false) }
     }
 
     /** Each part of the grouped downloads of a long time range is stored, like the parts of [loadDownloads]. */
@@ -618,7 +627,8 @@ class CaffeineCacheMarketplaceClient(
                 super.loadGroupedDownloads(plugin, dimension, groupType, countType, startDate, filters, endDate, true)
             }
         }
-        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }, categoryOf = category) { loader(false) }
+        val validUntil: (Category) -> Long? = { downloadsCompleteness.validUntilMillis(it, endDate) }
+        return loadCachedStored(key, Category.Daily, refresh = { loader(true) }, categoryOf = category, validUntilOf = validUntil) { loader(false) }
     }
 
     /**
@@ -721,6 +731,8 @@ class CaffeineCacheMarketplaceClient(
         refresh: suspend () -> Stored<T>,
         /** The category of the loaded data, e.g. by its content, by default [category]. */
         categoryOf: (Stored<T>) -> Category = { category },
+        /** When the category of data, which was fetched now, is outdated, see [CacheValue.validUntilMillis]. */
+        validUntilOf: (Category) -> Long? = { null },
         loader: suspend () -> Stored<T>,
     ): T {
         val expiry = cachingStrategy.expiry(category)
@@ -730,15 +742,21 @@ class CaffeineCacheMarketplaceClient(
             // e.g. a value, which expired while the automatic refresh fetches it
             awaitRefresh(key)?.let { refreshed ->
                 val refreshedCategory = categoryOfValue(refreshed)
-                return@loadShared CacheValue(refreshedCategory, cachingStrategy.expiry(refreshedCategory), refreshed.value, null, refreshValue, categoryOfValue)
+                val validUntil = validUntilOf(refreshedCategory)
+                return@loadShared CacheValue(
+                    refreshedCategory, expiryOf(refreshedCategory, refreshed.fetchedMillis, validUntil), refreshed.value, null,
+                    refreshValue, categoryOfValue, validUntilOf, validUntil, refreshed.fetchedMillis,
+                )
             }
 
             try {
                 val stored = loader()
                 val storedCategory = categoryOf(stored)
-                val age = (System.currentTimeMillis() - stored.fetchedMillis).coerceAtLeast(0).milliseconds
-                // a short minimum, so that outdated stored data isn't read again by every request
-                CacheValue(storedCategory, (cachingStrategy.expiry(storedCategory) - age).coerceAtLeast(1.minutes), stored.value, null, refreshValue, categoryOfValue, stored.fetchedMillis)
+                val validUntil = validUntilOf(storedCategory)
+                CacheValue(
+                    storedCategory, expiryOf(storedCategory, stored.fetchedMillis, validUntil), stored.value, null,
+                    refreshValue, categoryOfValue, validUntilOf, validUntil, stored.fetchedMillis,
+                )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: ClientRequestException) {
@@ -747,14 +765,14 @@ class CaffeineCacheMarketplaceClient(
                 if (e.response.status != HttpStatusCode.NotFound) {
                     throw e
                 }
-                CacheValue(category, minOf(expiry, NOT_FOUND_EXPIRY), null, e, refreshValue, categoryOfValue)
+                CacheValue(category, minOf(expiry, NOT_FOUND_EXPIRY), null, e, refreshValue, categoryOfValue, validUntilOf)
             } catch (e: Exception) {
                 // Server errors and failed connections, after the retries of the HTTP client, are cached briefly,
                 // so that the following requests, e.g. of the other tables of a page, don't try again at once.
                 if (!e.isTemporaryFailure()) {
                     throw e
                 }
-                CacheValue(category, minOf(expiry, FAILURE_EXPIRY), null, e, refreshValue, categoryOfValue)
+                CacheValue(category, minOf(expiry, FAILURE_EXPIRY), null, e, refreshValue, categoryOfValue, validUntilOf)
             }
         } ?: throw IllegalStateException("Failed to compute cache value for $key")
 
@@ -763,6 +781,24 @@ class CaffeineCacheMarketplaceClient(
         }
 
         throw cachedValue.exception!!
+    }
+
+    /**
+     * @param fetchedMillis When the value was fetched, the age of stored data counts.
+     * @param validUntilMillis When the category of the value is outdated, see [CacheValue.validUntilMillis].
+     * @return How long requests use a value of the [category]: the [CachingStrategy.expiry] of the category, at most
+     *  until its category is outdated, with the automatic refresh two more intervals, like [CachingStrategy.expiry].
+     *  A short minimum, so that outdated stored data isn't read again by every request.
+     */
+    private fun expiryOf(category: Category, fetchedMillis: Long, validUntilMillis: Long?): Duration {
+        val now = System.currentTimeMillis()
+        val age = (now - fetchedMillis).coerceAtLeast(0).milliseconds
+        var expiry = cachingStrategy.expiry(category) - age
+        if (validUntilMillis != null) {
+            val refreshTime = cachingStrategy.autoRefreshInterval?.times(2) ?: Duration.ZERO
+            expiry = minOf(expiry, (validUntilMillis - now).milliseconds + refreshTime)
+        }
+        return expiry.coerceAtLeast(1.minutes)
     }
 
     /**
@@ -811,6 +847,10 @@ class CaffeineCacheMarketplaceClient(
  * @param expireAfterWrite How long requests use the value, see [CachingStrategy.expiry].
  * @param refresh Fetches the value again, see [CaffeineCacheMarketplaceClient.refreshPlugin].
  * @param categoryOf The category of a fetched value, e.g. by its content.
+ * @param validUntilOf When the category of a value, which was fetched now, is outdated.
+ * @param validUntilMillis When the [category] is outdated, e.g. the downloads of today at the start of the next day,
+ *  when the downloads of the new yesterday aren't published yet, see [DownloadsCompleteness.validUntilMillis].
+ *  The automatic refresh fetches the value again afterward. `null` if the category doesn't change with time.
  */
 private class CacheValue(
     val category: Category,
@@ -819,11 +859,15 @@ private class CacheValue(
     val exception: Exception?,
     val refresh: suspend () -> Stored<Any?>,
     val categoryOf: (Stored<Any?>) -> Category,
+    val validUntilOf: (Category) -> Long?,
+    val validUntilMillis: Long? = null,
     val createdMillis: Long = System.currentTimeMillis(),
 ) {
     init {
         require(result != null || exception != null)
     }
+
+    fun isOutdatedAt(millis: Long): Boolean = validUntilMillis != null && millis >= validUntilMillis
 }
 
 private class CacheExpiry : Expiry<String, CacheValue> {
