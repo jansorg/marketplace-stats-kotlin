@@ -12,8 +12,14 @@ import java.nio.file.Path
  * API available without an API key.
  */
 interface MarketplaceClientPublic {
+    /**
+     * @return The public details of the plugin, e.g. its name, vendor and tags.
+     */
     suspend fun pluginInfo(plugin: PluginId): PluginInfo
 
+    /**
+     * @return The rating of the plugin, the average and the number of votes per rating.
+     */
     suspend fun pluginRating(id: PluginId): PluginRating
 
     /**
@@ -99,8 +105,14 @@ interface MarketplaceClientPublic {
      */
     suspend fun marketplaceTags(): List<PluginTag>
 
+    /**
+     * @return The dependencies of the release on plugins and modules.
+     */
     suspend fun pluginReleaseDependencies(pluginReleaseId: PluginReleaseId): List<PluginDependency>
 
+    /**
+     * @return The products, which the release doesn't support, with its dependencies, which they don't provide.
+     */
     suspend fun unsupportedReleaseProducts(pluginReleaseId: PluginReleaseId): List<PluginUnsupportedProduct>
 
     /**
@@ -127,10 +139,20 @@ interface MarketplaceClientPublic {
      */
     suspend fun pluginFeatures(plugin: PluginId): List<PluginFeature>
 
+    /**
+     * Downloads the file of the release, e.g. a ZIP or JAR, to [target].
+     */
     suspend fun downloadRelease(target: Path, update: PluginReleaseInfo)
 
+    /**
+     * Downloads the file of the release with the ID to [target].
+     */
     suspend fun downloadRelease(target: Path, update: PluginReleaseId)
 
+    /**
+     * Downloads the file of the version of the plugin to [target].
+     * @param channel The release channel of the version, `null` for the stable channel.
+     */
     suspend fun downloadRelease(target: Path, plugin: PluginId, version: String, channel: String?)
 
     /**
@@ -141,6 +163,9 @@ interface MarketplaceClientPublic {
     @PaidPluginAPI
     suspend fun marketplacePluginInfo(plugin: PluginId, fullInfo: Boolean = false): MarketplacePluginInfo
 
+    /**
+     * @return The programs of the Marketplace, in which the plugin takes part.
+     */
     @PaidPluginAPI
     suspend fun marketplacePrograms(plugin: PluginId): List<MarketplaceProgram>
 

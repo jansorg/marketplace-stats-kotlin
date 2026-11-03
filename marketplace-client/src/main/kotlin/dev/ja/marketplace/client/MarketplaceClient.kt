@@ -12,8 +12,17 @@ import dev.ja.marketplace.services.JetBrainsProductCode
  * Client of the API of the Marketplace. [close] closes its HTTP clients.
  */
 interface MarketplaceClient : MarketplaceUrlSupport, MarketplaceClientPublic, AutoCloseable {
+    /**
+     * @return The account of the API key.
+     */
     suspend fun userInfo(): UserInfo
 
+    /**
+     * @param family The product families of the plugins, all families if it's `null`.
+     * @param page Page to fetch, `1` is the first page.
+     * @param maxResults Size of the page, the default of the API if it's `null`.
+     * @return A single page of the plugins of the user.
+     */
     suspend fun plugins(
         userId: UserId,
         family: List<ProductFamily>? = null,
@@ -185,6 +194,9 @@ interface MarketplaceClient : MarketplaceUrlSupport, MarketplaceClientPublic, Au
     @PaidPluginAPI
     suspend fun offers(plugin: PluginId): List<PluginOffer>
 
+    /**
+     * @return The special offer of the plugin with the ID.
+     */
     @PaidPluginAPI
     suspend fun offer(plugin: PluginId, offer: PluginOfferId): PluginOffer
 
