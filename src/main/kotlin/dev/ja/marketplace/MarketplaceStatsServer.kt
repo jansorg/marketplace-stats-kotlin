@@ -786,14 +786,13 @@ class MarketplaceStatsServer(
     private class AllPluginsData(
         val plugin: PluginInfoSummary,
         val sales: List<PluginSale>,
-        val trials: List<PluginTrial>,
         val licenses: List<LicenseInfo>,
         val monthlyDownloads: List<MonthlyDownload>,
         val dailyDownloads: List<DailyDownload>,
     ) {
         /** The client returns the same lists, until it loads the data again. */
         fun isSameData(other: AllPluginsData): Boolean {
-            return sales === other.sales && trials === other.trials && licenses === other.licenses
+            return sales === other.sales && licenses === other.licenses
                     && monthlyDownloads === other.monthlyDownloads && dailyDownloads === other.dailyDownloads
         }
     }
@@ -817,7 +816,7 @@ class MarketplaceStatsServer(
     private val allPluginsChartValuesLock = Mutex()
 
     /**
-     * The sales, trials and downloads of all paid and freemium plugins for their summary. Free plugins are left out.
+     * The sales and downloads of all paid and freemium plugins for their summary. Free plugins are left out.
      * The client caches the data of the plugins, also in the persistent cache. Plugins, whose data can't be loaded,
      * are left out.
      */
@@ -831,7 +830,6 @@ class MarketplaceStatsServer(
                         AllPluginsData(
                             plugin,
                             salesAndLicenses.sales,
-                            client.trialsInfo(plugin.id),
                             salesAndLicenses.licenses,
                             client.downloadsMonthly(plugin.id, DownloadCountType.Downloads),
                             client.downloadsDaily(plugin.id, DownloadCountType.Downloads),
@@ -849,8 +847,8 @@ class MarketplaceStatsServer(
     }
 
     /**
-     * The sales and trials of all paid and freemium plugins of today, yesterday, this week and this month, their sales
-     * and downloads by year and the sales of the current month, shown below the list of paid plugins.
+     * The sales of all paid and freemium plugins of today, yesterday, this week and this month, their sales and
+     * downloads by year and the sales of the current month, shown below the list of paid plugins.
      *
      * @return The tables, empty if the summary is disabled or there are no paid plugins.
      */
@@ -868,7 +866,7 @@ class MarketplaceStatsServer(
         val years = AllPluginsSummaryTable(exchangeRates)
         val month = AllPluginsMonthTable(exchangeRates, today)
         for (data in allData) {
-            recent.add(data.plugin.name, data.sales, data.trials)
+            recent.add(data.plugin.name, data.sales)
             years.add(data.sales, data.licenses, data.monthlyDownloads, data.dailyDownloads)
             month.add(data.sales, data.licenses, data.dailyDownloads)
         }
