@@ -10,10 +10,12 @@ import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.MarketplaceDataTableFactory
 
 /**
- * @param status Only licenses with this status, with their latest purchase. All purchases of all licenses if it's `null`.
+ * A row of each license with its latest purchase.
+ *
+ * @param status Only licenses with this status, all licenses if it's `null`.
  */
 class LicenseTableFactory(private val status: LicenseStatus? = null) : MarketplaceDataTableFactory {
     override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable {
-        return LicenseTable(maxTableRows, showFooter = true, statusFilter = status, showOnlyLatestLicenseInfo = status != null)
+        return LicenseTable(maxTableRows, showFooter = true, statusFilter = status, showOnlyLatestLicenseInfo = true)
     }
 }
