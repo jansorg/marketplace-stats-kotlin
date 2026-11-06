@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.56.0
+
+- The page of all plugins has a table "Recent Sales" with the sales of each paid plugin today, yesterday, this week
+  (from Monday) and this month, and their totals. It replaces the table "Today", the summary doesn't load the trials of
+  the plugins anymore. `marketplace-data`: `AllPluginsDayTable` was replaced by `AllPluginsRecentTable`.
+- The menus "Licenses" and "Customers" list the pages Active, Churned and All. The new pages of the active and the
+  churned customers: a customer is active, if it holds a license today, and churned, if it holds no license and one of
+  its licenses wasn't renewed by any customer.
+- The page of all licenses shows each license once, with its latest purchase and the start of its first purchase.
+- The footers of the lists of licenses and customers show the number of the listed licenses or customers, named by their
+  status. The lists with the latest purchase of each license have no total amount.
+- The downloads of today expire at midnight, so that the downloads of yesterday, which the Marketplace publishes late,
+  are shown.
+
 ## 0.55.0
 
 - The page of all plugins has a table "Today" with the sales and trials of each paid plugin of the current day and
