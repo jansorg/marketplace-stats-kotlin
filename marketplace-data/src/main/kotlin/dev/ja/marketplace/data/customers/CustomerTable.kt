@@ -32,9 +32,12 @@ data class CustomerTableRowData(
 /**
  * The customers with the numbers of their licenses.
  *
- * Customers aren't churned, only licenses: a license can be renewed by another customer, e.g. after it was transferred
- * to an organization. A license is churned, if the latest purchase of all customers ended. A license of a customer is
- * transferred, if another customer renewed it, and the license is still valid.
+ * A license can be renewed by another customer, e.g. after it was transferred to an organization. A license is
+ * churned, if the latest purchase of all customers ended. A license of a customer is transferred, if another customer
+ * renewed it, and the license is still valid.
+ *
+ * A customer is active, if it holds a license today. A customer is churned, if it holds no license today and at
+ * least one of its licenses is churned. A customer, whose licenses were all transferred, is neither.
  */
 class CustomerTable(
     private val nowDate: YearMonthDay = YearMonthDay.now(),
@@ -42,6 +45,8 @@ class CustomerTable(
     private val maxTableRows: Int? = null,
     /** Only the customers, which match the filter, e.g. the customers of an offer, `null` for all customers. */
     private val customerFilter: ((CustomerId) -> Boolean)? = null,
+    /** Only the customers with this status, all customers if it's `null`. */
+    private val statusFilter: LicenseStatus? = null,
 ) : SimpleDataTable("Customers", cssClass = "table-column-wide sortable"), MarketplaceDataSink {
     private val columnValidSince = DataTableColumn("customer-since", "Since")
     // the rows are sorted by the end of the latest license, the sortable table shows its arrow
@@ -140,11 +145,19 @@ class CustomerTable(
         return data.subscriptionLicenses.count { it !in data.activeLicenses && allPurchases.status(it, nowDate) == LicenseStatus.Active }
     }
 
+    /** @return The status of the customer, `null` if it holds no license and none of its licenses is churned. */
+    private fun status(data: CustomerTableRowData): LicenseStatus? = when {
+        data.activeLicenses.isNotEmpty() -> LicenseStatus.Active
+        churnedLicenses(data) > 0 -> LicenseStatus.Churned
+        else -> null
+    }
+
     override suspend fun createSections(): List<DataTableSection> {
         var prevValidUntil: YearMonthDay? = null
         // customers with only perpetual licenses have no end, they're shown last
         val displayedCustomers = customerMap.values
             .filter { customerFilter?.invoke(it.customer.code) ?: true }
+            .filter { statusFilter == null || status(it) == statusFilter }
             .sortedByDescending { it.totalSales.getTotalAmount().sortValue() }
             .sortedByDescending { it.latestLicenseEnd ?: YearMonthDay.MIN }
 
@@ -182,22 +195,28 @@ class CustomerTable(
 
         val footer = SimpleRowGroup(
             SimpleDateTableRow(
-                columnName to "${Formatters.formatInteger(displayedCustomers.size)} customers",
+                columnName to "${Formatters.formatInteger(displayedCustomers.size)} ${customerCountLabel()}",
                 // a license of several customers, e.g. after a transfer, is counted once
                 columnTotalLicenses to displayedCustomers.flatMapTo(HashSet()) { it.totalLicenses }.size.toBigInteger(),
                 columnActiveLicenses to displayedCustomers.flatMapTo(HashSet()) { it.activeLicenses }.size.toBigInteger(),
-                columnChurnedLicenses to when (customerFilter) {
-                    null -> allPurchases.licenseIds.count { allPurchases.status(it, nowDate) == LicenseStatus.Churned }
+                columnChurnedLicenses to when {
+                    customerFilter == null && statusFilter == null -> allPurchases.licenseIds.count { allPurchases.status(it, nowDate) == LicenseStatus.Churned }
                     else -> displayedCustomers.flatMapTo(HashSet()) { it.subscriptionLicenses }.count { allPurchases.status(it, nowDate) == LicenseStatus.Churned }
                 }.toBigInteger(),
                 columnTransferredLicenses to displayedCustomers.sumOf { transferredLicenses(it) }.toBigInteger(),
-                columnSales to when (customerFilter) {
-                    null -> totalSales.getTotalAmount()
+                columnSales to when {
+                    customerFilter == null && statusFilter == null -> totalSales.getTotalAmount()
                     else -> MonetaryAmountTracker(exchangeRates).also { sum -> displayedCustomers.forEach { sum.add(it.totalSales) } }.getTotalAmount()
                 },
             )
         )
 
         return listOf(SimpleTableSection(rows, footer = footer))
+    }
+
+    private fun customerCountLabel(): String = when (statusFilter) {
+        LicenseStatus.Active -> "active customers"
+        LicenseStatus.Churned -> "churned customers"
+        null -> "customers"
     }
 }

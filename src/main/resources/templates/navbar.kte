@@ -14,7 +14,14 @@
                 <a href="/licenses?pluginId=${plugin.id}&rows=500">All</a>
             </div>
         </details>
-        <a href="/customers?pluginId=${plugin.id}&rows=500">Customers</a>
+        <details class="navbar-menu">
+            <summary>Customers</summary>
+            <div>
+                <a href="/customers/active?pluginId=${plugin.id}&rows=500">Active</a>
+                <a href="/customers/churned?pluginId=${plugin.id}&rows=500">Churned</a>
+                <a href="/customers?pluginId=${plugin.id}&rows=500">All</a>
+            </div>
+        </details>
         <a href="/countries?pluginId=${plugin.id}">Countries</a>
         <a href="/trials?pluginId=${plugin.id}&rows=100">Trials</a>
         <a href="/trials/funnel?pluginId=${plugin.id}">Trials (Funnel)</a>

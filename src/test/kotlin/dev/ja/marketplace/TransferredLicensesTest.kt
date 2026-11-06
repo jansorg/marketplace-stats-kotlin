@@ -133,6 +133,31 @@ class TransferredLicensesTest {
     }
 
     @Test
+    suspend fun customersByStatus() {
+        // a customer, whose only license was transferred, is neither active nor churned
+        val transferredOnly = CustomerInfo(3, "Germany", CustomerType.Individual, "Transferred only")
+        val data = McpTestData.pluginData(
+            sales = sales + listOf(
+                sale("ref-5", "moved", transferredOnly, YearMonthDay(2025, 2, 1), PluginSaleItemType.New),
+                sale("ref-6", "moved", newOwner, YearMonthDay(2026, 2, 1), PluginSaleItemType.Renew),
+            )
+        )
+
+        suspend fun customers(status: LicenseStatus?): Pair<List<Int>, Any?> {
+            val table = CustomerTable(nowDate = today, statusFilter = status)
+            table.init(data)
+            data.getLicenses()!!.forEach { table.process(it) }
+            val rendered = table.renderTable()
+            val footer = rendered.sections.single().footer!!.rows.single()
+            return rendered.rows().map { (rendered.value(it, "customer-id") as LinkedCustomer).id }.sorted() to rendered.value(footer, "customer-name")
+        }
+
+        assertEquals(listOf(newOwner.code) to "1 active customers", customers(LicenseStatus.Active))
+        assertEquals(listOf(previousOwner.code) to "1 churned customers", customers(LicenseStatus.Churned))
+        assertEquals(listOf(previousOwner.code, newOwner.code, transferredOnly.code) to "3 customers", customers(null))
+    }
+
+    @Test
     suspend fun perpetualLicensesAreActiveAndDontEnd() {
         val customer = CustomerInfo(3, "Germany", CustomerType.Individual)
         val amount = FastMoney.of(150, MarketplaceCurrencies.USD)

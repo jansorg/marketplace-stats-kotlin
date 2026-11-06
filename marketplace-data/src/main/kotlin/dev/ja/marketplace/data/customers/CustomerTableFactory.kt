@@ -8,9 +8,13 @@ package dev.ja.marketplace.data.customers
 import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.MarketplaceDataTableFactory
+import dev.ja.marketplace.data.licenses.LicenseStatus
 
-class CustomerTableFactory : MarketplaceDataTableFactory {
+/**
+ * @param status Only customers with this status, all customers if it's `null`.
+ */
+class CustomerTableFactory(private val status: LicenseStatus? = null) : MarketplaceDataTableFactory {
     override fun createTable(client: MarketplaceClient, maxTableRows: Int?): DataTable {
-        return CustomerTable(maxTableRows = maxTableRows)
+        return CustomerTable(maxTableRows = maxTableRows, statusFilter = status)
     }
 }
