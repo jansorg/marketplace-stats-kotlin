@@ -200,16 +200,18 @@ class LicenseTable(
 
         val shownLicenseIds = filteredPurchases.licenseIds.filter { statusFilter == null || status(it) == statusFilter }
         val licenseCount = shownLicenseIds.size
-        val activeLicenseCount = shownLicenseIds.count { status(it) == LicenseStatus.Active }
+        // the number of the shown licenses, the pages of active and churned licenses name their status
+        val licenseCountLabel = when (statusFilter) {
+            LicenseStatus.Active -> "active"
+            LicenseStatus.Churned -> "churned"
+            null -> "total"
+        }
         val footer = when {
             showFooter -> SimpleRowGroup(
                 SimpleDateTableRow(
                     values = mapOf(
                         columnAmount to amountTracker.totalAmount,
-                        columnLicenseId to (if (licenseCount == 0) NoValue else listOfNotNull(
-                            "${Formatters.formatInteger(activeLicenseCount)} active".takeIf { supportedChurnStyling && statusFilter != LicenseStatus.Churned },
-                            "${Formatters.formatInteger(licenseCount)} total"
-                        ))
+                        columnLicenseId to (if (licenseCount == 0) NoValue else "${Formatters.formatInteger(licenseCount)} $licenseCountLabel")
                     ),
                 )
             )

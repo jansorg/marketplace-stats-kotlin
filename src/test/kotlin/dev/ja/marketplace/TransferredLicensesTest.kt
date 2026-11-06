@@ -95,7 +95,16 @@ class TransferredLicensesTest {
         val footer = table.sections.single().footer!!.rows.single()
         val total = footer.getValue(table.columns.single { it.id == "sale-amount" }) as javax.money.MonetaryAmount
         assertEquals(0, total.number.numberValue(java.math.BigDecimal::class.java).compareTo(java.math.BigDecimal(300)), total.toString())
-        assertEquals(listOf("1 active", "2 total"), footer.getValue(table.columns.single { it.id == "license-id" }))
+        assertEquals("2 total", footer.getValue(table.columns.single { it.id == "license-id" }))
+    }
+
+    @Test
+    suspend fun footerNamesTheStatusOfTheLicenses() {
+        for ((status, label) in listOf(LicenseStatus.Active to "1 active", LicenseStatus.Churned to "1 churned")) {
+            val table = render(LicenseTable(showFooter = true, statusFilter = status, showOnlyLatestLicenseInfo = true, nowDate = today))
+            val footer = table.sections.single().footer!!.rows.single()
+            assertEquals(label, footer.getValue(table.columns.single { it.id == "license-id" }))
+        }
     }
 
     @Test
