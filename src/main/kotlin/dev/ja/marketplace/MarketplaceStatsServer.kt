@@ -166,6 +166,7 @@ class MarketplaceStatsServer(
         listOf(LicenseTableFactory()),
         pageCssClasses = "wide",
         pageTitle = "Licenses",
+        pageDescription = "All licenses with their latest purchase.",
     )
 
     private val activeLicensesPageData: PluginPageDefinition = DefaultPluginPageDefinition(

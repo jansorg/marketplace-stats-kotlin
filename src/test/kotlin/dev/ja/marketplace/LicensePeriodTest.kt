@@ -5,6 +5,7 @@
 
 package dev.ja.marketplace
 
+import dev.ja.marketplace.client.MarketplaceClient
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.YearMonthDayRange
 import dev.ja.marketplace.client.currency.MarketplaceCurrencies
@@ -14,14 +15,16 @@ import dev.ja.marketplace.data.LinkedRefNum
 import dev.ja.marketplace.data.RenderedDataTable
 import dev.ja.marketplace.data.licenses.LicenseStatus
 import dev.ja.marketplace.data.licenses.LicenseTable
+import dev.ja.marketplace.data.licenses.LicenseTableFactory
 import dev.ja.marketplace.mcp.McpTestData
 import org.javamoney.moneta.FastMoney
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import java.lang.reflect.Proxy
 
 /**
  * The purchases of a license in the same sale are a single row with the period of all of them.
- * The pages of active and churned licenses show a license once, with its latest sale.
+ * The pages of all, active and churned licenses show a license once, with its latest sale.
  */
 class LicensePeriodTest {
     private val today = YearMonthDay(2026, 10, 24)
@@ -76,5 +79,20 @@ class LicensePeriodTest {
         assertEquals(today, table.value(renewal, "license-validity"))
         assertEquals(YearMonthDay(2027, 10, 23), table.value(renewal, "license-validity-end"))
         assertEquals(FastMoney.of(200, MarketplaceCurrencies.USD), table.value(renewal, "sale-amount"))
+    }
+
+    @Test
+    suspend fun pageOfAllLicensesShowsTheLatestPurchase() {
+        val table = render(LicenseTableFactory().createTable(unusedClient(), null) as LicenseTable)
+        val row = table.sections.single().rows.single()
+        assertEquals("ref-2", (table.value(row, "license-refnum") as LinkedRefNum).refNum)
+        assertEquals(YearMonthDay(2025, 10, 24), table.value(row, "license-from"))
+    }
+
+    // the table doesn't use the client
+    private fun unusedClient(): MarketplaceClient {
+        return Proxy.newProxyInstance(javaClass.classLoader, arrayOf(MarketplaceClient::class.java)) { _, method, _ ->
+            throw UnsupportedOperationException(method.name)
+        } as MarketplaceClient
     }
 }
