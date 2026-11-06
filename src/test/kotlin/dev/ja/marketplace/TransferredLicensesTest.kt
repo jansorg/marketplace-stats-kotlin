@@ -99,11 +99,12 @@ class TransferredLicensesTest {
     }
 
     @Test
-    suspend fun footerNamesTheStatusOfTheLicenses() {
+    suspend fun footerOfLatestPurchasesNamesTheStatusWithoutTotalAmount() {
         for ((status, label) in listOf(LicenseStatus.Active to "1 active", LicenseStatus.Churned to "1 churned")) {
             val table = render(LicenseTable(showFooter = true, statusFilter = status, showOnlyLatestLicenseInfo = true, nowDate = today))
             val footer = table.sections.single().footer!!.rows.single()
             assertEquals(label, footer.getValue(table.columns.single { it.id == "license-id" }))
+            assertEquals(null, footer.getValue(table.columns.single { it.id == "sale-amount" }))
         }
     }
 
