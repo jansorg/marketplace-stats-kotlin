@@ -195,7 +195,7 @@ class CustomerTable(
 
         val footer = SimpleRowGroup(
             SimpleDateTableRow(
-                columnName to "${Formatters.formatInteger(displayedCustomers.size)} ${customerCountLabel()}",
+                columnName to "${Formatters.formatInteger(displayedCustomers.size)} ${customerCountLabel(displayedCustomers.size)}",
                 // a license of several customers, e.g. after a transfer, is counted once
                 columnTotalLicenses to displayedCustomers.flatMapTo(HashSet()) { it.totalLicenses }.size.toBigInteger(),
                 columnActiveLicenses to displayedCustomers.flatMapTo(HashSet()) { it.activeLicenses }.size.toBigInteger(),
@@ -214,9 +214,12 @@ class CustomerTable(
         return listOf(SimpleTableSection(rows, footer = footer))
     }
 
-    private fun customerCountLabel(): String = when (statusFilter) {
-        LicenseStatus.Active -> "active customers"
-        LicenseStatus.Churned -> "churned customers"
-        null -> "customers"
+    private fun customerCountLabel(count: Int): String {
+        val customers = if (count == 1) "customer" else "customers"
+        return when (statusFilter) {
+            LicenseStatus.Active -> "active $customers"
+            LicenseStatus.Churned -> "churned $customers"
+            null -> customers
+        }
     }
 }

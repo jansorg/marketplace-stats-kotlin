@@ -152,8 +152,8 @@ class TransferredLicensesTest {
             return rendered.rows().map { (rendered.value(it, "customer-id") as LinkedCustomer).id }.sorted() to rendered.value(footer, "customer-name")
         }
 
-        assertEquals(listOf(newOwner.code) to "1 active customers", customers(LicenseStatus.Active))
-        assertEquals(listOf(previousOwner.code) to "1 churned customers", customers(LicenseStatus.Churned))
+        assertEquals(listOf(newOwner.code) to "1 active customer", customers(LicenseStatus.Active))
+        assertEquals(listOf(previousOwner.code) to "1 churned customer", customers(LicenseStatus.Churned))
         assertEquals(listOf(previousOwner.code, newOwner.code, transferredOnly.code) to "3 customers", customers(null))
     }
 
