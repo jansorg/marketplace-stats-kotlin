@@ -9,7 +9,6 @@ import dev.ja.marketplace.client.LicenseInfo
 import dev.ja.marketplace.client.YearMonthDay
 import dev.ja.marketplace.client.model.LicensePeriod
 import dev.ja.marketplace.client.model.PluginSale
-import dev.ja.marketplace.client.model.PluginTrial
 import dev.ja.marketplace.data.DataTable
 import dev.ja.marketplace.data.IncompleteValue
 import dev.ja.marketplace.data.SimpleDateTableRow
@@ -70,7 +69,7 @@ class AllPluginsTablesTest {
     }
 
     @Test
-    suspend fun salesAndTrialsOfEachPluginInRecentPeriods() {
+    suspend fun salesOfEachPluginInRecentPeriods() {
         // Sunday, the week started on Monday, December 9
         val today = YearMonthDay(2024, 12, 15)
         val table = AllPluginsRecentTable(exchangeRates, today)
@@ -78,30 +77,17 @@ class AllPluginsTablesTest {
             sale(customer(4), "d", YearMonthDay(2024, 12, 14), 20, LicensePeriod.Monthly),
             sale(customer(5), "e", YearMonthDay(2024, 12, 9), 30, LicensePeriod.Monthly),
             sale(customer(6), "f", YearMonthDay(2024, 12, 8), 40, LicensePeriod.Monthly),
+            sale(customer(7), "g", YearMonthDay(2024, 11, 30), 50, LicensePeriod.Monthly),
         )
-        val trialsA = listOf(
-            PluginTrial("t1", today, customer(1)),
-            PluginTrial("t2", YearMonthDay(2024, 12, 14), customer(2)),
-            PluginTrial("t3", YearMonthDay(2024, 12, 1), customer(3)),
-            PluginTrial("t4", YearMonthDay(2024, 11, 30), customer(4)),
-        )
-        table.add("Plugin B", emptyList(), listOf(PluginTrial("t5", today, customer(5))))
-        table.add("Plugin A", salesA, trialsA)
+        table.add("Plugin B", listOf(sale(customer(8), "h", YearMonthDay(2024, 12, 14), 5, LicensePeriod.Monthly)))
+        table.add("Plugin A", salesA)
 
-        val (sales, trials) = table.renderTable().sections
-        assertEquals("Sales", sales.title)
-        assertEquals("Trials", trials.title)
-
-        val salesRows = sales.rows.map { it as SimpleDateTableRow }
-        assertEquals(listOf("Plugin A", "Plugin B"), salesRows.map { value(table, it, "plugin") })
-        assertEquals(listOf(usd(10), usd(20), usd(60), usd(100)), periodValues(table, salesRows[0]))
-        assertEquals(listOf(usd(0), usd(0), usd(0), usd(0)), periodValues(table, salesRows[1]))
-        assertEquals(listOf(usd(10), usd(20), usd(60), usd(100)), periodValues(table, sales.footer!!.rows.single() as SimpleDateTableRow))
-
-        val trialRows = trials.rows.map { it as SimpleDateTableRow }
-        assertEquals(listOf(1, 1, 2, 3).map(Int::toBigInteger), periodValues(table, trialRows[0]))
-        assertEquals(listOf(1, 0, 1, 1).map(Int::toBigInteger), periodValues(table, trialRows[1]))
-        assertEquals(listOf(2, 1, 3, 4).map(Int::toBigInteger), periodValues(table, trials.footer!!.rows.single() as SimpleDateTableRow))
+        val section = table.renderTable().sections.single()
+        val rows = section.rows.map { it as SimpleDateTableRow }
+        assertEquals(listOf("Plugin A", "Plugin B"), rows.map { value(table, it, "plugin") })
+        assertEquals(listOf(usd(10), usd(20), usd(60), usd(100)), periodValues(table, rows[0]))
+        assertEquals(listOf(usd(0), usd(5), usd(5), usd(5)), periodValues(table, rows[1]))
+        assertEquals(listOf(usd(10), usd(25), usd(65), usd(105)), periodValues(table, section.footer!!.rows.single() as SimpleDateTableRow))
     }
 
     private fun periodValues(table: DataTable, row: SimpleDateTableRow): List<Any?> {
