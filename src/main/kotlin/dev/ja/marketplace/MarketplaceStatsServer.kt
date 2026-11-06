@@ -198,6 +198,23 @@ class MarketplaceStatsServer(
         pageTitle = "Customers",
     )
 
+    private val activeCustomersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+        client,
+        listOf(CustomerTableFactory(LicenseStatus.Active)),
+        pageCssClasses = "wide",
+        pageTitle = "Active Customers",
+        pageDescription = "Customers, which hold a license today.",
+    )
+
+    private val churnedCustomersPageData: PluginPageDefinition = DefaultPluginPageDefinition(
+        client,
+        listOf(CustomerTableFactory(LicenseStatus.Churned)),
+        pageCssClasses = "wide",
+        pageTitle = "Churned Customers",
+        pageDescription = "Customers, which hold no license today and have a license, which ended and wasn't renewed by any customer. " +
+                "Customers, whose licenses were all transferred to another customer, aren't churned.",
+    )
+
     private val trialsPageData: PluginPageDefinition = DefaultPluginPageDefinition(
         client,
         listOf(TrialsTableFactory()),
@@ -612,12 +629,15 @@ class MarketplaceStatsServer(
                     )
                 )
             }
-            // the customers are on a single page, customers aren't churned, only licenses
             get("/customers/active") {
-                call.respondRedirect("/customers?${call.request.queryString()}")
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", activeCustomersPageData.createTemplateParameters(loader, call.request, serverConfiguration)))
             }
             get("/customers/churned") {
-                call.respondRedirect("/licenses/churned?${call.request.queryString()}")
+                val loader = getDataLoader()
+                    ?: throw IllegalStateException("Unable to find plugin")
+                call.respond(JteContent("main.kte", churnedCustomersPageData.createTemplateParameters(loader, call.request, serverConfiguration)))
             }
             get("/trials") {
                 val loader = getDataLoader()
