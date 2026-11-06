@@ -25,7 +25,7 @@ class AllPluginsRecentTable(
     private val displayExchangeRates: ExchangeRates,
     today: YearMonthDay = YearMonthDay.now(),
     title: String = "Recent Sales and Trials",
-) : SimpleDataTable(title, "all-plugins-recent", "small table-striped") {
+) : SimpleDataTable(title, "all-plugins-recent", "table-column-wide") {
     private val periods: List<Pair<DataTableColumn, YearMonthDayRange>> = listOf(
         DataTableColumn("today", "Today", "num") to YearMonthDayRange.of(today),
         DataTableColumn("yesterday", "Yesterday", "num") to YearMonthDayRange.of(today.add(0, 0, -1)),
