@@ -54,7 +54,7 @@ import dev.ja.marketplace.data.topCountries.TopCountriesFactory
 import dev.ja.marketplace.data.topTrialCountries.TopTrialCountriesFactory
 import dev.ja.marketplace.data.trials.TrialsTable
 import dev.ja.marketplace.data.trials.TrialsTableFactory
-import dev.ja.marketplace.data.yearSummary.AllPluginsDayTable
+import dev.ja.marketplace.data.yearSummary.AllPluginsRecentTable
 import dev.ja.marketplace.data.yearSummary.AllPluginsMonthTable
 import dev.ja.marketplace.data.yearSummary.AllPluginsSummaryTable
 import dev.ja.marketplace.data.yearSummary.YearlySummaryFactory
@@ -848,8 +848,8 @@ class MarketplaceStatsServer(
     }
 
     /**
-     * The sales and trials of all paid and freemium plugins of today, their sales and downloads by year and the sales
-     * of the current month, shown below the list of paid plugins.
+     * The sales and trials of all paid and freemium plugins of today, yesterday, this week and this month, their sales
+     * and downloads by year and the sales of the current month, shown below the list of paid plugins.
      *
      * @return The tables, empty if the summary is disabled or there are no paid plugins.
      */
@@ -863,15 +863,15 @@ class MarketplaceStatsServer(
         val today = YearMonthDay.now()
         allPluginsSummaryCache?.takeIf { it.isValid(allData, today) }?.let { return it.value }
 
-        val day = AllPluginsDayTable(exchangeRates, today)
+        val recent = AllPluginsRecentTable(exchangeRates, today)
         val years = AllPluginsSummaryTable(exchangeRates)
         val month = AllPluginsMonthTable(exchangeRates, today)
         for (data in allData) {
-            day.add(data.plugin.name, data.sales, data.trials)
+            recent.add(data.plugin.name, data.sales, data.trials)
             years.add(data.sales, data.licenses, data.monthlyDownloads, data.dailyDownloads)
             month.add(data.sales, data.licenses, data.dailyDownloads)
         }
-        val tables = listOf(day.renderTable(), years.renderTable(), month.renderTable()).filterNot(RenderedDataTable::isEmpty)
+        val tables = listOf(recent.renderTable(), years.renderTable(), month.renderTable()).filterNot(RenderedDataTable::isEmpty)
         allPluginsSummaryCache = AllPluginsCache(allData, today, tables)
         return tables
     }
