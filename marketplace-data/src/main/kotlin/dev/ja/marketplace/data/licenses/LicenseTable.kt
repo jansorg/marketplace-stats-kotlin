@@ -210,7 +210,8 @@ class LicenseTable(
             showFooter -> SimpleRowGroup(
                 SimpleDateTableRow(
                     values = mapOf(
-                        columnAmount to amountTracker.totalAmount,
+                        // with only the latest purchase of each license, the earlier sales are missing in the total
+                        columnAmount to if (showOnlyLatestLicenseInfo) null else amountTracker.totalAmount,
                         columnLicenseId to (if (licenseCount == 0) NoValue else "${Formatters.formatInteger(licenseCount)} $licenseCountLabel")
                     ),
                 )
